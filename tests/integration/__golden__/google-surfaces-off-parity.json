@@ -1,0 +1,3456 @@
+{
+  "runAuditConfig": {
+    "id": "run-audit",
+    "retries": 2,
+    "concurrency": {
+      "limit": 4,
+      "key": "event.data.organizationId"
+    },
+    "throttle": null,
+    "triggers": [
+      {
+        "event": "audit.run"
+      }
+    ]
+  },
+  "inngest": {
+    "result": {
+      "auditId": "<uuid>",
+      "totalCost": 0.049999999999999996
+    },
+    "steps": {
+      "ids": [
+        "audit-complete-email",
+        "call:chatgpt:0",
+        "call:chatgpt:1",
+        "call:chatgpt:2",
+        "call:claude:0",
+        "call:claude:1",
+        "call:claude:2",
+        "call:gemini:0",
+        "call:gemini:1",
+        "call:gemini:2",
+        "call:perplexity:0",
+        "call:perplexity:1",
+        "call:perplexity:2",
+        "finalize",
+        "load-audit",
+        "load-pack",
+        "record-prompt-count"
+      ],
+      "phases": [
+        "load-audit",
+        "load-pack",
+        "record-prompt-count",
+        "call:*",
+        "finalize",
+        "audit-complete-email"
+      ],
+      "events": [
+        {
+          "kind": "sendEvent",
+          "id": "audit-complete-email",
+          "event": "audit.complete",
+          "dataKeys": [
+            "auditId",
+            "brandId",
+            "organizationId"
+          ]
+        }
+      ]
+    },
+    "running": {
+      "page": "<div style=\"max-width:720px;margin:0 auto;padding:48px clamp(16px, 4vw, 32px)\"><div style=\"text-align:center;margin-bottom:40px\"><div style=\"display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:9999px;margin-bottom:20px;background:var(--accent-blue-soft);color:var(--accent-blue)\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-loader-circle\" aria-hidden=\"true\" style=\"width:14px;height:14px;animation:spin 1s linear infinite\"><path d=\"M21 12a9 9 0 1 1-6.219-8.56\"></path></svg><span style=\"font-size:12px;font-weight:600\">Audit in progress</span></div><h1 style=\"font-size:30px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);margin:0 0 8px\">Running audit for Bondi Plumbing</h1><p style=\"font-size:14px;color:var(--text-secondary);margin:0\">Querying 3 questions × 4 engines = 12 answers.</p></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:28px;margin-bottom:16px\"><div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:8px\"><span style=\"font-size:12px;font-weight:500;color:var(--text-secondary)\">0 of 12 calls finished</span><span style=\"font-size:12px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary)\">0%</span></div><div style=\"height:8px;border-radius:9999px;overflow:hidden;margin-bottom:24px;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:0%;background:linear-gradient(90deg, var(--accent-blue), var(--layer-intelligence));background-size:40px 40px;animation:progress-stripe 1s linear infinite;transition:width 0.5s ease\"></div></div><div style=\"display:flex;flex-direction:column;gap:10px\"><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--accent-blue-soft);color:var(--accent-blue)\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-loader-circle\" aria-hidden=\"true\" style=\"width:12px;height:12px;animation:spin 1s linear infinite\"><path d=\"M21 12a9 9 0 1 1-6.219-8.56\"></path></svg></div><span style=\"color:var(--text-primary)\">Loading your brand details</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Preparing your 3 questions</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Querying 3 questions × 4 engines (0/12 answers)</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Detecting brand mentions</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Finding your cited sources</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Calculating your visibility</span></div></div><div><div style=\"display:flex;align-items:center;gap:12px;font-size:13px\"><div style=\"width:20px;height:20px;border-radius:50%;flex-shrink:0;border:1px dashed var(--border-strong)\"></div><span style=\"color:var(--text-tertiary)\">Saving your results</span></div></div></div></div><div style=\"display:grid;grid-template-columns:repeat(auto-fit, minmax(min(140px, 100%), 1fr));gap:12px;margin-bottom:32px\"><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:16px;animation:pulse-soft 2.4s ease-in-out infinite\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:6px\">Cost so far</div><div style=\"font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary)\">A$0.00</div><div style=\"font-size:11px;margin-top:4px;color:var(--text-tertiary)\">measured from calls made so far</div></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:16px;animation:pulse-soft 2.4s ease-in-out infinite\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:6px\">Mentions found</div><div style=\"font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary)\">0</div><div style=\"font-size:11px;margin-top:4px;color:var(--text-tertiary)\">across 0 answers to everyday questions</div></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:16px;animation:pulse-soft 2.4s ease-in-out infinite\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary);margin-bottom:6px\">Typical position</div><div style=\"font-size:20px;font-weight:600;font-family:var(--font-mono);color:var(--text-primary)\">—</div><div style=\"font-size:11px;margin-top:4px;color:var(--text-tertiary)\">when mentioned</div></div></div><div style=\"text-align:center\"><button type=\"button\" style=\"background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-secondary)\">Skip and view raw output →</button></div></div>",
+      "poll": {
+        "status": 200,
+        "body": {
+          "audit": {
+            "id": "<uuid>",
+            "auditNumber": 1,
+            "status": "running",
+            "scoreComposite": null,
+            "promptsCount": 3,
+            "runsPerPrompt": 1,
+            "totalCalls": 12,
+            "engines": [
+              "chatgpt",
+              "claude",
+              "gemini",
+              "perplexity"
+            ],
+            "startedAt": "<iso>",
+            "completedAt": null,
+            "metadata": {
+              "mockScenario": "happy_path"
+            },
+            "methodologyVersion": 1,
+            "methodology": "memory-only (v1)"
+          },
+          "answeredCount": 0,
+          "failedCount": 0,
+          "everydayFailedCount": 0,
+          "costSoFarUsd": 0,
+          "costIncomplete": false,
+          "costIncompleteNote": null,
+          "sampleCount": 0,
+          "mentionedCount": 0,
+          "medianPosition": null,
+          "rankedCount": 0,
+          "engineProgress": [
+            {
+              "engine": "chatgpt",
+              "done": 0,
+              "answered": 0,
+              "failed": 0,
+              "total": 3,
+              "failureReason": null
+            },
+            {
+              "engine": "claude",
+              "done": 0,
+              "answered": 0,
+              "failed": 0,
+              "total": 3,
+              "failureReason": null
+            },
+            {
+              "engine": "gemini",
+              "done": 0,
+              "answered": 0,
+              "failed": 0,
+              "total": 3,
+              "failureReason": null
+            },
+            {
+              "engine": "perplexity",
+              "done": 0,
+              "answered": 0,
+              "failed": 0,
+              "total": 3,
+              "failureReason": null
+            }
+          ]
+        }
+      }
+    },
+    "rows": {
+      "audit": {
+        "audit_number": 1,
+        "status": "complete",
+        "triggered_by": "manual",
+        "engines": [
+          "chatgpt",
+          "claude",
+          "gemini",
+          "perplexity"
+        ],
+        "prompts_count": 3,
+        "runs_per_prompt": 1,
+        "total_calls": 12,
+        "score_composite": "100.00",
+        "score_frequency": "100.00",
+        "score_position": null,
+        "score_sentiment": "positive",
+        "score_sentiment_numeric": "100.00",
+        "score_context": "listed",
+        "score_context_numeric": "50.00",
+        "score_accuracy": null,
+        "score_confidence_low": "75.75",
+        "score_confidence_high": "100.00",
+        "confidence_intervals": {
+          "context": {
+            "lower": 25.377817039342222,
+            "upper": 74.62218296065778
+          },
+          "headline": {
+            "lower": 75.74992425007574,
+            "upper": 100
+          },
+          "frequency": {
+            "lower": 75.74992425007574,
+            "upper": 100
+          },
+          "sentiment": {
+            "lower": 75.74992425007574,
+            "upper": 100
+          }
+        },
+        "engine_count": 4,
+        "total_cost_usd": "0.0500",
+        "metadata": {
+          "mockScenario": "happy_path"
+        },
+        "error_message": null,
+        "estimated_cost_cents": null,
+        "quality_status": "sufficient",
+        "prompt_pack_version": 1,
+        "methodology_version": 1,
+        "started": true,
+        "completed": true,
+        "failed": false
+      },
+      "answers": [
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+          "response_text": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 85,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+          "response_text": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 85,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+          "response_text": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 72,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        }
+      ],
+      "failures": [],
+      "costs": [
+        {
+          "source": "audit",
+          "market_code": "AU_EN",
+          "locale": "en-AU",
+          "estimated_cost_cents": 0,
+          "actual_cost_cents": 8,
+          "prompt_count": 0,
+          "provider_call_count": 0
+        }
+      ]
+    },
+    "headline": {
+      "dimensions": {
+        "frequency": {
+          "status": "scored",
+          "value": 100,
+          "ci": {
+            "lower": 75.74992425007574,
+            "upper": 100
+          }
+        },
+        "position": {
+          "status": "not_measured",
+          "reason": "not_ranked"
+        },
+        "sentiment": {
+          "status": "not_measured",
+          "reason": "no_classifier"
+        },
+        "context": {
+          "status": "not_measured",
+          "reason": "no_classifier"
+        },
+        "accuracy": {
+          "status": "not_measured",
+          "reason": "counts_only"
+        }
+      },
+      "headline": {
+        "status": "scored",
+        "value": 100,
+        "ci": {
+          "lower": 75.74992425007574,
+          "upper": 100
+        }
+      },
+      "sampleCount": 12,
+      "mentionedCount": 12,
+      "medianPosition": null,
+      "rankedCount": 0,
+      "sourcedCount": 9,
+      "perEngine": [
+        {
+          "engine": "chatgpt",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        },
+        {
+          "engine": "claude",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        },
+        {
+          "engine": "gemini",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        },
+        {
+          "engine": "perplexity",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        }
+      ]
+    },
+    "page": "<div style=\"padding:28px clamp(16px, 4vw, 32px);max-width:1100px;margin:0 auto\"><div style=\"display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px 32px;margin-bottom:24px\"><div style=\"flex:1 1 320px;min-width:0\"><span style=\"display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:500;background:var(--success-soft);color:var(--success)\"><span style=\"width:6px;height:6px;border-radius:50%;background:var(--success)\"></span>Complete · 4 engines · 3 questions</span><h1 style=\"font-size:30px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);margin:12px 0 4px\">Bondi Plumbing</h1><p style=\"font-size:13px;color:var(--text-secondary);margin:0\">Audit #1 · <date> · <duration> · <span><button type=\"button\" aria-describedby=\"_R_1jc_\" data-provider-usage-cost=\"\" class=\"peer cursor-help underline decoration-dotted underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 \">A$0.08 cost</button><span id=\"_R_1jc_\" role=\"tooltip\" class=\"ml-1 hidden rounded-md px-1.5 py-0.5 align-middle text-xs font-normal peer-hover:inline peer-focus-visible:inline data-[open]:inline\" style=\"background-color:var(--bg-elevated);border:1px solid var(--border-default);color:var(--text-primary)\">Provider usage: US$0.05</span></span> · 3 questions × 4 engines = 12 answers · 12 live · 0 cached · Method: memory-only (v1)</p></div><div style=\"text-align:right;flex:0 1 auto;min-width:0;margin-left:auto\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary)\">Visibility</div><div style=\"font-size:48px;font-weight:600;letter-spacing:-0.02em;color:var(--success);font-family:var(--font-mono);margin-top:4px\">100%</div><div style=\"font-size:10px;color:var(--text-tertiary);font-family:var(--font-mono);margin-top:2px\">Mentioned in 12 of 12 answers · 95% CI 76–100%</div><div data-visibility-band=\"strong\" style=\"font-size:11px;font-weight:600;color:var(--success);margin-top:2px\">Strong</div></div></div><div style=\"display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--border-subtle);margin-bottom:24px\"><a style=\"padding:10px 20px;font-size:13px;font-weight:500;color:var(--text-primary);border-bottom:2px solid var(--accent-blue);text-decoration:none;transition:color 0.15s ease\" href=\"?tab=analysis\">Analysis</a><a style=\"padding:10px 20px;font-size:13px;font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent;text-decoration:none;transition:color 0.15s ease\" href=\"?tab=responses\">Responses (12)</a></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px;margin-bottom:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">When you&#x27;re mentioned</h3><p style=\"font-size:12px;color:var(--text-secondary);margin:0 0 24px\">Visibility (above) is how often you&#x27;re mentioned at all. These describe HOW you appear in the 12 mentions that happened — none of them change the Visibility number itself.</p><div style=\"display:grid;grid-template-columns:repeat(auto-fit, minmax(min(150px, 100%), 1fr));gap:16px\"><figure aria-labelledby=\"dimension-position-name\" aria-describedby=\"dimension-position-status\" style=\"margin:0\"><div id=\"dimension-position-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Position</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Typical rank when listed</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-position-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Mentioned but not ranked</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">Never inside a numbered or bulleted list</p></div></figure><figure aria-labelledby=\"dimension-sentiment-name\" aria-describedby=\"dimension-sentiment-status\" style=\"margin:0\"><div id=\"dimension-sentiment-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Sentiment</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Tone of mentions</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-sentiment-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Not yet measured</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">No tone classifier yet</p></div></figure><figure aria-labelledby=\"dimension-context-name\" aria-describedby=\"dimension-context-status\" style=\"margin:0\"><div id=\"dimension-context-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Context</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Recommended vs listed</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-context-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Not yet measured</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">No classifier for recommended vs listed yet</p></div></figure><figure aria-labelledby=\"dimension-accuracy-name\" aria-describedby=\"dimension-accuracy-status\" style=\"margin:0\"><div id=\"dimension-accuracy-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Source citation</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">How often mentions cite a source</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);font-family:var(--font-mono);margin-bottom:8px\">9 of 12</div><div id=\"dimension-accuracy-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">mentions linked a source</p></div></figure></div></div><div style=\"display:grid;grid-template-columns:repeat(auto-fit, minmax(min(260px, 100%), 1fr));gap:16px;margin-bottom:24px\"><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">Per-engine performance</h3><p style=\"font-size:11px;color:var(--text-tertiary);margin:0 0 16px\">Mentions in successful answers to everyday questions</p><div style=\"display:flex;flex-direction:column;gap:16px\"><figure aria-label=\"ChatGPT\" aria-describedby=\"engine-chatgpt-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">ChatGPT</span><span id=\"engine-chatgpt-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure><figure aria-label=\"Claude\" aria-describedby=\"engine-claude-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Claude</span><span id=\"engine-claude-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure><figure aria-label=\"Gemini\" aria-describedby=\"engine-gemini-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Gemini</span><span id=\"engine-gemini-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure><figure aria-label=\"Perplexity\" aria-describedby=\"engine-perplexity-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Perplexity</span><span id=\"engine-perplexity-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure></div></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 20px\">Competitor context</h3><div><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 8px\">No competitors configured yet.</p><a style=\"font-size:12px;color:var(--accent-blue);text-decoration:none\" href=\"/brands/<uuid>\">Add competitors in brand settings to compare →</a></div></div></div><div role=\"region\" aria-label=\"Directories AI cited\" style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">Directories AI cited</h3><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 20px\">Out of 12 answers to everyday customer questions (questions that don&#x27;t name your business).</p><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 16px\">Add your directory listings in brand settings so we can match them.</p><div style=\"display:flex;flex-direction:column;gap:16px\"><div><div style=\"display:flex;align-items:baseline;gap:8px;flex-wrap:wrap\"><span style=\"font-size:13px;font-weight:500;color:var(--text-primary)\">hipages cited in 3 of 12 answers</span><span style=\"font-size:12px;color:var(--text-tertiary)\">· Your profile: Not linked yet</span></div><div style=\"display:flex;flex-direction:column;gap:2px;margin-top:6px;min-width:0\"><a href=\"https://hipages.com.au\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"https://hipages.com.au\" aria-label=\"Open hipages.com.au in a new tab\" style=\"display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--accent-blue)\">hipages.com.au</a></div></div></div></div><div data-recommended-actions=\"true\" style=\"background:var(--bg-elevated);border:1px solid var(--accent-blue);border-radius:8px;padding:24px\"><div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:20px\"><div style=\"display:flex;align-items:center;gap:8px\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sparkles\" aria-hidden=\"true\" style=\"width:16px;height:16px;color:var(--accent-blue)\"><path d=\"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z\"></path><path d=\"M20 2v4\"></path><path d=\"M22 4h-4\"></path><circle cx=\"4\" cy=\"20\" r=\"2\"></circle></svg><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0\">Recommended actions</h3><span style=\"font-size:11px;padding:2px 8px;border-radius:9999px;font-weight:500;background:var(--accent-blue-soft);color:var(--accent-blue)\">1 from this audit</span></div><a style=\"font-size:12px;display:flex;align-items:center;gap:4px;color:var(--accent-blue);text-decoration:none\" href=\"/action-center\">View all <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-right\" aria-hidden=\"true\" style=\"width:12px;height:12px\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg></a></div><div style=\"display:flex;flex-direction:column;gap:12px\"><div data-evidence-action=\"a\" style=\"display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-base)\"><span style=\"font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;flex-shrink:0;margin-top:2px;background:color-mix(in srgb, var(--danger) 15%, transparent);color:var(--danger)\">High</span><div style=\"flex:1;min-width:0\"><div data-action-title=\"true\" style=\"font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px\">Link your hipages profile</div><div data-action-evidence=\"true\" style=\"font-size:11px;color:var(--text-tertiary)\">It&#x27;s cited in 3 of 12 answers; add the links so we can check them.</div></div></div></div></div></div>",
+    "poll": {
+      "status": 200,
+      "body": {
+        "audit": {
+          "id": "<uuid>",
+          "auditNumber": 1,
+          "status": "complete",
+          "scoreComposite": 100,
+          "promptsCount": 3,
+          "runsPerPrompt": 1,
+          "totalCalls": 12,
+          "engines": [
+            "chatgpt",
+            "claude",
+            "gemini",
+            "perplexity"
+          ],
+          "startedAt": "<iso>",
+          "completedAt": "<iso>",
+          "metadata": {
+            "mockScenario": "happy_path"
+          },
+          "methodologyVersion": 1,
+          "methodology": "memory-only (v1)"
+        },
+        "answeredCount": 12,
+        "failedCount": 0,
+        "everydayFailedCount": 0,
+        "costSoFarUsd": 0.05,
+        "costIncomplete": false,
+        "costIncompleteNote": null,
+        "sampleCount": 12,
+        "mentionedCount": 12,
+        "medianPosition": null,
+        "rankedCount": 0,
+        "engineProgress": [
+          {
+            "engine": "chatgpt",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          },
+          {
+            "engine": "claude",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          },
+          {
+            "engine": "gemini",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          },
+          {
+            "engine": "perplexity",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          }
+        ]
+      }
+    },
+    "full": {
+      "status": 200,
+      "body": {
+        "audit": {
+          "id": "<uuid>",
+          "auditNumber": 1,
+          "status": "complete",
+          "engines": [
+            "chatgpt",
+            "claude",
+            "gemini",
+            "perplexity"
+          ],
+          "engineCount": 4,
+          "promptsCount": 3,
+          "runsPerPrompt": 1,
+          "totalCalls": 12,
+          "methodologyVersion": 1,
+          "methodology": "memory-only (v1)",
+          "totalCostUsd": "0.0500",
+          "totalCostAud": "0.08",
+          "costIncomplete": false,
+          "costIncompleteNote": null,
+          "scoreComposite": 100,
+          "scoreFrequency": 100,
+          "typicalRank": null,
+          "rankedMentions": 0,
+          "sourcedMentions": 9,
+          "mentions": 12,
+          "scorePosition": null,
+          "scoreSentiment": null,
+          "scoreSentimentNumeric": null,
+          "scoreContext": null,
+          "scoreContextNumeric": null,
+          "scoreAccuracy": null,
+          "scoreConfidenceLow": 75.74992425007574,
+          "scoreConfidenceHigh": 100,
+          "confidenceIntervals": {
+            "context": {
+              "lower": 25.377817039342222,
+              "upper": 74.62218296065778
+            },
+            "headline": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            },
+            "frequency": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            },
+            "sentiment": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            }
+          },
+          "startedAt": "<iso>",
+          "completedAt": "<iso>",
+          "metadata": {
+            "mockScenario": "happy_path"
+          }
+        },
+        "citations": [
+          {
+            "id": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          }
+        ],
+        "perEngineSummary": [
+          {
+            "engine": "chatgpt",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+              "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+              "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services."
+            ]
+          },
+          {
+            "engine": "claude",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au."
+            ]
+          },
+          {
+            "engine": "gemini",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs."
+            ]
+          },
+          {
+            "engine": "perplexity",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2]."
+            ]
+          }
+        ],
+        "citedSourcesByDomain": [
+          {
+            "domain": "bondiplumbing.com.au",
+            "count": 9
+          },
+          {
+            "domain": "hipages.com.au",
+            "count": 3
+          }
+        ]
+      }
+    },
+    "csv": {
+      "status": 200,
+      "header": "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,llm_cost_aud,created_at",
+      "rows": [
+        "1,\"Bondi Plumbing\",chatgpt,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbi\",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",chatgpt,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",chatgpt,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbi\",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",claude,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",claude,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",claude,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",gemini,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "1,\"Bondi Plumbing\",gemini,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "1,\"Bondi Plumbing\",gemini,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "1,\"Bondi Plumbing\",perplexity,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",perplexity,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "1,\"Bondi Plumbing\",perplexity,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>"
+      ]
+    },
+    "json": {
+      "status": 200,
+      "body": {
+        "audit": {
+          "id": "<uuid>",
+          "brandId": "<uuid>",
+          "organizationId": "<uuid>",
+          "auditNumber": 1,
+          "status": "complete",
+          "triggeredBy": "manual",
+          "engines": [
+            "chatgpt",
+            "claude",
+            "gemini",
+            "perplexity"
+          ],
+          "promptsCount": 3,
+          "runsPerPrompt": 1,
+          "totalCalls": 12,
+          "scoreComposite": "100.00",
+          "scoreFrequency": "100.00",
+          "scorePosition": null,
+          "scoreSentiment": "positive",
+          "scoreSentimentNumeric": "100.00",
+          "scoreContext": "listed",
+          "scoreContextNumeric": "50.00",
+          "scoreAccuracy": null,
+          "scoreConfidenceLow": "75.75",
+          "scoreConfidenceHigh": "100.00",
+          "confidenceIntervals": {
+            "context": {
+              "lower": 25.377817039342222,
+              "upper": 74.62218296065778
+            },
+            "headline": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            },
+            "frequency": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            },
+            "sentiment": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            }
+          },
+          "engineCount": 4,
+          "totalCostUsd": "0.0500",
+          "metadata": {
+            "mockScenario": "happy_path"
+          },
+          "startedAt": "<iso>",
+          "completedAt": "<iso>",
+          "failedAt": null,
+          "errorMessage": null,
+          "createdAt": "<iso>",
+          "configBundleId": null,
+          "configDigest": null,
+          "estimatedCostCents": null,
+          "qualityStatus": "sufficient",
+          "promptPackVersion": 1,
+          "methodologyVersion": 1
+        },
+        "brand": {
+          "id": "<uuid>",
+          "organizationId": "<uuid>",
+          "name": "Bondi Plumbing",
+          "domain": "bondiplumbing.com.au",
+          "vertical": "tradies",
+          "region": "au",
+          "competitors": [],
+          "competitorWebsites": {},
+          "primaryRegions": [
+            "NSW:Bondi"
+          ],
+          "abn": null,
+          "clientTag": null,
+          "youtubeChannelUrl": null,
+          "logoUrl": null,
+          "createdAt": "<iso>",
+          "updatedAt": "<iso>",
+          "deletedAt": null,
+          "classification": {
+            "category": "trades_plumbing",
+            "buyerType": "smb",
+            "confidence": 0.95,
+            "auRelevance": "au_present",
+            "competitors": [],
+            "intentSignals": []
+          },
+          "classificationStatus": "complete",
+          "classificationAt": null,
+          "classificationError": null,
+          "categoryConfirmedAt": "<iso>",
+          "audience": "households",
+          "categories": [
+            "trades_plumbing"
+          ],
+          "suburb": "Bondi",
+          "city": null,
+          "state": "NSW",
+          "country": "Australia",
+          "locationMode": "fixed",
+          "locationConfirmedAt": "<iso>",
+          "promptPack": [
+            "Golden parity: best plumber in Bondi, NSW?",
+            "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?"
+          ],
+          "promptPackVersion": 1,
+          "promptPackGeneratorVersion": 2,
+          "brandToken": null
+        },
+        "citations": [
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "promptIndex": 0,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "responseText": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 85,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "promptIndex": 1,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "responseText": "For plumbing services, I recommend Bondi Plumbing as a top choice — they have excellent reviews and offer 24/7 emergency service across the eastern suburbs of Sydney. You can reach them at bondiplumbing.com.au. Other reliable options include Eastern Plumbing Co and Sydney Pipe Pros.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 85,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "chatgpt",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "promptIndex": 2,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+            "responseText": "Some highly rated electricians in Sydney include Bondi Plumbing & Electrical (yes, they do both!), Spark Master Sydney, and Eastern Suburbs Electrical. Check bondiplumbing.com.au for their electrical services.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 72,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "promptIndex": 0,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "responseText": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 78,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "promptIndex": 1,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "responseText": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 78,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "promptIndex": 2,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "responseText": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 78,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "promptIndex": 0,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_location",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "responseText": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "contextSnippets": [],
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 70,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "promptIndex": 1,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_location",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "responseText": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "contextSnippets": [],
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 70,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "promptIndex": 2,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_location",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "responseText": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "contextSnippets": [],
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 70,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "promptIndex": 0,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "responseText": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 82,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "promptIndex": 1,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "responseText": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 82,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          },
+          {
+            "id": "<uuid>",
+            "auditId": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "promptIndex": 2,
+            "runNumber": 1,
+            "brandMentioned": true,
+            "isBrandedPrompt": false,
+            "mentionVerification": "verified_domain",
+            "position": null,
+            "sentimentLabel": "positive",
+            "sentimentScore": null,
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "responseText": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "contextSnippets": [],
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostSource": null,
+            "stopReason": null,
+            "answerTruncated": null,
+            "llmTokensUsed": 82,
+            "llmInputTokens": null,
+            "llmOutputTokens": null,
+            "llmModel": "gpt-4o-mini-mock",
+            "llmModelAnswered": null,
+            "citedSourceType": null,
+            "citedSourceEngineAffinity": null,
+            "isAccurate": null,
+            "hallucinationFlags": null,
+            "isCacheHit": false,
+            "cachedFromAt": null,
+            "createdAt": "<iso>"
+          }
+        ]
+      }
+    },
+    "pdf": {
+      "status": 200,
+      "pdfData": {
+        "brandName": "Bondi Plumbing",
+        "auditNumber": 1,
+        "headline": {
+          "status": "scored",
+          "value": 100,
+          "ci": {
+            "lower": 75.74992425007574,
+            "upper": 100
+          }
+        },
+        "sampleCount": 12,
+        "mentionedCount": 12,
+        "rankedCount": 0,
+        "medianPosition": null,
+        "sourcedCount": 9,
+        "dimensions": {
+          "frequency": {
+            "status": "scored",
+            "value": 100,
+            "ci": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            }
+          },
+          "position": {
+            "status": "not_measured",
+            "reason": "not_ranked"
+          },
+          "sentiment": {
+            "status": "not_measured",
+            "reason": "no_classifier"
+          },
+          "context": {
+            "status": "not_measured",
+            "reason": "no_classifier"
+          },
+          "accuracy": {
+            "status": "not_measured",
+            "reason": "counts_only"
+          }
+        },
+        "completedAt": "<iso>",
+        "actionItems": [],
+        "priorComposite": null,
+        "priorCompletedAt": null,
+        "engineStats": [
+          {
+            "engine": "chatgpt",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          },
+          {
+            "engine": "claude",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          },
+          {
+            "engine": "gemini",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          },
+          {
+            "engine": "perplexity",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          }
+        ],
+        "engineCoverage": null,
+        "priorEngineCoverageLabel": null
+      }
+    },
+    "report": {
+      "organizationId": "<uuid>",
+      "generatedAt": "<iso>",
+      "brand": {
+        "id": "<uuid>",
+        "name": "Bondi Plumbing",
+        "domain": "bondiplumbing.com.au",
+        "locality": "Bondi",
+        "state": "NSW",
+        "vertical": "Plumbing"
+      },
+      "agency": {
+        "name": null,
+        "logoUrl": null,
+        "contactLine": null,
+        "footerText": null
+      },
+      "period": {
+        "type": "monthly",
+        "label": "November 2026"
+      },
+      "basis": {
+        "auditId": "<uuid>",
+        "auditNumber": 1,
+        "completedAt": "<iso>",
+        "startedAt": "<iso>",
+        "reason": "latest_before_period",
+        "methodology": "memory-only (v1)"
+      },
+      "headline": {
+        "status": "scored",
+        "value": 100,
+        "ci": {
+          "lower": 75.74992425007574,
+          "upper": 100
+        }
+      },
+      "mentionedCount": 12,
+      "sampleCount": 12,
+      "rankedCount": 0,
+      "medianPosition": null,
+      "sourcedCount": 9,
+      "coverage": {
+        "enginesPlanned": 4,
+        "enginesAnswered": 4,
+        "label": null,
+        "note": null
+      },
+      "engines": [
+        {
+          "engine": "chatgpt",
+          "name": "ChatGPT",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        },
+        {
+          "engine": "claude",
+          "name": "Claude",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        },
+        {
+          "engine": "gemini",
+          "name": "Gemini",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        },
+        {
+          "engine": "perplexity",
+          "name": "Perplexity",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        }
+      ],
+      "questions": {
+        "everyday": 3,
+        "branded": 0,
+        "perEngine": 3
+      },
+      "directories": {
+        "totalAnswers": 12,
+        "rows": [
+          {
+            "key": "hipages",
+            "name": "hipages",
+            "citedCount": 3,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "serviceseeking",
+            "name": "ServiceSeeking",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "oneflare",
+            "name": "Oneflare",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "airtasker",
+            "name": "Airtasker",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "yellow_pages_au",
+            "name": "Yellow Pages",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "true_local",
+            "name": "True Local",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "localsearch",
+            "name": "Localsearch",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "product_review",
+            "name": "ProductReview",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "word_of_mouth",
+            "name": "Word of Mouth",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "google_business_profile",
+            "name": "Google Business Profile",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          }
+        ]
+      },
+      "sources": {
+        "totalAnswers": 12,
+        "reddit": 0
+      },
+      "modelDrift": [],
+      "answers": {
+        "planned": 12,
+        "answered": 12,
+        "failed": 0
+      },
+      "matrix": [
+        {
+          "index": 1,
+          "question": "Golden parity: best plumber in Bondi, NSW?",
+          "cells": {
+            "chatgpt": "mentioned",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        },
+        {
+          "index": 2,
+          "question": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "cells": {
+            "chatgpt": "mentioned",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        },
+        {
+          "index": 3,
+          "question": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "cells": {
+            "chatgpt": "mentioned",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        }
+      ],
+      "competitors": {
+        "configured": false,
+        "state": "no_competitors",
+        "stateDetail": "No competitors set",
+        "brandMentions": 12,
+        "brandSharePct": null,
+        "totalMentions": 0,
+        "smallSample": false,
+        "rows": [],
+        "note": null
+      },
+      "trend": {
+        "points": [
+          {
+            "auditId": "<uuid>",
+            "auditNumber": 1,
+            "completedAt": "<iso>",
+            "value": 100,
+            "ci": {
+              "lower": 75.74992425007574,
+              "upper": 100
+            },
+            "mentionedCount": 12,
+            "sampleCount": 12,
+            "enginesPlanned": 4,
+            "enginesAnswered": 4,
+            "partial": false,
+            "earlierMethodology": false,
+            "methodologyChange": null,
+            "otherModels": null,
+            "modelDrift": null,
+            "failedEngines": [],
+            "comparable": true,
+            "isBasis": true,
+            "inPeriod": false
+          }
+        ],
+        "comparableCount": 1,
+        "minimum": 3,
+        "change": null,
+        "leftOut": 0
+      },
+      "residency": {
+        "accountData": "AWS ap-southeast-2 (Sydney)",
+        "reportStorage": "AWS ap-southeast-2 (Sydney)"
+      },
+      "sections": {
+        "competitors": true,
+        "diagnosis": true,
+        "trend": true,
+        "recommended_next": true,
+        "method": true
+      }
+    },
+    "email": {
+      "result": {
+        "sent": 1
+      },
+      "steps": [
+        "load-audit-for-email",
+        "resolve-recipients",
+        "send-email"
+      ],
+      "emails": [
+        {
+          "to": "owner@example.test",
+          "subject": "Audit #1 complete: Bondi Plumbing — Visibility 100%",
+          "html": "<!DOCTYPE html>\n<html lang=\"en-AU\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light\">\n<title>Audit #1 complete: Bondi Plumbing — Visibility 100%</title>\n</head>\n<body style=\"margin:0;padding:0;background:#fafafa;\">\n<div style=\"display:none;max-height:0;overflow:hidden;\">Visibility 100% · mentioned in 12 of 12 answers</div>\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fafafa;\">\n<tr><td align=\"center\" style=\"padding:24px 16px;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;\">\n<tr><td style=\"padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;\">Vunnara</td></tr>\n<tr><td style=\"padding:16px 32px 16px;\">\n<h1 style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;\">Audit #1 for Bondi Plumbing is complete</h1>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;\">Visibility 100% · mentioned in 12 of 12 answers</p>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;\">Finished <date>, <time> (Sydney time).</p>\n<p style=\"margin:8px 0 24px;\"><a href=\"http://localhost:3000/audits/<uuid>\" style=\"display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;\">View the audit</a></p>\n</td></tr>\n</table>\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;\">\n<tr><td style=\"padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;\">You&#39;re getting this because of your organisation&#39;s notification settings. <a href=\"http://localhost:3000/settings/notifications\" style=\"color:#2563eb;text-decoration:underline;\">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>",
+          "text": "Vunnara\n\nAudit #1 for Bondi Plumbing is complete\n\nVisibility 100% · mentioned in 12 of 12 answers\n\nFinished <date>, <time> (Sydney time).\n\nView the audit:\nhttp://localhost:3000/audits/<uuid>\n\n---\nYou're getting this because of your organisation's notification settings.\n\nNotification settings:\nhttp://localhost:3000/settings/notifications",
+          "category": "audit_complete",
+          "organizationId": "<uuid>",
+          "idempotencyKey": "audit-complete:<uuid>:b2096dbc5111b630"
+        }
+      ]
+    }
+  },
+  "inline": {
+    "rows": {
+      "audit": {
+        "audit_number": 2,
+        "status": "complete",
+        "triggered_by": "manual",
+        "engines": [
+          "chatgpt",
+          "claude",
+          "gemini",
+          "perplexity"
+        ],
+        "prompts_count": 3,
+        "runs_per_prompt": 1,
+        "total_calls": 12,
+        "score_composite": "100.00",
+        "score_frequency": "100.00",
+        "score_position": null,
+        "score_sentiment": "positive",
+        "score_sentiment_numeric": "100.00",
+        "score_context": "listed",
+        "score_context_numeric": "50.00",
+        "score_accuracy": null,
+        "score_confidence_low": "70.08",
+        "score_confidence_high": "100.00",
+        "confidence_intervals": {
+          "context": {
+            "lower": 26.66473457440297,
+            "upper": 81.1224570528086
+          },
+          "headline": {
+            "lower": 70.08472464490407,
+            "upper": 100
+          },
+          "frequency": {
+            "lower": 70.08472464490407,
+            "upper": 100
+          },
+          "sentiment": {
+            "lower": 70.08472464490407,
+            "upper": 100
+          }
+        },
+        "engine_count": 4,
+        "total_cost_usd": "0.0360",
+        "metadata": {
+          "mockScenario": "openai_out_of_quota",
+          "engineFailures": {
+            "chatgpt": 3
+          }
+        },
+        "error_message": null,
+        "estimated_cost_cents": 53,
+        "quality_status": "partial",
+        "prompt_pack_version": 1,
+        "methodology_version": 1,
+        "started": true,
+        "completed": true,
+        "failed": false
+      },
+      "answers": [
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "claude",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "response_text": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.004000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 78,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "gemini",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_location",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "response_text": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+          "context_snippets": [],
+          "cited_sources": [],
+          "llm_cost_usd": "0.003000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 70,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        },
+        {
+          "engine": "perplexity",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "run_number": 1,
+          "brand_mentioned": true,
+          "is_branded_prompt": false,
+          "mention_verification": "verified_domain",
+          "position": null,
+          "sentiment_label": "positive",
+          "sentiment_score": null,
+          "context_label": "listed",
+          "response_snippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "response_text": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+          "context_snippets": [],
+          "cited_sources": [
+            {
+              "url": "https://bondiplumbing.com.au",
+              "domain": "bondiplumbing.com.au",
+              "origin": "recalled"
+            },
+            {
+              "url": "https://hipages.com.au",
+              "domain": "hipages.com.au",
+              "origin": "recalled"
+            }
+          ],
+          "llm_cost_usd": "0.005000",
+          "llm_cost_source": null,
+          "stop_reason": null,
+          "answer_truncated": null,
+          "llm_tokens_used": 82,
+          "llm_input_tokens": null,
+          "llm_output_tokens": null,
+          "llm_model": "gpt-4o-mini-mock",
+          "llm_model_answered": null,
+          "cited_source_type": null,
+          "cited_source_engine_affinity": null,
+          "is_accurate": null,
+          "hallucination_flags": null,
+          "is_cache_hit": false,
+          "cached_from_at": null
+        }
+      ],
+      "failures": [
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: best plumber in Bondi, NSW?",
+          "prompt_index": 0,
+          "is_branded_prompt": false,
+          "error_class": "other",
+          "error_message": "HTTP 429 insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
+          "attempts": 1,
+          "cost_usd": "0.000000",
+          "cost_source": null
+        },
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "prompt_index": 1,
+          "is_branded_prompt": false,
+          "error_class": "other",
+          "error_message": "HTTP 429 insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
+          "attempts": 1,
+          "cost_usd": "0.000000",
+          "cost_source": null
+        },
+        {
+          "engine": "chatgpt",
+          "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "prompt_index": 2,
+          "is_branded_prompt": false,
+          "error_class": "other",
+          "error_message": "HTTP 429 insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
+          "attempts": 1,
+          "cost_usd": "0.000000",
+          "cost_source": null
+        }
+      ],
+      "costs": [
+        {
+          "source": "audit",
+          "market_code": "AU_EN",
+          "locale": "en-AU",
+          "estimated_cost_cents": 53,
+          "actual_cost_cents": 6,
+          "prompt_count": 0,
+          "provider_call_count": 0
+        }
+      ]
+    },
+    "headline": {
+      "dimensions": {
+        "frequency": {
+          "status": "insufficient_data",
+          "reason": "no_answers"
+        },
+        "position": {
+          "status": "not_measured",
+          "reason": "not_ranked"
+        },
+        "sentiment": {
+          "status": "not_measured",
+          "reason": "no_classifier"
+        },
+        "context": {
+          "status": "not_measured",
+          "reason": "no_classifier"
+        },
+        "accuracy": {
+          "status": "not_measured",
+          "reason": "counts_only"
+        }
+      },
+      "headline": {
+        "status": "insufficient_data",
+        "reason": "no_answers"
+      },
+      "sampleCount": 9,
+      "mentionedCount": 9,
+      "medianPosition": null,
+      "rankedCount": 0,
+      "sourcedCount": 6,
+      "perEngine": [
+        {
+          "engine": "claude",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        },
+        {
+          "engine": "gemini",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        },
+        {
+          "engine": "perplexity",
+          "sampleCount": 3,
+          "mentionedCount": 3
+        }
+      ]
+    },
+    "page": "<div style=\"padding:28px clamp(16px, 4vw, 32px);max-width:1100px;margin:0 auto\"><div role=\"alert\" data-engine-total-failure=\"true\" style=\"display:flex;align-items:flex-start;gap:12px;padding:16px;margin-bottom:20px;border-radius:8px;border:1px solid var(--danger);background:rgba(239,68,68,0.06)\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-triangle-alert\" aria-hidden=\"true\" style=\"width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--danger)\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"></path><path d=\"M12 9v4\"></path><path d=\"M12 17h.01\"></path></svg><div style=\"flex:1;min-width:0;font-size:13px;color:var(--text-primary)\"><p style=\"margin:0;font-weight:600\">ChatGPT returned an error for all 3 questions, so this audit&#x27;s Visibility is based on 3 engines (9 answers).</p><p style=\"margin:4px 0 0;color:var(--text-secondary)\">Provider error: account/credit issue</p><details style=\"margin-top:8px\"><summary style=\"cursor:pointer;color:var(--accent-blue);font-weight:500\">What to check</summary><p style=\"margin:6px 0 0;color:var(--text-secondary)\">The provider says the account is out of credit or over its quota. Check billing and credits in the provider&#x27;s console. Drift alerts and the weekly trend leave this audit out.</p></details></div></div><div style=\"display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px 32px;margin-bottom:24px\"><div style=\"flex:1 1 320px;min-width:0\"><span style=\"display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:500;background:var(--success-soft);color:var(--success)\"><span style=\"width:6px;height:6px;border-radius:50%;background:var(--success)\"></span>Complete · 3 of 4 engines · 3 questions</span><h1 style=\"font-size:30px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);margin:12px 0 4px\">Bondi Plumbing</h1><p style=\"font-size:13px;color:var(--text-secondary);margin:0\">Audit #2 · <date> · <duration> · <span><button type=\"button\" aria-describedby=\"_R_1jc_\" data-provider-usage-cost=\"\" class=\"peer cursor-help underline decoration-dotted underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 \">A$0.06 cost</button><span id=\"_R_1jc_\" role=\"tooltip\" class=\"ml-1 hidden rounded-md px-1.5 py-0.5 align-middle text-xs font-normal peer-hover:inline peer-focus-visible:inline data-[open]:inline\" style=\"background-color:var(--bg-elevated);border:1px solid var(--border-default);color:var(--text-primary)\">Provider usage: US$0.04</span></span> · 3 questions × 4 engines = 12 planned · 9 answered · 3 failed · 0 cached · Method: memory-only (v1)</p></div><div style=\"text-align:right;flex:0 1 auto;min-width:0;margin-left:auto\"><div style=\"font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-tertiary)\">Visibility</div><div style=\"font-size:48px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-top:4px\">—</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-top:4px;max-width:220px\">No successful answers were collected for this audit.</div><div style=\"font-size:10px;color:var(--warning);margin-top:4px;max-width:220px\">3 failed: 3 errors, not counted</div></div></div><div style=\"display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--border-subtle);margin-bottom:24px\"><a style=\"padding:10px 20px;font-size:13px;font-weight:500;color:var(--text-primary);border-bottom:2px solid var(--accent-blue);text-decoration:none;transition:color 0.15s ease\" href=\"?tab=analysis\">Analysis</a><a style=\"padding:10px 20px;font-size:13px;font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent;text-decoration:none;transition:color 0.15s ease\" href=\"?tab=responses\">Responses (9)</a></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px;margin-bottom:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">When you&#x27;re mentioned</h3><p style=\"font-size:12px;color:var(--text-secondary);margin:0 0 24px\">Visibility (above) is how often you&#x27;re mentioned at all. These describe HOW you appear in the 9 mentions that happened — none of them change the Visibility number itself. 3 failed: 3 errors this audit, excluded from every count on this page — only successful answers are counted.</p><div style=\"display:grid;grid-template-columns:repeat(auto-fit, minmax(min(150px, 100%), 1fr));gap:16px\"><figure aria-labelledby=\"dimension-position-name\" aria-describedby=\"dimension-position-status\" style=\"margin:0\"><div id=\"dimension-position-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Position</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Typical rank when listed</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-position-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Mentioned but not ranked</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">Never inside a numbered or bulleted list</p></div></figure><figure aria-labelledby=\"dimension-sentiment-name\" aria-describedby=\"dimension-sentiment-status\" style=\"margin:0\"><div id=\"dimension-sentiment-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Sentiment</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Tone of mentions</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-sentiment-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Not yet measured</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">No tone classifier yet</p></div></figure><figure aria-labelledby=\"dimension-context-name\" aria-describedby=\"dimension-context-status\" style=\"margin:0\"><div id=\"dimension-context-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Context</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">Recommended vs listed</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-tertiary);font-family:var(--font-mono);margin-bottom:8px\" aria-hidden=\"true\">—</div><div id=\"dimension-context-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">Not yet measured</p><p style=\"font-size:10px;color:var(--text-secondary);margin:4px 0 0\">No classifier for recommended vs listed yet</p></div></figure><figure aria-labelledby=\"dimension-accuracy-name\" aria-describedby=\"dimension-accuracy-status\" style=\"margin:0\"><div id=\"dimension-accuracy-name\" style=\"font-size:12px;font-weight:600;color:var(--text-primary)\">Source citation</div><div style=\"font-size:10px;color:var(--text-tertiary);margin-bottom:12px\">How often mentions cite a source</div><div style=\"font-size:24px;font-weight:600;letter-spacing:-0.02em;color:var(--text-primary);font-family:var(--font-mono);margin-bottom:8px\">6 of 9</div><div id=\"dimension-accuracy-status\"><p style=\"font-size:10px;color:var(--text-tertiary);margin:0\">mentions linked a source</p></div></figure></div></div><div style=\"display:grid;grid-template-columns:repeat(auto-fit, minmax(min(260px, 100%), 1fr));gap:16px;margin-bottom:24px\"><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">Per-engine performance</h3><p style=\"font-size:11px;color:var(--text-tertiary);margin:0 0 16px\">Mentions in successful answers to everyday questions</p><div style=\"display:flex;flex-direction:column;gap:16px\"><figure aria-label=\"ChatGPT\" aria-describedby=\"engine-chatgpt-counts engine-chatgpt-failed\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">ChatGPT</span><span id=\"engine-chatgpt-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">No answers</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:0%;background:transparent\"></div></div><p id=\"engine-chatgpt-failed\" style=\"font-size:10px;color:var(--warning);margin:6px 0 0\">3 failed — not counted (3 errors)</p></figure><figure aria-label=\"Claude\" aria-describedby=\"engine-claude-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Claude</span><span id=\"engine-claude-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure><figure aria-label=\"Gemini\" aria-describedby=\"engine-gemini-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Gemini</span><span id=\"engine-gemini-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure><figure aria-label=\"Perplexity\" aria-describedby=\"engine-perplexity-counts\" style=\"margin:0\"><div class=\"flex items-baseline justify-between gap-3 max-[400px]:flex-col max-[400px]:items-stretch max-[400px]:gap-0.5\" style=\"margin-bottom:6px\"><span style=\"font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap\">Perplexity</span><span id=\"engine-perplexity-counts\" class=\"max-[400px]:self-end\" style=\"font-size:12px;font-weight:600;color:var(--text-primary);font-family:var(--font-mono);white-space:nowrap\">3 of 3 · 100%</span></div><div style=\"height:6px;border-radius:9999px;overflow:hidden;background:var(--accent-muted)\"><div style=\"height:100%;border-radius:9999px;width:100%;background:var(--success)\"></div></div></figure></div></div><div style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 20px\">Competitor context</h3><div><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 8px\">No competitors configured yet.</p><a style=\"font-size:12px;color:var(--accent-blue);text-decoration:none\" href=\"/brands/<uuid>\">Add competitors in brand settings to compare →</a></div></div></div><div role=\"region\" aria-label=\"Directories AI cited\" style=\"background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:8px;padding:24px\"><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 4px\">Directories AI cited</h3><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 20px\">Out of 9 answers to everyday customer questions (questions that don&#x27;t name your business).</p><p style=\"font-size:12px;color:var(--text-tertiary);margin:0 0 16px\">Add your directory listings in brand settings so we can match them.</p><div style=\"display:flex;flex-direction:column;gap:16px\"><div><div style=\"display:flex;align-items:baseline;gap:8px;flex-wrap:wrap\"><span style=\"font-size:13px;font-weight:500;color:var(--text-primary)\">hipages cited in 3 of 9 answers</span><span style=\"font-size:12px;color:var(--text-tertiary)\">· Your profile: Not linked yet</span></div><div style=\"display:flex;flex-direction:column;gap:2px;margin-top:6px;min-width:0\"><a href=\"https://hipages.com.au\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"https://hipages.com.au\" aria-label=\"Open hipages.com.au in a new tab\" style=\"display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--accent-blue)\">hipages.com.au</a></div></div></div></div><div data-recommended-actions=\"true\" style=\"background:var(--bg-elevated);border:1px solid var(--accent-blue);border-radius:8px;padding:24px\"><div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:20px\"><div style=\"display:flex;align-items:center;gap:8px\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sparkles\" aria-hidden=\"true\" style=\"width:16px;height:16px;color:var(--accent-blue)\"><path d=\"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z\"></path><path d=\"M20 2v4\"></path><path d=\"M22 4h-4\"></path><circle cx=\"4\" cy=\"20\" r=\"2\"></circle></svg><h3 style=\"font-size:14px;font-weight:600;color:var(--text-primary);margin:0\">Recommended actions</h3><span style=\"font-size:11px;padding:2px 8px;border-radius:9999px;font-weight:500;background:var(--accent-blue-soft);color:var(--accent-blue)\">2 from this audit</span></div><a style=\"font-size:12px;display:flex;align-items:center;gap:4px;color:var(--accent-blue);text-decoration:none\" href=\"/action-center\">View all <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-right\" aria-hidden=\"true\" style=\"width:12px;height:12px\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg></a></div><div style=\"display:flex;flex-direction:column;gap:12px\"><div data-evidence-action=\"a\" style=\"display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-base)\"><span style=\"font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;flex-shrink:0;margin-top:2px;background:color-mix(in srgb, var(--danger) 15%, transparent);color:var(--danger)\">High</span><div style=\"flex:1;min-width:0\"><div data-action-title=\"true\" style=\"font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px\">Link your hipages profile</div><div data-action-evidence=\"true\" style=\"font-size:11px;color:var(--text-tertiary)\">It&#x27;s cited in 3 of 9 answers; add the links so we can check them.</div></div></div><div data-evidence-action=\"c\" style=\"display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-radius:6px;border:1px solid var(--border-default);background:var(--bg-base)\"><span style=\"font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;flex-shrink:0;margin-top:2px;background:color-mix(in srgb, var(--warning) 15%, transparent);color:var(--warning)\">Re-run</span><div style=\"flex:1;min-width:0\"><div data-action-title=\"true\" style=\"font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px\">Re-run with all four engines</div><div data-action-evidence=\"true\" style=\"font-size:11px;color:var(--text-tertiary)\">ChatGPT wasn&#x27;t measured in this audit.</div></div></div></div><div data-general-advice=\"true\" style=\"margin-top:20px\"><h4 style=\"font-size:12px;font-weight:600;color:var(--text-secondary);margin:0 0 4px\">General advice for plumbing</h4><p style=\"font-size:11px;color:var(--text-tertiary);margin:0 0 10px\">Not drawn from this audit&#x27;s answers.</p><div style=\"display:flex;flex-direction:column;gap:8px\"><a data-general-advice-item=\"true\" style=\"display:flex;align-items:flex-start;gap:14px;padding:10px 16px;border-radius:6px;border:1px dashed var(--border-default);text-decoration:none\" href=\"/action-center/<uuid>\"><span style=\"font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;flex-shrink:0;margin-top:2px;background:color-mix(in srgb, var(--info) 10%, transparent);color:var(--info)\">Low</span><div style=\"flex:1;min-width:0\"><div data-action-title=\"true\" style=\"font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:2px\">Cite verifiable statistics on your service pages</div><div style=\"font-size:11px;color:var(--text-tertiary)\">General advice, not drawn from this audit&#x27;s answers</div></div><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-right\" aria-hidden=\"true\" style=\"width:16px;height:16px;flex-shrink:0;margin-top:2px;color:var(--text-tertiary)\"><path d=\"m9 18 6-6-6-6\"></path></svg></a><a data-general-advice-item=\"true\" style=\"display:flex;align-items:flex-start;gap:14px;padding:10px 16px;border-radius:6px;border:1px dashed var(--border-default);text-decoration:none\" href=\"/action-center/<uuid>\"><span style=\"font-size:11px;font-weight:600;padding:2px 8px;border-radius:9999px;flex-shrink:0;margin-top:2px;background:color-mix(in srgb, var(--info) 10%, transparent);color:var(--info)\">Low</span><div style=\"flex:1;min-width:0\"><div data-action-title=\"true\" style=\"font-size:13px;font-weight:500;color:var(--text-primary);margin-bottom:2px\">Write a service comparison guide</div><div style=\"font-size:11px;color:var(--text-tertiary)\">General advice, not drawn from this audit&#x27;s answers</div></div><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-right\" aria-hidden=\"true\" style=\"width:16px;height:16px;flex-shrink:0;margin-top:2px;color:var(--text-tertiary)\"><path d=\"m9 18 6-6-6-6\"></path></svg></a></div></div></div></div>",
+    "poll": {
+      "status": 200,
+      "body": {
+        "audit": {
+          "id": "<uuid>",
+          "auditNumber": 2,
+          "status": "complete",
+          "scoreComposite": null,
+          "promptsCount": 3,
+          "runsPerPrompt": 1,
+          "totalCalls": 12,
+          "engines": [
+            "chatgpt",
+            "claude",
+            "gemini",
+            "perplexity"
+          ],
+          "startedAt": "<iso>",
+          "completedAt": "<iso>",
+          "metadata": {
+            "mockScenario": "openai_out_of_quota",
+            "engineFailures": {
+              "chatgpt": 3
+            }
+          },
+          "methodologyVersion": 1,
+          "methodology": "memory-only (v1)"
+        },
+        "answeredCount": 12,
+        "failedCount": 3,
+        "everydayFailedCount": 3,
+        "costSoFarUsd": 0.036,
+        "costIncomplete": false,
+        "costIncompleteNote": null,
+        "sampleCount": 9,
+        "mentionedCount": 9,
+        "medianPosition": null,
+        "rankedCount": 0,
+        "engineProgress": [
+          {
+            "engine": "chatgpt",
+            "done": 3,
+            "answered": 0,
+            "failed": 3,
+            "total": 3,
+            "failureReason": "Provider error: account/credit issue"
+          },
+          {
+            "engine": "claude",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          },
+          {
+            "engine": "gemini",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          },
+          {
+            "engine": "perplexity",
+            "done": 3,
+            "answered": 3,
+            "failed": 0,
+            "total": 3,
+            "failureReason": null
+          }
+        ]
+      }
+    },
+    "full": {
+      "status": 200,
+      "body": {
+        "audit": {
+          "id": "<uuid>",
+          "auditNumber": 2,
+          "status": "complete",
+          "engines": [
+            "chatgpt",
+            "claude",
+            "gemini",
+            "perplexity"
+          ],
+          "engineCount": 4,
+          "promptsCount": 3,
+          "runsPerPrompt": 1,
+          "totalCalls": 12,
+          "methodologyVersion": 1,
+          "methodology": "memory-only (v1)",
+          "totalCostUsd": "0.0360",
+          "totalCostAud": "0.06",
+          "costIncomplete": false,
+          "costIncompleteNote": null,
+          "scoreComposite": null,
+          "scoreFrequency": null,
+          "typicalRank": null,
+          "rankedMentions": 0,
+          "sourcedMentions": 6,
+          "mentions": 9,
+          "scorePosition": null,
+          "scoreSentiment": null,
+          "scoreSentimentNumeric": null,
+          "scoreContext": null,
+          "scoreContextNumeric": null,
+          "scoreAccuracy": null,
+          "scoreConfidenceLow": null,
+          "scoreConfidenceHigh": null,
+          "confidenceIntervals": {
+            "context": {
+              "lower": 26.66473457440297,
+              "upper": 81.1224570528086
+            },
+            "headline": {
+              "lower": 70.08472464490407,
+              "upper": 100
+            },
+            "frequency": {
+              "lower": 70.08472464490407,
+              "upper": 100
+            },
+            "sentiment": {
+              "lower": 70.08472464490407,
+              "upper": 100
+            }
+          },
+          "startedAt": "<iso>",
+          "completedAt": "<iso>",
+          "metadata": {
+            "mockScenario": "openai_out_of_quota",
+            "engineFailures": {
+              "chatgpt": 3
+            }
+          }
+        },
+        "citations": [
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "claude",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.004000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "gemini",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+            "citedSources": [],
+            "llmCostUsd": "0.003000",
+            "llmCostAud": "0.00",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: best plumber in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          },
+          {
+            "id": "<uuid>",
+            "engine": "perplexity",
+            "prompt": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+            "runNumber": 1,
+            "brandMentioned": true,
+            "position": null,
+            "sentimentLabel": "positive",
+            "contextLabel": "listed",
+            "responseSnippet": "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+            "citedSources": [
+              {
+                "url": "https://bondiplumbing.com.au",
+                "domain": "bondiplumbing.com.au",
+                "origin": "recalled"
+              },
+              {
+                "url": "https://hipages.com.au",
+                "domain": "hipages.com.au",
+                "origin": "recalled"
+              }
+            ],
+            "llmCostUsd": "0.005000",
+            "llmCostAud": "0.01",
+            "llmModel": "gpt-4o-mini-mock"
+          }
+        ],
+        "perEngineSummary": [
+          {
+            "engine": "chatgpt",
+            "mentionRate": 0,
+            "avgPosition": null,
+            "sentimentLabel": null,
+            "sampleMentions": []
+          },
+          {
+            "engine": "claude",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au.",
+              "Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. Their website is bondiplumbing.com.au."
+            ]
+          },
+          {
+            "engine": "gemini",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs.",
+              "Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from other local plumbers to find the best fit for your needs."
+            ]
+          },
+          {
+            "engine": "perplexity",
+            "mentionRate": 1,
+            "avgPosition": null,
+            "sentimentLabel": "positive",
+            "sampleMentions": [
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2].",
+              "According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on Google Reviews. Source: bondiplumbing.com.au [1], hipages.com.au [2]."
+            ]
+          }
+        ],
+        "citedSourcesByDomain": [
+          {
+            "domain": "bondiplumbing.com.au",
+            "count": 6
+          },
+          {
+            "domain": "hipages.com.au",
+            "count": 3
+          }
+        ]
+      }
+    },
+    "csv": {
+      "status": 200,
+      "header": "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,llm_cost_aud,created_at",
+      "rows": [
+        "2,\"Bondi Plumbing\",claude,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "2,\"Bondi Plumbing\",claude,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "2,\"Bondi Plumbing\",claude,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"Based on my analysis, Bondi Plumbing stands out as an excellent choice for plumbing services in Sydney's eastern suburbs. They have strong customer reviews and offer comprehensive emergency services. \",\"bondiplumbing.com.au\",gpt-4o-mini-mock,0.004000,0.01,<iso>",
+        "2,\"Bondi Plumbing\",gemini,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "2,\"Bondi Plumbing\",gemini,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "2,\"Bondi Plumbing\",gemini,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"Here are some plumbing options in Sydney's eastern suburbs. Bondi Plumbing is one provider in the area that offers general and emergency plumbing services. You may also want to compare quotes from oth\",\"\",gpt-4o-mini-mock,0.003000,0.00,<iso>",
+        "2,\"Bondi Plumbing\",perplexity,\"Golden parity: best plumber in Bondi, NSW?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "2,\"Bondi Plumbing\",perplexity,\"Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>",
+        "2,\"Bondi Plumbing\",perplexity,\"Golden parity: who do locals trust for a blocked drain in Bondi, NSW?\",1,true,,positive,listed,\"According to recent reviews and local listings [1][2], Bondi Plumbing is a highly rated plumbing service in Sydney's eastern suburbs. They offer 24/7 emergency services and have a 4.8-star rating on G\",\"bondiplumbing.com.au|hipages.com.au\",gpt-4o-mini-mock,0.005000,0.01,<iso>"
+      ]
+    },
+    "pdf": {
+      "status": 200,
+      "pdfData": {
+        "brandName": "Bondi Plumbing",
+        "auditNumber": 2,
+        "headline": {
+          "status": "insufficient_data",
+          "reason": "no_answers"
+        },
+        "sampleCount": 9,
+        "mentionedCount": 9,
+        "rankedCount": 0,
+        "medianPosition": null,
+        "sourcedCount": 6,
+        "dimensions": {
+          "frequency": {
+            "status": "insufficient_data",
+            "reason": "no_answers"
+          },
+          "position": {
+            "status": "not_measured",
+            "reason": "not_ranked"
+          },
+          "sentiment": {
+            "status": "not_measured",
+            "reason": "no_classifier"
+          },
+          "context": {
+            "status": "not_measured",
+            "reason": "no_classifier"
+          },
+          "accuracy": {
+            "status": "not_measured",
+            "reason": "counts_only"
+          }
+        },
+        "completedAt": "<iso>",
+        "actionItems": [
+          {
+            "title": "AI cited hipages in 3 of 9 answers — confirm your status",
+            "action": "hipages was cited in 3 of 9 answers to everyday customer questions (questions that don't name your business) (checked 2026-11-11). You haven't told us whether you're listed on hipages — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile. See the cited pages linked under this recommendation's evidence."
+          },
+          {
+            "title": "Cite verifiable statistics on your service pages",
+            "action": "Add 1-2 industry statistics with source links (e.g. WaterNSW, ABS building permits)."
+          },
+          {
+            "title": "Write a service comparison guide",
+            "action": "Publish a 600-word guide comparing your service type with alternatives, citing pros/cons."
+          }
+        ],
+        "priorComposite": null,
+        "priorCompletedAt": null,
+        "engineStats": [
+          {
+            "engine": "chatgpt",
+            "sampleCount": 0,
+            "mentionedCount": 0
+          },
+          {
+            "engine": "claude",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          },
+          {
+            "engine": "gemini",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          },
+          {
+            "engine": "perplexity",
+            "sampleCount": 3,
+            "mentionedCount": 3
+          }
+        ],
+        "engineCoverage": {
+          "label": "3 of 4 engines",
+          "note": "Based on 3 of 4 engines. ChatGPT returned an error for every question: Provider error: account/credit issue."
+        },
+        "priorEngineCoverageLabel": null
+      }
+    },
+    "report": {
+      "organizationId": "<uuid>",
+      "generatedAt": "<iso>",
+      "brand": {
+        "id": "<uuid>",
+        "name": "Bondi Plumbing",
+        "domain": "bondiplumbing.com.au",
+        "locality": "Bondi",
+        "state": "NSW",
+        "vertical": "Plumbing"
+      },
+      "agency": {
+        "name": null,
+        "logoUrl": null,
+        "contactLine": null,
+        "footerText": null
+      },
+      "period": {
+        "type": "monthly",
+        "label": "November 2026"
+      },
+      "basis": {
+        "auditId": "<uuid>",
+        "auditNumber": 2,
+        "completedAt": "<iso>",
+        "startedAt": "<iso>",
+        "reason": "latest_before_period",
+        "methodology": "memory-only (v1)"
+      },
+      "headline": {
+        "status": "insufficient_data",
+        "reason": "no_answers"
+      },
+      "mentionedCount": 9,
+      "sampleCount": 9,
+      "rankedCount": 0,
+      "medianPosition": null,
+      "sourcedCount": 6,
+      "coverage": {
+        "enginesPlanned": 4,
+        "enginesAnswered": 3,
+        "label": "3 of 4 engines",
+        "note": "Based on 3 of 4 engines. ChatGPT returned an error for every question: Provider error: account/credit issue."
+      },
+      "engines": [
+        {
+          "engine": "chatgpt",
+          "name": "ChatGPT",
+          "sampleCount": 0,
+          "mentionedCount": 0,
+          "failedEverydayCount": 3,
+          "failedCount": 3,
+          "fullyFailed": true,
+          "failureReason": "Provider error: account/credit issue",
+          "models": []
+        },
+        {
+          "engine": "claude",
+          "name": "Claude",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        },
+        {
+          "engine": "gemini",
+          "name": "Gemini",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        },
+        {
+          "engine": "perplexity",
+          "name": "Perplexity",
+          "sampleCount": 3,
+          "mentionedCount": 3,
+          "failedEverydayCount": 0,
+          "failedCount": 0,
+          "fullyFailed": false,
+          "failureReason": null,
+          "models": [
+            "gpt-4o-mini-mock"
+          ]
+        }
+      ],
+      "questions": {
+        "everyday": 3,
+        "branded": 0,
+        "perEngine": 3
+      },
+      "directories": {
+        "totalAnswers": 9,
+        "rows": [
+          {
+            "key": "hipages",
+            "name": "hipages",
+            "citedCount": 3,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "serviceseeking",
+            "name": "ServiceSeeking",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "oneflare",
+            "name": "Oneflare",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "airtasker",
+            "name": "Airtasker",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "yellow_pages_au",
+            "name": "Yellow Pages",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "true_local",
+            "name": "True Local",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "localsearch",
+            "name": "Localsearch",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "product_review",
+            "name": "ProductReview",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "word_of_mouth",
+            "name": "Word of Mouth",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          },
+          {
+            "key": "google_business_profile",
+            "name": "Google Business Profile",
+            "citedCount": 0,
+            "ownerProfileLinked": false,
+            "ownerProfileCitedCount": 0,
+            "ownerStatus": null
+          }
+        ]
+      },
+      "sources": {
+        "totalAnswers": 9,
+        "reddit": 0
+      },
+      "modelDrift": [],
+      "answers": {
+        "planned": 12,
+        "answered": 9,
+        "failed": 3
+      },
+      "matrix": [
+        {
+          "index": 1,
+          "question": "Golden parity: best plumber in Bondi, NSW?",
+          "cells": {
+            "chatgpt": "error",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        },
+        {
+          "index": 2,
+          "question": "Golden parity: who do locals trust for a blocked drain in Bondi, NSW?",
+          "cells": {
+            "chatgpt": "error",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        },
+        {
+          "index": 3,
+          "question": "Golden parity: licensed electrician in Bondi, NSW for a switchboard upgrade?",
+          "cells": {
+            "chatgpt": "error",
+            "claude": "mentioned",
+            "gemini": "mentioned",
+            "perplexity": "mentioned"
+          }
+        }
+      ],
+      "competitors": {
+        "configured": false,
+        "state": "not_enough_answers",
+        "stateDetail": "Not enough answers",
+        "brandMentions": 9,
+        "brandSharePct": null,
+        "totalMentions": 9,
+        "smallSample": false,
+        "rows": [],
+        "note": null
+      },
+      "trend": {
+        "points": [
+          {
+            "auditId": "<uuid>",
+            "auditNumber": 2,
+            "completedAt": "<iso>",
+            "value": null,
+            "ci": null,
+            "mentionedCount": 9,
+            "sampleCount": 9,
+            "enginesPlanned": 4,
+            "enginesAnswered": 3,
+            "partial": true,
+            "earlierMethodology": false,
+            "methodologyChange": null,
+            "otherModels": null,
+            "modelDrift": null,
+            "failedEngines": [
+              {
+                "name": "ChatGPT",
+                "reason": "Provider error: account/credit issue"
+              }
+            ],
+            "comparable": false,
+            "isBasis": true,
+            "inPeriod": false
+          }
+        ],
+        "comparableCount": 0,
+        "minimum": 3,
+        "change": null,
+        "leftOut": 0
+      },
+      "residency": {
+        "accountData": "AWS ap-southeast-2 (Sydney)",
+        "reportStorage": "AWS ap-southeast-2 (Sydney)"
+      },
+      "sections": {
+        "competitors": true,
+        "diagnosis": true,
+        "trend": true,
+        "recommended_next": true,
+        "method": true
+      }
+    },
+    "email": {
+      "result": {
+        "sent": 1
+      },
+      "steps": [
+        "load-audit-for-email",
+        "resolve-recipients",
+        "send-email"
+      ],
+      "emails": [
+        {
+          "to": "owner@example.test",
+          "subject": "Audit #2 complete: Bondi Plumbing — no answers collected (3 of 4 engines)",
+          "html": "<!DOCTYPE html>\n<html lang=\"en-AU\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"color-scheme\" content=\"light\">\n<title>Audit #2 complete: Bondi Plumbing — no answers collected (3 of 4 engines)</title>\n</head>\n<body style=\"margin:0;padding:0;background:#fafafa;\">\n<div style=\"display:none;max-height:0;overflow:hidden;\">Visibility — · no successful answers were collected</div>\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fafafa;\">\n<tr><td align=\"center\" style=\"padding:24px 16px;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;\">\n<tr><td style=\"padding:24px 32px 0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;\">Vunnara</td></tr>\n<tr><td style=\"padding:16px 32px 16px;\">\n<h1 style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;\">Audit #2 for Bondi Plumbing is complete</h1>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;\">Visibility — · no successful answers were collected</p>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;\">Based on 3 of 4 engines. ChatGPT returned an error for every question: Provider error: account/credit issue.</p>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;\">What to check: The provider says the account is out of credit or over its quota. Check billing and credits in the provider&#39;s console.</p>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;\">Drift alerts and the weekly trend leave this audit out.</p>\n<p style=\"margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;\">Finished <date>, <time> (Sydney time).</p>\n<p style=\"margin:8px 0 24px;\"><a href=\"http://localhost:3000/audits/<uuid>\" style=\"display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;\">View the audit</a></p>\n</td></tr>\n</table>\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;\">\n<tr><td style=\"padding:16px 32px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;\">You&#39;re getting this because of your organisation&#39;s notification settings. <a href=\"http://localhost:3000/settings/notifications\" style=\"color:#2563eb;text-decoration:underline;\">Change your notification settings</a>.<br>Vunnara · AI search visibility for Australian businesses</td></tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>",
+          "text": "Vunnara\n\nAudit #2 for Bondi Plumbing is complete\n\nVisibility — · no successful answers were collected\n\nBased on 3 of 4 engines. ChatGPT returned an error for every question: Provider error: account/credit issue.\n\nWhat to check: The provider says the account is out of credit or over its quota. Check billing and credits in the provider's console.\n\nDrift alerts and the weekly trend leave this audit out.\n\nFinished <date>, <time> (Sydney time).\n\nView the audit:\nhttp://localhost:3000/audits/<uuid>\n\n---\nYou're getting this because of your organisation's notification settings.\n\nNotification settings:\nhttp://localhost:3000/settings/notifications",
+          "category": "audit_complete",
+          "organizationId": "<uuid>",
+          "idempotencyKey": "audit-complete:<uuid>:b2096dbc5111b630"
+        }
+      ]
+    }
+  }
+}

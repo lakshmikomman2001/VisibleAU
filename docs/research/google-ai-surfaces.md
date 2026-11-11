@@ -20,10 +20,11 @@ Contents:
 1. Provider comparison
 2. First-party alternative: Google Search Console
 3. Design sketch for Vunnara
-4. Live sample (not run: no provider key)
+4. Live sample (not run on 8 Nov: no provider key; run 11 Nov, section 8)
 5. Recommendation
 6. Decisions for Sri
 7. Sources
+8. Live sample (11 Nov 2026)
 
 ---
 
@@ -564,7 +565,7 @@ Q3 2026 has passed, so that line is now untrue whatever is decided here.
 
 ## 4. Live sample
 
-**Not run.** No provider key exists in `.env.local`, `.env.dev` or `.env.prod`: none of `DATAFORSEO_*`, `SERPAPI_*`,
+**Run on 11 Nov 2026: see section 8.** On 8 Nov it was **not run**. No provider key exists in `.env.local`, `.env.dev` or `.env.prod`: none of `DATAFORSEO_*`, `SERPAPI_*`,
 `SEARCHAPI_*`, `APIFY_*` or `CLORO_*` (names checked, values never read).
 
 What Sri needs for the sample (and for the feature), with DataForSEO:
@@ -772,3 +773,120 @@ Quotes were taken from each page's own text. Where a provider's pages disagree, 
 - cloud https://support.google.com/cloud/answer/13463817, https://support.google.com/cloud/answer/13464325,
   https://support.google.com/cloud/answer/15549945, https://support.google.com/cloud/answer/7454865
 - 7687615 https://support.google.com/webmasters/answer/7687615 (Search Console permissions)
+
+---
+
+## 8. Live sample (11 Nov 2026)
+
+Run 11 Nov 2026, 15:57 Sydney time (04:57 UTC), on DataForSEO's trial credit, with a throwaway script outside the repo.
+Raw responses were kept outside git. No answer text is reproduced here: only counts, names and domains.
+
+**Setup.**
+- Location `location_code` 9071744, "2153,New South Wales,Australia" (type "Postal Code", parent 20035 "New South
+  Wales,Australia"), from `GET /v3/serp/google/locations/au` (5,798 rows). The same location was used for both surfaces.
+- English (`language_code` "en"), desktop, Windows, standard queue (`priority` 1).
+- AI Overviews: `organic/task_post` with `se_domain` "google.com.au", `depth` 10 and `load_async_ai_overview` true.
+- AI Mode: `ai_mode/task_post`. It has no `se_domain` field.
+- **The questions are template-generated, not production's stored pack.** There's no Omega brand in local data, and
+  production wasn't read. `buildPromptPack()` built them from the facts recorded in `prod-fixes/prompts/`:
+  - categories plumbing, electrical and general trades; audience households; "Norwest, NSW";
+  - the brand id as seed; no confirmed competitors;
+  - the classifier's intent signals from audit #27.
+
+  That gives 10 organic questions and 3 branded ones. Production's wording may differ.
+
+**Per question.** "Google" counts the citations that are Google's own links (see "Differences" below). Directories are
+matched by the repo's `findDirectoryByDomain()`, apart from Google Business Profile, which is covered by "Google".
+
+| # | Question | AI Overview shown | Overview citations (Google) | AI Mode citations (Google) | Omega: Overview / AI Mode | Directories: Overview / AI Mode |
+|---|---|---|---|---|---|---|
+| 1 | Reliable plumber in Norwest, NSW available on weekends? | yes | 6 (4) | 4 (4) | no / no | — / — |
+| 2 | Plumber in Norwest, NSW -- who do locals trust for general repairs? | yes | 5 (3) | 3 (3) | no / no | hipages / — |
+| 3 | Licensed plumber for hot water system replacement in Norwest, NSW? | yes | 6 (3) | 4 (4) | no / no | ServiceSeeking / — |
+| 4 | Best local trade contractors in Norwest, NSW? | yes | 6 (3) | 5 (5) | no / no | Yellow Pages / — |
+| 5 | Who are the most reliable electricians in Norwest, NSW? | yes | 12 (1) | 6 (4) | no / no | hipages / hipages |
+| 6 | Best electrician in Norwest, NSW for a new power point or circuit? | yes | 5 (3) | 3 (3) | no / no | — / — |
+| 7 | Electrician in Norwest, NSW who can quote an EV charger install? | **no** | — | 3 (0) | — / no | — / — |
+| 8 | Best trade services in Norwest, NSW for home maintenance? | yes | 6 (3) | 5 (2) | no / no | — / — |
+| 9 | Trade services in Norwest, NSW for a pre-sale property fix-up? | **no** | — | 4 (2) | — / no | — / — |
+| 10 | Best tradie in Norwest, NSW for deck, fence or pergola repairs? | yes | 7 (4) | 3 (3) | no / no | ServiceSeeking, Yelp / — |
+| 11 | Is Omega Services a good choice for a plumber in Norwest, NSW? (branded) | yes | 7 (0) | 3 (1) | named, site cited / named, site cited | Yelp, ProductReview / ProductReview |
+| 12 | What are the best alternatives to Omega Services in Norwest, NSW? (branded) | yes | 5 (3) | 5 (2) | named / named | — / — |
+| 13 | Is Omega Services popular in Norwest, NSW? (branded) | yes | 3 (1) | 2 (1) | named, site cited / named, site cited | — / — |
+
+- AI Mode answered all 13.
+- Every result reports `location_code` 9071744 and `language_code` "en". AI Overviews report `se_domain`
+  "google.com.au"; AI Mode reports "google.com".
+- Of the six directories asked about:
+  - hipages: 2 overviews and 1 AI Mode answer;
+  - Yellow Pages: 1 overview;
+  - Word of Mouth, Localsearch, Oneflare and Airtasker: none.
+- Other sites cited that look like listing sites, judged by name only and not in the registry:
+  - bestplumbers.com: 3 overviews;
+  - inthesuburbs.com.au: 2;
+  - nearme.com.au and whereis.com: 1 each.
+
+**Summary.**
+- **AI Mode returns Australian-located answers for 2153: yes, as far as one sample shows.**
+  - It accepted the postcode location. No task was rejected, so no fallback location was needed.
+  - Each result echoes `location_code: 9071744`. Its `check_url` is
+    `https://www.google.com/search?q=…&hl=en&gl=AU&udm=50&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc`.
+  - The AI Overview request is `https://www.google.com.au/search?q=…&hl=en&gl=AU&ie=UTF-8&uule=…`, with the same
+    `uule`.
+  - That `uule` is a Google place reference, not a name: feature id `0x6b12a29795cee0c9:0x1c017d6b3fba94c0`.
+  - In all 13 AI Mode answers, the answer or its citations name nearby places that the question doesn't: Castle Hill,
+    Baulkham Hills, Bella Vista, Kellyville, Rouse Hill, the Hills District. They also cite Sydney businesses.
+  - **Caveat:** every question already names "Norwest, NSW", so this sample can't separate the effect of the location
+    parameter from the question's own wording. A question with no place in it would test that. It wasn't run: it was
+    outside the 26 tasks.
+- **AI Overview shown for 11 of 13**: 8 of the 10 organic questions and all 3 branded. It wasn't shown for 7 (EV
+  charger) or 9 (pre-sale fix-up).
+- **Omega was mentioned only where the question names it:**
+  - AI Overviews: 3 of the 11 shown, all branded. Its site (`omegaservices.com.au`) was cited in 11 and 13. In 0 of
+    the 8 organic overviews.
+  - AI Mode: 3 of 13, the same three questions, with its site cited in 11 and 13. In 0 of the 10 organic answers.
+  - Omega isn't in the local pack, which appeared on 10 of the 13 AI Overview pages.
+  - Two branded answers mix Omega up with other businesses:
+    - overview 11 cites `omega-plumbing.com.au`, a different business, and names Thornleigh, as does overview 13;
+    - AI Mode answer 13 links the name "Omega Services" to `omegatechserv.com`.
+
+    This is the same-name problem `verify-mention.ts`'s suburb rule exists for.
+- **Cost:**
+  - charged at posting: US$0.0312 for 26 tasks;
+  - each AI Overview task US$0.0012 (0.0006 plus 0.0006 for the async overview);
+  - each AI Mode task US$0.0012.
+
+  These match section 1.2's standard prices. The account's own figures are rounded to the cent: balance US$1.00 →
+  US$0.97, "spent today" US$0.03.
+
+  The doc says the async surcharge is refunded when there's no overview. For questions 7 and 9 that's 2 × US$0.0006, which would make the charge exactly
+  US$0.0300. Cent rounding can't confirm it. The per-function spending figures all read 0.
+- **Standard-queue waits**, from posting to the result's `datetime`:
+  - AI Mode: 0.1–1.0 minutes, median 0.2;
+  - AI Overviews: 1.0–2.0 minutes, median 1.5, except one at 11.3 minutes (question 9, no overview).
+
+  All of these are well under the "~5 minutes on average" in section 1.2.
+
+**Differences from the Phase 0 doc (sections 1.2 and 4).**
+- **Every one of the 11 overviews had `asynchronous_ai_overview: true`.** Without `load_async_ai_overview` there would
+  have been none, or only cached ones. It is required, not optional.
+- **More than half the citations (62 of 118) are Google's own links:** `https://www.google.com/searchviewer/10?svid=…`,
+  with `source` "Google" and `domain` "google.com". That's 28 of 68 for AI Overviews and 34 of 50 for AI Mode.
+  - They name no business in the URL. They're probably Google's local business cards, but that wasn't checked.
+  - The repo's registry maps google.com to Google Business Profile, so Phase 1's directory counts would count each one
+    as a Google Business Profile citation. That needs a decision before those counts are shown.
+  - Every one of the 118 citations carries `domain`.
+- **AI Mode runs on google.com, not google.com.au:** `se_domain` "google.com", with `gl=AU` and the same `uule` as AI
+  Overviews.
+- **The result has `location_code` but no `location_name`**, on both surfaces. The task's `data` echoes the posted
+  fields.
+- There's **no AI Mode locations endpoint**: `/v3/serp/google/ai_mode/locations/au` returns 40400 "Not Found." AI Mode
+  took the general Google location list.
+- `ai_mode/languages` lists 97 languages, not about 40, English included.
+- **"No overview" shape:** as documented, `ai_overview` is absent from both `items` and `item_types`. There's no null
+  item and no flag. Questions 7 and 9 still had `organic` and `local_pack` items.
+- **Element types seen:** `ai_overview_element`, `images_element`, `ai_overview_reference`, and in AI Mode also
+  `link_element`.
+  - References are in both the item's own `references` and each element's.
+  - The overview was the first result (`rank_absolute` 1) on 10 of 11 pages, and fourth on one (question 10).
+- **No errors:** 26 of 26 returned 20000 "Ok.", none needed a retry, so the billing of failed tasks wasn't observed.

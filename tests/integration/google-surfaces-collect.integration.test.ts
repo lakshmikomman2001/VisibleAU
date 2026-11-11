@@ -19,6 +19,7 @@
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
@@ -309,6 +310,26 @@ describe("Google AI surfaces on: the real pipeline, the provider's recorded answ
     expect(await coreOf(on.auditId)).toEqual(await coreOf(off.auditId));
     expect((await googleRows(on.auditId)).length).toBe(8);
     expect(await googleRows(off.auditId)).toEqual([]);
+
+    // The four engines' duration (the audit's start to its finalize), Google on and off: Google runs after
+    // finalize, in its own function, so it can't lengthen it. Logged for the report.
+    const durations = await client`
+      SELECT id, EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 AS ms
+      FROM audits WHERE id IN (${off.auditId}, ${on.auditId})
+    `;
+    const ms = (id: string) => Math.round(Number(durations.find((d) => d.id === id)?.ms));
+    // GOOGLE_DURATION_LOG=<path>: written there for the report (the reporter doesn't show passing tests' logs).
+    if (process.env.GOOGLE_DURATION_LOG) {
+      writeFileSync(
+        process.env.GOOGLE_DURATION_LOG,
+        JSON.stringify({ coreEngineDurationMs: { off: ms(off.auditId), on: ms(on.auditId) } }),
+      );
+    }
+    const [google] = await client`
+      SELECT EXTRACT(EPOCH FROM (g.completed_at - a.completed_at)) * 1000 AS ms
+      FROM audit_google_surfaces g JOIN audits a ON a.id = g.audit_id WHERE g.audit_id = ${on.auditId}
+    `;
+    expect(Number(google.ms)).toBeGreaterThanOrEqual(0);
   }, 120_000);
 
   it("failures don't leak: the provider unreachable -- Google rows failed, the audit complete, the core the same", async () => {

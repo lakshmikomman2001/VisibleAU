@@ -659,9 +659,11 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
     try {
       await signInThroughForm(page, user1);
       await page.goto(`/brands/${emptyBrand.id}/autopilot`);
-      await expect(page.getByText("Waiting for first audit to complete")).toBeVisible({
-        timeout: 20_000,
-      });
+      // The loop is drawn twice -- a list under lg and the full loop from lg (autopilot-loop.tsx) -- with one
+      // hidden at any width, so the check is the line that's on screen.
+      await expect(
+        page.getByText("Waiting for first audit to complete").filter({ visible: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
 
       const content = (await page.textContent("body")) ?? "";
       // Step 1 is current, the other four wait on it -- each says for what.

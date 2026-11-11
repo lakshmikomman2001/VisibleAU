@@ -8,9 +8,14 @@ import {
 
 // A production build stops while the legal name or ABN is still a placeholder (lib/product.ts).
 assertLegalEntityForProduction();
-
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-auth"],
+  // Before the next push (11 Nov), part 5: the Playwright dev server (tests/e2e/helpers/e2e-config.ts sets
+  // E2E_DEV_SERVER=1) runs without Turbopack's filesystem cache. Restoring the 8.7 GB cache in .next/dev/cache
+  // took that server to 6.9 GB before it served a page. `pnpm dev` keeps the cache (Next 16.1's default).
+  experimental: {
+    turbopackFileSystemCacheForDev: process.env.E2E_DEV_SERVER !== "1",
+  },
   // DEMO-BLOCKER (1 Nov), part 4: the report PDF's bundled fonts are read
   // from disk at render time (lib/reports/pdf/fonts.ts), inside the Inngest
   // function render-report-pdf -- ship them with the route that serves it.

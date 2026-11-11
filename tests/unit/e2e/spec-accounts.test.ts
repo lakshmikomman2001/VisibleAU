@@ -92,7 +92,13 @@ describe("every tests/e2e config loads .env.test.local only and starts its serve
     const server = e2eWebServer();
     expect(server.command).toBe("npx next dev --port 3000");
     expect(server.env.NODE_ENV).toBe("test");
-    expect(E2E_SERVER_ENV).toEqual({ NODE_ENV: "test", LLM_MODE: "mock", STORAGE_DRIVER: "local" });
+    // E2E_DEV_SERVER since before-the-next-push part 5 (11 Nov): no Turbopack filesystem cache for this server.
+    expect(E2E_SERVER_ENV).toEqual({
+      NODE_ENV: "test",
+      LLM_MODE: "mock",
+      STORAGE_DRIVER: "local",
+      E2E_DEV_SERVER: "1",
+    });
   });
 
   it("an already-running server is reused only when asked", () => {

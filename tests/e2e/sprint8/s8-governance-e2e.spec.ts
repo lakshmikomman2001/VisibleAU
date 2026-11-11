@@ -365,7 +365,13 @@ test.describe("5.2 — F18 tier-gate (Agency full vs Growth locked)", () => {
 
     // 6 Nov: the seat count from lib/pricing/tiers.ts (Growth has one), in place of the
     // Agency-only overlay this page used to show.
-    await expect(page.getByText(/of 1 seat used/)).toBeVisible({ timeout: 10_000 });
+    // Stale since af8de42 (10 Nov), updated before the next push (11 Nov, part 5): signed into its own
+    // workspace, the page states the count twice -- the header's "... · Growth plan · 2 of 1 seat used" and the
+    // seat-limit line, both since e0f8aba -- so the bare text matched two elements (strict mode). The check is
+    // the seat-limit line's.
+    const seatLimitLine = page.locator("[data-seat-limit]");
+    await expect(seatLimitLine).toBeVisible({ timeout: 10_000 });
+    await expect(seatLimitLine).toContainText(/of 1 seat used/);
     await expect(page.getByRole("link", { name: "See the plans with more seats" })).toHaveAttribute(
       "href",
       "/pricing",

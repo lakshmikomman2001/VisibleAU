@@ -23,11 +23,22 @@ import { assertE2eDatabaseUrl } from "./e2e-database";
 export const REPO_ROOT = path.resolve(__dirname, "../../..");
 export const E2E_PORT = 3000;
 
-/** What the dev server gets on top of the runner's environment. Not secrets: nothing else goes here. */
+/**
+ * What the dev server gets on top of the runner's environment. Not secrets: nothing else goes here.
+ *
+ * E2E_DEV_SERVER turns off Turbopack's filesystem cache for this server (next.config.ts). Before the next push
+ * (11 Nov), part 5: on by default since Next 16.1, the cache had grown to 8.7 GB in .next/dev/cache, and a
+ * server restoring it held 6.9 GB within 30 seconds of starting, before serving a page -- the "8 GB idle" e2e
+ * server of 9 Nov. Without it the server starts at about 0.3 GB and grows only as it compiles pages -- about
+ * 0.3 GB a page, and it keeps them: one server took 5.5 GB through 19 of responsive-shell's 72 pages. On a
+ * 15.8 GB machine run that spec in shards, a fresh `pnpm e2e:server` for each (`--fully-parallel --shard=1/8`
+ * ... `8/8`, each about 3.4-5.0 GB at its peak).
+ */
 export const E2E_SERVER_ENV = {
   NODE_ENV: "test",
   LLM_MODE: "mock",
   STORAGE_DRIVER: "local",
+  E2E_DEV_SERVER: "1",
 } as const;
 
 /** Loads `.env.test.local` and refuses to go on unless every database URL is the local e2e one. */

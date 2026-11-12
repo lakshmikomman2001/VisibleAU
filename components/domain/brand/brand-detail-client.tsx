@@ -34,6 +34,7 @@ import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import {
@@ -119,6 +120,11 @@ interface BrandDetailClientProps {
    * tests) means it's read from brand.classificationStatus alone.
    */
   classificationState?: ClassificationState;
+  /**
+   * 13 Nov (part 3): the audit figures couldn't be loaded (the page itself did). The figures' sections say
+   * so, with Try again -- never "No audits yet" or a placeholder that never finishes.
+   */
+  statsUnavailable?: boolean;
   auditCount: number;
   // Task #46 Phase 2: `insufficientData` is optional (not just `boolean`) so
   // existing callers/tests that don't yet pass it (e.g. an empty
@@ -169,7 +175,6 @@ interface KpiTile {
   label: string;
   value: string;
   key: number;
-  skeleton: boolean;
   detail?: string;
   color?: string;
 }
@@ -188,6 +193,7 @@ export function BrandDetailClient({
   brand,
   tier,
   classificationState: serverClassificationState,
+  statsUnavailable = false,
   auditCount,
   recentAudits,
   latestAudit,
@@ -1041,83 +1047,98 @@ export function BrandDetailClient({
         })}
       </div>
 
-      {/* Section 2: KPI cards: four across from 1024px, two below (as the Overview's) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 16, marginBottom: 32 }}>
-        {(auditCount === 0
-          ? [0, 1, 2, 3].map((i): KpiTile => ({ label: "", value: "", skeleton: true, key: i }))
-          : [
-              {
-                // Task #46 Phase 2: the old `latestAudit?.scoreComposite ? ... : "—"`
-                // truthy check never actually caught a zero-mention audit --
-                // "0.00" is a non-empty, truthy string -- so it rendered the
-                // real-but-unqualified "0.0" as if it were a measured low
-                // score. insufficientData is the honest, explicit gate.
-                // The audit page's headline, the same as the Brands list:
-                // "8%" over "3 of 40", or "—" with why (it used to print
-                // the mention rate as a bare "7.5").
-                label: "Visibility",
-                ...(() => {
-                  const v = latestAudit?.visibility ?? visibilityDisplay(null);
-                  return {
-                    value: v.value,
-                    // URGENT audit #37 (31 Oct), item 2: "· 3 of 4 engines".
-                    detail: v.coverage ? `${v.detail} · ${v.coverage}` : v.detail,
-                    color: visibilityColorVar(v.band),
-                  };
-                })(),
-                key: 0,
-              },
-              {
-                // Audit #36: the median rank, formatted like every other
-                // surface ("#4") -- it was labelled "Avg" and shown as "4.0".
-                label: "Typical position",
-                value: avgPosition != null ? formatTypicalRank(avgPosition) : "—",
-                key: 1,
-              },
-              {
-                label: `Total mentions (${auditCount} audit${auditCount !== 1 ? "s" : ""})`,
-                value: totalMentions != null ? totalMentions.toLocaleString() : "—",
-                key: 2,
-              },
-              {
-                // Task #46 Phase 3, Part C: Sentiment has no real
-                // classifier behind its stored value at all (mention.found
-                // ? "positive" : "neutral" -- lib/scoring/dimension-result.ts)
-                // -- unconditionally "Not yet measured", every audit, never
-                // gated on mention count the way the Visibility score tile's
-                // insufficientData is.
-                label: "Sentiment",
-                value: "Not yet measured",
-                key: 3,
-              },
-            ].map((m): KpiTile => ({ ...m, skeleton: false }))
-        ).map((m) => (
+      {statsUnavailable ? (
+        <div data-brand-stats-error="" style={{ marginBottom: 40 }}>
+          <LoadError what="this brand's audit figures" onRetry={() => router.refresh()} />
+        </div>
+      ) : (
+        <>
+          {/* Section 2: KPI cards: four across from 1024px, two below (as the Overview's). 13 Nov (part 3): with
+          no audits they said nothing at all -- four grey placeholders that never finished loading, though
+          nothing was loading. Each card says what it will show after the first audit. */}
           <div
-            key={m.key}
-            style={{
-              padding: 20,
-              borderRadius: 8,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-default)",
-            }}
+            className="grid grid-cols-2 lg:grid-cols-4"
+            style={{ gap: 16, marginBottom: 32 }}
+            data-brand-kpis=""
           >
-            {m.skeleton ? (
-              <>
-                <div
-                  style={{
-                    height: 12,
-                    width: 96,
-                    borderRadius: 4,
-                    marginBottom: 16,
-                    background: "var(--bg-hover)",
-                  }}
-                />
-                <div
-                  style={{ height: 28, width: 64, borderRadius: 4, background: "var(--bg-hover)" }}
-                />
-              </>
-            ) : (
-              <>
+            {(auditCount === 0
+              ? ([
+                  {
+                    label: "Visibility",
+                    value: "No audits yet",
+                    detail: "How often AI answers name you, after your first audit",
+                    key: 0,
+                  },
+                  {
+                    label: "Typical position",
+                    value: "No audits yet",
+                    detail: "Your usual place when AI lists businesses",
+                    key: 1,
+                  },
+                  {
+                    label: "Total mentions",
+                    value: "No audits yet",
+                    detail: "Answers that name your business, across your audits",
+                    key: 2,
+                  },
+                  { label: "Sentiment", value: "Not yet measured", key: 3 },
+                ] satisfies KpiTile[])
+              : ([
+                  {
+                    // Task #46 Phase 2: the old `latestAudit?.scoreComposite ? ... : "—"`
+                    // truthy check never actually caught a zero-mention audit --
+                    // "0.00" is a non-empty, truthy string -- so it rendered the
+                    // real-but-unqualified "0.0" as if it were a measured low
+                    // score. insufficientData is the honest, explicit gate.
+                    // The audit page's headline, the same as the Brands list:
+                    // "8%" over "3 of 40", or "—" with why (it used to print
+                    // the mention rate as a bare "7.5").
+                    label: "Visibility",
+                    ...(() => {
+                      const v = latestAudit?.visibility ?? visibilityDisplay(null);
+                      return {
+                        value: v.value,
+                        // URGENT audit #37 (31 Oct), item 2: "· 3 of 4 engines".
+                        detail: v.coverage ? `${v.detail} · ${v.coverage}` : v.detail,
+                        color: visibilityColorVar(v.band),
+                      };
+                    })(),
+                    key: 0,
+                  },
+                  {
+                    // Audit #36: the median rank, formatted like every other
+                    // surface ("#4") -- it was labelled "Avg" and shown as "4.0".
+                    label: "Typical position",
+                    value: avgPosition != null ? formatTypicalRank(avgPosition) : "—",
+                    key: 1,
+                  },
+                  {
+                    label: `Total mentions (${auditCount} audit${auditCount !== 1 ? "s" : ""})`,
+                    value: totalMentions != null ? totalMentions.toLocaleString() : "—",
+                    key: 2,
+                  },
+                  {
+                    // Task #46 Phase 3, Part C: Sentiment has no real
+                    // classifier behind its stored value at all (mention.found
+                    // ? "positive" : "neutral" -- lib/scoring/dimension-result.ts)
+                    // -- unconditionally "Not yet measured", every audit, never
+                    // gated on mention count the way the Visibility score tile's
+                    // insufficientData is.
+                    label: "Sentiment",
+                    value: "Not yet measured",
+                    key: 3,
+                  },
+                ] satisfies KpiTile[])
+            ).map((m: KpiTile) => (
+              <div
+                key={m.key}
+                style={{
+                  padding: 20,
+                  borderRadius: 8,
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
                 <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 8 }}>
                   {m.label}
                 </div>
@@ -1141,260 +1162,330 @@ export function BrandDetailClient({
                     {m.detail}
                   </div>
                 )}
-              </>
-            )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Section 3: Sparkline + Per-engine */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 40 }}>
-        <div
-          style={{
-            padding: 24,
-            borderRadius: 8,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
+          {/* Section 3: Sparkline + Per-engine */}
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 20,
-            }}
+            style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 40 }}
           >
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-              Audit history
-            </h3>
-            <Link
-              href="/audits"
-              style={{ fontSize: 12, color: "var(--text-tertiary)", textDecoration: "none" }}
-            >
-              View all
-            </Link>
-          </div>
-          {sparkPoints.length === 0 ? (
             <div
               style={{
-                height: 128,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                color: "var(--text-tertiary)",
+                padding: 24,
+                borderRadius: 8,
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
               }}
             >
-              No completed audits yet
-            </div>
-          ) : (
-            <>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 128 }}>
-                {sparkPoints.map((p, i) => {
-                  // Vunnara Build 1, Part E.2/G.7: a dashed left edge
-                  // marks "something about how this audit was generated
-                  // changed here" between two consecutive audits with a
-                  // different promptPackVersion (the question set) or
-                  // methodologyVersion (memory-only vs web-grounded) --
-                  // null on either side (legacy audits predating these
-                  // columns) never triggers it, since "unknown" isn't
-                  // the same claim as "confirmed different".
-                  const prev = i > 0 ? sparkPoints[i - 1] : null;
-                  const questionsChanged =
-                    prev !== null &&
-                    p.promptPackVersion != null &&
-                    prev.promptPackVersion != null &&
-                    p.promptPackVersion !== prev.promptPackVersion;
-                  const methodologyChanged =
-                    prev !== null &&
-                    p.methodologyVersion != null &&
-                    prev.methodologyVersion != null &&
-                    p.methodologyVersion !== prev.methodologyVersion;
-                  const modelsChanged = modelNotes[i] != null;
-                  const versionChanged = questionsChanged || methodologyChanged || modelsChanged;
-                  const title = [
-                    questionsChanged ? "Questions changed since the previous audit" : null,
-                    methodologyChanged
-                      ? (methodologyNotes[i] ??
-                        "Search methodology changed since the previous audit")
-                      : null,
-                    modelNotes[i],
-                    p.insufficientData ? "Not mentioned — insufficient data" : null,
-                    p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
-                    p.modelDrift,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
-                  return (
-                    <div
-                      key={`spark-${i}`}
-                      title={title || undefined}
-                      style={{
-                        flex: 1,
-                        borderRadius: 2,
-                        // Task #46 Phase 2: a zero-mention point gets a fixed,
-                        // small, dashed-outline marker instead of being scaled
-                        // like a real measured value -- at value 0 it would
-                        // otherwise render as an invisible 0-height bar,
-                        // indistinguishable from "no audit here at all".
-                        height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
-                        background: p.insufficientData
-                          ? "transparent"
-                          : p.engineCoverage || p.modelDrift
-                            ? "var(--warning)"
-                            : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
-                        border: p.insufficientData ? "1px dashed var(--text-tertiary)" : undefined,
-                        // Vunnara Build 1, Part E.2: boxShadow (not
-                        // borderLeft) for the version-changed marker --
-                        // it doesn't share a CSS shorthand with `border`
-                        // above, so the two can never fight over which
-                        // one wins in a given render.
-                        ...(versionChanged ? { boxShadow: "-3px 0 0 0 var(--warning)" } : {}),
-                      }}
-                    />
-                  );
-                })}
-              </div>
-              {(sparkPoints.some(
-                (p, i) =>
-                  i > 0 &&
-                  ((p.promptPackVersion != null &&
-                    sparkPoints[i - 1].promptPackVersion != null &&
-                    p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion) ||
-                    (p.methodologyVersion != null &&
-                      sparkPoints[i - 1].methodologyVersion != null &&
-                      p.methodologyVersion !== sparkPoints[i - 1].methodologyVersion)),
-              ) ||
-                modelNotes.some(Boolean)) && (
-                <p
-                  style={{
-                    fontSize: 10,
-                    color: "var(--text-tertiary)",
-                    margin: "4px 0 0",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 0,
-                      borderTop: "2px dashed var(--warning)",
-                    }}
-                  />
-                  {[...methodologyNotes, ...modelNotes].filter(Boolean).map((note) => `${note}. `)}
-                  Questions, search methodology or models changed between some of these audits —
-                  scores before and after aren&apos;t directly comparable.
-                </p>
-              )}
-              {sparkPoints.some((p) => p.engineCoverage) && (
-                <p
-                  data-engine-coverage-legend
-                  style={{
-                    fontSize: 10,
-                    color: "var(--text-tertiary)",
-                    margin: "4px 0 0",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 8,
-                      borderRadius: 2,
-                      background: "var(--warning)",
-                    }}
-                  />
-                  A whole engine failed in the amber audit
-                  {sparkPoints.filter((p) => p.engineCoverage).length === 1 ? "" : "s"} (
-                  {sparkPoints.find((p) => p.engineCoverage)?.engineCoverage}) — not directly
-                  comparable with the others.
-                </p>
-              )}
-              {/* Methodology v2.2 (7 Nov), part 3: a provider answered with another model. */}
-              {sparkPoints.some((p) => p.modelDrift) && (
-                <p
-                  data-model-drift-legend
-                  style={{
-                    fontSize: 10,
-                    color: "var(--text-tertiary)",
-                    margin: "4px 0 0",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 8,
-                      borderRadius: 2,
-                      background: "var(--warning)",
-                    }}
-                  />
-                  {sparkPoints.find((p) => p.modelDrift)?.modelDrift} — not directly comparable with
-                  the others.
-                </p>
-              )}
               <div
                 style={{
                   display: "flex",
+                  alignItems: "center",
                   justifyContent: "space-between",
-                  marginTop: 8,
-                  fontSize: 10,
-                  color: "var(--text-tertiary)",
+                  marginBottom: 20,
                 }}
               >
-                <span>
-                  {sparkPoints.length} week{sparkPoints.length === 1 ? "" : "s"} ago
-                </span>
-                <span>Now</span>
+                <h3
+                  style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}
+                >
+                  Audit history
+                </h3>
+                <Link
+                  href="/audits"
+                  style={{ fontSize: 12, color: "var(--text-tertiary)", textDecoration: "none" }}
+                >
+                  View all
+                </Link>
               </div>
-            </>
-          )}
-        </div>
+              {sparkPoints.length === 0 ? (
+                <div
+                  style={{
+                    height: 128,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  No completed audits yet
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 128 }}>
+                    {sparkPoints.map((p, i) => {
+                      // Vunnara Build 1, Part E.2/G.7: a dashed left edge
+                      // marks "something about how this audit was generated
+                      // changed here" between two consecutive audits with a
+                      // different promptPackVersion (the question set) or
+                      // methodologyVersion (memory-only vs web-grounded) --
+                      // null on either side (legacy audits predating these
+                      // columns) never triggers it, since "unknown" isn't
+                      // the same claim as "confirmed different".
+                      const prev = i > 0 ? sparkPoints[i - 1] : null;
+                      const questionsChanged =
+                        prev !== null &&
+                        p.promptPackVersion != null &&
+                        prev.promptPackVersion != null &&
+                        p.promptPackVersion !== prev.promptPackVersion;
+                      const methodologyChanged =
+                        prev !== null &&
+                        p.methodologyVersion != null &&
+                        prev.methodologyVersion != null &&
+                        p.methodologyVersion !== prev.methodologyVersion;
+                      const modelsChanged = modelNotes[i] != null;
+                      const versionChanged =
+                        questionsChanged || methodologyChanged || modelsChanged;
+                      const title = [
+                        questionsChanged ? "Questions changed since the previous audit" : null,
+                        methodologyChanged
+                          ? (methodologyNotes[i] ??
+                            "Search methodology changed since the previous audit")
+                          : null,
+                        modelNotes[i],
+                        p.insufficientData ? "Not mentioned — insufficient data" : null,
+                        p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
+                        p.modelDrift,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <div
+                          key={`spark-${i}`}
+                          title={title || undefined}
+                          style={{
+                            flex: 1,
+                            borderRadius: 2,
+                            // Task #46 Phase 2: a zero-mention point gets a fixed,
+                            // small, dashed-outline marker instead of being scaled
+                            // like a real measured value -- at value 0 it would
+                            // otherwise render as an invisible 0-height bar,
+                            // indistinguishable from "no audit here at all".
+                            height: p.insufficientData ? 10 : `${(p.value / sparkMax) * 100}%`,
+                            background: p.insufficientData
+                              ? "transparent"
+                              : p.engineCoverage || p.modelDrift
+                                ? "var(--warning)"
+                                : "linear-gradient(180deg, var(--accent-blue), var(--accent-blue-soft))",
+                            border: p.insufficientData
+                              ? "1px dashed var(--text-tertiary)"
+                              : undefined,
+                            // Vunnara Build 1, Part E.2: boxShadow (not
+                            // borderLeft) for the version-changed marker --
+                            // it doesn't share a CSS shorthand with `border`
+                            // above, so the two can never fight over which
+                            // one wins in a given render.
+                            ...(versionChanged ? { boxShadow: "-3px 0 0 0 var(--warning)" } : {}),
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  {(sparkPoints.some(
+                    (p, i) =>
+                      i > 0 &&
+                      ((p.promptPackVersion != null &&
+                        sparkPoints[i - 1].promptPackVersion != null &&
+                        p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion) ||
+                        (p.methodologyVersion != null &&
+                          sparkPoints[i - 1].methodologyVersion != null &&
+                          p.methodologyVersion !== sparkPoints[i - 1].methodologyVersion)),
+                  ) ||
+                    modelNotes.some(Boolean)) && (
+                    <p
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text-tertiary)",
+                        margin: "4px 0 0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 0,
+                          borderTop: "2px dashed var(--warning)",
+                        }}
+                      />
+                      {[...methodologyNotes, ...modelNotes]
+                        .filter(Boolean)
+                        .map((note) => `${note}. `)}
+                      Questions, search methodology or models changed between some of these audits —
+                      scores before and after aren&apos;t directly comparable.
+                    </p>
+                  )}
+                  {sparkPoints.some((p) => p.engineCoverage) && (
+                    <p
+                      data-engine-coverage-legend
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text-tertiary)",
+                        margin: "4px 0 0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 8,
+                          borderRadius: 2,
+                          background: "var(--warning)",
+                        }}
+                      />
+                      A whole engine failed in the amber audit
+                      {sparkPoints.filter((p) => p.engineCoverage).length === 1 ? "" : "s"} (
+                      {sparkPoints.find((p) => p.engineCoverage)?.engineCoverage}) — not directly
+                      comparable with the others.
+                    </p>
+                  )}
+                  {/* Methodology v2.2 (7 Nov), part 3: a provider answered with another model. */}
+                  {sparkPoints.some((p) => p.modelDrift) && (
+                    <p
+                      data-model-drift-legend
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text-tertiary)",
+                        margin: "4px 0 0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 8,
+                          borderRadius: 2,
+                          background: "var(--warning)",
+                        }}
+                      />
+                      {sparkPoints.find((p) => p.modelDrift)?.modelDrift} — not directly comparable
+                      with the others.
+                    </p>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: 8,
+                      fontSize: 10,
+                      color: "var(--text-tertiary)",
+                    }}
+                  >
+                    <span>
+                      {sparkPoints.length} week{sparkPoints.length === 1 ? "" : "s"} ago
+                    </span>
+                    <span>Now</span>
+                  </div>
+                </>
+              )}
+            </div>
 
-        <div
-          style={{
-            padding: 24,
-            borderRadius: 8,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <h3
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              margin: "0 0 16px",
-            }}
-          >
-            Per-engine breakdown
-          </h3>
-          {auditCount === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-              Run your first audit to see engine scores.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => {
-                const stat = engineStats.find((e) => e.engine === engine);
-                // 9 Nov, part 6: a bar only for an engine that answered; one with none says so, and why.
-                const row = engineRowDisplay({
-                  sampleCount: stat?.total ?? 0,
-                  mentionedCount: stat?.mentions ?? 0,
-                  noAnswerReason: stat?.noAnswerReason,
-                });
-                return (
-                  <div key={engine}>
+            <div
+              style={{
+                padding: 24,
+                borderRadius: 8,
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "var(--text-primary)",
+                  margin: "0 0 16px",
+                }}
+              >
+                Per-engine breakdown
+              </h3>
+              {auditCount === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                  Run your first audit to see engine scores.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {["chatgpt", "claude", "gemini", "perplexity"].map((engine) => {
+                    const stat = engineStats.find((e) => e.engine === engine);
+                    // 9 Nov, part 6: a bar only for an engine that answered; one with none says so, and why.
+                    const row = engineRowDisplay({
+                      sampleCount: stat?.total ?? 0,
+                      mentionedCount: stat?.mentions ?? 0,
+                      noAnswerReason: stat?.noAnswerReason,
+                    });
+                    return (
+                      <div key={engine}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 6,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 12.5,
+                              fontWeight: 500,
+                              color: "var(--text-secondary)",
+                            }}
+                          >
+                            {ENGINE_DISPLAY[engine]}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "var(--text-primary)",
+                              fontFamily: "var(--font-mono)",
+                            }}
+                          >
+                            {row.kind === "answered" ? `${row.counts} · ${row.rate}` : row.label}
+                          </span>
+                        </div>
+                        {row.kind === "answered" ? (
+                          <div
+                            data-engine-bar={engine}
+                            style={{
+                              height: 6,
+                              borderRadius: 9999,
+                              overflow: "hidden",
+                              background: "var(--accent-muted)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${row.ratePct}%`,
+                                borderRadius: 9999,
+                                background: "var(--success)",
+                                transition: "width 0.3s ease",
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          row.reason && (
+                            <p
+                              data-engine-no-answers={engine}
+                              style={{ fontSize: 11.5, color: "var(--text-tertiary)", margin: 0 }}
+                            >
+                              {row.reason}
+                            </p>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* TikTok placeholder — Coming v1.1 */}
+                  <div style={{ opacity: 0.45 }} title="Coming v1.1">
                     <div
                       style={{
                         display: "flex",
@@ -1406,90 +1497,35 @@ export function BrandDetailClient({
                       <span
                         style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
                       >
-                        {ENGINE_DISPLAY[engine]}
+                        TikTok
                       </span>
                       <span
                         style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                          fontFamily: "var(--font-mono)",
+                          fontSize: 10,
+                          fontWeight: 500,
+                          padding: "1px 6px",
+                          borderRadius: 9999,
+                          background: "var(--accent-muted)",
+                          color: "var(--text-tertiary)",
                         }}
                       >
-                        {row.kind === "answered" ? `${row.counts} · ${row.rate}` : row.label}
+                        Coming v1.1
                       </span>
                     </div>
-                    {row.kind === "answered" ? (
-                      <div
-                        data-engine-bar={engine}
-                        style={{
-                          height: 6,
-                          borderRadius: 9999,
-                          overflow: "hidden",
-                          background: "var(--accent-muted)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            width: `${row.ratePct}%`,
-                            borderRadius: 9999,
-                            background: "var(--success)",
-                            transition: "width 0.3s ease",
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      row.reason && (
-                        <p
-                          data-engine-no-answers={engine}
-                          style={{ fontSize: 11.5, color: "var(--text-tertiary)", margin: 0 }}
-                        >
-                          {row.reason}
-                        </p>
-                      )
-                    )}
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 9999,
+                        background: "var(--accent-muted)",
+                      }}
+                    />
                   </div>
-                );
-              })}
-              {/* TikTok placeholder — Coming v1.1 */}
-              <div style={{ opacity: 0.45 }} title="Coming v1.1">
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
-                  }}
-                >
-                  <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}>
-                    TikTok
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 500,
-                      padding: "1px 6px",
-                      borderRadius: 9999,
-                      background: "var(--accent-muted)",
-                      color: "var(--text-tertiary)",
-                    }}
-                  >
-                    Coming v1.1
-                  </span>
                 </div>
-                <div
-                  style={{
-                    height: 6,
-                    borderRadius: 9999,
-                    background: "var(--accent-muted)",
-                  }}
-                />
-              </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Section 4: Brand settings form */}
       <div

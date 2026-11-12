@@ -22,8 +22,6 @@ const PROPS = {
   brandName: "Omega Services",
   initialStatus: "running",
   initialProgress: 100,
-  initialCost: 0.1,
-  initialCostIncomplete: false,
   initialMentionedCount: 5,
   initialSampleCount: 30,
   initialMedianPosition: null,

@@ -1,6 +1,10 @@
 /**
  * "Cost honesty" (25 Oct), items 1-2 -- real DB, real pages, real inline runner.
  *
+ * Part 14 (Sri, 13 Nov): what the calls cost us is for operators only, on /admin/costs. The same honesty
+ * (measured per call, follow-ups apart, an unpriced call never a silent $0) is checked on the operator's
+ * figures (lib/admin/costs.ts); the customer's pages and poll carry no cost at all.
+ *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
@@ -116,30 +120,30 @@ async function renderAuditPage(auditId: string): Promise<string> {
   return renderToStaticMarkup(element);
 }
 
-/** The audit header's cost button: its text, and the text of the element its aria-describedby names. */
-function costButton(html: string): { text: string; description: string | undefined } | null {
-  const button = html.match(
-    /<button type="button" aria-describedby="([^"]+)" data-provider-usage-cost=""[^>]*>([^<]*)<\/button>/,
-  );
-  if (!button) return null;
-  const [, describedBy, text] = button;
-  const description = html.match(
-    new RegExp(`id="${describedBy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>([^<]*)<`),
-  );
-  return { text, description: description?.[1] };
-}
-
 async function renderAuditsList(): Promise<string> {
   const AuditsPage = (await import("@/app/(auth)/audits/page")).default;
   return renderToStaticMarkup(await AuditsPage({ searchParams: Promise.resolve({}) }));
 }
 
-describe("item 1 -- the finished page shows the last running figure, in A$ first", () => {
-  it("running A$0.72 → finished A$0.72, with follow-up spend shown separately and US$ only as detail", async () => {
+/** The operator's row for one of this file's audits (/admin/costs, lib/admin/costs.ts). */
+async function operatorAudit(auditId: string) {
+  const { loadOperatorCosts } = await import("@/lib/admin/costs");
+  const costs = await loadOperatorCosts();
+  const ws = costs.workspaces.find((w) => w.organizationId === ORG_ID);
+  return ws?.audits.find((a) => a.auditId === auditId);
+}
+
+/** Part 14 (Sri, 13 Nov): no figure a customer reads is what the calls cost us. */
+function expectNoCost(html: string) {
+  expect(html).not.toMatch(/A\$\d|US\$\d|Cost incomplete|Provider usage|Cost so far/);
+}
+
+describe("item 1 -- the operator's figure is the calls' own measured cost; the customer sees none", () => {
+  it("US$0.47 (A$0.72) from the answers and the failed call, follow-up spend kept separate", async () => {
     const { formatAudFromUsd } = await import("@/lib/constants/currency");
-    const running = await renderAuditPage(PRICED_AUDIT);
     expect(formatAudFromUsd(0.47)).toBe("A$0.72");
-    expect(running).toContain(">A$0.72<");
+    expectNoCost(await renderAuditPage(PRICED_AUDIT));
+    expect((await operatorAudit(PRICED_AUDIT))?.totalUsd).toBeCloseTo(0.47, 6);
 
     // Completion, then a follow-up competitor comparison recorded afterwards (record() also adds it to total_cost_usd).
     await client`
@@ -151,42 +155,39 @@ describe("item 1 -- the finished page shows the last running figure, in A$ first
         (${PRICED_AUDIT}, ${ORG_ID}, 'AU_EN', 'en-AU', 72, 'audit'),
         (${PRICED_AUDIT}, ${ORG_ID}, 'AU_EN', 'en-AU', 8, 'run-comparison-prompts')
     `;
-    const finished = (await renderAuditPage(PRICED_AUDIT)).replace(/<!-- -->/g, "");
-    // The A$ figure is the visible cost, on a focusable button; the provider's US$ usage is that
-    // button's description (aria-describedby), never only a hover title (6 Nov, item 4).
-    expect(costButton(finished)).toEqual({
-      text: "A$0.72 cost",
-      description: "Provider usage: US$0.47",
-    });
-    expect(finished).toContain("</span></span> + A$0.08 for follow-up checks");
-    expect(finished).not.toContain('title="Provider usage');
-    expect(finished).not.toMatch(/·\s*US\$/);
-    expect(finished).not.toContain("Cost incomplete");
-
-    expect(await renderAuditsList()).toContain(">A$0.72<");
+    const finished = await operatorAudit(PRICED_AUDIT);
+    // The calls' own costs, never total_cost_usd (which absorbed the follow-up); the follow-up apart.
+    expect(finished?.totalUsd).toBeCloseTo(0.47, 6);
+    expect(finished?.followUpAudCents).toBe(8);
+    expect(finished?.incomplete).toBe(false);
+    expect(finished?.engines.map((e) => [e.engine, Number(e.usd.toFixed(2))])).toEqual([
+      ["chatgpt", 0.17],
+      ["perplexity", 0.3],
+    ]);
+    expectNoCost((await renderAuditPage(PRICED_AUDIT)).replace(/<!-- -->/g, ""));
+    expectNoCost(await renderAuditsList());
   });
 });
 
 describe("item 2 -- an unpriced call is never a silent $0", () => {
-  it("a running audit with an unpriced answer says 'Cost incomplete', and so does its poll", async () => {
-    const running = (await renderAuditPage(UNPRICED_RUNNING_AUDIT)).replace(/&#x27;/g, "'");
-    // Methodology v2.2 (7 Nov), part 4: one wording for every unknown cost (a model with no price, a search
-    // count the provider didn't report); a call that timed out is counted by name instead.
-    expect(running).toContain("Cost incomplete: some calls' cost is unknown");
+  it("a running audit with an unpriced answer is incomplete for the operator; the page and its poll carry no cost", async () => {
+    expect((await operatorAudit(UNPRICED_RUNNING_AUDIT))?.incomplete).toBe(true);
+    expectNoCost((await renderAuditPage(UNPRICED_RUNNING_AUDIT)).replace(/&#x27;/g, "'"));
 
     const { GET } = await import("@/app/api/audits/[auditId]/route");
     const res = await GET(new Request(`http://test/api/audits/${UNPRICED_RUNNING_AUDIT}`), {
       params: Promise.resolve({ auditId: UNPRICED_RUNNING_AUDIT }),
     });
     const body = await res.json();
-    expect(body.costIncomplete).toBe(true);
-    expect(body.costIncompleteNote).toBe("Cost incomplete: some calls' cost is unknown");
-    expect(body.costSoFarUsd).toBe(0);
+    expect(body.costIncomplete).toBeUndefined();
+    expect(body.costIncompleteNote).toBeUndefined();
+    expect(body.costSoFarUsd).toBeUndefined();
   });
 
-  it("through the real runner: logs cost_price_missing, stores no cost, reserves it for the cap, and the pages say 'Cost incomplete'", async () => {
+  it("through the real runner: logs cost_price_missing, stores no cost, reserves it for the cap, and only the operator sees it's incomplete", async () => {
     const { callCost } = await import("@/lib/audit/compute-cost");
     const { usdToAudCents } = await import("@/lib/constants/currency");
+    const { DAILY_LIMIT_CUSTOMER_MESSAGE } = await import("@/lib/costs/customer-safe");
     const { BudgetPolicyService, DailySpendCapExceededError } = await import(
       "@/lib/platform/budget-policy.service"
     );
@@ -225,23 +226,26 @@ describe("item 2 -- an unpriced call is never a silent $0", () => {
       { source: "audit:unpriced_reserve", actual_cost_cents: usdToAudCents(expectedReserveUsd) },
     ]);
 
-    // The cap counts the reserve; the spend it reports never includes it.
+    // The cap counts the reserve; the spend it reports never includes it. The customer's message has no
+    // amounts (part 14); the operator's detail has them.
     const reserveCents = usdToAudCents(expectedReserveUsd);
     const atReserve = await BudgetPolicyService.checkDailySpend(ORG_ID, 80 + reserveCents);
     expect(atReserve.spentTodayCents).toBe(80);
     expect(atReserve.unpricedReserveCents).toBe(reserveCents);
     expect(atReserve.allowed).toBe(false);
-    expect(new DailySpendCapExceededError(atReserve).message).toBe(
-      `Daily spending limit reached (A$0.80 of A$${((80 + reserveCents) / 100).toFixed(2)}, cost incomplete); audits resume after midnight (Sydney time).`,
+    const capErr = new DailySpendCapExceededError(atReserve);
+    expect(capErr.message).toBe(DAILY_LIMIT_CUSTOMER_MESSAGE);
+    expect(capErr.operatorDetail).toBe(
+      `Daily spending limit reached (A$0.80 of A$${((80 + reserveCents) / 100).toFixed(2)}, cost incomplete).`,
     );
     expect((await BudgetPolicyService.checkDailySpend(ORG_ID, 81 + reserveCents)).allowed).toBe(
       true,
     );
 
-    const finished = (await renderAuditPage(RUNNER_AUDIT)).replace(/<!-- -->/g, "");
-    expect(costButton(finished)?.text).toBe("A$0.00 cost");
-    expect(finished).toContain("</span></span> · Cost incomplete");
-    const list = await renderAuditsList();
-    expect(list).toContain("A$0.00 · Cost incomplete");
+    const operator = await operatorAudit(RUNNER_AUDIT);
+    expect(operator?.totalUsd).toBe(0);
+    expect(operator?.incomplete).toBe(true);
+    expectNoCost((await renderAuditPage(RUNNER_AUDIT)).replace(/<!-- -->/g, ""));
+    expectNoCost(await renderAuditsList());
   });
 });

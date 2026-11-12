@@ -34,8 +34,6 @@ const EARLY: ComponentProps<typeof AuditRunningView> = {
   brandName: "Omega Services",
   initialStatus: "running",
   initialProgress: (1 / 52) * 100,
-  initialCost: 0.01,
-  initialCostIncomplete: false,
   initialMentionedCount: 0,
   initialSampleCount: 1,
   initialMedianPosition: null,

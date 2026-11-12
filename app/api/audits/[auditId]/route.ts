@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
+import { getAnsweredCount } from "@/lib/audit/answered-count";
 import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { loadGoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { costIncompleteNote } from "@/lib/constants/currency";
+import { customerAuditMetadata } from "@/lib/costs/customer-safe";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
@@ -38,11 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // implementation (lib/audit/answered-count.ts) instead of two.
     const { answeredCount } = await getAnsweredCount(tx, auditId);
 
-    // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
-    // real-time sum of each (engine, prompt) call's own already-
-    // measured cost, never a projection (lib/audit/answered-count.ts's
-    // own doc comment on AuditCost has the full reasoning).
-    const auditCost = await getAuditCost(tx, auditId);
+    // Part 14 (Sri, 13 Nov): no "Cost so far" -- what the calls cost us is for operators only.
 
     const perEngine = await tx
       .select({
@@ -132,7 +128,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
           engines: audit.engines,
           startedAt: audit.startedAt,
           completedAt: audit.completedAt,
-          metadata: audit.metadata,
+          metadata: customerAuditMetadata(audit.metadata),
           // Decision 3 (6 Nov): the label from lib/llm/methodology.ts, never mapped by a client.
           methodologyVersion: audit.methodologyVersion,
           methodology: methodologyLabel(audit.methodologyVersion),
@@ -140,10 +136,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         answeredCount,
         failedCount,
         everydayFailedCount,
-        costSoFarUsd: auditCost.knownUsd,
-        costIncomplete: auditCost.incomplete,
-        // Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out".
-        costIncompleteNote: costIncompleteNote(auditCost),
         sampleCount,
         mentionedCount,
         medianPosition,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useState } from "react";
 import { ActionError } from "@/components/shared/load-error";
@@ -419,7 +420,7 @@ export function GoogleSurfacesAdmin({
           </h1>
           <p className="text-[13px] mt-1" style={muted}>
             Google Search AI (AI Overviews and AI Mode). A change applies to the next audit; an
-            audit keeps what it started with.
+            audit keeps what it started with. <Link href="/admin/costs">Provider costs →</Link>
           </p>
         </div>
 

@@ -13,7 +13,7 @@ import {
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
-import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { customerAuditMetadata, withoutCostColumns } from "@/lib/costs/customer-safe";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit } from "@/lib/exports/junit";
@@ -55,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
     if (format === "csv") {
       const header =
-        "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,llm_cost_usd,llm_cost_aud,created_at";
+        "audit_number,brand_name,engine,prompt,run_number,brand_mentioned,position,sentiment_label,context_label,response_snippet,cited_sources_domains,llm_model,created_at";
       const rows = citationsWithRealPosition.map((c) => {
         // Decision 1 (6 Nov): only the sources the answer cited.
         const domains = citedSourcesOf<{ domain: string }>(c.citedSources)
@@ -65,14 +65,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           .slice(0, 200)
           .replace(/\n/g, " ")
           .replace(/"/g, '""');
-        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.llmCostUsd ?? ""},${c.llmCostUsd === null ? "" : formatAudCents(usdToAudCents(Number(c.llmCostUsd)))},${c.createdAt.toISOString()}`;
+        return `${audit.auditNumber},"${brand?.name ?? ""}",${c.engine},"${c.prompt.replace(/"/g, '""')}",${c.runNumber},${c.brandMentioned},${c.realPosition ?? ""},${c.sentimentLabel ?? ""},${c.contextLabel ?? ""},"${snippet}","${domains}",${c.llmModel ?? ""},${c.createdAt.toISOString()}`;
       });
       // Google AI surfaces (Phase 1, part 3): one row per surface and question, in the same columns, after
       // the engines' -- only for an audit that ran with Google. engine is the surface, context_label the outcome
       // (shown, not_shown, failed, not_completed, skipped), llm_model the provider.
       const googleRows = (await loadGoogleSurfaceExportRows(tx, auditId)).map((g) => {
         const snippet = (g.answerText ?? "").slice(0, 200).replace(/\n/g, " ").replace(/"/g, '""');
-        return `${audit.auditNumber},"${brand?.name ?? ""}",${g.surface},"${g.prompt.replace(/"/g, '""')}",1,${g.brandMentioned ?? ""},${g.position ?? ""},,${g.outcome},"${snippet}","${g.domains.join("|")}",${g.provider},${g.costUsd ?? ""},${g.costUsd === null ? "" : formatAudCents(usdToAudCents(Number(g.costUsd)))},${g.createdAt.toISOString()}`;
+        return `${audit.auditNumber},"${brand?.name ?? ""}",${g.surface},"${g.prompt.replace(/"/g, '""')}",1,${g.brandMentioned ?? ""},${g.position ?? ""},,${g.outcome},"${snippet}","${g.domains.join("|")}",${g.provider},${g.createdAt.toISOString()}`;
       });
       const csv = [header, ...rows, ...googleRows].join("\n");
       return new Response(csv, {
@@ -396,8 +396,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
     // Default: JSON. Audit #36 follow-up: the stored 0-100 Position and
     // Source-citation scores (and their intervals) go out as null / not at
     // all -- older audits still have them stored.
+    // Part 14 (Sri, 13 Nov): the stored rows go out without their cost columns, and a failed audit's reason
+    // in customer wording (lib/costs/customer-safe.ts).
     const exportedAudit = {
-      ...audit,
+      ...withoutCostColumns(audit),
+      metadata: customerAuditMetadata(audit.metadata),
       scorePosition: null,
       scoreAccuracy: null,
       confidenceIntervals: withoutCountOnlyIntervals(audit.confidenceIntervals),
@@ -409,7 +412,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         {
           audit: exportedAudit,
           brand,
-          citations: allCitations,
+          citations: allCitations.map(withoutCostColumns),
           ...(googleRows.length > 0 ? { googleSurfaces: googleRows } : {}),
         },
         null,

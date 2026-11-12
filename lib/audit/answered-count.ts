@@ -83,6 +83,13 @@ const NO_COST: AuditCost = {
 export const GOOGLE_COST_SOURCE = "google_surfaces";
 const RESERVE_SOURCE_PATTERN = `%${UNPRICED_RESERVE_SOURCE_SUFFIX.replace(/_/g, "\\_")}`;
 
+/**
+ * SQL over citations: true when the stored answer was reused, not asked live -- a cache hit, or an older
+ * answer stored at no cost. COALESCE: an unpriced live answer has a NULL cost and still counts as live.
+ * Here so a customer page can count live and reused answers without naming a cost (part 14, 13 Nov).
+ */
+export const REUSED_ANSWER_SQL = sql`(${citations.isCacheHit} OR COALESCE(${citations.llmCostUsd}::numeric = 0, false))`;
+
 /** SQL: true when the audit with this id recorded a cap-only reserve, i.e. part of its cost had no price. */
 export function hasUnpricedReserve(auditId: SQLWrapper): SQL<boolean> {
   return sql<boolean>`EXISTS (SELECT 1 FROM ${auditCostSnapshots} WHERE ${auditCostSnapshots.auditId} = ${auditId} AND ${auditCostSnapshots.source} LIKE ${RESERVE_SOURCE_PATTERN})`;

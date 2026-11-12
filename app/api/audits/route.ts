@@ -100,12 +100,14 @@ export async function POST(req: Request) {
       // checkDailySpend's own AUD-cent figures (formatAudCents, the same
       // conversion the running and failed pages use) -- this route used
       // to carry its own identical literal, which would have silently
-      // drifted the moment either copy changed.
+      // drifted the moment either copy changed. Part 14 (13 Nov): that copy has no amounts; they go
+      // to the operator's log only.
+      const capErr = new DailySpendCapExceededError(dailySpend);
+      console.warn(
+        `[audits] daily limit for org ${currentUser.organizationId}: ${capErr.operatorDetail}`,
+      );
       return NextResponse.json(
-        {
-          error: "daily_spend_cap_exceeded",
-          message: new DailySpendCapExceededError(dailySpend).message,
-        },
+        { error: "daily_spend_cap_exceeded", message: capErr.message },
         { status: 429 },
       );
     }

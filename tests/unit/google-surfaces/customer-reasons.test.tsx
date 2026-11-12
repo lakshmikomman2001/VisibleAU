@@ -203,7 +203,6 @@ function audit44(): GoogleSurfaceSummary {
     labelLine: "2153 NSW · desktop · 12 Nov 2026",
     locationNote: null,
     countInHeadline: false,
-    costUsd: 0,
     provider: "dataforseo",
     ranAt: "2026-11-12T03:00:00.000Z",
     rows,
@@ -270,6 +269,8 @@ describe("source scan: only the operator's code reads the stored reason, code or
     "lib/audit/google-surfaces/summary.ts",
     "lib/audit/google-surfaces/operator.ts",
     "lib/scoring/resolve-audit-dimensions.ts",
+    // Part 14 (13 Nov): the operator's costs (/admin/costs, operator-checked) sum its cost_usd only.
+    "lib/admin/costs.ts",
   ]);
   const RAW =
     /\b(outcomeReason|providerStatusCode|rawResponse|outcome_reason|provider_status_code|raw_response)\b/;

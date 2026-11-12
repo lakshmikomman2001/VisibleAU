@@ -86,7 +86,6 @@ export interface GoogleSurfaceSummary {
   /** "Results for Sydney NSW, not your suburb", when the location isn't the business's own. */
   locationNote: string | null;
   countInHeadline: boolean;
-  costUsd: number | null;
   provider: string;
   ranAt: string;
   rows: GoogleSurfaceRow[];
@@ -255,7 +254,6 @@ export async function loadGoogleSurfaceSummary(
     labelLine: labelParts.join(" · "),
     locationNote: location?.note ?? null,
     countInHeadline: settings.countInHeadline === true,
-    costUsd: snap.costUsd === null ? null : Number(snap.costUsd),
     provider: settings.provider,
     ranAt: new Date(ranAt).toISOString(),
     rows: surfaceRows,
@@ -309,7 +307,6 @@ export async function loadGoogleSurfaceExportRows(db: DbClient, auditId: string)
       answerText: googleSurfaceResults.answerText,
       citedLinks: googleSurfaceResults.citedLinks,
       provider: googleSurfaceResults.provider,
-      costUsd: googleSurfaceResults.costUsd,
       createdAt: googleSurfaceResults.createdAt,
     })
     .from(googleSurfaceResults)

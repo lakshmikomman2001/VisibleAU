@@ -4,7 +4,6 @@ import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useCan } from "@/components/domain/role-context";
-import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import {
   MAX_POLL_DELAY_MS,
   pageNavigation,
@@ -66,16 +65,6 @@ export function safeTotal(value: unknown): number | null {
 }
 
 /** part of total as 0-100, and 0 while the total isn't known -- never NaN or Infinity. */
-/**
- * Methodology v2.2 (Sri's decision, 7 Nov), part 4 -- the "Cost incomplete: ..." line: the reason the server
- * sent (lib/constants/currency.ts costIncompleteNote, e.g. "Cost incomplete: 1 call timed out"), the generic
- * one when it sent only the flag, and null while the cost is complete.
- */
-export function costNoteFrom(incomplete: boolean, note: unknown): string | null {
-  if (typeof note === "string" && note.length > 0) return note;
-  return incomplete ? `${COST_INCOMPLETE_LABEL}: some calls' cost is unknown` : null;
-}
-
 export function percentOf(part: number, total: number | null): number {
   if (total === null || !Number.isFinite(total) || total <= 0 || !Number.isFinite(part)) return 0;
   return Math.min(100, Math.max(0, (part / total) * 100));
@@ -94,10 +83,6 @@ interface PollBody {
   answeredCount?: unknown;
   failedCount?: unknown;
   everydayFailedCount?: unknown;
-  costSoFarUsd?: unknown;
-  costIncomplete?: unknown;
-  /** Methodology v2.2, part 4: "Cost incomplete: 1 call timed out" (lib/constants/currency.ts costIncompleteNote). */
-  costIncompleteNote?: unknown;
   mentionedCount?: unknown;
   sampleCount?: unknown;
   medianPosition?: unknown;
@@ -132,16 +117,6 @@ interface AuditRunningProps {
   brandName: string;
   initialStatus: string;
   initialProgress: number;
-  // "Before pushing e53edf2" (24 Oct), item 1 -- a real-time sum of
-  // each call's own already-measured cost (lib/audit/answered-
-  // count.ts's getCostSoFarUsd), never audits.totalCostUsd (only
-  // written once, at completion) and never a projection.
-  initialCost: number;
-  /** Part of initialCost is unknown (lib/audit/answered-count.ts's AuditCost). */
-  initialCostIncomplete: boolean;
-  /** Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out"; the generic reason when
-   * absent (lib/constants/currency.ts costIncompleteNote). */
-  initialCostIncompleteNote?: string | null;
   // Items 2-3 -- from the SAME function
   // (lib/scoring/resolve-audit-dimensions.ts) the finished page's own
   // "Mentioned in k of n answers" and "Typically #N when listed" come
@@ -178,9 +153,6 @@ export function AuditRunningView({
   brandName,
   initialStatus,
   initialProgress,
-  initialCost,
-  initialCostIncomplete,
-  initialCostIncompleteNote,
   initialMentionedCount,
   initialSampleCount,
   initialMedianPosition,
@@ -199,12 +171,6 @@ export function AuditRunningView({
 
   const [status, setStatus] = useState(initialStatus);
   const [progress, setProgress] = useState(() => percentOf(initialProgress, 100));
-  const [cost, setCost] = useState(initialCost);
-  // Methodology v2.2 (7 Nov), part 4: the "Cost incomplete: ..." line with its reason -- a call that timed
-  // out, or a cost that's unknown otherwise -- null while the cost is complete.
-  const [costNote, setCostNote] = useState(() =>
-    costNoteFrom(initialCostIncomplete, initialCostIncompleteNote),
-  );
   const [mentionedCount, setMentionedCount] = useState(initialMentionedCount);
   const [sampleCount, setSampleCount] = useState(initialSampleCount);
   const [medianPosition, setMedianPosition] = useState(initialMedianPosition);
@@ -295,13 +261,8 @@ export function AuditRunningView({
         setLivePromptCount(safeTotal(audit.promptsCount));
         setLiveRunCount(safeTotal(audit.runsPerPrompt));
         setProgress(percentOf(completedCalls, tc));
-        // "Before pushing e53edf2" (24 Oct), items 1-3 -- all three are
-        // already real numbers computed server-side (lib/audit/answered-
-        // count.ts's getCostSoFarUsd, lib/scoring/resolve-audit-
-        // dimensions.ts's own resolver); nothing left to parse or derive
-        // here.
-        setCost(safeCount(data.costSoFarUsd));
-        setCostNote(costNoteFrom(data.costIncomplete === true, data.costIncompleteNote));
+        // "Before pushing e53edf2" (24 Oct), items 2-3 -- already real numbers computed server-side
+        // (lib/scoring/resolve-audit-dimensions.ts's own resolver); nothing left to parse or derive here.
         setMentionedCount(safeCount(data.mentionedCount));
         setSampleCount(safeCount(data.sampleCount));
         setMedianPosition(
@@ -433,17 +394,9 @@ export function AuditRunningView({
                     ? `${completed} answers were received before it stopped.`
                     : "No answers were received before it stopped."}
               </div>
-              {/* "Before pushing e53edf2" (24 Oct), item 1 -- A$,
-                  using the SAME conversion the daily-spend-cap
-                  guardrail itself compares against
-                  (lib/constants/currency.ts, moved out of
-                  lib/platform/budget-policy.service.ts so every
-                  surface imports the one real rate), never the old
-                  display-only AUD_PER_USD. */}
+              {/* Part 14 (Sri, 13 Nov): what the calls cost us is for operators only (/admin/costs). */}
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 16 }}>
-                Cost so far: {formatAudFromUsd(cost)}
-                {costNote && ` (${costNote})`} (counted toward today's spending limit). Your
-                subscription isn't charged per audit.
+                Your subscription isn't charged per audit.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {canRunAudit && (
@@ -684,20 +637,6 @@ export function AuditRunningView({
         }}
       >
         {[
-          {
-            // "Before pushing e53edf2" (24 Oct), item 1 -- the
-            // "~US$X.XX budget (N answers)" projection is gone
-            // entirely: it was a projection, not a measurement, and
-            // this whole page's point is that every figure on it is
-            // real. Cost so far is itself real (see initialCost's own
-            // doc comment above), so it keeps its label unchanged.
-            // Same A$ figure, same function, as the failed view below and
-            // the 429 daily-spend-cap message -- the currency the cap
-            // itself is set in.
-            label: "Cost so far",
-            value: formatAudFromUsd(cost),
-            sub: costNote ? costNote : "measured from calls made so far",
-          },
           {
             // Item 2 -- sampleCount/mentionedCount are organic-
             // question-only (ORGANIC_ONLY) and verified-mention-only

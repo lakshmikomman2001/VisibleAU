@@ -3,11 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
-import { getAuditCost } from "@/lib/audit/answered-count";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { costIncompleteNote, formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { customerAuditMetadata } from "@/lib/costs/customer-safe";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { withoutCountOnlyIntervals } from "@/lib/scoring/dimension-ci";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
@@ -89,10 +88,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
     // (with null CI) when there were zero organic answers (insufficient_
     // data "no_answers").
     const headline = resolved?.headline.status === "scored" ? resolved.headline : null;
-    const auditCost = await getAuditCost(tx, auditId);
-    const aud = (usd: string | null) =>
-      usd === null ? null : formatAudCents(usdToAudCents(Number(usd)));
-
+    // Part 14 (Sri, 13 Nov): no cost fields -- what the audit cost us is for operators only (/admin/costs).
     return NextResponse.json({
       audit: {
         id: audit.id,
@@ -106,11 +102,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         // Decision 3 (6 Nov): the label from lib/llm/methodology.ts, never mapped by a client.
         methodologyVersion: audit.methodologyVersion,
         methodology: methodologyLabel(audit.methodologyVersion),
-        totalCostUsd: audit.totalCostUsd,
-        totalCostAud: aud(audit.totalCostUsd),
-        costIncomplete: auditCost.incomplete,
-        // Methodology v2.2 (7 Nov), part 4: why, e.g. "Cost incomplete: 1 call timed out".
-        costIncompleteNote: costIncompleteNote(auditCost),
         scoreComposite: headline?.value ?? null,
         scoreFrequency: scored(resolved?.dimensions.frequency),
         // Audit #36 follow-up: Position and Source citation are counts, not
@@ -137,7 +128,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         confidenceIntervals: withoutCountOnlyIntervals(audit.confidenceIntervals),
         startedAt: audit.startedAt,
         completedAt: audit.completedAt,
-        metadata: audit.metadata,
+        metadata: customerAuditMetadata(audit.metadata),
       },
       citations: citationsWithRealPosition.map((c) => ({
         id: c.id,
@@ -150,8 +141,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         contextLabel: c.contextLabel,
         responseSnippet: c.responseSnippet,
         citedSources: citedSourcesOf(c.citedSources),
-        llmCostUsd: c.llmCostUsd,
-        llmCostAud: aud(c.llmCostUsd),
         llmModel: c.llmModel,
       })),
       perEngineSummary,

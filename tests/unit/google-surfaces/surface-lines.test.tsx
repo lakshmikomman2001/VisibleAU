@@ -55,7 +55,6 @@ function summary(rows: ReturnType<typeof row>[]): GoogleSurfaceSummary {
     labelLine: "2153 NSW · desktop · 12 Nov 2026",
     locationNote: null,
     countInHeadline: false,
-    costUsd: 0,
     provider: "dataforseo",
     ranAt: "2026-11-12T03:00:00.000Z",
     rows,

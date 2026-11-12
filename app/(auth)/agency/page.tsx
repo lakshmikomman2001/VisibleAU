@@ -1,14 +1,11 @@
-import { addMonths, startOfMonth } from "date-fns";
-import { and, count, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
-import { ProviderUsageCost } from "@/components/domain/shared/provider-usage-cost";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
-import { hasUnpricedReserve } from "@/lib/audit/answered-count";
 import { auditModels } from "@/lib/audit/model-drift";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { COST_INCOMPLETE_LABEL, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
+import { getOverviewMonth, monthWindowLabel } from "@/lib/dashboard/overview-cards";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
@@ -44,16 +41,13 @@ export default async function AgencyDashboardPage() {
 
   const orgId = currentUser.organization.id;
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = addMonths(monthStart, 1);
 
   const {
     brandCount,
     avgScore,
     pendingDrifts,
     upcomingSchedules,
-    spendUsd,
-    spendIncomplete,
+    auditsThisMonth,
     topMovers,
     notComparable,
     activePortals,
@@ -62,7 +56,7 @@ export default async function AgencyDashboardPage() {
       brandCountResult,
       pendingDriftResult,
       upcomingSchedulesResult,
-      spendResult,
+      month,
       activePortalsResult,
       brandAuditIdsResult,
     ] = await Promise.all([
@@ -78,20 +72,9 @@ export default async function AgencyDashboardPage() {
         .select({ count: count() })
         .from(auditSchedules)
         .where(and(eq(auditSchedules.organizationId, orgId), eq(auditSchedules.status, "active"))),
-      tx
-        .select({
-          total: sql<string>`COALESCE(SUM(total_cost_usd), 0)`,
-          incomplete: sql<boolean>`COALESCE(bool_or(${hasUnpricedReserve(audits.id)}), false)`,
-        })
-        .from(audits)
-        .where(
-          and(
-            eq(audits.organizationId, orgId),
-            eq(audits.status, "complete"),
-            gte(audits.createdAt, monthStart),
-            lt(audits.createdAt, monthEnd),
-          ),
-        ),
+      // Part 14 (Sri, 13 Nov): was "LLM Spend (This Month)" -- what we pay the providers is for operators
+      // only (/admin/costs). The same Sydney-time month as the dashboard's "Audits this month".
+      getOverviewMonth(tx, orgId, now),
       tx
         .select({ count: count() })
         .from(clientPortalInvites)
@@ -233,8 +216,7 @@ export default async function AgencyDashboardPage() {
       avgScore,
       pendingDrifts: pendingDriftResult[0].count,
       upcomingSchedules: upcomingSchedulesResult[0].count,
-      spendUsd: parseFloat(spendResult[0].total || "0"),
-      spendIncomplete: spendResult[0].incomplete === true,
+      auditsThisMonth: month.auditCount,
       topMovers,
       notComparable,
       activePortals: activePortalsResult[0].count,
@@ -260,15 +242,9 @@ export default async function AgencyDashboardPage() {
           <p className="text-3xl font-bold mt-1">{pendingDrifts}</p>
         </div>
         <div className="rounded-lg border bg-card p-6">
-          <p className="text-sm text-muted-foreground">LLM Spend (This Month)</p>
-          <p className="text-3xl font-bold mt-1">
-            <ProviderUsageCost detail={`Provider usage: ${formatUsd(spendUsd)}`}>
-              {formatAudFromUsd(spendUsd)}
-            </ProviderUsageCost>
-          </p>
-          {spendIncomplete && (
-            <p className="text-xs text-muted-foreground mt-1">{COST_INCOMPLETE_LABEL}</p>
-          )}
+          <p className="text-sm text-muted-foreground">Audits this month</p>
+          <p className="text-3xl font-bold mt-1">{auditsThisMonth}</p>
+          <p className="text-xs text-muted-foreground mt-1">{monthWindowLabel(now, orgId)}</p>
         </div>
       </div>
 

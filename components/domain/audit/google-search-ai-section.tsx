@@ -4,7 +4,6 @@ import {
   googleCheckedAnything,
   googleSurfaceReasons,
 } from "@/lib/audit/google-surfaces/summary";
-import { formatAudFromUsd } from "@/lib/constants/currency";
 import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
 
 /**
@@ -117,9 +116,6 @@ export function GoogleSearchAiSection({
           : "Not counted in the Visibility % above: Google is shown on its own."}{" "}
         Checked through {summary.provider === "dataforseo" ? "DataForSEO" : summary.provider},
         logged out, for this place and device; Google's AI answers change with time and place.
-        {summary.costUsd !== null && summary.status === "complete"
-          ? ` Cost ${formatAudFromUsd(summary.costUsd)}.`
-          : ""}
       </p>
 
       {questions.length > 0 ? (

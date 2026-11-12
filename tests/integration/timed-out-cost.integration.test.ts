@@ -102,7 +102,9 @@ describe("a timed-out call's cost is unknown, and the audit's cost says so", () 
     );
   });
 
-  it("the audit page says it next to the cost", async () => {
+  // Part 14 (Sri, 13 Nov): the cost and its "incomplete" note are for operators only -- /admin/costs reads
+  // getAuditCosts above and marks the audit's total "+"; the customer's audit page shows neither.
+  it("the customer's audit page shows no cost and no cost note", async () => {
     const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
     const html = renderToStaticMarkup(
       await AuditPage({
@@ -112,6 +114,8 @@ describe("a timed-out call's cost is unknown, and the audit's cost says so", () 
     )
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ");
-    expect(html).toContain("Cost incomplete: 1 call timed out");
+    expect(html).toContain(`Audit #`);
+    expect(html).not.toContain("Cost incomplete");
+    expect(html).not.toMatch(/A\$\d/);
   }, 60_000);
 });

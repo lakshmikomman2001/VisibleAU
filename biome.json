@@ -44,6 +44,7 @@
       "includes": [
         "lib/auth/**",
         "lib/governance/**",
+        "lib/admin/**",
         "inngest/**",
         "db/**",
         "scripts/**",

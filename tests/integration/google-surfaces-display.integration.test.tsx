@@ -213,7 +213,8 @@ describe("an audit that ran with Google: every surface shows its Google Search A
     expect(block).toContain("google.com, Australia");
     expect(block).toContain("Not counted in the Visibility % above: Google is shown on its own.");
     expect(block).toContain("Checked through DataForSEO, logged out");
-    expect(block).toMatch(/Cost A\$0\.\d\d\./);
+    // Part 14 (Sri, 13 Nov): the Google check's cost is for operators only (/admin/costs); it said "Cost A$0.01.".
+    expect(block).not.toMatch(/Cost|A\$\d|US\$\d/);
     expect(block).toContain("Not shown");
     expect(html).not.toContain("data-headline-includes-google");
 
@@ -236,7 +237,9 @@ describe("an audit that ran with Google: every surface shows its Google Search A
     const googleCsv = csv.split("\n").filter((l) => /,google_ai_(overviews|mode),/.test(l));
     expect(googleCsv).toHaveLength(8);
     expect(googleCsv.some((l) => l.includes(",not_shown,"))).toBe(true);
-    expect(googleCsv.every((l) => l.includes(",dataforseo,0.001200,"))).toBe(true);
+    // Part 14 (13 Nov): no cost columns -- the provider, then the date (it was ",dataforseo,0.001200,...").
+    expect(googleCsv.every((l) => /,dataforseo,\d{4}-\d{2}-\d{2}T/.test(l))).toBe(true);
+    expect(googleCsv.join("\n")).not.toContain("0.001200");
     expect(googleCsv.join("\n")).not.toMatch(/\|google\.com"/);
 
     const json = await (

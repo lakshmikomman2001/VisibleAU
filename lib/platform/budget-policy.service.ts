@@ -4,6 +4,7 @@ import { audits, organizations } from "@/db/schema";
 import { auditCostSnapshots } from "@/db/schema/audit-cost-snapshots";
 import { marketAiBudgetPolicies } from "@/db/schema/market-ai-budget-policies";
 import { formatAudCents, usdToAudCents } from "@/lib/constants/currency";
+import { DAILY_LIMIT_CUSTOMER_MESSAGE } from "@/lib/costs/customer-safe";
 import { RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { estimatedSearchFeeUsd, isWebSearchEnabled } from "@/lib/llm/web-search-config";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -84,12 +85,18 @@ export class DailySpendCapExceededError extends Error {
     // message, per this class's own "no entry point should rephrase
     // it" rule above.
     // A cap-only reserve for unpriced usage is never shown as spend -- only flagged.
+    //
+    // Part 14 (Sri, 13 Nov): what the calls cost us is for operators only. The message every entry point
+    // shows the customer (the 429, a failed audit's stored reason) says the limit is reached and when
+    // audits resume, with no amounts; the amounts are operatorDetail, for logs and /admin.
+    super(DAILY_LIMIT_CUSTOMER_MESSAGE);
     const incomplete = (check.unpricedReserveCents ?? 0) > 0 ? ", cost incomplete" : "";
-    super(
-      `Daily spending limit reached (A$${formatAudCents(check.spentTodayCents)} of A$${formatAudCents(check.capCents)}${incomplete}); audits resume after midnight (Sydney time).`,
-    );
+    this.operatorDetail = `Daily spending limit reached (A$${formatAudCents(check.spentTodayCents)} of A$${formatAudCents(check.capCents)}${incomplete}).`;
     this.name = "DailySpendCapExceededError";
   }
+
+  /** The amounts behind the limit, for the operator only (logs, /admin): never sent to a customer. */
+  readonly operatorDetail: string;
 }
 
 export class BudgetPolicyService {

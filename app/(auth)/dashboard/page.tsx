@@ -20,9 +20,9 @@ import {
   averageVisibility,
   averageVisibilitySub,
   getOverviewMonth,
+  LATEST_AUDIT_CARD_LABEL,
+  latestAuditCard,
   monthWindowLabel,
-  SPEND_CARD_LABEL,
-  spendCard,
 } from "@/lib/dashboard/overview-cards";
 import {
   healthCheckBannerNotice,
@@ -76,9 +76,8 @@ export default async function DashboardPage() {
       if (brandCount === 0) redirect("/brands/wizard");
 
       const [month, recentAuditsRaw, latestCompleteRows] = await Promise.all([
-        // Overview (7 Nov), item 1: "Audits this month" and "LLM spend" count the same audits --
-        // created this calendar month in Sydney time, any status -- and the spend is what their
-        // calls recorded (lib/dashboard/overview-cards.ts), not audits.total_cost_usd of complete ones.
+        // Overview (7 Nov), item 1: "Audits this month" counts the audits created this calendar month in
+        // Sydney time, any status (lib/dashboard/overview-cards.ts).
         getOverviewMonth(tx, orgId, now),
         tx
           .select({
@@ -177,7 +176,7 @@ export default async function DashboardPage() {
       };
     });
 
-  const spend = spendCard(month);
+  const latest = latestAuditCard(recentAudits[0] ?? null, orgId);
   const kpis: Array<{
     label: string;
     value: string;
@@ -199,7 +198,7 @@ export default async function DashboardPage() {
       sub: averageVisibilitySub(avg),
       note: AVG_VISIBILITY_NOTE,
     },
-    { label: SPEND_CARD_LABEL, value: spend.value, icon: Zap, sub: spend.sub, note: spend.note },
+    { label: LATEST_AUDIT_CARD_LABEL, value: latest.value, icon: Zap, sub: latest.sub },
   ];
 
   const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;

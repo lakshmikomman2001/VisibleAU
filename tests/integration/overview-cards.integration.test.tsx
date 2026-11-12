@@ -1,7 +1,7 @@
 /**
  * Overview (7 Nov) -- every number on the Overview says what it covers, items 1-4:
- * - "Audits this month" and "LLM spend" count the same window, this calendar month in Sydney time,
- *   and the spend splits audits from other paid features;
+ * - "Audits this month" counts this calendar month in Sydney time; the 4th card is the latest audit (part
+ *   14, 13 Nov: it was "LLM spend", and what we pay the providers is for operators only);
  * - "Avg visibility" leaves out brands with no audit or too few answers, and says how many;
  * - Share of Voice is one line per brand, with its counts and audit, from the Visibility headline's
  *   own answer set (everyday questions, verified mentions);
@@ -180,16 +180,15 @@ afterAll(async () => {
 });
 
 describe("Overview cards say what they cover", () => {
-  it("Audits this month and LLM spend: one Sydney-time window, spend split by what it paid for", async () => {
+  it("Audits this month in Sydney time, and the latest audit instead of what the calls cost", async () => {
     const text = textOf(await renderOverview(workspace.orgId));
     const month = formatInOrgTimezone(new Date(), undefined, "MMM");
     // #36, Bravura's failed #1, #12 and #5 -- all since the 1st in Sydney, before the 1st in UTC.
     expect(text).toContain(`Audits this month4Since 1 ${month}, Sydney time`);
-    expect(text).toContain("LLM spend this month (Sydney time)");
-    // Audits: US$0.13 + 0.026 (the failed audit's call) + 0.039 + 0.065 = US$0.26 = A$0.40;
-    // the comparison run on #36 afterwards is the A$1.50 of other features. #35 is last month's.
-    expect(text).toContain("A$1.90Audits A$0.40 · Other features A$1.50");
-    expect(text).toContain("US$0.26 provider usage");
+    // Deltaview's #5 is the newest (36 minutes into the Sydney month).
+    expect(text).toContain(`Latest audit1 ${month}Deltaview Glass · Complete`);
+    // Part 14: no spend, no A$ or US$ figure, no provider usage.
+    expect(text).not.toMatch(/LLM spend|A\$\d|US\$\d|provider usage/);
   }, 120_000);
 
   it("Avg visibility leaves out the brand with no audit and the one with too few answers, and says so", async () => {

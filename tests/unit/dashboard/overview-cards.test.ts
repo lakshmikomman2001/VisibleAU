@@ -7,7 +7,7 @@ import {
   averageVisibility,
   averageVisibilitySub,
   type BrandVisibility,
-  spendCard,
+  latestAuditCard,
 } from "@/lib/dashboard/overview-cards";
 import { type BrandShareOfVoice, sovLine } from "@/lib/visibility/share-of-voice";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
@@ -48,18 +48,30 @@ describe("Avg visibility", () => {
   });
 });
 
-describe("LLM spend", () => {
-  it("splits audits from other features, and says when part of it had no price", () => {
-    const card = spendCard({
-      auditCount: 2,
-      auditsUsd: 0.26,
-      otherFeaturesAudCents: 150,
-      incomplete: true,
-    });
-    expect(card.value).toBe("A$1.90");
-    expect(card.sub).toBe("Cost incomplete · Audits A$0.40 · Other features A$1.50");
-    expect(card.note).toContain("US$0.26 provider usage");
-    expect(card.note).toContain("Not included: content drafts");
+// Part 14 (Sri, 13 Nov): the 4th card was "LLM spend this month" -- what we pay the providers is for
+// operators only. It's the workspace's latest audit now: its date in Sydney time, brand and status.
+describe("Latest audit", () => {
+  it("the newest audit's Sydney date, brand and status", () => {
+    // 13 Nov 23:30 UTC is 14 Nov in Sydney.
+    const card = latestAuditCard(
+      {
+        brandName: "Hero Home Services",
+        status: "failed",
+        createdAt: new Date("2026-11-13T23:30:00Z"),
+      },
+      "org-1",
+    );
+    expect(card).toEqual({ value: "14 Nov", sub: "Hero Home Services · Failed" });
+    expect(
+      latestAuditCard(
+        { brandName: "Omega", status: "running", createdAt: new Date("2026-11-13T01:00:00Z") },
+        "o",
+      ).sub,
+    ).toBe("Omega · Running");
+  });
+
+  it("no audit yet says so, with no figure", () => {
+    expect(latestAuditCard(null, "org-1")).toEqual({ value: "—", sub: "No audits yet" });
   });
 });
 

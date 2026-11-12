@@ -7,10 +7,8 @@ import { StatusBadge } from "@/components/domain/shared/status-badge";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { getAuditCosts } from "@/lib/audit/answered-count";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { COST_INCOMPLETE_LABEL, formatAudFromUsd } from "@/lib/constants/currency";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay } from "@/lib/scoring/visibility-display";
 
@@ -38,7 +36,6 @@ export default async function AuditsPage({
         engines: audits.engines,
         promptsCount: audits.promptsCount,
         metadata: audits.metadata,
-        totalCostUsd: audits.totalCostUsd,
         createdAt: audits.createdAt,
         completedAt: audits.completedAt,
         driftSeverity: sql<string | null>`(
@@ -66,15 +63,10 @@ export default async function AuditsPage({
     // being forced through the resolver.
     const completeAuditIds = rawAuditRows.filter((a) => a.status === "complete").map((a) => a.id);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, completeAuditIds);
-    // Same figure as the audit's own page; "—" until it has a recorded total.
-    const costByAuditId = await getAuditCosts(
-      tx,
-      rawAuditRows.filter((a) => a.totalCostUsd !== null).map((a) => a.id),
-    );
+    // Part 14 (Sri, 13 Nov): no Cost column -- what an audit cost us is for operators only (/admin/costs).
 
     const auditRows = rawAuditRows.map((a) => {
       const resolved = resolvedByAuditId.get(a.id);
-      const cost = costByAuditId.get(a.id) ?? null;
       // The audit page's headline: "8%" over "3 of 40", or "—" with why.
       // URGENT audit #37 (31 Oct), item 2: "3 of 4 engines" when a whole
       // engine failed, so the row isn't read as like-for-like.
@@ -83,7 +75,7 @@ export default async function AuditsPage({
         coverage: a.status === "complete" ? engineCoverageLabel(a) : null,
       };
       const { metadata: _metadata, ...row } = a;
-      return { ...row, visibility, cost };
+      return { ...row, visibility };
     });
 
     return { auditRows, total };
@@ -109,7 +101,6 @@ export default async function AuditsPage({
                 <th className="px-4 py-3 text-left font-medium">Brand</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3 text-left font-medium">Visibility</th>
-                <th className="px-4 py-3 text-left font-medium">Cost</th>
                 <th className="px-4 py-3 text-left font-medium">Created</th>
               </tr>
             </thead>
@@ -130,11 +121,6 @@ export default async function AuditsPage({
                       <VisibilityCell display={a.visibility} align="left" />
                       {a.driftSeverity && <DriftIndicator severity={a.driftSeverity} />}
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {a.cost
-                      ? `${formatAudFromUsd(a.cost.knownUsd)}${a.cost.incomplete ? ` · ${COST_INCOMPLETE_LABEL}` : ""}`
-                      : "—"}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}

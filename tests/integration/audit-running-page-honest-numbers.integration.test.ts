@@ -177,7 +177,7 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
     expect(html).toContain("across 18 successful answers to everyday questions (2 failed)");
   });
 
-  it("removed the '~US$X.XX budget' projection entirely -- cost so far is a real measurement, not an estimate", async () => {
+  it("removed the '~US$X.XX budget' projection entirely, and (part 14, 13 Nov) shows no cost at all", async () => {
     const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
     const element = await AuditPage({
       params: Promise.resolve({ auditId: AUDIT_ID }),
@@ -187,7 +187,9 @@ describe("Audit page -- running view, honest numbers (23 Oct, item 3)", () => {
 
     expect(html).not.toContain("budget");
     expect(html).not.toContain("projection");
-    expect(html).toContain("measured from calls made so far");
+    // Part 14 (Sri, 13 Nov): "Cost so far" is for operators only (/admin/costs).
+    expect(html).not.toContain("Cost so far");
+    expect(html).not.toMatch(/A\$\d/);
   });
 
   it("sets the breadcrumb to 'Audit #35' and the brand switcher to Omega's own brandId, not the generic defaults", async () => {
@@ -272,7 +274,7 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
     expect(body.failedCount).toBe(2);
   });
 
-  it("mentionedCount/sampleCount/medianPosition/rankedCount come from the SAME resolveAuditDimensionsAndHeadline the finished page uses, and costSoFarUsd is a real measured sum", async () => {
+  it("mentionedCount/sampleCount/medianPosition/rankedCount come from the SAME resolveAuditDimensionsAndHeadline the finished page uses, and no cost is sent", async () => {
     const { GET } = await import("@/app/api/audits/[auditId]/route");
     const { withRlsContext } = await import("@/db/client");
     const { resolveAuditDimensionsAndHeadline } = await import(
@@ -299,15 +301,10 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
     expect(body.medianPosition).toBe(3);
     expect(body.rankedCount).toBe(1);
 
-    // "Before pushing e53edf2" (24 Oct), item 1 -- costSoFarUsd is a
-    // plain number (not a string needing Number.parseFloat), summed
-    // from real per-call costs; this fixture's rows are all priced at $0,
-    // so the honest answer is exactly 0, never a fabricated non-zero
-    // estimate -- and complete, since every row has a price.
-    expect(body.costSoFarUsd).toBe(0);
-    expect(body.costIncomplete).toBe(false);
-    // audits.totalCostUsd is no longer part of the response at all --
-    // the frozen, completion-only figure this task replaced.
+    // Part 14 (Sri, 13 Nov): what the calls cost us is for operators only -- the poll carries no cost
+    // (it sent costSoFarUsd and costIncomplete), and never audits.totalCostUsd.
+    expect(body.costSoFarUsd).toBeUndefined();
+    expect(body.costIncomplete).toBeUndefined();
     expect(body.audit.totalCostUsd).toBeUndefined();
   });
 });

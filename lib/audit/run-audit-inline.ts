@@ -172,7 +172,10 @@ export async function runAuditInline(
 
       const dailySpend = await BudgetPolicyService.checkDailySpend(a.organizationId);
       if (!dailySpend.allowed) {
-        throw new DailySpendCapExceededError(dailySpend);
+        const capErr = new DailySpendCapExceededError(dailySpend);
+        // The amounts for the operator's log only; the audit stores the customer message.
+        console.warn(`[audit-inline] audit ${auditId}: ${capErr.operatorDetail}`);
+        throw capErr;
       }
     } catch (budgetErr) {
       if (

@@ -4,8 +4,8 @@ import { Info } from "lucide-react";
 import { useId, useState } from "react";
 
 /**
- * Overview (7 Nov): a card's "how this is counted" note. The same rules as ProviderUsageCost
- * (./provider-usage-cost.tsx): a real button, so a keyboard reaches it and a tap opens it, with the note
+ * Overview (7 Nov): a card's "how this is counted" note. The same rules the cost figure's provider-usage
+ * detail had (removed 13 Nov, part 14): a real button, so a keyboard reaches it and a tap opens it, with the note
  * as its accessible description (aria-describedby) -- never only a hover title, which phones, keyboards
  * and screen readers never see. Hover and focus show it too; Escape, or leaving the button, hides it.
  *

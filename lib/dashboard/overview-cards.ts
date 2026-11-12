@@ -1,13 +1,6 @@
 import { and, eq, gte, lt } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits } from "@/db/schema";
-import { getAuditCosts } from "@/lib/audit/answered-count";
-import {
-  COST_INCOMPLETE_LABEL,
-  formatAudCents,
-  formatUsd,
-  usdToAudCents,
-} from "@/lib/constants/currency";
 import { formatInOrgTimezone, getOrgTimezone, monthInTzSql } from "@/lib/platform/org-timezone";
 import {
   type DimensionResult,
@@ -15,8 +8,9 @@ import {
 } from "@/lib/scoring/dimension-result";
 
 /**
- * Overview (7 Nov), items 1-2: what the "Audits this month", "LLM spend" and "Avg visibility" cards
- * count, so each card can say it.
+ * Overview (7 Nov), items 1-2: what the "Audits this month" and "Avg visibility" cards count, so each card
+ * can say it. Part 14 (Sri, 13 Nov): the "LLM spend this month" card is gone -- what we pay the providers
+ * is for operators only, on /admin/costs (lib/admin/costs.ts).
  *
  * Before this the page counted "this month" from the server's own midnight (UTC on Vercel: 11 am on
  * the 1st in Sydney), summed audits.total_cost_usd of complete audits only (a failed audit's billed
@@ -27,15 +21,9 @@ import {
 export interface OverviewMonth {
   /** Audits started this calendar month in Sydney time, whatever their status. */
   auditCount: number;
-  /** Those audits' own calls (answers and failed calls), as each call recorded its cost. */
-  auditsUsd: number;
-  /** Paid checks run on those audits afterwards (competitor comparisons, query fan-out), AUD cents. */
-  otherFeaturesAudCents: number;
-  /** Part of the cost had no price (lib/audit/answered-count.ts). */
-  incomplete: boolean;
 }
 
-/** One window for both cards: audits created in this Sydney calendar month, and what they cost. */
+/** The audits created in this Sydney calendar month. */
 export async function getOverviewMonth(
   tx: DbClient,
   organizationId: string,
@@ -52,19 +40,7 @@ export async function getOverviewMonth(
         lt(audits.createdAt, end),
       ),
     );
-  const costs = await getAuditCosts(
-    tx,
-    rows.map((r) => r.id),
-  );
-  let auditsUsd = 0;
-  let otherFeaturesAudCents = 0;
-  let incomplete = false;
-  for (const cost of costs.values()) {
-    auditsUsd += cost.knownUsd;
-    otherFeaturesAudCents += cost.followUpAudCents;
-    incomplete ||= cost.incomplete;
-  }
-  return { auditCount: rows.length, auditsUsd, otherFeaturesAudCents, incomplete };
+  return { auditCount: rows.length };
 }
 
 /** "Since 1 Nov, Sydney time" -- the window both month cards count. */
@@ -72,28 +48,28 @@ export function monthWindowLabel(now: Date, organizationId: string): string {
   return `Since 1 ${formatInOrgTimezone(now, organizationId, "MMM")}, Sydney time`;
 }
 
-export const SPEND_CARD_LABEL = "LLM spend this month (Sydney time)";
+export const LATEST_AUDIT_CARD_LABEL = "Latest audit";
 
-export interface SpendCard {
-  value: string;
-  sub: string;
-  /** The card's "how this is counted" note, readable on tap and focus. */
-  note: string;
-}
+const AUDIT_STATUS_WORDS: Record<string, string> = {
+  pending: "Queued",
+  running: "Running",
+  complete: "Complete",
+  failed: "Failed",
+};
 
-export function spendCard(month: OverviewMonth): SpendCard {
-  const auditsCents = usdToAudCents(month.auditsUsd);
-  const total = auditsCents + month.otherFeaturesAudCents;
+/**
+ * Part 14 (Sri, 13 Nov): the overview's 4th card, in place of "LLM spend this month" (what we pay the
+ * providers is for operators only). The workspace's most recent audit as it stands: its date in Sydney
+ * time, its brand and its status. Nothing estimated.
+ */
+export function latestAuditCard(
+  latest: { brandName: string; status: string; createdAt: Date } | null,
+  organizationId: string,
+): { value: string; sub: string } {
+  if (!latest) return { value: "—", sub: "No audits yet" };
   return {
-    value: `A$${formatAudCents(total)}`,
-    sub:
-      `${month.incomplete ? `${COST_INCOMPLETE_LABEL} · ` : ""}` +
-      `Audits A$${formatAudCents(auditsCents)} · Other features A$${formatAudCents(month.otherFeaturesAudCents)}`,
-    note:
-      "The same window as Audits this month: audits started since the 1st, Sydney time, whatever their status. " +
-      `Audits: their answers and failed calls, as each call recorded its cost (${formatUsd(month.auditsUsd)} provider usage). ` +
-      "Other features: competitor comparisons and query fan-out run on those audits afterwards. " +
-      "Not included: content drafts, answer capsules, journeys and brand set-up, which don't record their cost yet.",
+    value: formatInOrgTimezone(latest.createdAt, organizationId, "d MMM"),
+    sub: `${latest.brandName} · ${AUDIT_STATUS_WORDS[latest.status] ?? latest.status}`,
   };
 }
 

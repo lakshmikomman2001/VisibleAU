@@ -12,11 +12,10 @@ import { GoogleSearchAiSection } from "@/components/domain/audit/google-search-a
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
-import { ProviderUsageCost } from "@/components/domain/shared/provider-usage-cost";
 import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
-import { getAnsweredCount, getAuditCost } from "@/lib/audit/answered-count";
+import { getAnsweredCount, REUSED_ANSWER_SQL } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import {
   describeEngineFailure,
@@ -36,12 +35,7 @@ import {
 } from "@/lib/audit/stale-audit-guard";
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import {
-  costIncompleteNote,
-  formatAudCents,
-  formatAudFromUsd,
-  formatUsd,
-} from "@/lib/constants/currency";
+import { customerAuditError } from "@/lib/costs/customer-safe";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
@@ -241,12 +235,6 @@ export default async function AuditPage({
           ),
         );
 
-      // "Before pushing e53edf2" (24 Oct), item 1 -- "Cost so far" is a
-      // real-time sum of each call's own already-measured cost, never
-      // audits.totalCostUsd (only ever written at completion) and never
-      // a projection.
-      const auditCost = await getAuditCost(tx, auditId);
-
       // Items 2-3 -- mentionedCount/sampleCount/medianPosition/rankedCount
       // from the SAME function the finished page's own "Mentioned in k
       // of n answers" and "Typically #N when listed" come from, not a
@@ -274,7 +262,6 @@ export default async function AuditPage({
         answeredCount,
         failureCount,
         everydayFailureCount: Number(everydayFailureCount),
-        auditCost,
         mentionedCount,
         sampleCount,
         medianPosition,
@@ -344,14 +331,12 @@ export default async function AuditPage({
     // new is fabricated for them either.
     const [{ liveCallCount, cachedCallCount }] = await tx
       .select({
-        // COALESCE: an unpriced live answer has a NULL cost and must still count as live.
-        liveCallCount: sql<number>`COALESCE(SUM(CASE WHEN NOT (is_cache_hit OR COALESCE(llm_cost_usd::numeric = 0, false)) THEN 1 ELSE 0 END), 0)`,
-        cachedCallCount: sql<number>`COALESCE(SUM(CASE WHEN is_cache_hit OR COALESCE(llm_cost_usd::numeric = 0, false) THEN 1 ELSE 0 END), 0)`,
+        // REUSED_ANSWER_SQL (lib/audit/answered-count.ts): a cache hit, or an older answer stored at no cost.
+        liveCallCount: sql<number>`COALESCE(SUM(CASE WHEN NOT ${REUSED_ANSWER_SQL} THEN 1 ELSE 0 END), 0)`,
+        cachedCallCount: sql<number>`COALESCE(SUM(CASE WHEN ${REUSED_ANSWER_SQL} THEN 1 ELSE 0 END), 0)`,
       })
       .from(citations)
       .where(eq(citations.auditId, auditId));
-
-    const finishedCost = await getAuditCost(tx, auditId);
 
     // Build 1 addendum, item 4: hipages Audit #29 (its FIRST audit)
     // showed "0 live · 200 cached" dated 18 Oct, but every answer was
@@ -777,7 +762,6 @@ export default async function AuditPage({
       distinctSourcedCount,
       liveCallCount,
       cachedCallCount,
-      auditCost: finishedCost,
       oldestCachedAnswerAt,
       modelDrift,
       analysisData,
@@ -793,7 +777,6 @@ export default async function AuditPage({
       answeredCount,
       failureCount,
       everydayFailureCount,
-      auditCost,
       mentionedCount,
       sampleCount,
       medianPosition,
@@ -821,9 +804,6 @@ export default async function AuditPage({
           brandName={brand.name}
           initialStatus={audit.status}
           initialProgress={tc !== null && tc > 0 ? Math.min(100, (answeredCount / tc) * 100) : 0}
-          initialCost={auditCost.knownUsd}
-          initialCostIncomplete={auditCost.incomplete}
-          initialCostIncompleteNote={costIncompleteNote(auditCost)}
           initialMentionedCount={mentionedCount}
           initialSampleCount={sampleCount}
           initialMedianPosition={medianPosition}
@@ -838,7 +818,7 @@ export default async function AuditPage({
           typicalDurationMinutes={typicalDurationMinutes}
           errorMessage={
             audit.status === "failed"
-              ? ((audit.metadata as Record<string, string>)?.error ?? "Unknown error")
+              ? (customerAuditError(audit.metadata) ?? "Unknown error")
               : null
           }
         />
@@ -858,7 +838,6 @@ export default async function AuditPage({
     realResponseCount,
     analysisData,
     responsesData,
-    auditCost,
   } = result;
 
   // Task #46 (fix: stored value contradicting its own CI): value, CI and
@@ -1047,16 +1026,7 @@ export default async function AuditPage({
                 );
                 return ` · ${secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}`;
               })()}
-            {" · "}
-            {/* The A$ figure stays the visible cost; the provider's US$ usage is its
-                description, reachable by keyboard and tap (item 4, 6 Nov). */}
-            <ProviderUsageCost detail={`Provider usage: ${formatUsd(auditCost.knownUsd)}`}>
-              {`${formatAudFromUsd(auditCost.knownUsd)} cost`}
-            </ProviderUsageCost>
-            {auditCost.followUpAudCents > 0 &&
-              ` + A$${formatAudCents(auditCost.followUpAudCents)} for follow-up checks`}
-            {/* Methodology v2.2 (7 Nov), part 4: with why, e.g. "Cost incomplete: 1 call timed out". */}
-            {auditCost.incomplete && ` · ${costIncompleteNote(auditCost)}`}
+            {/* Part 14 (Sri, 13 Nov): what an audit cost us is for operators only, on /admin/costs. */}
             {
               // Vunnara Build 1, Part F.2: "N questions × M engines = K
               // answers" -- the explicit multiplication, never "calls"

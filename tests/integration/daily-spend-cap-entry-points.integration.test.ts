@@ -12,6 +12,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { DAILY_LIMIT_CUSTOMER_MESSAGE } from "@/lib/costs/customer-safe";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -119,19 +120,22 @@ describe("app/api/audits/route.ts -- the manual 'Run audit' button / API", () =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brandId: BRAND_ID }),
     });
+    const warn = vi.spyOn(console, "warn");
     const res = await POST(req);
 
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.error).toBe("daily_spend_cap_exceeded");
-    // "Before pushing e53edf2" (24 Oct), item 1 -- the message now
-    // states the real amounts, in A$, from checkDailySpend's own AUD-
-    // cent figures: 999999 cents seeded above -> A$9999.99. The cap
-    // side is matched by shape only, since DAILY_SPEND_CAP_CENTS may be
-    // overridden in this environment (see the seed's own comment).
-    expect(body.message).toMatch(
-      /^Daily spending limit reached \(A\$9999\.99 of A\$\d+\.\d{2}\); audits resume after midnight \(Sydney time\)\.$/,
+    // Part 14 (Sri, 13 Nov): the customer is told the limit is reached and when audits resume, with no
+    // amounts (it said "A$9999.99 of A$..."); the amounts go to the operator's log only, from
+    // checkDailySpend's own AUD-cent figures (999999 cents seeded above). The cap side is matched by shape
+    // only, since DAILY_SPEND_CAP_CENTS may be overridden in this environment (see the seed's own comment).
+    expect(body.message).toBe(DAILY_LIMIT_CUSTOMER_MESSAGE);
+    expect(JSON.stringify(body)).not.toContain("A$");
+    expect(warn.mock.calls.flat().join(" ")).toMatch(
+      /Daily spending limit reached \(A\$9999\.99 of A\$\d+\.\d{2}\)\./,
     );
+    warn.mockRestore();
     expect(await auditCountForOrg()).toBe(before);
   });
 });
@@ -152,11 +156,9 @@ describe("lib/audit/run-audit-inline.ts -- the second, internal check (defence i
     `;
     expect(audit.status).toBe("failed");
     expect(audit.metadata.errorCode).toBe("DailySpendCapExceededError");
-    // Same one message the 429 above returns -- both built by
-    // DailySpendCapExceededError from checkDailySpend's own figures.
-    expect(audit.metadata.error).toMatch(
-      /^Daily spending limit reached \(A\$\d+\.\d{2} of A\$\d+\.\d{2}\); audits resume after midnight \(Sydney time\)\.$/,
-    );
+    // Same one message the 429 above returns -- both built by DailySpendCapExceededError; since part 14
+    // (13 Nov) it carries no amounts.
+    expect(audit.metadata.error).toBe(DAILY_LIMIT_CUSTOMER_MESSAGE);
 
     // No engine calls -- the gate fired before any LLM call, same
     // proof tests/integration/run-audit-needs-confirmation.

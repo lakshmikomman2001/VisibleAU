@@ -3580,6 +3580,13 @@ the groups in Part A's table:
    a directory wildcard, so a **new** route added later under `app/api/` is NOT silently allowlisted just
    because its neighbours are.
 4. The 10 `.tsx` App Router pages from Part A's sixth row (added once the gap was found), listed the same way.
+5. Added 13 Nov 2026 (part 14, "costs are for operators only"): `lib/admin/**`, in block 1. Operator-only
+   modules: `lib/admin/costs.ts` reads every workspace's audits and their recorded costs **on purpose** (the
+   operator's month-to-date provider costs), returns figures and workspace/brand names only (no answers, no
+   customer content), and its only callers check the operator first, on the server, with
+   `checkPlatformAdmin()` (`app/(auth)/admin/costs/page.tsx`, `app/api/admin/costs/route.ts`; a non-operator
+   gets 403 / "Forbidden" before it runs). The same model as `lib/governance/google-surfaces.ts` for
+   `/admin/settings`.
 
 Next.js's `[param]` dynamic-route folder syntax breaks Biome's glob matcher (it reads `[orgId]` as a regex
 character class) — every such path in the allowlist is escaped as `\[orgId\]`.

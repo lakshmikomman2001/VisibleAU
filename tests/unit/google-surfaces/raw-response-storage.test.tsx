@@ -128,7 +128,6 @@ describe("a finished task keeps only what the display and the mention check use"
         labelLine: "2153 NSW · desktop · 11 Nov 2026",
         locationNote: null,
         countInHeadline: false,
-        costUsd: 0.0096,
         provider: "dataforseo",
         ranAt: "2026-11-11T05:00:00.000Z",
         rows,

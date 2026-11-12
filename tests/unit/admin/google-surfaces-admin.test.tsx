@@ -267,3 +267,11 @@ describe("every Save says what happened (part 5)", () => {
     await waitFor(() => expect(row).toHaveTextContent("Saved"));
   }, 30_000);
 });
+
+describe("the plan by name (part 6)", () => {
+  it("'Plan: Agency Pro', never 'agency_pro'", () => {
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    expect(screen.getByText("Plan: Agency Pro")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("agency_pro");
+  });
+});

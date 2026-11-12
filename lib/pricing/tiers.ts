@@ -158,6 +158,22 @@ export function getTierDefinition(key: string): TierDefinition | undefined {
   return TIER_DEFINITIONS.find((t) => t.key === key);
 }
 
+/**
+ * 12 Nov (Google AI follow-ups, part 6) -- the one way a plan is shown: its name here ("agency_pro" ->
+ * "Agency Pro"), never its code. The sidebar showed "Agency_pro · AU", the user card "Agency_pro tier · AU"
+ * and /admin/settings "Plan: agency_pro". A name passed in ("Agency") is found too. A code that isn't a
+ * plan here is shown in words ("some_plan" -> "Some Plan"), never as it's stored.
+ */
+export function tierDisplayName(code: string): string {
+  const def =
+    getTierDefinition(code) ?? getTierDefinition(code.trim().toLowerCase().replace(/\s+/g, "_"));
+  if (def) return def.name;
+  return code
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** The lowest plan with this feature. */
 export function requiredTierFor(feature: PlanFeature): TierDefinition {
   const tier = TIER_DEFINITIONS.find((t) => t.unlocks.includes(feature));

@@ -1,4 +1,4 @@
-import { getTierDefinition } from "./tiers";
+import { tierDisplayName } from "./tiers";
 
 /**
  * 8 Nov (brand-feature locks and pricing claims, part 1) -- the one answer a route gives when the
@@ -18,7 +18,7 @@ export interface PlanRefusalBody {
 
 /** `{ error: "This is part of the Growth plan", code: "plan_required", plan: "growth" }`. */
 export function planRefusalBody(planKey: string): PlanRefusalBody {
-  const name = getTierDefinition(planKey)?.name ?? planKey;
+  const name = tierDisplayName(planKey);
   return { error: `This is part of the ${name} plan`, code: PLAN_REQUIRED, plan: planKey };
 }
 

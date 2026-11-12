@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { useCan } from "@/components/domain/role-context";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { tierDisplayName } from "@/lib/pricing/tiers";
 
 interface Brand {
   id: string;
@@ -150,7 +151,7 @@ export default function BrandScheduleView({
   }, [schedule, router]);
 
   const humanFrequency = FREQUENCY_LABELS[tierFrequency] ?? tierFrequency;
-  const tierLabel = tier.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const tierLabel = tierDisplayName(tier);
 
   return (
     <div className="p-8 space-y-6">

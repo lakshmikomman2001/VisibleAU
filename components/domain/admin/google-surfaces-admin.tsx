@@ -11,6 +11,7 @@ import type {
 } from "@/lib/governance/google-surfaces";
 import { MAX_COST_CEILING_USD } from "@/lib/governance/google-surfaces-limits";
 import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
+import { tierDisplayName } from "@/lib/pricing/tiers";
 import { LOW_BALANCE_USD, type TestConnectionResult } from "@/lib/serp/test-connection";
 
 /**
@@ -524,7 +525,7 @@ export function GoogleSurfacesAdmin({
           {view.selected ? (
             <div className="flex flex-col gap-4" data-admin-selected={view.selected.id}>
               <p className="text-[13px]" style={muted}>
-                Plan: {view.selected.tier}
+                Plan: {tierDisplayName(view.selected.tier)}
               </p>
               {SURFACES.map(({ surface, name }) => {
                 const selected = view.selected;

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { tierDisplayName } from "@/lib/pricing/tiers";
 
 interface TierGateProps {
   requiredTier: string;
@@ -39,7 +40,7 @@ export function TierGate({ requiredTier, locked, children }: TierGateProps) {
           />
         </svg>
         <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-          {requiredTier} plan required
+          {tierDisplayName(requiredTier)} plan required
         </p>
         <button
           className="text-xs font-medium px-3 py-1 rounded-full"

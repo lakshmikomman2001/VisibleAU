@@ -118,7 +118,8 @@ export default function BillingView({
     handlePortal();
   }, [handlePortal]);
 
-  const tierLabel = tierName.replace(/_/g, " ");
+  // The plan's name (lib/pricing/tiers.ts tierDisplayName), as the page gives it.
+  const tierLabel = tierName;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>

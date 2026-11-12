@@ -29,7 +29,7 @@ import {
   PlanLockBadge,
 } from "@/components/domain/pricing/plan-lock";
 import { signOut } from "@/lib/auth/client";
-import { planIncludes } from "@/lib/pricing/tiers";
+import { planIncludes, tierDisplayName } from "@/lib/pricing/tiers";
 
 interface AppSidebarProps {
   orgName?: string;
@@ -202,7 +202,7 @@ export function SidebarContent({
             {orgName}
           </div>
           <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-            {orgTier.charAt(0).toUpperCase() + orgTier.slice(1)} · AU
+            {tierDisplayName(orgTier)} · AU
           </div>
         </div>
       </div>
@@ -516,7 +516,7 @@ function UserFooter({
             {userName || "User"}
           </div>
           <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-            {orgTier.charAt(0).toUpperCase() + orgTier.slice(1)} tier · AU
+            {tierDisplayName(orgTier)} plan · AU
           </div>
         </div>
         <button

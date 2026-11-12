@@ -12,6 +12,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { tierDisplayName } from "@/lib/pricing/tiers";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
@@ -134,7 +135,7 @@ export default async function BrandsPage() {
   // The same count and rule as POST /api/brands: the header's "New brand"
   // opens the wizard only while the plan has room.
   const usage = brandUsage(tier, brandsWithAudit.length);
-  const tierLabel = capitalize(tier);
+  const tierLabel = tierDisplayName(tier);
   const limitLabel = usage.limit === null ? "unlimited" : String(usage.limit);
 
   return (
@@ -164,7 +165,7 @@ export default async function BrandsPage() {
               margin: "4px 0 0",
             }}
           >
-            {brandsWithAudit.length} of {limitLabel} brands &middot; {tierLabel} tier
+            {brandsWithAudit.length} of {limitLabel} brands &middot; {tierLabel} plan
           </p>
         </div>
         <NewBrandButton usage={usage} variant="page" />

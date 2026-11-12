@@ -2,7 +2,7 @@ import {
   TRUST_CHECK_IMPLEMENTED,
   type TrustCheckKey,
 } from "@/lib/trust/stub-implementation-status";
-import { getTierDefinition, tierRank } from "./tiers";
+import { tierDisplayName, tierRank } from "./tiers";
 
 /**
  * 8 Nov (brand-feature locks and pricing claims, part 1; Sri: "no page shows a raw 403 or an empty
@@ -191,7 +191,7 @@ export function brandFeaturePlan(feature: BrandFeature): string {
 /** "Growth". */
 export function brandFeaturePlanName(feature: BrandFeature): string {
   const plan = brandFeaturePlan(feature);
-  return getTierDefinition(plan)?.name ?? plan;
+  return tierDisplayName(plan);
 }
 
 /** Whether a plan has the feature: its plan does, and so does every plan above. */

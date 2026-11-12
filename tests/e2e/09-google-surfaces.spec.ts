@@ -205,7 +205,7 @@ for (const width of [375, 1280] as const) {
         "Count Google in the headline",
       );
       const selected = page.locator(`[data-admin-selected="${ORG_ID}"]`);
-      await expect(selected).toContainText("Plan: growth");
+      await expect(selected).toContainText("Plan: Growth");
       await expect(selected.locator("[data-admin-surface]")).toHaveCount(2);
       await expect(page.locator(`[data-admin-brand="${BRAND_ID}"]`)).toContainText(
         "Omega Services",

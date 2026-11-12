@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { formatAud } from "@/lib/pricing/gst";
 import { renewalLine } from "@/lib/pricing/renewal";
-import { getTierDefinition } from "@/lib/pricing/tiers";
+import { getTierDefinition, tierDisplayName } from "@/lib/pricing/tiers";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
 import BillingView from "./billing-view";
 
@@ -43,7 +43,7 @@ export default async function BillingPage({
   return (
     <BillingView
       tier={tier}
-      tierName={tierDef?.name ?? tier}
+      tierName={tierDisplayName(tier)}
       monthlyPrice={tierDef ? formatAud(tierDef.monthlyPriceCentsIncGst) : "A$0"}
       billingInterval={liveSub?.billingInterval ?? "monthly"}
       cancelAtPeriodEnd={liveSub?.cancelAtPeriodEnd ?? false}

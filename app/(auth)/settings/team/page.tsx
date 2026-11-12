@@ -11,7 +11,7 @@ import type { OrgRole } from "@/lib/governance";
 import { useLoad } from "@/lib/hooks/use-load";
 import { fetchJson } from "@/lib/load/fetch-json";
 import { seatUsageText, takesSeat } from "@/lib/pricing/seats";
-import { getTierDefinition, seatLimitFor } from "@/lib/pricing/tiers";
+import { seatLimitFor, tierDisplayName } from "@/lib/pricing/tiers";
 
 interface MemberData {
   id: string;
@@ -113,7 +113,7 @@ export default function TeamPage() {
   // TODO(seats): all roles count toward the limit; revisit exempting 'viewer'.
   const usedSeats = active.length;
   const seatsAvailable = usedSeats < seatLimit;
-  const planName = getTierDefinition(tier)?.name ?? tier;
+  const planName = tierDisplayName(tier);
 
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>

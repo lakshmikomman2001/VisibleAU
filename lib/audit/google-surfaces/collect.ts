@@ -1,9 +1,8 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { auditCostSnapshots, auditGoogleSurfaces, brands, googleSurfaceResults } from "@/db/schema";
+import { answerMention } from "@/lib/audit/answer-mention";
 import { GOOGLE_COST_SOURCE } from "@/lib/audit/answered-count";
-import { detectBrandMention } from "@/lib/audit/detect-mention";
-import { verifyMention } from "@/lib/audit/verify-mention";
 import { usdToAudCents } from "@/lib/constants/currency";
 import type { GoogleLocation } from "@/lib/google-surfaces/location";
 import {
@@ -182,31 +181,17 @@ async function recordDone(
       .where(eq(googleSurfaceResults.id, row.id));
     return;
   }
-  const mention = await detectBrandMention(answer.answerText, {
-    name: brand.name,
-    domain: brand.domain,
-  });
-  // The same rule as every engine (lib/audit/verify-mention.ts): the brand's own domain among the cited
-  // sources, or its confirmed suburb or city near the name. Google's own links name no business, so they
-  // never count as a source here.
+  // The one mention check every engine uses (lib/audit/answer-mention.ts): the name however it's spaced or
+  // formatted, then the brand's own domain among the cited sources, or its confirmed suburb or city near
+  // the name. Google's own links name no business, so they never count as a source here.
   const sources = answer.citedLinks
     .filter((l) => !l.googleLink)
     .map((l) => ({ domain: l.domain, cited: true }));
-  const mentionVerification = mention.found
-    ? verifyMention({
-        matchIndex: mention.matchIndex,
-        responseText: answer.answerText,
-        citedSources: sources,
-        brand: {
-          domain: brand.domain,
-          suburb: brand.suburb,
-          city: brand.city,
-          state: brand.state,
-          locationConfirmedAt: brand.locationConfirmedAt,
-          locationMode: brand.locationMode,
-        },
-      })
-    : null;
+  const { mention, verification: mentionVerification } = await answerMention({
+    text: answer.answerText,
+    sources,
+    brand,
+  });
   await serviceDb
     .update(googleSurfaceResults)
     .set({

@@ -1,5 +1,5 @@
 import { extractListRank } from "@/lib/audit/extract-list-rank";
-import { brandNamePattern } from "@/lib/brands/normalize";
+import { brandNamePattern, domainStem, normalizeBrandName } from "@/lib/brands/normalize";
 import { detectionText } from "./detection-text";
 
 export interface MentionResult {
@@ -28,64 +28,104 @@ export interface MentionResult {
   matchIndex: number | null;
 }
 
-const BRAND_NAME_REGEX_FLAGS = "gi";
+/**
+ * 13 Nov (audit #46): what an answer may put between any two letters of a name and still be writing that
+ * name -- spaces and tabs (never a line break), hyphens and dashes, "&", apostrophes and full stops. The
+ * brand stored as "herohomeservices" (the wizard took the domain label) scored 0 of 41 while ChatGPT listed
+ * "**Hero Home Services** (Yennora-based)" first: the name was only ever matched with gaps where the STORED
+ * name had spaces, and it had none.
+ */
+const GAP = "[ \\t\\-\\u2013\\u2014&'\\u2019.]*";
+/** The name's own boundaries and possessive, as brandNamePattern has them. */
+const BEFORE = "(?<![A-Za-z0-9])";
+const AFTER = "(?:['\\u2019]s?)?(?![A-Za-z0-9])";
+/** Shorter than this (letters and digits, gaps ignored), a spacing-free match is noise ("A B", "a.b"). */
+const MIN_SPACING_FREE_LETTERS = 4;
 
-// Vunnara Build 1, Part A: regexDetect now matches through
-// lib/brands/normalize.ts's shared brandNamePattern -- the same
-// punctuation-tolerant, lookaround-boundary pattern Part B's
-// isBrandedPrompt uses, so a quoted/bolded/possessive mention of the
-// brand's name is detected the same way everywhere, not via this
-// function's own narrower hand-rolled variant list.
-function regexDetect(response: string, brandName: string): MentionResult | null {
-  const regex = brandNamePattern(brandName);
-  const matches = [...response.matchAll(regex)];
-  if (matches.length === 0) return null;
-  const firstIdx = matches[0].index ?? 0;
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const AND = "(?:a[ \\t\\-\\u2013\\u2014'\\u2019.]*n[ \\t\\-\\u2013\\u2014'\\u2019.]*d|&)";
+
+/** A word as units to put one GAP between: each letter, or "and" (as "and" or "&") wherever it appears. */
+function units(word: string): string[] {
+  if (word === "&") return [AND];
+  return word
+    .split("and")
+    .flatMap((part, i) => [...(i > 0 ? [AND] : []), ...[...part].map(escapeRegExp)]);
+}
+
+/**
+ * One name, written with any spacing: case, spaces, hyphens, "&" for "and" (and back) and full stops don't
+ * matter, so "herohomeservices", "Hero Home Services", "Hero-Home-Services" and "HERO HOME SERVICES" are all
+ * the same name, whichever of them is stored. Still a whole name: a letter or digit right before or after it
+ * ("SuperOmega Services", "Omega Serviceswhich") is another word, and a different word in the middle
+ * ("Omega Plumbing Services") is a different name. `null` when the name has under four letters and digits.
+ */
+export function spacingFreeNamePattern(name: string): RegExp | null {
+  const words =
+    normalizeBrandName(name)
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+|&/gu) ?? [];
+  const letters = words.join("").replace(/&/g, "and").length;
+  if (letters < MIN_SPACING_FREE_LETTERS) return null;
+  return new RegExp(`${BEFORE}${words.flatMap(units).join(GAP)}${AFTER}`, "i");
+}
+
+function firstMatch(text: string, pattern: RegExp | null): number | null {
+  if (!pattern) return null;
+  const copy = new RegExp(pattern.source, pattern.flags.replace("g", ""));
+  const match = copy.exec(text);
+  return match ? match.index : null;
+}
+
+function earliest(...indexes: Array<number | null>): number | null {
+  const found = indexes.filter((i): i is number => i !== null);
+  return found.length === 0 ? null : Math.min(...found);
+}
+
+function foundAt(
+  text: string,
+  index: number,
+  method: "regex" | "entity",
+  confidence: "high" | "medium",
+): MentionResult {
   return {
     found: true,
-    position: extractListRank(response, firstIdx),
-    confidence: "high",
-    detectionMethod: "regex",
-    matchIndex: firstIdx,
+    position: extractListRank(text, index),
+    confidence,
+    detectionMethod: method,
+    matchIndex: index,
   };
 }
 
-function entityDetect(
-  response: string,
-  brand: { name: string; domain: string },
-): MentionResult | null {
-  const stem = brand.domain.replace(/\.(com\.au|com|net|org|io|co)$/i, "").replace(/[-.]/g, " ");
-  if (stem.length < 4) return null;
-  const regex = new RegExp(
-    `\\b${stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\b`,
-    BRAND_NAME_REGEX_FLAGS,
-  );
-  const match = regex.exec(response);
-  if (match) {
-    const idx = match.index ?? 0;
-    return {
-      found: true,
-      position: extractListRank(response, idx),
-      confidence: "medium",
-      detectionMethod: "entity",
-      matchIndex: idx,
-    };
-  }
-  return null;
-}
-
+/**
+ * The one test of whether an answer names a business (13 Nov: the four engines, Google's AI Overviews and
+ * AI Mode, and competitors all come here; lib/audit/answer-mention.ts adds the verification):
+ * 1. its name: brandNamePattern (lib/brands/normalize.ts: the stored words with any of space, hyphen, dash,
+ *    "&", apostrophe or full stop between them, "and" or "&", a possessive) or spacingFreeNamePattern (the
+ *    same name with the spacing ignored); the earlier of the two in the answer;
+ * 2. else its domain's name part ("herohomeservices" from herohomeservices.com.au, four or more letters),
+ *    with the spacing ignored the same way, which also finds the domain written out.
+ * Both read detectionText(response) ("**Hero** Home Services" reads as "Hero Home Services"); the stored
+ * answer is never changed. A name match is only a NAME match: a short or shared name ("Omega") still has to
+ * be verified as this business (lib/audit/verify-mention.ts) before it counts.
+ */
 export async function detectBrandMention(
   response: string,
   brand: { name: string; domain: string },
 ): Promise<MentionResult> {
-  // "Mention detection" (6 Nov), part 4: match on the normalised copy (lib/audit/detection-text.ts) --
-  // "**Omega** Services", a zero-width space or full-width letters no longer hide the name. The stored
-  // answer itself is never changed.
   const text = detectionText(response);
-  const regexResult = regexDetect(text, brand.name);
-  if (regexResult) return regexResult;
-  const entityResult = entityDetect(text, brand);
-  if (entityResult) return entityResult;
+  const nameAt = earliest(
+    firstMatch(text, brandNamePattern(brand.name)),
+    firstMatch(text, spacingFreeNamePattern(brand.name)),
+  );
+  if (nameAt !== null) return foundAt(text, nameAt, "regex", "high");
+  const stem = domainStem(brand.domain);
+  const domainAt =
+    stem.length >= MIN_SPACING_FREE_LETTERS ? firstMatch(text, spacingFreeNamePattern(stem)) : null;
+  if (domainAt !== null) return foundAt(text, domainAt, "entity", "medium");
   return {
     found: false,
     position: null,

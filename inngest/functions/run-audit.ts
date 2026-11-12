@@ -1,10 +1,10 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
+import { answerMention } from "@/lib/audit/answer-mention";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
-import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import {
   BrandNeedsConfirmationError,
@@ -20,7 +20,6 @@ import {
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
-import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
@@ -300,30 +299,19 @@ export const runAudit = inngest.createFunction(
           }
 
           const result = callResult.output;
-          const mention = await detectBrandMention(result.response, loaded.brand);
           // Task #43: see lib/audit/run-audit-inline.ts's matching
           // comment -- both runners must merge structured citedUrls
           // the same way so they can't drift.
           const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
+          // 13 Nov: the one mention check, the same as the inline runner's and Google's
+          // (lib/audit/answer-mention.ts).
+          const { mention, verification: mentionVerification } = await answerMention({
+            text: result.response,
+            sources,
+            brand: loaded.brand,
+          });
           const sentLabel = mention.found ? "positive" : "neutral";
           const ctxLabel = mention.found ? "listed" : "absent";
-          // Audit reliability, Part B: see lib/audit/run-audit-inline.ts's
-          // matching comment -- both runners call the one resolver.
-          const mentionVerification = mention.found
-            ? verifyMention({
-                matchIndex: mention.matchIndex,
-                responseText: result.response,
-                citedSources: sources,
-                brand: {
-                  domain: loaded.brand.domain,
-                  suburb: loaded.brand.suburb,
-                  city: loaded.brand.city,
-                  state: loaded.brand.state,
-                  locationConfirmedAt: loaded.brand.locationConfirmedAt,
-                  locationMode: loaded.brand.locationMode,
-                },
-              })
-            : null;
           // "Audits time out on Vercel" follow-up, item 2 -- same
           // reasoning as the failure branch above: ON CONFLICT
           // (audit_id, engine, prompt_index) DO NOTHING makes a

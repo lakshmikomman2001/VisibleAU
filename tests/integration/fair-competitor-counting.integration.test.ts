@@ -132,8 +132,11 @@ describe("the brand and its competitors use the same rule", () => {
     const counter = readFileSync("lib/audit/competitor-mentions.ts", "utf8");
     expect(counter).toMatch(/import \{ verifyMention \} from "@\/lib\/audit\/verify-mention"/);
     expect(counter).toMatch(/verifyMention\(\{/);
+    // 13 Nov: the runners verify the brand through the one mention check (lib/audit/answer-mention.ts),
+    // which calls verifyMention.
     const runner = readFileSync("lib/audit/run-audit-inline.ts", "utf8");
-    expect(runner).toMatch(/verifyMention\(/);
+    expect(runner).toMatch(/answerMention\(\{/);
+    expect(readFileSync("lib/audit/answer-mention.ts", "utf8")).toMatch(/verifyMention\(\{/);
   });
 
   it("the same evidence gives the same answer for either", async () => {

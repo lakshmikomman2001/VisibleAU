@@ -2,10 +2,10 @@ import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
+import { answerMention } from "@/lib/audit/answer-mention";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
-import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine-failure";
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
@@ -20,7 +20,6 @@ import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
-import { verifyMention } from "@/lib/audit/verify-mention";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { driftBaseline } from "@/lib/drift/baseline";
 import { detectDrift } from "@/lib/drift/detect";
@@ -218,33 +217,20 @@ export async function runAuditInline(
       }
 
       const result = callResult.output;
-      const mention = await detectBrandMention(result.response, b);
       // Task #43: Perplexity's real cited sources arrive as structured
       // URLs (result.citedUrls), not necessarily in the response text --
       // merge both. For engines without structured sources, citedUrls is
       // undefined and this is a no-op (extractCitations' result alone).
       const sources = mergeCitedSources(extractCitations(result.response), result.citedUrls);
+      // 13 Nov: the one mention check, the same as Google's (lib/audit/answer-mention.ts). Verification is
+      // null when the name wasn't found, "unverified" when it was but isn't confirmed as this business.
+      const { mention, verification: mentionVerification } = await answerMention({
+        text: result.response,
+        sources,
+        brand: b,
+      });
       const sentimentLabel = mention.found ? "positive" : "neutral";
       const contextLabel = mention.found ? "listed" : "absent";
-      // Audit reliability, Part B: only a real name match needs
-      // verifying -- "not found" has nothing to verify, and must stay
-      // null (not "unverified"), since "unverified" specifically means
-      // "the name matched but we couldn't confirm it's this business".
-      const mentionVerification = mention.found
-        ? verifyMention({
-            matchIndex: mention.matchIndex,
-            responseText: result.response,
-            citedSources: sources,
-            brand: {
-              domain: b.domain,
-              suburb: b.suburb,
-              city: b.city,
-              state: b.state,
-              locationConfirmedAt: b.locationConfirmedAt,
-              locationMode: b.locationMode,
-            },
-          })
-        : null;
 
       // "Audits time out on Vercel" follow-up, item 4 -- see the
       // matching engine_call_failures insert's own comment above.

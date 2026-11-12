@@ -1,21 +1,42 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
+import { categoryChoices } from "@/lib/brands/category-choices";
 import { markJustConfirmed } from "@/lib/brands/just-confirmed";
 import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/prompts/templates";
 import type { Audience } from "@/lib/types/brand";
 
+/** The brand's location as the panel shows it, with what "Change" needs (13 Nov, part 1). */
+export interface ConfirmCardLocation {
+  /** "Yennora, NSW", or null when it has none yet. */
+  label: string | null;
+  onlineOnly: boolean;
+  primaryRegion?: string;
+  isLegacyDefaultRegion: boolean;
+}
+
 interface ClassificationConfirmCardProps {
   brandId: string;
-  suggestedCategory: string;
+  /** The classifier's suggestion; null when it failed or timed out (13 Nov, part 1). */
+  suggestedCategory: string | null;
   // Vunnara hotfix (18 Oct, post-df27ef8): the owner's own confirmed
   // audience, or null/undefined when they haven't confirmed one yet --
   // never a classifier-derived guess (see the caller's own comment).
   suggestedAudience: Audience | null | undefined;
   suggestedCompetitors: string[];
-  confidence: number;
+  confidence: number | null;
+  /**
+   * 13 Nov (part 1): "low_confidence" -- the classifier finished but isn't sure; "could_not_classify" -- it
+   * failed or never finished, so there is no suggestion and the owner chooses.
+   */
+  mode?: "low_confidence" | "could_not_classify";
+  /** The brand's vertical: its business types are shown first, the rest behind "Other types". */
+  vertical?: string;
+  /** The brand's location, shown with "Change" (the audit uses it as much as the business type). */
+  location?: ConfirmCardLocation | null;
 }
 
 const AUDIENCE_OPTIONS: Array<{ value: Audience; label: string; hint: string }> = [
@@ -30,15 +51,26 @@ export function ClassificationConfirmCard({
   suggestedAudience,
   suggestedCompetitors,
   confidence,
+  mode = "low_confidence",
+  vertical,
+  location,
 }: ClassificationConfirmCardProps) {
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
     new Set(
-      CATEGORY_KEYS.includes(suggestedCategory as CategoryKey)
+      suggestedCategory && CATEGORY_KEYS.includes(suggestedCategory as CategoryKey)
         ? [suggestedCategory as CategoryKey]
         : [],
     ),
   );
+  // The vertical's types first, from the suggestion as it was when the panel opened -- chips don't move
+  // while the owner picks.
+  const choices = useMemo(
+    () => categoryChoices(vertical, suggestedCategory ? [suggestedCategory] : []),
+    [vertical, suggestedCategory],
+  );
+  const [showOtherTypes, setShowOtherTypes] = useState(false);
+  const [changingLocation, setChangingLocation] = useState(false);
   // Vunnara hotfix (18 Oct, post-df27ef8): null (no selection) until
   // the owner actively picks one, OR their real confirmed value if
   // this is already set -- never defaults to a classifier guess.
@@ -137,11 +169,71 @@ export function ClassificationConfirmCard({
       >
         Confirm your business details
       </h2>
-      <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
-        We weren&apos;t fully confident in our automatic read of your business
-        {confidence < 0.7 ? ` (${Math.round(confidence * 100)}% confidence)` : ""}. Confirming helps
-        us ask the right AI visibility questions.
+      <p
+        style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}
+        data-confirm-mode={mode}
+      >
+        {mode === "could_not_classify" ? (
+          <>We couldn&apos;t work this out automatically — choose below.</>
+        ) : (
+          <>
+            We weren&apos;t fully confident in our automatic read of your business
+            {confidence !== null && confidence < 0.7
+              ? ` (${Math.round(confidence * 100)}% confidence)`
+              : ""}
+            . Confirming helps us ask the right AI visibility questions.
+          </>
+        )}
       </p>
+
+      {location && (
+        <div style={{ marginBottom: 16 }} data-confirm-location="">
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              color: "var(--text-tertiary)",
+              marginBottom: 8,
+            }}
+          >
+            Where is your business?
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+              {location.onlineOnly
+                ? "Online only (no fixed location)"
+                : (location.label ?? "No location yet")}
+            </span>
+            <button
+              type="button"
+              onClick={() => setChangingLocation((open) => !open)}
+              aria-expanded={changingLocation}
+              style={{
+                fontSize: 12,
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: "var(--accent-primary)",
+                textDecoration: "underline",
+              }}
+            >
+              {changingLocation ? "Keep this location" : "Change"}
+            </button>
+          </div>
+          {changingLocation && (
+            <div style={{ marginTop: 12 }}>
+              <LocationConfirmCard
+                brandId={brandId}
+                currentPrimaryRegion={location.primaryRegion}
+                isLegacyDefaultRegion={location.isLegacyDefaultRegion}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginBottom: 16 }}>
         <div
@@ -158,8 +250,9 @@ export function ClassificationConfirmCard({
         </div>
         <div
           style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180, overflowY: "auto" }}
+          data-category-choices=""
         >
-          {CATEGORY_KEYS.map((key) => {
+          {[...choices.first, ...(showOtherTypes ? choices.others : [])].map((key) => {
             const selected = selectedCategories.has(key);
             return (
               <button
@@ -184,6 +277,25 @@ export function ClassificationConfirmCard({
             );
           })}
         </div>
+        {choices.others.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowOtherTypes((open) => !open)}
+            aria-expanded={showOtherTypes}
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              color: "var(--accent-primary)",
+              textDecoration: "underline",
+            }}
+          >
+            {showOtherTypes ? "Fewer types" : `Other types (${choices.others.length})`}
+          </button>
+        )}
       </div>
 
       <div style={{ marginBottom: 16 }}>

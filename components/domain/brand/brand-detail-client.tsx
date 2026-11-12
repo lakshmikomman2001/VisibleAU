@@ -34,6 +34,10 @@ import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import {
+  CLASSIFICATION_TIMEOUT_MS,
+  type ClassificationState,
+} from "@/lib/brands/classification-state";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import {
   FIRST_AUDIT_FAILED_PARAM,
@@ -41,6 +45,7 @@ import {
   firstAuditFailedSentence,
   takeFirstAuditFailure,
 } from "@/lib/brands/first-audit-notice";
+import { brandLocationLabel } from "@/lib/brands/region-label";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
@@ -85,6 +90,11 @@ interface BrandDetailClientProps {
     // never a silent new requirement.
     classificationStatus?: "pending" | "processing" | "complete" | "failed" | "needs_confirmation";
     classificationError?: string | null;
+    /** The confirmed location, for the confirmation panel's "Where is your business?" (13 Nov, part 1). */
+    suburb?: string | null;
+    city?: string | null;
+    state?: string | null;
+    locationMode?: "fixed" | "online_only" | null;
     // Vunnara hotfix (18 Oct, post-df27ef8): the OWNER'S OWN confirmed
     // audience (brands.audience) -- distinct from classification.
     // audience below, which is the classifier's unconfirmed guess.
@@ -100,6 +110,12 @@ interface BrandDetailClientProps {
     } | null;
   };
   tier?: string;
+  /**
+   * 13 Nov (part 1): what the page says about classification, decided on the server
+   * (lib/brands/needs-confirmation.ts classificationState, with its timeout). Missing (older callers and
+   * tests) means it's read from brand.classificationStatus alone.
+   */
+  classificationState?: ClassificationState;
   auditCount: number;
   // Task #46 Phase 2: `insufficientData` is optional (not just `boolean`) so
   // existing callers/tests that don't yet pass it (e.g. an empty
@@ -168,6 +184,7 @@ interface BrandTool {
 export function BrandDetailClient({
   brand,
   tier,
+  classificationState: serverClassificationState,
   auditCount,
   recentAudits,
   latestAudit,
@@ -187,17 +204,30 @@ export function BrandDetailClient({
   const [name, setName] = useState(brand.name);
   const [domain, setDomain] = useState(brand.domain);
   const [vertical, setVertical] = useState(brand.vertical);
-  const [retrying, setRetrying] = useState(false);
 
   // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
   // classification isn't blocked -- just warned about -- so a brand
   // with no classificationStatus passed at all (existing callers/tests)
   // is treated as already confirmed, never as a silent new requirement.
+  //
+  // 13 Nov (Sri's walk-through, part 1): one state, true to the audit gate (brandReadyForAudit refuses every
+  // state but "complete"): "running" only while the classifier is actually working, "needs_confirmation"
+  // when it finished unsure, "could_not_classify" when it failed or ran past the timeout -- then the owner
+  // chooses in the same panel. The panel shows on the first load in every state but running and complete.
   const classificationStatus = brand.classificationStatus ?? "complete";
-  const needsConfirmation = classificationStatus === "needs_confirmation";
-  const classificationFailed = classificationStatus === "failed";
-  const classificationInProgress =
-    classificationStatus === "pending" || classificationStatus === "processing";
+  const classification: ClassificationState =
+    serverClassificationState ??
+    (classificationStatus === "needs_confirmation"
+      ? "needs_confirmation"
+      : classificationStatus === "failed"
+        ? "could_not_classify"
+        : classificationStatus === "pending" || classificationStatus === "processing"
+          ? "running"
+          : "complete");
+  const needsConfirmation =
+    classification === "needs_confirmation" || classification === "could_not_classify";
+  const classificationFailed = classification === "could_not_classify";
+  const classificationInProgress = classification === "running";
 
   // Vunnara Build 1, Part D.4: an explicit `null` (every real brand
   // predating this feature -- no prod backfill ever set it) means
@@ -223,7 +253,36 @@ export function BrandDetailClient({
   // (category not a real enum key, or confidence < 0.7, classified
   // "complete" by the OLD classifier) is blocked here too, not just a
   // brand explicitly marked needs_confirmation.
-  const blockedFromAudit = needsConfirmation || locationNeedsConfirmation;
+  const blockedFromAudit = classification !== "complete" || locationNeedsConfirmation;
+  // Whether it was blocked when the page opened (the wizard's ?firstAudit=failed notice reads this once).
+  const [blockedAtLoad] = useState(blockedFromAudit);
+
+  // 13 Nov (part 1): while the classifier works, the page asks the server again every 5 seconds (it used to
+  // wait for a reload -- Sri only saw the panel after a Save happened to refresh the page), and stops once
+  // the server's state moves on or the timeout has passed (the server then says "could_not_classify").
+  useEffect(() => {
+    if (!classificationInProgress) return;
+    const poll = setInterval(() => router.refresh(), 5_000);
+    const stop = setTimeout(() => clearInterval(poll), CLASSIFICATION_TIMEOUT_MS + 30_000);
+    return () => {
+      clearInterval(poll);
+      clearTimeout(stop);
+    };
+  }, [classificationInProgress, router]);
+
+  // The one line near Run audit while it can't succeed, pointing at the panel (13 Nov, part 1: it was a red
+  // line, an orange one and a grey one saying the same thing, one of them untrue).
+  const firstOrAn = auditCount === 0 ? "the first audit" : "an audit";
+  const blockedLine = classificationInProgress
+    ? `We're working out your business type below; confirm it there to run ${firstOrAn}.`
+    : needsConfirmation
+      ? `Confirm your business details below to run ${firstOrAn}.`
+      : locationNeedsConfirmation
+        ? `Confirm your business location below to run ${firstOrAn}.`
+        : null;
+  // The wizard's "the first audit couldn't start" (?firstAudit=failed) when the reason is just this:
+  // the one line says the brand was created instead of a second, red line saying "Run audit to try again".
+  const [createdBlocked, setCreatedBlocked] = useState(false);
 
   // Vunnara hotfix (18 Oct, post-df27ef8): both confirm cards already
   // call router.refresh() on success, so the page's own data (and this
@@ -250,16 +309,6 @@ export function BrandDetailClient({
     }
   }, [blockedFromAudit, brand.id]);
 
-  const handleRetryClassification = async () => {
-    setRetrying(true);
-    try {
-      await fetch(`/api/brands/${brand.id}/retry-classification`, { method: "POST" });
-      router.refresh();
-    } finally {
-      setRetrying(false);
-    }
-  };
-
   // Follow-ups from af8de42..d1eb5a1, part 1: each of these failed silently. A refused Run audit stopped the
   // spinner and said nothing (`if (!res.ok) return;`), a failed Save threw into nothing with the form still
   // open, and Delete went to /brands whatever the answer. Each says why now, in the API's words.
@@ -274,14 +323,16 @@ export function BrandDetailClient({
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get(FIRST_AUDIT_FAILED_PARAM) !== FIRST_AUDIT_FAILED_VALUE) return;
-    setRunError(firstAuditFailedSentence(takeFirstAuditFailure(brand.id)));
+    const reason = takeFirstAuditFailure(brand.id);
+    if (blockedAtLoad) setCreatedBlocked(true);
+    else setRunError(firstAuditFailedSentence(reason));
     url.searchParams.delete(FIRST_AUDIT_FAILED_PARAM);
     window.history.replaceState(
       window.history.state,
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
-  }, [brand.id]);
+  }, [brand.id, blockedAtLoad]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -424,52 +475,6 @@ export function BrandDetailClient({
         </ConfirmDialog>
       )}
 
-      {/* Classification failed banner (Part C.5) */}
-      {classificationFailed && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "12px 16px",
-            borderRadius: 8,
-            background: "var(--danger-soft)",
-            border: "1px solid var(--danger)",
-            marginBottom: 24,
-          }}
-        >
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--danger)", margin: 0 }}>
-              Classification failed
-            </p>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "2px 0 0" }}>
-              {brand.classificationError ?? "We couldn't automatically classify this business."}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleRetryClassification}
-            disabled={retrying}
-            style={{
-              height: 30,
-              padding: "0 12px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 500,
-              background: "var(--bg-elevated)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border-default)",
-              cursor: retrying ? "not-allowed" : "pointer",
-              opacity: retrying ? 0.5 : 1,
-              flexShrink: 0,
-            }}
-          >
-            {retrying ? "Retrying..." : "Retry classification"}
-          </button>
-        </div>
-      )}
-
       {justConfirmedSuccess && (
         <div
           style={{
@@ -490,11 +495,46 @@ export function BrandDetailClient({
       {/* Build 1 addendum, item 9: anchor target for the blocked-audit
           CTA above, so it actually lands on these cards. */}
       <div id="confirm-business-details">
-        {/* Confirm-classification card (Part C.4) */}
-        {needsConfirmation && brand.classification && (
+        {/* 13 Nov (part 1): while the classifier works, say so where the panel will appear. */}
+        {classificationInProgress && (
+          <div
+            role="status"
+            data-classification-running=""
+            style={{
+              padding: 16,
+              borderRadius: 8,
+              background: "var(--accent-muted)",
+              border: "1px solid var(--border-default)",
+              marginBottom: 32,
+              fontSize: 13,
+              color: "var(--text-secondary)",
+            }}
+          >
+            <strong style={{ color: "var(--text-primary)" }}>
+              Working out your business type…
+            </strong>{" "}
+            We read your website to suggest it; this usually takes under a minute. This page updates
+            when it&apos;s done, and you confirm it here.
+          </div>
+        )}
+        {/* Confirm-classification card (Part C.4): on the first load whenever it's needed, with or without a
+            suggestion (13 Nov, part 1). */}
+        {needsConfirmation && (
           <ClassificationConfirmCard
             brandId={brand.id}
-            suggestedCategory={brand.classification.category}
+            mode={classificationFailed ? "could_not_classify" : "low_confidence"}
+            vertical={brand.vertical}
+            location={
+              locationNeedsConfirmation
+                ? null
+                : {
+                    label: brandLocationLabel(brand),
+                    onlineOnly: brand.locationMode === "online_only",
+                    primaryRegion: brand.primaryRegions[0],
+                    isLegacyDefaultRegion,
+                  }
+            }
+            suggestedCategory={brand.classification?.category ?? null}
             // Vunnara hotfix (18 Oct, post-df27ef8): the OWNER'S OWN
             // confirmed audience, never a classifier guess derived from
             // buyerType -- null (no selection) until they actually
@@ -504,8 +544,8 @@ export function BrandDetailClient({
             // its real confirmed value is what shows, not a re-derived
             // guess.
             suggestedAudience={brand.audience}
-            suggestedCompetitors={brand.classification.competitors}
-            confidence={brand.classification.confidence}
+            suggestedCompetitors={brand.classification?.competitors ?? []}
+            confidence={brand.classification?.confidence ?? null}
           />
         )}
 
@@ -618,15 +658,7 @@ export function BrandDetailClient({
         )}
         <span
           style={{ position: "relative", display: "inline-flex" }}
-          title={
-            !canRunAudit
-              ? refusalMessage("run_audit")
-              : blockedFromAudit
-                ? "Confirm your business type and location first — see below."
-                : classificationFailed || classificationInProgress
-                  ? "Questions may not match your business yet — confirm your business details for better results."
-                  : undefined
-          }
+          title={!canRunAudit ? refusalMessage("run_audit") : (blockedLine ?? undefined)}
         >
           <button
             type="button"
@@ -654,7 +686,7 @@ export function BrandDetailClient({
           </button>
         </span>
       </div>
-      {(runError || saveError) && (
+      {(runError || saveError) && !blockedLine && (
         <p
           role="alert"
           data-action-error
@@ -669,11 +701,11 @@ export function BrandDetailClient({
           {runError ?? saveError}
         </p>
       )}
-      {/* Build 1 addendum, item 9: a real block, with a call to action
-          into the confirm card(s) below -- never a silent fallback to
-          generic or stale-classification questions. */}
-      {blockedFromAudit && (
+      {/* Build 1 addendum, item 9: a real block, with a call to action into the panel below -- never a
+          silent fallback to generic questions. 13 Nov (part 1): one line, not three. */}
+      {blockedFromAudit && blockedLine && (
         <p
+          data-blocked-line=""
           style={{
             fontSize: 12,
             color: "var(--warning)",
@@ -683,21 +715,8 @@ export function BrandDetailClient({
           }}
         >
           <a href="#confirm-business-details" style={{ color: "var(--warning)" }}>
-            Confirm your business type and location first (takes 30 seconds)
+            {createdBlocked ? `Your brand was created. ${blockedLine}` : blockedLine}
           </a>
-        </p>
-      )}
-      {!blockedFromAudit && classificationInProgress && (
-        <p
-          style={{
-            fontSize: 12,
-            color: "var(--text-tertiary)",
-            textAlign: "right",
-            marginTop: -16,
-            marginBottom: 24,
-          }}
-        >
-          Classification is still running — questions may use a generic fallback for now.
         </p>
       )}
 
@@ -751,7 +770,7 @@ export function BrandDetailClient({
               />
               Active
             </span>
-            {classificationStatus !== "complete" && (
+            {classification !== "complete" && (
               <span
                 style={{
                   display: "inline-flex",
@@ -774,10 +793,10 @@ export function BrandDetailClient({
                 }}
               >
                 {classificationFailed
-                  ? "Classification failed"
+                  ? "Couldn't work it out — choose below"
                   : needsConfirmation
                     ? "Needs your confirmation"
-                    : "Classification pending"}
+                    : "Working out your business type"}
               </span>
             )}
           </div>

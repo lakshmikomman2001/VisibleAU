@@ -9,7 +9,10 @@ import { engineCoverageLabel, engineNoAnswerReason } from "@/lib/audit/engine-fa
 import { auditModels } from "@/lib/audit/model-drift";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { brandNeedsClassificationConfirmation } from "@/lib/brands/needs-confirmation";
+import {
+  brandNeedsClassificationConfirmation,
+  classificationState,
+} from "@/lib/brands/needs-confirmation";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -232,6 +235,19 @@ export default async function BrandDetailPage({
   })
     ? "needs_confirmation"
     : brand.classificationStatus;
+  // 13 Nov (part 1): running, needs your confirmation, couldn't work it out (failed, or past the
+  // timeout), or complete -- the panel shows on this first load whenever it's needed.
+  const classification = classificationState(
+    {
+      classificationStatus: brand.classificationStatus,
+      classification: brand.classification,
+      categoryConfirmedAt: brand.categoryConfirmedAt,
+      categories: brand.categories,
+      audience: brand.audience,
+      startedAt: brand.updatedAt ?? brand.createdAt,
+    },
+    new Date(),
+  );
 
   return (
     <>
@@ -241,6 +257,7 @@ export default async function BrandDetailPage({
           ...JSON.parse(JSON.stringify(brand)),
           classificationStatus: effectiveClassificationStatus,
         }}
+        classificationState={classification}
         tier={tier}
         auditCount={Number(auditCount)}
         recentAudits={JSON.parse(JSON.stringify(recentAudits.reverse()))}

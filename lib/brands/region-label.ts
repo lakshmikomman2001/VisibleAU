@@ -18,6 +18,25 @@ const REGION_DISPLAY: Record<string, string> = {
  * runners (run-audit-inline.ts and inngest/functions/run-audit.ts),
  * which had each grown their own copy of this fallback chain.
  */
+/**
+ * 13 Nov (part 1): the brand's location as the owner reads it on the brand page -- "Yennora, NSW" -- from
+ * the confirmed suburb (or city) and state, else the "STATE:Suburb" primary region; null when it has none.
+ * Never a region-wide guess ("Australia"): that's not where the business is.
+ */
+export function brandLocationLabel(brand: {
+  suburb?: string | null;
+  city?: string | null;
+  state?: string | null;
+  primaryRegions?: readonly string[];
+}): string | null {
+  const place = brand.suburb ?? brand.city;
+  if (place) return brand.state ? `${place}, ${brand.state}` : place;
+  const region = brand.primaryRegions?.[0];
+  if (!region) return null;
+  const [state, suburb] = region.split(":");
+  return suburb ? `${suburb}, ${state}` : state || null;
+}
+
 export function resolveRegionLabel(
   brand: Pick<Brand, "suburb" | "city" | "state" | "primaryRegions" | "region">,
 ): string {

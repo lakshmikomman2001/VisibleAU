@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { brands } from "@/db/schema";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
@@ -26,9 +26,11 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     return;
   }
 
+  // 13 Nov (part 1): updated_at is when this run started -- the brand page stops waiting for it after
+  // lib/brands/needs-confirmation.ts CLASSIFICATION_TIMEOUT_MS and lets the owner choose.
   await serviceDb
     .update(brands)
-    .set({ classificationStatus: "processing" })
+    .set({ classificationStatus: "processing", updatedAt: new Date() })
     .where(eq(brands.id, brandId));
 
   try {
@@ -42,13 +44,16 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     // "general" classification isn't trustworthy enough to run an
     // audit on unconfirmed -- needs_confirmation routes the brand
     // through the confirm-step UI instead of silently shipping a guess.
-    const needsConfirmation = classification.confidence < 0.7 || classification.category === "general";
+    const needsConfirmation =
+      classification.confidence < 0.7 || classification.category === "general";
 
     await serviceDb
       .update(brands)
       .set({
         classification,
-        classificationStatus: needsConfirmation ? "needs_confirmation" : "complete",
+        // 13 Nov (part 1): the owner may have confirmed while this ran (the brand page lets them choose
+        // once it stops waiting); their confirmation stands -- the result is kept only as the suggestion.
+        classificationStatus: sql`CASE WHEN ${brands.categoryConfirmedAt} IS NOT NULL THEN 'complete' ELSE ${needsConfirmation ? "needs_confirmation" : "complete"} END`,
         classificationAt: new Date(),
         classificationError: null,
       })
@@ -68,7 +73,10 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     console.error("[classifyAndStoreBrand] Failed", { brandId, err });
     await serviceDb
       .update(brands)
-      .set({ classificationStatus: "failed", classificationError: message })
+      .set({
+        classificationStatus: sql`CASE WHEN ${brands.categoryConfirmedAt} IS NOT NULL THEN 'complete' ELSE 'failed' END`,
+        classificationError: message,
+      })
       .where(eq(brands.id, brandId));
     throw err;
   }

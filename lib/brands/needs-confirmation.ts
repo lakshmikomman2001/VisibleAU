@@ -1,6 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { auditSchedules } from "@/db/schema";
+import {
+  CLASSIFICATION_TIMEOUT_MS,
+  type ClassificationState,
+} from "@/lib/brands/classification-state";
 import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import type { BrandClassification } from "@/lib/types/brand";
 
@@ -98,6 +102,27 @@ export function brandReadyForAudit(brand: AuditReadinessInput): boolean {
 }
 
 /**
+ * 13 Nov (Sri's walk-through, part 1): what the brand page says about classification, true to what the
+ * audit gate (brandReadyForAudit) does; the states and the timeout are in lib/brands/classification-state.ts
+ * (client-safe). `startedAt` is when the current run started (brands.updated_at, which the classifier and
+ * the retry stamp when they start it; the brand's creation for the first run).
+ */
+export function classificationState(
+  brand: ClassificationConfirmationInput & { startedAt: Date | string | null },
+  now: Date,
+): ClassificationState {
+  if (brandNeedsClassificationConfirmation(brand)) return "needs_confirmation";
+  const status = brand.classificationStatus ?? "complete";
+  if (status === "complete") return "complete";
+  if (status === "failed") return "could_not_classify";
+  const started = brand.startedAt ? new Date(brand.startedAt).getTime() : Number.NaN;
+  if (Number.isNaN(started) || now.getTime() - started > CLASSIFICATION_TIMEOUT_MS) {
+    return "could_not_classify";
+  }
+  return "running";
+}
+
+/**
  * Build 1 follow-up (entry-point check): the schedule's own "Pause/
  * Resume" toggle is hidden while status = 'needs_confirmation'
  * (brand-schedule-view.tsx, agency-schedules-view.tsx) -- a manual
@@ -117,5 +142,7 @@ export async function reactivateScheduleIfReady(
   await tx
     .update(auditSchedules)
     .set({ status: "active", pausedReason: null, updatedAt: new Date() })
-    .where(and(eq(auditSchedules.brandId, brand.id), eq(auditSchedules.status, "needs_confirmation")));
+    .where(
+      and(eq(auditSchedules.brandId, brand.id), eq(auditSchedules.status, "needs_confirmation")),
+    );
 }

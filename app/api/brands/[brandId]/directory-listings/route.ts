@@ -115,7 +115,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ brandId:
   if (status === "listed") {
     if (!parsed.data.profileUrl) {
       return NextResponse.json(
-        { error: "profileUrl is required when status is 'listed'" },
+        { error: `Paste your ${directory.name} profile link to mark it Listed.` },
         { status: 400 },
       );
     }

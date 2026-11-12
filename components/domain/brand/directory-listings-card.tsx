@@ -126,7 +126,8 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
           Directory listings
         </h3>
         <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
-          Tell us where you're listed -- we never check this for you automatically.
+          Add your profile link for each directory you&apos;re on. We match it against the pages AI
+          cites in your audits; we never look you up on the directories ourselves.
         </p>
       </div>
 
@@ -210,9 +211,9 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
                 }}
               >
                 <option value="" disabled>
-                  Choose...
+                  Choose…
                 </option>
-                <option value="listed">Listed</option>
+                <option value="listed">Listed: add my profile link</option>
                 <option value="not_listed">Not listed</option>
                 <option value="unsure">Not sure</option>
               </select>

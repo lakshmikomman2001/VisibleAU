@@ -125,7 +125,7 @@ function directoryFinding(data: FindingsData): Finding | null {
     recommendation: notLinked
       ? {
           title: `Link your ${nameList(names)} ${plural(names.length, "profile")}`,
-          detail: `${gapSubject} ${gapCited}; add the links so we can check them.`,
+          detail: `${gapSubject} ${gapCited}; add your profile links in brand settings so we can match them with what AI cites.`,
         }
       : {
           title: `Complete your ${nameList(names)} ${plural(names.length, "profile")}`,

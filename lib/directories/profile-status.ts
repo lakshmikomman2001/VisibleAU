@@ -11,7 +11,7 @@ export const PROFILE_NOT_LINKED_LABEL = "Not linked yet";
 
 /** Shown once under the directories when any cited one has no linked profile. */
 export const LINK_PROFILES_HINT =
-  "Add your directory listings in brand settings so we can match them.";
+  "Add your directory profile links in brand settings so we can match them with what AI cites.";
 
 export type DirectoryProfileStatus =
   | { kind: "not_linked"; label: string }

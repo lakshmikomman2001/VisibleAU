@@ -112,7 +112,9 @@ describe("DirectoriesCitedPanel", () => {
     );
     expect(html).toContain("hipages cited in 9 of 30 answers");
     expect(html).toContain("Your profile: Not linked yet");
-    expect(html).toContain("Add your directory listings in brand settings so we can match them.");
+    expect(html).toContain(
+      "Add your directory profile links in brand settings so we can match them with what AI cites.",
+    );
     expect(html).not.toContain("none were your profile");
   });
 

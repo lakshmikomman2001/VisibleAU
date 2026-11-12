@@ -23,7 +23,7 @@ describe("directory counts are in answers, the same unit as the evidence above t
     const finding = reportFindings(data).find((f) => f.rule === "a");
     const n = data.directories.totalAnswers;
     expect(finding?.recommendation.detail).toBe(
-      `They're cited in 8, 6 and 5 of ${n} answers; add the links so we can check them.`,
+      `They're cited in 8, 6 and 5 of ${n} answers; add your profile links in brand settings so we can match them with what AI cites.`,
     );
     expect(finding?.recommendation.detail).not.toMatch(/directory citations/);
     expect(finding?.evidence.map((line) => line[1].text)).toEqual([

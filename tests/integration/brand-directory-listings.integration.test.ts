@@ -267,6 +267,7 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
       profileUrl: "https://hipages.com.au/find/plumbers",
     });
     expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("That link doesn't look like a hipages profile page");
     // Never fetches the pasted link to "check" it -- validated by
     // pattern alone.
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -281,6 +282,8 @@ describe("PUT /api/brands/[brandId]/directory-listings -- validates by pattern, 
 
     const res = await callPut(BRAND_A_ID, { directoryKey: "hipages", status: "listed" });
     expect(res.status).toBe(400);
+    // 13 Nov (part 4): in the owner's words (it said "profileUrl is required when status is 'listed'").
+    expect((await res.json()).error).toBe("Paste your hipages profile link to mark it Listed.");
   });
 
   it("an unknown directory key is rejected", async () => {

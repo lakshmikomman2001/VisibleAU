@@ -828,7 +828,7 @@ function profileTile(data: ReportData): {
   if (linked.length === 0) {
     return {
       v: "Not checked",
-      d: "Add your directory listings in brand settings so we can match them",
+      d: "Add your directory profile links in brand settings so we can match them with what AI cites",
       bad: false,
       compact: true,
     };
@@ -1525,7 +1525,8 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
             <>
               <Text style={{ ...s.tileV, fontSize: px(22), lineHeight: 40 / 22 }}>Not checked</Text>
               <Text style={s.tileD}>
-                Add your directory listings in brand settings so we can match them
+                Add your directory profile links in brand settings so we can match them with what AI
+                cites
               </Text>
             </>
           ) : (

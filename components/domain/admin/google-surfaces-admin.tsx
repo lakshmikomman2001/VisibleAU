@@ -2,19 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useState } from "react";
+import { ActionError } from "@/components/shared/load-error";
 import type { GoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import type {
   GoogleSurface,
   GoogleSurfaceAdminView,
   GoogleSurfaceDecision,
 } from "@/lib/governance/google-surfaces";
-import { usePostAction } from "@/lib/hooks/use-action";
+import { MAX_COST_CEILING_USD } from "@/lib/governance/google-surfaces-limits";
 import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
 import { LOW_BALANCE_USD, type TestConnectionResult } from "@/lib/serp/test-connection";
 
 /**
  * Google AI surfaces, Phase 1, part 1 -- /admin/settings. Each control saves on its own (POST
- * /api/admin/settings) and the page reloads what the server now has. The env kill switch is shown but
+ * /api/admin/settings), says so ("Saving…", "Saved", or why not: 12 Nov, part 5), and the page reloads
+ * what the server now has. The env kill switch is shown but
  * can't be changed here: it's GOOGLE_AI_SURFACES_ENABLED in Vercel, and needs a redeploy.
  */
 
@@ -197,6 +199,209 @@ function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErro
   );
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "unchanged" | "error";
+
+/**
+ * 12 Nov, part 5: one control's save (Sri clicked Omega's postcode Save 15 times: nothing on screen said it
+ * had worked). "Saving…" while it's sent, then "Saved" (or "No change" when the server had that value
+ * already), or the server's own reason, through the shared fetch helpers (lib/load/fetch-json.ts). A
+ * successful save reloads what the page shows; a failed one leaves what was typed as it is.
+ */
+function useSave() {
+  const router = useRouter();
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const save = async (change: Record<string, unknown>) => {
+    setStatus("saving");
+    setError(null);
+    try {
+      const res = await fetchOrFail("/api/admin/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(change),
+      });
+      const body = await readJson<{ ok: true; status?: "saved" | "unchanged" }>(res);
+      setStatus(body.status === "unchanged" ? "unchanged" : "saved");
+      router.refresh();
+    } catch (err) {
+      setStatus("error");
+      setError(
+        err instanceof LoadFailure && err.detail
+          ? err.detail
+          : "The change couldn't be saved. Check your connection and try again.",
+      );
+    }
+  };
+  /** Typing again clears the last "Saved" / error. */
+  const reset = () => {
+    if (status !== "saving") {
+      setStatus("idle");
+      setError(null);
+    }
+  };
+  return { status, error, saving: status === "saving", save, reset };
+}
+
+function SaveFeedback({ status, error }: { status: SaveStatus; error: string | null }) {
+  if (status === "saving") {
+    return (
+      <span role="status" className="text-[12px]" style={muted}>
+        Saving…
+      </span>
+    );
+  }
+  if (status === "saved" || status === "unchanged") {
+    return (
+      <span role="status" className="text-[12px]" style={{ color: "var(--success)" }}>
+        {status === "saved" ? "Saved" : "No change: that was already the value"}
+      </span>
+    );
+  }
+  return <ActionError message={status === "error" ? error : null} />;
+}
+
+/** A checkbox that saves when it's ticked or unticked. */
+function SettingCheckbox({
+  name,
+  checked,
+  children,
+}: {
+  name: "aiOverviewsEnabled" | "aiModeEnabled" | "countInHeadline";
+  checked: boolean;
+  children: string;
+}) {
+  const s = useSave();
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-admin-setting={name}>
+      <label className="flex items-center gap-2 text-[13px]" style={label}>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={s.saving}
+          onChange={(e) => s.save({ kind: "setting", name, value: e.target.checked })}
+        />
+        {children}
+      </label>
+      <SaveFeedback status={s.status} error={s.error} />
+    </div>
+  );
+}
+
+/** A dropdown that saves when it's changed (to a value other than the one in force). */
+function SavingSelect({
+  title,
+  value,
+  options,
+  change,
+  dataKey,
+}: {
+  title: string;
+  value: string;
+  options: { value: string; label: string }[];
+  change: (value: string) => Record<string, unknown>;
+  dataKey: string;
+}) {
+  const s = useSave();
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-admin-select={dataKey}>
+      <label className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
+        {title}
+        <select
+          value={value}
+          disabled={s.saving}
+          className="px-2 py-1 rounded-md"
+          style={field}
+          onChange={(e) => {
+            if (e.target.value !== value) s.save(change(e.target.value));
+          }}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <SaveFeedback status={s.status} error={s.error} />
+    </div>
+  );
+}
+
+/** A typed value with its own Save: enabled only when it's valid and differs from the one in force. */
+function SavingField({
+  id,
+  title,
+  saved,
+  validate,
+  change,
+  inputMode,
+  maxLength,
+  width,
+  dataKey,
+}: {
+  id: string;
+  title: string;
+  /** The value in force, as the field shows it. */
+  saved: string;
+  /** Why the typed value can't be saved, or null. */
+  validate: (typed: string) => string | null;
+  change: (typed: string) => Record<string, unknown>;
+  inputMode: "numeric" | "decimal";
+  maxLength?: number;
+  width: string;
+  dataKey: string;
+}) {
+  const s = useSave();
+  const [typed, setTyped] = useState(saved);
+  const problem = validate(typed.trim());
+  const unchanged = typed.trim() === saved;
+  return (
+    <div className="flex flex-col gap-1" data-admin-field={dataKey}>
+      <div className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
+        <label htmlFor={id}>{title}</label>
+        <input
+          id={id}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          value={typed}
+          aria-invalid={problem !== null}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            s.reset();
+          }}
+          className={`px-2 py-1 rounded-md ${width}`}
+          style={field}
+        />
+        <button
+          type="button"
+          disabled={s.saving || unchanged || problem !== null}
+          className="px-3 py-1 rounded-md text-[13px]"
+          style={field}
+          onClick={() => s.save(change(typed.trim()))}
+        >
+          {s.saving ? "Saving…" : "Save"}
+        </button>
+        {s.status !== "saving" ? <SaveFeedback status={s.status} error={s.error} /> : null}
+      </div>
+      {problem && !unchanged ? (
+        <p className="text-[12px]" style={{ color: "var(--warning)" }}>
+          {problem}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const postcodeProblem = (typed: string) =>
+  typed === "" || /^\d{4}$/.test(typed) ? null : "An Australian postcode is four digits.";
+
+const ceilingProblem = (typed: string) => {
+  const n = Number(typed);
+  return typed !== "" && Number.isFinite(n) && n >= 0 && n <= MAX_COST_CEILING_USD
+    ? null
+    : `A number from 0 to ${MAX_COST_CEILING_USD}.`;
+};
+
 export function GoogleSurfacesAdmin({
   view,
   health,
@@ -204,18 +409,6 @@ export function GoogleSurfacesAdmin({
   view: GoogleSurfaceAdminView;
   health: GoogleOperatorHealth;
 }) {
-  const router = useRouter();
-  const save = usePostAction("/api/admin/settings", {
-    onDone: () => router.refresh(),
-    failure: "The change couldn't be saved.",
-  });
-  const send = (change: Record<string, unknown>) =>
-    save.run({ headers: { "content-type": "application/json" }, body: JSON.stringify(change) });
-  const [ceiling, setCeiling] = useState(String(view.settings.maxCostUsdPerAudit));
-  const [postcodes, setPostcodes] = useState<Record<string, string>>(
-    Object.fromEntries((view.selected?.brands ?? []).map((b) => [b.id, b.postcode ?? ""])),
-  );
-
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 16px" }} data-admin-settings="">
@@ -228,12 +421,6 @@ export function GoogleSurfacesAdmin({
             audit keeps what it started with.
           </p>
         </div>
-
-        {save.error ? (
-          <p role="alert" className="mb-4 text-[13px]" style={{ color: "var(--danger)" }}>
-            {save.error}
-          </p>
-        ) : null}
 
         <section className="mb-6 p-5 rounded-xl" style={card} data-admin-env="">
           <h2 className="text-sm font-semibold mb-2" style={label}>
@@ -264,84 +451,46 @@ export function GoogleSurfacesAdmin({
           </h2>
           <div className="flex flex-col gap-3">
             {SURFACES.map(({ name, settingName }) => (
-              <label
+              <SettingCheckbox
                 key={settingName}
-                className="flex items-center gap-2 text-[13px]"
-                style={label}
-              >
-                <input
-                  type="checkbox"
-                  checked={view.settings[settingName]}
-                  disabled={save.running}
-                  onChange={(e) =>
-                    send({ kind: "setting", name: settingName, value: e.target.checked })
-                  }
-                />
-                {name} on for every eligible workspace (Growth and up)
-              </label>
+                name={settingName}
+                checked={view.settings[settingName]}
+              >{`${name} on for every eligible workspace (Growth and up)`}</SettingCheckbox>
             ))}
-            <label className="flex items-center gap-2 text-[13px]" style={label}>
-              <input
-                type="checkbox"
-                checked={view.settings.countInHeadline}
-                disabled={save.running}
-                onChange={(e) =>
-                  send({ kind: "setting", name: "countInHeadline", value: e.target.checked })
-                }
-              />
+            <SettingCheckbox name="countInHeadline" checked={view.settings.countInHeadline}>
               Count Google in the headline Visibility % (off: shown in its own block)
-            </label>
-            <label className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
-              Queue
-              <select
-                value={view.settings.queueMode}
-                disabled={save.running}
-                className="px-2 py-1 rounded-md"
-                style={field}
-                onChange={(e) =>
-                  send({ kind: "setting", name: "queueMode", value: e.target.value })
-                }
-              >
-                <option value="standard">Standard (cheapest; minutes)</option>
-                <option value="priority">Priority</option>
-                <option value="live">Live (seconds; most expensive)</option>
-              </select>
-            </label>
-            <label className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
-              Device
-              <select
-                value={view.settings.device}
-                disabled={save.running}
-                className="px-2 py-1 rounded-md"
-                style={field}
-                onChange={(e) => send({ kind: "setting", name: "device", value: e.target.value })}
-              >
-                <option value="desktop">Desktop</option>
-                <option value="mobile">Mobile</option>
-              </select>
-            </label>
-            <div className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
-              <label htmlFor="google-ceiling">Cost ceiling per audit (US$)</label>
-              <input
-                id="google-ceiling"
-                inputMode="decimal"
-                value={ceiling}
-                onChange={(e) => setCeiling(e.target.value)}
-                className="px-2 py-1 rounded-md w-24"
-                style={field}
-              />
-              <button
-                type="button"
-                disabled={save.running}
-                className="px-3 py-1 rounded-md text-[13px]"
-                style={{ background: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
-                onClick={() =>
-                  send({ kind: "setting", name: "maxCostUsdPerAudit", value: ceiling })
-                }
-              >
-                Save
-              </button>
-            </div>
+            </SettingCheckbox>
+            <SavingSelect
+              title="Queue"
+              dataKey="queueMode"
+              value={view.settings.queueMode}
+              options={[
+                { value: "standard", label: "Standard (cheapest; minutes)" },
+                { value: "priority", label: "Priority" },
+                { value: "live", label: "Live (seconds; most expensive)" },
+              ]}
+              change={(value) => ({ kind: "setting", name: "queueMode", value })}
+            />
+            <SavingSelect
+              title="Device"
+              dataKey="device"
+              value={view.settings.device}
+              options={[
+                { value: "desktop", label: "Desktop" },
+                { value: "mobile", label: "Mobile" },
+              ]}
+              change={(value) => ({ kind: "setting", name: "device", value })}
+            />
+            <SavingField
+              id="google-ceiling"
+              dataKey="maxCostUsdPerAudit"
+              title="Cost ceiling per audit (US$)"
+              saved={String(view.settings.maxCostUsdPerAudit)}
+              validate={ceilingProblem}
+              change={(value) => ({ kind: "setting", name: "maxCostUsdPerAudit", value })}
+              inputMode="decimal"
+              width="w-24"
+            />
           </div>
         </section>
 
@@ -383,27 +532,22 @@ export function GoogleSurfacesAdmin({
                 const override = selected.overrides[surface];
                 return (
                   <div key={surface} className="flex flex-col gap-1" data-admin-surface={surface}>
-                    <label className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
-                      {name} for this workspace
-                      <select
-                        value={override === null ? "default" : override ? "on" : "off"}
-                        disabled={save.running}
-                        className="px-2 py-1 rounded-md"
-                        style={field}
-                        onChange={(e) =>
-                          send({
-                            kind: "workspace",
-                            workspaceId: selected.id,
-                            surface,
-                            state: e.target.value,
-                          })
-                        }
-                      >
-                        <option value="default">Global setting</option>
-                        <option value="on">On</option>
-                        <option value="off">Off</option>
-                      </select>
-                    </label>
+                    <SavingSelect
+                      title={`${name} for this workspace`}
+                      dataKey={`override-${surface}`}
+                      value={override === null ? "default" : override ? "on" : "off"}
+                      options={[
+                        { value: "default", label: "Global setting" },
+                        { value: "on", label: "On" },
+                        { value: "off", label: "Off" },
+                      ]}
+                      change={(state) => ({
+                        kind: "workspace",
+                        workspaceId: selected.id,
+                        surface,
+                        state,
+                      })}
+                    />
                     <Decision title="Next audit" decision={selected.now[surface]} />
                     {!view.envEnabled ? (
                       <Decision
@@ -422,43 +566,32 @@ export function GoogleSurfacesAdmin({
                 <p className="text-[12px] mb-2" style={muted}>
                   Brands have no postcode. With one set here, Google results are for that postcode;
                   without one, for the nearest place the provider has (the suburb, then the city,
-                  then the state's capital), and the audit says so.
+                  then the state's capital), and the audit says so. Clear it and Save to remove it.
                 </p>
                 <div className="flex flex-col gap-2">
                   {view.selected.brands.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex flex-wrap items-center gap-2 text-[13px]"
-                      data-admin-brand={b.id}
-                    >
-                      <span style={label}>{b.name}</span>
-                      <span style={muted}>
-                        {[b.suburb, b.state].filter(Boolean).join(" ") || "no suburb"}
+                    <div key={b.id} className="flex flex-col gap-1" data-admin-brand={b.id}>
+                      <span className="text-[13px]" style={label}>
+                        {b.name}{" "}
+                        <span style={muted}>
+                          {[b.suburb, b.state].filter(Boolean).join(" ") || "no suburb"}
+                        </span>
                       </span>
-                      <input
-                        aria-label={`Postcode for ${b.name}`}
+                      <SavingField
+                        id={`postcode-${b.id}`}
+                        dataKey={`postcode-${b.id}`}
+                        title={`Postcode for ${b.name}`}
+                        saved={b.postcode ?? ""}
+                        validate={postcodeProblem}
+                        change={(postcode) => ({
+                          kind: "brand",
+                          brandId: b.id,
+                          postcode: postcode || null,
+                        })}
                         inputMode="numeric"
                         maxLength={4}
-                        value={postcodes[b.id] ?? ""}
-                        onChange={(e) => setPostcodes((p) => ({ ...p, [b.id]: e.target.value }))}
-                        className="px-2 py-1 rounded-md w-20"
-                        style={field}
+                        width="w-20"
                       />
-                      <button
-                        type="button"
-                        disabled={save.running}
-                        className="px-3 py-1 rounded-md"
-                        style={field}
-                        onClick={() =>
-                          send({
-                            kind: "brand",
-                            brandId: b.id,
-                            postcode: (postcodes[b.id] ?? "").trim() || null,
-                          })
-                        }
-                      >
-                        Save
-                      </button>
                     </div>
                   ))}
                   {view.selected.brands.length === 0 ? (

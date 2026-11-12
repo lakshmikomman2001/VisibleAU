@@ -5,6 +5,7 @@ import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import {
   GOOGLE_SETTING_KEYS,
   GOOGLE_SURFACES,
+  type GoogleSaveResult,
   GoogleSettingRejected,
   loadGoogleSurfaceAdminView,
   operatorProfileId,
@@ -76,14 +77,16 @@ export async function POST(req: Request) {
   }
   const actor = await operatorProfileId(userId);
   const change = parsed.data;
+  // 12 Nov, part 5: "unchanged" when the value is the one in force -- nothing written, not even the history.
+  let status: GoogleSaveResult;
   try {
     if (change.kind === "setting") {
-      await updateGoogleSurfaceSetting(change.name, change.value, actor);
+      status = await updateGoogleSurfaceSetting(change.name, change.value, actor);
     } else if (change.kind === "workspace") {
       const state = change.state === "default" ? null : change.state === "on";
-      await setWorkspaceGoogleOverride(change.workspaceId, change.surface, state, actor);
+      status = await setWorkspaceGoogleOverride(change.workspaceId, change.surface, state, actor);
     } else {
-      await setBrandGooglePostcode(change.brandId, change.postcode, actor);
+      status = await setBrandGooglePostcode(change.brandId, change.postcode, actor);
     }
   } catch (err) {
     if (err instanceof GoogleSettingRejected) {
@@ -91,5 +94,5 @@ export async function POST(req: Request) {
     }
     throw err;
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status });
 }

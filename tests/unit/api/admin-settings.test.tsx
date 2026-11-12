@@ -6,9 +6,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { admin, writes } = vi.hoisted(() => ({
+const { admin, writes, result } = vi.hoisted(() => ({
   admin: { allowed: false, userId: null as string | null },
   writes: [] as unknown[][],
+  /** What the writers say they did (12 Nov, part 5). */
+  result: { value: "saved" as "saved" | "unchanged" },
 }));
 
 vi.mock("@/lib/auth/platform-admin", () => ({
@@ -39,12 +41,15 @@ vi.mock("@/lib/governance/google-surfaces", async (importOriginal) => {
     operatorProfileId: vi.fn(async () => "22222222-2222-4222-8222-222222222222"),
     updateGoogleSurfaceSetting: vi.fn(async (...args: unknown[]) => {
       writes.push(["setting", ...args]);
+      return result.value;
     }),
     setWorkspaceGoogleOverride: vi.fn(async (...args: unknown[]) => {
       writes.push(["workspace", ...args]);
+      return result.value;
     }),
     setBrandGooglePostcode: vi.fn(async (...args: unknown[]) => {
       writes.push(["brand", ...args]);
+      return result.value;
     }),
   };
 });
@@ -103,6 +108,7 @@ beforeEach(() => {
   admin.allowed = false;
   admin.userId = "better-auth-user";
   writes.length = 0;
+  result.value = "saved";
   loadHealth.mockReset();
   loadHealth.mockResolvedValue(HEALTH);
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -173,6 +179,24 @@ describe("/api/admin/settings", () => {
       ["workspace", "11111111-1111-4111-8111-111111111111", "google_ai_mode", null, actor],
       ["brand", "33333333-3333-4333-8333-333333333333", "2153", actor],
     ]);
+  });
+
+  it("a save says what it did: 'saved', or 'unchanged' when the value was the one in force (part 5)", async () => {
+    admin.allowed = true;
+    const saved = await post({
+      kind: "brand",
+      brandId: "33333333-3333-4333-8333-333333333333",
+      postcode: "2153",
+    });
+    expect(await saved.json()).toEqual({ ok: true, status: "saved" });
+    result.value = "unchanged";
+    const again = await post({
+      kind: "brand",
+      brandId: "33333333-3333-4333-8333-333333333333",
+      postcode: "2153",
+    });
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual({ ok: true, status: "unchanged" });
   });
 
   it("an operator's malformed change is a 400, and nothing is written", async () => {

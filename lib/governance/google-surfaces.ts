@@ -20,6 +20,9 @@ import {
   googleSurfacesCanRun,
   googleSurfacesEnvEnabled,
 } from "./google-surfaces-env";
+import { MAX_COST_CEILING_USD } from "./google-surfaces-limits";
+
+export { MAX_COST_CEILING_USD };
 
 /**
  * Google AI surfaces, Phase 1, part 1 -- the switches for Google AI Overviews and Google AI Mode, and the
@@ -95,8 +98,6 @@ export type GoogleSettingName = keyof GoogleSurfaceSettings;
 
 const QUEUE_MODES: readonly GoogleQueueMode[] = ["standard", "priority", "live"];
 const DEVICES: readonly GoogleDevice[] = ["desktop", "mobile"];
-/** A per-audit ceiling above this is refused (a typo shouldn't spend dollars per audit). */
-export const MAX_COST_CEILING_USD = 1;
 
 /** A stored or submitted value, checked; null when it isn't a valid value for the setting. */
 export function parseGoogleSetting<K extends GoogleSettingName>(
@@ -435,6 +436,13 @@ export async function loadGoogleSurfaceAdminView(
   };
 }
 
+/**
+ * 12 Nov, part 5: what a save did. A save whose value is the one already in force (Sri saved Omega's
+ * postcode 15 times; 14 log rows read 2153 -> 2153) is "unchanged": nothing is written, not even to the
+ * change history. The rows already logged stay: the log is a history.
+ */
+export type GoogleSaveResult = "saved" | "unchanged";
+
 export class GoogleSettingRejected extends Error {
   constructor(message: string) {
     super(message);
@@ -442,20 +450,27 @@ export class GoogleSettingRejected extends Error {
   }
 }
 
-/** Sets one global setting and writes the change history. */
+/**
+ * Sets one global setting and writes the change history. The value in force (the stored one, else the
+ * default) again is "unchanged" and writes nothing.
+ */
 export async function updateGoogleSurfaceSetting(
   name: GoogleSettingName,
   value: unknown,
   actorUserId: string | null,
-): Promise<void> {
+): Promise<GoogleSaveResult> {
   const parsed = parseGoogleSetting(name, value);
   if (parsed === null) throw new GoogleSettingRejected(`That isn't a valid value for ${name}.`);
   const key = GOOGLE_SETTING_KEYS[name];
-  await serviceDb.transaction(async (tx) => {
+  return serviceDb.transaction(async (tx) => {
     const [before] = await tx
       .select({ value: featureSettings.value })
       .from(featureSettings)
       .where(eq(featureSettings.key, key));
+    const inForce =
+      (before ? parseGoogleSetting(name, before.value) : null) ??
+      DEFAULT_GOOGLE_SURFACE_SETTINGS[name];
+    if (inForce === parsed) return "unchanged";
     await tx
       .insert(featureSettings)
       .values({ key, value: parsed, updatedByUserId: actorUserId, updatedAt: new Date() })
@@ -470,6 +485,7 @@ export async function updateGoogleSurfaceSetting(
       newValue: parsed,
       changedByUserId: actorUserId,
     });
+    return "saved";
   });
 }
 
@@ -483,7 +499,7 @@ export async function setWorkspaceGoogleOverride(
   surface: GoogleSurface,
   state: boolean | null,
   actorUserId: string | null,
-): Promise<void> {
+): Promise<GoogleSaveResult> {
   const flagKey = GOOGLE_SURFACE_FLAG_KEYS[surface];
   const [workspace] = await serviceDb
     .select({ id: organizations.id })
@@ -491,6 +507,8 @@ export async function setWorkspaceGoogleOverride(
     .where(and(eq(organizations.id, orgId), isNull(organizations.deletedAt)));
   if (!workspace) throw new GoogleSettingRejected("That workspace doesn't exist or is closed.");
   const before = (await readWorkspaceOverrides(orgId))[surface];
+  // The override already in force: nothing to write, in the history or the workspace's audit trail.
+  if (before === state) return "unchanged";
   await serviceDb.transaction(async (tx) => {
     if (state === null) {
       await tx
@@ -530,6 +548,7 @@ export async function setWorkspaceGoogleOverride(
     resourceId: flagKey,
     metadata: { flagKey, from: before, to: state, changedBy: `${PRODUCT_NAME} team` },
   });
+  return "saved";
 }
 
 /** Sets (or, with null, removes) the postcode Google results for a brand are located at. */
@@ -537,8 +556,8 @@ export async function setBrandGooglePostcode(
   brandId: string,
   postcode: string | null,
   actorUserId: string | null,
-): Promise<void> {
-  const value = postcode?.trim() ?? null;
+): Promise<GoogleSaveResult> {
+  const value = postcode?.trim() || null;
   if (value !== null && !/^\d{4}$/.test(value)) {
     throw new GoogleSettingRejected("An Australian postcode is four digits.");
   }
@@ -548,6 +567,7 @@ export async function setBrandGooglePostcode(
     .where(and(eq(brands.id, brandId), isNull(brands.deletedAt)));
   if (!brand) throw new GoogleSettingRejected("That brand doesn't exist.");
   const before = await brandGooglePostcode(brandId);
+  if (before === value) return "unchanged";
   await serviceDb.transaction(async (tx) => {
     if (value === null) {
       await tx.delete(brandGoogleLocations).where(eq(brandGoogleLocations.brandId, brandId));
@@ -576,4 +596,5 @@ export async function setBrandGooglePostcode(
       changedByUserId: actorUserId,
     });
   });
+  return "saved";
 }

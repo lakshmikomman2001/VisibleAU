@@ -197,4 +197,39 @@ describe("Google AI surfaces switches (real database)", () => {
       by: "operator@example.test",
     });
   });
+
+  it("a save that changes nothing writes nothing: no change-log row, no audit-trail row (12 Nov, part 5)", async () => {
+    const gs = await import("@/lib/governance/google-surfaces");
+    const count = async () =>
+      (
+        await client`SELECT count(*)::int AS n FROM feature_setting_changes WHERE created_at >= ${STARTED}`
+      )[0].n;
+    const trail = async () =>
+      (
+        await client`SELECT count(*)::int AS n FROM audit_trail WHERE organization_id = ${GROWTH}`
+      )[0].n;
+    const before = await count();
+    const trailBefore = await trail();
+
+    // The postcode saved above, saved again (Sri, 12 Nov: 14 rows of 2153 -> 2153).
+    expect(await gs.setBrandGooglePostcode(BRAND, "2153", OPERATOR)).toBe("unchanged");
+    expect(await gs.setBrandGooglePostcode(BRAND, " 2153 ", OPERATOR)).toBe("unchanged");
+    // The settings in force: stored ones (queue "live", ceiling 0.05) and a default (device "desktop").
+    expect(await gs.updateGoogleSurfaceSetting("queueMode", "live", OPERATOR)).toBe("unchanged");
+    expect(await gs.updateGoogleSurfaceSetting("maxCostUsdPerAudit", "0.05", OPERATOR)).toBe(
+      "unchanged",
+    );
+    expect(await gs.updateGoogleSurfaceSetting("device", "desktop", OPERATOR)).toBe("unchanged");
+    // The override already on for GROWTH.
+    expect(await gs.setWorkspaceGoogleOverride(GROWTH, "google_ai_overviews", true, OPERATOR)).toBe(
+      "unchanged",
+    );
+    expect(await count()).toBe(before);
+    expect(await trail()).toBe(trailBefore);
+
+    // A real change is still written.
+    expect(await gs.setBrandGooglePostcode(BRAND, "2154", OPERATOR)).toBe("saved");
+    expect(await count()).toBe(before + 1);
+    expect(await gs.brandGooglePostcode(BRAND)).toBe("2154");
+  });
 });

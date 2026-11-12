@@ -2,7 +2,11 @@
 /**
  * Google AI follow-ups (12 Nov) -- the operator's /admin/settings, clicked:
  * - part 4: Test connection says "Testing…", then what DataForSEO said and when, with a warning when the
- *   balance is under US$5; too soon, it says to wait (the server's words).
+ *   balance is under US$5; too soon, it says to wait (the server's words);
+ * - part 5: every Save (postcodes, the ceiling, the dropdowns, the checkboxes) says "Saving…" and is
+ *   disabled while it's sent, then "Saved", "No change" or the server's reason (keeping what was typed);
+ *   a typed value's Save is disabled while it's unchanged or invalid (a postcode is four digits).
+ *   Sri clicked Omega's postcode Save 15 times on 12 Nov because nothing on screen changed.
  */
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -142,5 +146,124 @@ describe("Test connection (part 4)", () => {
         "Wait 30 seconds between connection tests.",
       ),
     );
+  }, 30_000);
+});
+
+const ok =
+  (status: "saved" | "unchanged" = "saved") =>
+  () =>
+    Response.json({ ok: true, status });
+
+describe("every Save says what happened (part 5)", () => {
+  it("a postcode: disabled while unchanged and while not four digits; 'Saving…', then 'Saved', and the page reloads", async () => {
+    const held = heldFetch(ok());
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    const row = screen.getByLabelText("Postcode for Omega Services");
+    const save = () =>
+      screen
+        .getAllByRole("button")
+        .find((b) => b.closest(`[data-admin-field="postcode-${BRAND}"]`)) as HTMLElement;
+    expect(row).toHaveValue("2153");
+    expect(save()).toBeDisabled();
+
+    fireEvent.change(row, { target: { value: "21" } });
+    expect(save()).toBeDisabled();
+    expect(screen.getByText("An Australian postcode is four digits.")).toBeInTheDocument();
+
+    fireEvent.change(row, { target: { value: "2154" } });
+    expect(save()).toBeEnabled();
+    expect(screen.queryByText("An Australian postcode is four digits.")).not.toBeInTheDocument();
+    fireEvent.click(save());
+    expect(save()).toHaveTextContent("Saving…");
+    expect(save()).toBeDisabled();
+    expect(JSON.parse(String(held.calls[0].init?.body))).toEqual({
+      kind: "brand",
+      brandId: BRAND,
+      postcode: "2154",
+    });
+    held.release();
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(nav.refresh).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
+  it("a failed save shows the server's reason and keeps what was typed", async () => {
+    const held = heldFetch(() =>
+      Response.json({ error: "That brand doesn't exist." }, { status: 400 }),
+    );
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    const row = screen.getByLabelText("Postcode for Omega Services");
+    fireEvent.change(row, { target: { value: "2000" } });
+    fireEvent.click(
+      screen
+        .getAllByRole("button")
+        .find((b) => b.closest(`[data-admin-field="postcode-${BRAND}"]`)) as HTMLElement,
+    );
+    held.release();
+    expect(await screen.findByRole("alert")).toHaveTextContent("That brand doesn't exist.");
+    expect(row).toHaveValue("2000");
+    expect(nav.refresh).not.toHaveBeenCalled();
+  }, 30_000);
+
+  it("the server had that value already: 'No change'", async () => {
+    const held = heldFetch(ok("unchanged"));
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    fireEvent.change(screen.getByLabelText("Postcode for Omega Services"), {
+      target: { value: "2000" },
+    });
+    fireEvent.click(
+      screen
+        .getAllByRole("button")
+        .find((b) => b.closest(`[data-admin-field="postcode-${BRAND}"]`)) as HTMLElement,
+    );
+    held.release();
+    expect(await screen.findByText("No change: that was already the value")).toBeInTheDocument();
+  }, 30_000);
+
+  it("the cost ceiling: disabled while unchanged or out of range", () => {
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    const input = screen.getByLabelText("Cost ceiling per audit (US$)");
+    const save = () =>
+      screen
+        .getAllByRole("button")
+        .find((b) => b.closest('[data-admin-field="maxCostUsdPerAudit"]')) as HTMLElement;
+    expect(save()).toBeDisabled();
+    fireEvent.change(input, { target: { value: "5" } });
+    expect(save()).toBeDisabled();
+    expect(screen.getByText("A number from 0 to 1.")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "0.2" } });
+    expect(save()).toBeEnabled();
+  });
+
+  it("a workspace override dropdown: disabled and 'Saving…', then 'Saved'", async () => {
+    const held = heldFetch(ok());
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    const select = screen.getByLabelText("AI Mode for this workspace");
+    fireEvent.change(select, { target: { value: "on" } });
+    expect(select).toBeDisabled();
+    const box = select.closest('[data-admin-select="override-google_ai_mode"]') as HTMLElement;
+    expect(box).toHaveTextContent("Saving…");
+    expect(JSON.parse(String(held.calls[0].init?.body))).toEqual({
+      kind: "workspace",
+      workspaceId: ORG,
+      surface: "google_ai_mode",
+      state: "on",
+    });
+    held.release();
+    await waitFor(() => expect(box).toHaveTextContent("Saved"));
+    expect(select).toBeEnabled();
+  }, 30_000);
+
+  it("a global checkbox: disabled and 'Saving…', then 'Saved'", async () => {
+    const held = heldFetch(ok());
+    render(createElement(Admin, { view: view(), health: HEALTH }));
+    const box = screen.getByLabelText(
+      "Count Google in the headline Visibility % (off: shown in its own block)",
+    );
+    fireEvent.click(box);
+    expect(box).toBeDisabled();
+    const row = box.closest('[data-admin-setting="countInHeadline"]') as HTMLElement;
+    expect(row).toHaveTextContent("Saving…");
+    held.release();
+    await waitFor(() => expect(row).toHaveTextContent("Saved"));
   }, 30_000);
 });

@@ -4,6 +4,7 @@ import { ChevronDown, Globe, LayoutGrid } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOverrideCurrentBrand } from "@/components/domain/current-brand-context";
+import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import { useLoad } from "@/lib/hooks/use-load";
 import { fetchJson, loadFailedMessage } from "@/lib/load/fetch-json";
 
@@ -41,6 +42,13 @@ export function WorkspaceSwitcher({
     [brandCount],
   );
   const loadedBrands = useLoad(loadBrands);
+  // 13 Nov (part 2): a rename keeps the count, so a page that saved a brand says so (lib/brands/brands-changed.ts)
+  // and the list is read again -- the old name stays on screen until the answer, never a blank.
+  const { retry: reloadBrands } = loadedBrands;
+  useEffect(() => {
+    window.addEventListener(BRANDS_CHANGED_EVENT, reloadBrands);
+    return () => window.removeEventListener(BRANDS_CHANGED_EVENT, reloadBrands);
+  }, [reloadBrands]);
   const brands = loadedBrands.data ?? NO_BRANDS;
   const loading = loadedBrands.status === "loading";
   const [open, setOpen] = useState(false);

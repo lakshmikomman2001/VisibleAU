@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import type { CrawlPage } from "@/lib/crawler/types";
+import { pluralise } from "@/lib/format/pluralise";
 
 export interface PromptInjection {
   pattern: string;
@@ -149,7 +150,7 @@ export function detectPromptInjections(page: CrawlPage): PromptInjection[] {
       pattern: "invisible-unicode",
       severity: "critical",
       element: `${codepointList} — context: ${JSON.stringify(invisibleFinding.context)}`,
-      detail: `${invisibleFinding.count} invisible Unicode character(s) (${codepointList}) in page content on ${pagePath} — often used to smuggle hidden instructions to AI crawlers.`,
+      detail: `${pluralise(invisibleFinding.count, "invisible Unicode character")} (${codepointList}) in page content on ${pagePath} — often used to smuggle hidden instructions to AI crawlers.`,
     });
   }
 

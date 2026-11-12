@@ -34,11 +34,13 @@ import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
+import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import {
   CLASSIFICATION_TIMEOUT_MS,
   type ClassificationState,
 } from "@/lib/brands/classification-state";
-import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
 import {
   FIRST_AUDIT_FAILED_PARAM,
   FIRST_AUDIT_FAILED_VALUE,
@@ -46,6 +48,7 @@ import {
   takeFirstAuditFailure,
 } from "@/lib/brands/first-audit-notice";
 import { brandLocationLabel } from "@/lib/brands/region-label";
+import { pluralise } from "@/lib/format/pluralise";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
@@ -199,11 +202,17 @@ export function BrandDetailClient({
   const canEditBrand = useCan("manage_brands");
   const canDeleteBrand = useCan("delete_brand");
   const canRunAudit = useCan("run_audit");
-  const [saving, setSaving] = useState(false);
   const [runningAudit, setRunningAudit] = useState(false);
   const [name, setName] = useState(brand.name);
   const [domain, setDomain] = useState(brand.domain);
   const [vertical, setVertical] = useState(brand.vertical);
+  // 13 Nov (part 2): Brand settings lists the competitors you can add and remove (the audit page's "Add
+  // competitors in brand settings" led to "No competitors set" with no way to add one), and opens the
+  // same location picker as the confirmation panel.
+  const [competitorList, setCompetitorList] = useState<string[]>(brand.competitors);
+  const [competitorInput, setCompetitorInput] = useState("");
+  const [competitorError, setCompetitorError] = useState<string | null>(null);
+  const [changingLocation, setChangingLocation] = useState(false);
 
   // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
   // classification isn't blocked -- just warned about -- so a brand
@@ -313,7 +322,6 @@ export function BrandDetailClient({
   // spinner and said nothing (`if (!res.ok) return;`), a failed Save threw into nothing with the form still
   // open, and Delete went to /brands whatever the answer. Each says why now, in the API's words.
   const [runError, setRunError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const NO_ANSWER = "Check your connection and try again.";
 
@@ -334,27 +342,52 @@ export function BrandDetailClient({
     );
   }, [brand.id, blockedAtLoad]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch(`/api/brands/${brand.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain, vertical }),
-      });
-      if (!res.ok) {
-        setSaveError(await actionFailureMessage(res, "Your changes couldn't be saved."));
-        return;
-      }
+  // 13 Nov (part 2): Save says "Saving…", then "Saved" or the API's reason (the /admin/settings pattern,
+  // components/shared/save-feedback.tsx), and keeps what was typed on a failure. A saved name reaches the
+  // heading and breadcrumb through router.refresh(), and the top bar's brand switcher -- which loads the
+  // brand list itself -- through BRANDS_CHANGED_EVENT (it kept the old name until a full reload).
+  const brandSave = useSave(`/api/brands/${brand.id}`, {
+    method: "PATCH",
+    onSaved: () => {
       setEditMode(false);
-      router.refresh();
-    } catch {
-      setSaveError(`Your changes couldn't be saved. ${NO_ANSWER}`);
-    } finally {
-      setSaving(false);
-    }
+      window.dispatchEvent(new Event(BRANDS_CHANGED_EVENT));
+    },
+  });
+  const saving = brandSave.saving;
+  const handleSave = () => {
+    const competitorsChanged =
+      competitorList.length !== brand.competitors.length ||
+      competitorList.some((c, i) => c !== brand.competitors[i]);
+    void brandSave.save({
+      name,
+      domain,
+      vertical,
+      ...(competitorsChanged ? { competitors: competitorList } : {}),
+    });
   };
+  const addCompetitor = () => {
+    const added = withCompetitorAdded(competitorList, competitorInput);
+    setCompetitorError(added.error);
+    if (added.error) return;
+    setCompetitorList(added.list);
+    setCompetitorInput("");
+  };
+
+  // 13 Nov (part 2): Edit goes to the form -- it's at the bottom of a long page, and Edit only showed Cancel
+  // and Save changes at the top.
+  // The audit page's "Add competitors in brand settings" lands on #add-competitor: editing, at Add.
+  const [focusField, setFocusField] = useState("brand-settings-name");
+  useEffect(() => {
+    if (window.location.hash !== "#add-competitor" || !canEditBrand) return;
+    setFocusField("brand-settings-add-competitor");
+    setEditMode(true);
+  }, [canEditBrand]);
+  useEffect(() => {
+    if (!editMode) return;
+    const field = document.getElementById(focusField) as HTMLInputElement | null;
+    field?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    field?.focus({ preventScroll: true });
+  }, [editMode, focusField]);
 
   const handleDelete = async () => {
     setDeleteError(null);
@@ -617,8 +650,13 @@ export function BrandDetailClient({
               gap: 6,
             }}
           >
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? "Saving…" : "Save changes"}
           </button>
+        )}
+        {(editMode || brandSave.status !== "idle") && (
+          <span data-brand-save-feedback="" style={{ alignSelf: "center" }}>
+            <SaveFeedback status={brandSave.status} error={brandSave.error} />
+          </span>
         )}
         {canDeleteBrand && (
           <button
@@ -686,7 +724,7 @@ export function BrandDetailClient({
           </button>
         </span>
       </div>
-      {(runError || saveError) && !blockedLine && (
+      {runError && !blockedLine && (
         <p
           role="alert"
           data-action-error
@@ -698,7 +736,7 @@ export function BrandDetailClient({
             marginBottom: 24,
           }}
         >
-          {runError ?? saveError}
+          {runError}
         </p>
       )}
       {/* Build 1 addendum, item 9: a real block, with a call to action into the panel below -- never a
@@ -834,7 +872,7 @@ export function BrandDetailClient({
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <MapPin style={{ width: 12, height: 12 }} />
               {brand.primaryRegions.length > 0
-                ? `${brand.primaryRegions.length} suburb(s)`
+                ? pluralise(brand.primaryRegions.length, "suburb")
                 : "No regions set"}
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1455,6 +1493,7 @@ export function BrandDetailClient({
 
       {/* Section 4: Brand settings form */}
       <div
+        id="brand-settings"
         style={{
           padding: 24,
           borderRadius: 8,
@@ -1540,6 +1579,8 @@ export function BrandDetailClient({
               <option value="tradies">Tradies</option>
               <option value="allied_health">Allied Health</option>
               <option value="saas">SaaS</option>
+              <option value="professional_services">Professional services</option>
+              <option value="real_estate">Real estate</option>
             </select>
           </div>
           <div>
@@ -1584,7 +1625,35 @@ export function BrandDetailClient({
                   </span>
                 ))
               )}
+              {canEditBrand && (
+                <button
+                  type="button"
+                  data-change-location=""
+                  onClick={() => setChangingLocation((open) => !open)}
+                  aria-expanded={changingLocation}
+                  style={{
+                    fontSize: 12,
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    color: "var(--accent-primary)",
+                    textDecoration: "underline",
+                  }}
+                >
+                  {changingLocation ? "Keep this location" : "Change location"}
+                </button>
+              )}
             </div>
+            {changingLocation && (
+              <div style={{ marginTop: 12 }}>
+                <LocationConfirmCard
+                  brandId={brand.id}
+                  currentPrimaryRegion={brand.primaryRegions[0]}
+                  isLegacyDefaultRegion={isLegacyDefaultRegion}
+                />
+              </div>
+            )}
           </div>
           <div>
             <label
@@ -1598,13 +1667,17 @@ export function BrandDetailClient({
             >
               Competitors
             </label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {brand.competitors.length === 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }} data-brand-competitors="">
+              {competitorList.length === 0 ? (
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                  No competitors set
+                  {editMode
+                    ? "No competitors yet. Add one below."
+                    : canEditBrand
+                      ? "No competitors yet. Click Edit to add one."
+                      : "No competitors set"}
                 </span>
               ) : (
-                brand.competitors.map((c) => (
+                competitorList.map((c) => (
                   <span
                     key={c}
                     style={{
@@ -1614,13 +1687,74 @@ export function BrandDetailClient({
                       fontWeight: 500,
                       background: "var(--accent-muted)",
                       color: "var(--text-secondary)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
                     }}
                   >
                     {c}
+                    {editMode && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${c}`}
+                        onClick={() => setCompetitorList(competitorList.filter((x) => x !== c))}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          color: "var(--text-tertiary)",
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
                   </span>
                 ))
               )}
             </div>
+            {editMode && (
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <input
+                  id="brand-settings-add-competitor"
+                  aria-label="Add a competitor"
+                  value={competitorInput}
+                  onChange={(e) => {
+                    setCompetitorInput(e.target.value);
+                    setCompetitorError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCompetitor();
+                    }
+                  }}
+                  placeholder="A competitor's name"
+                  style={{ ...inputStyle(true), flex: "1 1 200px" }}
+                />
+                <button
+                  type="button"
+                  onClick={addCompetitor}
+                  style={{
+                    height: 32,
+                    padding: "0 12px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    background: "var(--bg-elevated)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-default)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
+            {competitorError && (
+              <p role="alert" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>
+                {competitorError}
+              </p>
+            )}
             {brand.competitors.length > MAX_COMPARISON_COMPETITORS && (
               <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
                 Comparing your first {MAX_COMPARISON_COMPETITORS} competitors
@@ -1632,6 +1766,31 @@ export function BrandDetailClient({
               websites={brand.competitorWebsites ?? {}}
             />
           </div>
+          {editMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                data-brand-settings-save=""
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  height: 32,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: "var(--accent-primary)",
+                  color: "var(--accent-primary-fg)",
+                  border: "none",
+                  cursor: saving ? "not-allowed" : "pointer",
+                  opacity: saving ? 0.5 : 1,
+                }}
+              >
+                {saving ? "Saving…" : "Save brand settings"}
+              </button>
+              <SaveFeedback status={brandSave.status} error={brandSave.error} />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { serviceDb } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { brands } from "@/db/schema";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
+import { pluralise } from "@/lib/format/pluralise";
 import { inngest } from "@/lib/inngest/client";
 import { isMockMode } from "@/lib/mock-mode";
 
@@ -42,7 +43,7 @@ export async function POST() {
   await inngest.send({ name: "brand/classify-all", data: {} });
 
   return NextResponse.json({
-    message: `Backfill triggered for ${pending.length} unclassified brand(s)`,
+    message: `Backfill triggered for ${pluralise(pending.length, "unclassified brand")}`,
     count: pending.length,
     brands: pending.map((b) => b.name),
     mode,

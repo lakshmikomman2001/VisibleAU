@@ -8,11 +8,12 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { PackBrowser } from "@/components/domain/vertical/pack-browser";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import type { VerticalPack } from "@/db/schema";
-import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
+import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
 import {
   brandPageAfterFailedFirstAudit,
   rememberFirstAuditFailure,
 } from "@/lib/brands/first-audit-notice";
+import { isRunTogetherDomainName, readableNameFromDomain } from "@/lib/brands/name-from-domain";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
 import { apiMessage } from "@/lib/load/fetch-json";
@@ -39,6 +40,21 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  // 13 Nov (part 2): the name the wizard suggested from the domain, while the owner hasn't changed it, and
+  // whether they chose to keep a run-together domain label as the name.
+  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const [keepRunTogether, setKeepRunTogether] = useState(false);
+  const runTogether = isRunTogetherDomainName(name, domain) && !keepRunTogether;
+  const onDomainChange = (value: string) => {
+    setDomain(value);
+    // Suggest a readable name where the domain shows the words ("hero-home-services" -> "Hero Home
+    // Services"), only while the name is empty or still the wizard's own suggestion.
+    if (name === "" || name === suggestedName) {
+      const readable = readableNameFromDomain(value);
+      setSuggestedName(readable);
+      setName(readable ?? "");
+    }
+  };
   const [vertical, setVertical] = useState("");
   const [selectedPackId, setSelectedPackId] = useState("");
   const [selectedPackName, setSelectedPackName] = useState("");
@@ -89,12 +105,11 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   };
 
   const addCompetitor = () => {
-    if (competitors.length >= MAX_COMPARISON_COMPETITORS) return;
-    const v = competitorInput.trim();
-    if (v && !competitors.includes(v)) {
-      setCompetitors([...competitors, v]);
-      setCompetitorInput("");
-    }
+    // 13 Nov (part 2): the same rule as Brand settings (lib/brands/competitor-limits.ts).
+    const added = withCompetitorAdded(competitors, competitorInput);
+    if (added.error) return;
+    setCompetitors(added.list);
+    setCompetitorInput("");
   };
 
   async function handleSubmit() {
@@ -218,7 +233,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
 
   const canContinue =
     step === 1
-      ? name && domain
+      ? name && domain && !runTogether
       : step === 2
         ? !!vertical
         : step === 3
@@ -317,10 +332,55 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               <input
                 id="wiz-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setKeepRunTogether(false);
+                }}
                 placeholder="Your business name"
                 style={inputStyle}
               />
+              {suggestedName && name === suggestedName && (
+                <p
+                  data-name-suggested=""
+                  style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
+                >
+                  From your web address. Change it if customers write it differently.
+                </p>
+              )}
+              {runTogether && (
+                <div
+                  role="alert"
+                  data-name-run-together=""
+                  style={{
+                    marginTop: 8,
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    background: "var(--warning-soft)",
+                    border: "1px solid var(--warning)",
+                    fontSize: 12,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  &ldquo;{name}&rdquo; is your web address without its spaces. Write the name the
+                  way customers see it (for example with spaces between the words) &mdash; it&apos;s
+                  the name your audit&apos;s questions and pages use.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setKeepRunTogether(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--accent-primary)",
+                      textDecoration: "underline",
+                      fontSize: 12,
+                    }}
+                  >
+                    Keep &ldquo;{name}&rdquo;
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Domain with https:// prefix */}
@@ -357,7 +417,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 <input
                   id="wiz-domain"
                   value={domain}
-                  onChange={(e) => setDomain(e.target.value)}
+                  onChange={(e) => onDomainChange(e.target.value)}
                   placeholder="example.com.au"
                   style={{ ...inputStyle, borderRadius: "0 6px 6px 0" }}
                 />

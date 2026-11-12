@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type CSSProperties, useState } from "react";
-import { ActionError } from "@/components/shared/load-error";
+import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import type { GoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import type {
   GoogleSurface,
@@ -201,67 +200,6 @@ function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErro
   );
 }
 
-type SaveStatus = "idle" | "saving" | "saved" | "unchanged" | "error";
-
-/**
- * 12 Nov, part 5: one control's save (Sri clicked Omega's postcode Save 15 times: nothing on screen said it
- * had worked). "Saving…" while it's sent, then "Saved" (or "No change" when the server had that value
- * already), or the server's own reason, through the shared fetch helpers (lib/load/fetch-json.ts). A
- * successful save reloads what the page shows; a failed one leaves what was typed as it is.
- */
-function useSave() {
-  const router = useRouter();
-  const [status, setStatus] = useState<SaveStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const save = async (change: Record<string, unknown>) => {
-    setStatus("saving");
-    setError(null);
-    try {
-      const res = await fetchOrFail("/api/admin/settings", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(change),
-      });
-      const body = await readJson<{ ok: true; status?: "saved" | "unchanged" }>(res);
-      setStatus(body.status === "unchanged" ? "unchanged" : "saved");
-      router.refresh();
-    } catch (err) {
-      setStatus("error");
-      setError(
-        err instanceof LoadFailure && err.detail
-          ? err.detail
-          : "The change couldn't be saved. Check your connection and try again.",
-      );
-    }
-  };
-  /** Typing again clears the last "Saved" / error. */
-  const reset = () => {
-    if (status !== "saving") {
-      setStatus("idle");
-      setError(null);
-    }
-  };
-  return { status, error, saving: status === "saving", save, reset };
-}
-
-function SaveFeedback({ status, error }: { status: SaveStatus; error: string | null }) {
-  if (status === "saving") {
-    return (
-      <span role="status" className="text-[12px]" style={muted}>
-        Saving…
-      </span>
-    );
-  }
-  if (status === "saved" || status === "unchanged") {
-    return (
-      <span role="status" className="text-[12px]" style={{ color: "var(--success)" }}>
-        {status === "saved" ? "Saved" : "No change: that was already the value"}
-      </span>
-    );
-  }
-  return <ActionError message={status === "error" ? error : null} />;
-}
-
 /** A checkbox that saves when it's ticked or unticked. */
 function SettingCheckbox({
   name,
@@ -272,7 +210,7 @@ function SettingCheckbox({
   checked: boolean;
   children: string;
 }) {
-  const s = useSave();
+  const s = useSave("/api/admin/settings");
   return (
     <div className="flex flex-wrap items-center gap-2" data-admin-setting={name}>
       <label className="flex items-center gap-2 text-[13px]" style={label}>
@@ -303,7 +241,7 @@ function SavingSelect({
   change: (value: string) => Record<string, unknown>;
   dataKey: string;
 }) {
-  const s = useSave();
+  const s = useSave("/api/admin/settings");
   return (
     <div className="flex flex-wrap items-center gap-2" data-admin-select={dataKey}>
       <label className="flex flex-wrap items-center gap-2 text-[13px]" style={label}>
@@ -353,7 +291,7 @@ function SavingField({
   width: string;
   dataKey: string;
 }) {
-  const s = useSave();
+  const s = useSave("/api/admin/settings");
   const [typed, setTyped] = useState(saved);
   const problem = validate(typed.trim());
   const unchanged = typed.trim() === saved;

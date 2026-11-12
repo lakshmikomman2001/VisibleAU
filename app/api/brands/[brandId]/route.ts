@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { auditSchedules, brands, reportDeliverySchedules } from "@/db/schema";
+import { verticalEnum } from "@/db/schema/enums";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
@@ -24,7 +25,9 @@ const updateBrandSchema = z.object({
   // comment -- normalized before length validation, via .pipe.
   name: z.string().transform(normalizeBrandName).pipe(z.string().min(1).max(100)).optional(),
   domain: z.string().min(1).max(253).optional(),
-  vertical: z.enum(["tradies", "allied_health", "saas"]).optional(),
+  // 13 Nov (part 2): every stored vertical -- a Professional services or Real estate brand's Save sent its own
+  // vertical back and was refused (400), so nothing on its form could be saved.
+  vertical: z.enum(verticalEnum.enumValues).optional(),
   // "Cap competitor comparisons", item 2 -- see app/api/brands/
   // route.ts's matching comment.
   competitors: z
@@ -157,7 +160,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       parsed.data.suburb !== undefined ||
       parsed.data.city !== undefined ||
       parsed.data.state !== undefined ||
-      parsed.data.competitors !== undefined
+      parsed.data.competitors !== undefined ||
+      // 13 Nov (part 2): the pack's questions name the brand ("Is herohomeservices a good choice for ...?"),
+      // so a rename regenerates them too.
+      (parsed.data.name !== undefined && parsed.data.name !== existing.name)
     ) {
       await regeneratePromptPack(tx, brandId);
     }

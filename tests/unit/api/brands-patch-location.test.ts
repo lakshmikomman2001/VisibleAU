@@ -196,11 +196,28 @@ describe("PATCH /api/brands/[brandId] -- Part D.4 location confirmation", () => 
     mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
     const { mockSet } = setupUpdateChain(makeBrand());
 
-    await PATCH(makeRequest({ name: "Renamed Brand" }), makeParams(validBrandId));
+    await PATCH(makeRequest({ domain: "renamed.example.com.au" }), makeParams(validBrandId));
 
     const setArg = mockSet.mock.calls[0][0];
-    expect(setArg.name).toBe("Renamed Brand");
+    expect(setArg.domain).toBe("renamed.example.com.au");
     expect(setArg.locationConfirmedAt).toBeUndefined();
+    expect(mockRegeneratePromptPack).not.toHaveBeenCalled();
+  });
+
+  // 13 Nov (part 2): the pack's questions name the brand ("Is <name> a good choice ...?"), so a rename
+  // regenerates them; the same name sent back (every Save sends it) doesn't.
+  it("a rename regenerates the pack (its questions carry the name); the same name doesn't", async () => {
+    const user = makeCurrentUser();
+    mockGetCurrentUser.mockResolvedValue(user as never);
+    mockGetBrandForOrg.mockResolvedValue(makeBrand() as never);
+    const { mockSet } = setupUpdateChain(makeBrand());
+
+    await PATCH(makeRequest({ name: "Renamed Brand" }), makeParams(validBrandId));
+    expect(mockSet.mock.calls[0][0].locationConfirmedAt).toBeUndefined();
+    expect(mockRegeneratePromptPack).toHaveBeenCalledTimes(1);
+
+    mockRegeneratePromptPack.mockClear();
+    await PATCH(makeRequest({ name: makeBrand().name }), makeParams(validBrandId));
     expect(mockRegeneratePromptPack).not.toHaveBeenCalled();
   });
 

@@ -27,3 +27,27 @@ export const MAX_COMPARISON_COMPETITORS_MESSAGE = `Comparing your first ${MAX_CO
 export function selectComparisonCompetitors(competitors: readonly string[]): string[] {
   return competitors.slice(0, MAX_COMPARISON_COMPETITORS);
 }
+
+/**
+ * 13 Nov (part 2): adding a competitor by name, the same rule in the wizard and in Brand settings (the API
+ * caps the list at MAX_COMPARISON_COMPETITORS too): trimmed, 100 characters at most, no more than the
+ * cap, not one already listed (any case). The list is unchanged when there's an error.
+ */
+export function withCompetitorAdded(
+  list: readonly string[],
+  input: string,
+): { list: string[]; error: string | null } {
+  const name = input.trim();
+  const unchanged = (error: string) => ({ list: [...list], error });
+  if (!name) return unchanged("Enter a competitor's name.");
+  if (name.length > 100) return unchanged("A competitor's name is 100 characters at most.");
+  if (list.length >= MAX_COMPARISON_COMPETITORS) {
+    return unchanged(
+      `${MAX_COMPARISON_COMPETITORS} competitors at most. Remove one to add another.`,
+    );
+  }
+  if (list.some((c) => c.toLowerCase() === name.toLowerCase())) {
+    return unchanged(`${name} is already listed.`);
+  }
+  return { list: [...list, name], error: null };
+}

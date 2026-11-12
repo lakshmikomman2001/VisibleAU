@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { LoadError } from "@/components/shared/load-error";
+import { pluralise } from "@/lib/format/pluralise";
 import { useLoad } from "@/lib/hooks/use-load";
 import { actionFailureMessage, fetchJson } from "@/lib/load/fetch-json";
 
@@ -54,7 +55,7 @@ export function BulkOperationsView() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessage(`Bulk re-audit queued for ${data.queued ?? selected.size} brand(s).`);
+        setMessage(`Bulk re-audit queued for ${pluralise(data.queued ?? selected.size, "brand")}.`);
       } else {
         setMessage(await actionFailureMessage(res, "The re-audit couldn't be queued."));
       }

@@ -1552,8 +1552,10 @@ export default async function AuditPage({
                   <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 8px" }}>
                     No competitors configured yet.
                   </p>
+                  {/* 13 Nov (part 2): straight to Brand settings' Add, editing (it led to the page's top,
+                      and Brand settings had no way to add one). */}
                   <Link
-                    href={`/brands/${brand.id}`}
+                    href={`/brands/${brand.id}#add-competitor`}
                     style={{ fontSize: 12, color: "var(--accent-blue)", textDecoration: "none" }}
                   >
                     Add competitors in brand settings to compare →

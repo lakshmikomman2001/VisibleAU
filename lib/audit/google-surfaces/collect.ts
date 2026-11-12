@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { auditCostSnapshots, auditGoogleSurfaces, brands, googleSurfaceResults } from "@/db/schema";
 import { GOOGLE_COST_SOURCE } from "@/lib/audit/answered-count";
@@ -14,9 +14,14 @@ import {
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { hasGoogleSurfaceProviderCredentials } from "@/lib/serp/credentials";
 import { DataForSeoProvider } from "@/lib/serp/dataforseo";
-import { NO_PROVIDER_ANSWER } from "@/lib/serp/dataforseo-errors";
+import {
+  dataForSeoErrorCategory,
+  NO_PROVIDER_ANSWER,
+  stopsTheRun,
+} from "@/lib/serp/dataforseo-errors";
 import type { GoogleSurfaceProvider, SurfaceTarget, TaskPoll } from "@/lib/serp/provider";
 import type { GoogleCollectEventData, StoredGoogleSettings } from "./dispatch";
+import { alertOperatorsOnAccountProblem } from "./operator";
 import { GOOGLE_STORED_REASON } from "./reasons";
 
 /**
@@ -31,6 +36,12 @@ import { GOOGLE_STORED_REASON } from "./reasons";
  * - before posting, the daily spend cap, with the core engines first: Google is skipped unless the day's
  *   spend plus Google's estimate still leaves room for one more core audit.
  * The cost recorded is what the provider reports per task, never a guessed refund.
+ *
+ * 12 Nov, part 3: a refused account (login rejected, out of credit: lib/serp/dataforseo-errors.ts) stops the
+ * audit's Google run at the first refusal -- whatever is still to send (or, when it's a fetch that's
+ * refused, still to fetch) is "not completed" with the code that stopped it, instead of 26 requests that
+ * all fail the same way (production audit #44). The operators are told once (google:finish). Any other
+ * error keeps the one-retry rule and stops nothing else.
  */
 
 export interface GoogleStepTools {
@@ -234,13 +245,56 @@ function targetOf(snap: NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>): 
   return { locationCode: location.code, device: settings.device, languageCode: "en" };
 }
 
-/** Posts the given rows' questions, one batch per surface, and records each task's id and cost. */
+/**
+ * Part 3: when the provider refused the account, every question of the audit still to send ("unsent") --
+ * or, when a fetch was refused, still waiting ("all") -- is "not completed", with the code that stopped it.
+ * True when it stopped; false for any other code (which stops nothing).
+ */
+async function stopOnAccountProblem(
+  auditId: string,
+  statusCode: number,
+  scope: "unsent" | "all",
+): Promise<boolean> {
+  const category = dataForSeoErrorCategory(statusCode);
+  if (!stopsTheRun(category)) return false;
+  const stopped = await serviceDb
+    .update(googleSurfaceResults)
+    .set({
+      outcome: "not_completed",
+      outcomeReason: REASON.stopped(statusCode, category),
+      providerStatusCode: statusCode,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(googleSurfaceResults.auditId, auditId),
+        eq(googleSurfaceResults.outcome, "pending"),
+        scope === "unsent" ? isNull(googleSurfaceResults.providerTaskId) : undefined,
+      ),
+    )
+    .returning({ id: googleSurfaceResults.id });
+  console.warn(
+    JSON.stringify({
+      event: "google_surfaces_stopped",
+      auditId,
+      statusCode,
+      category,
+      notSent: stopped.length,
+    }),
+  );
+  return true;
+}
+
+/**
+ * Posts the given rows' questions, one batch per surface, and records each task's id and cost. Stops at
+ * the first batch the provider refuses for the account (part 3): the next surface's batch isn't sent.
+ */
 async function postRows(
   rows: Row[],
   target: SurfaceTarget,
   priority: 1 | 2,
   provider: GoogleSurfaceProvider,
-) {
+): Promise<{ stopped: boolean }> {
   for (const surface of ["google_ai_overviews", "google_ai_mode"] as const) {
     const mine = rows.filter((r) => r.surface === surface);
     if (mine.length === 0) continue;
@@ -276,7 +330,15 @@ async function postRows(
         })
         .where(eq(googleSurfaceResults.id, row.id));
     }
+    const refused = posted.find(
+      (p) => p.taskId === null && stopsTheRun(dataForSeoErrorCategory(p.statusCode)),
+    );
+    const auditId = mine[0]?.auditId;
+    if (refused && auditId && (await stopOnAccountProblem(auditId, refused.statusCode, "unsent"))) {
+      return { stopped: true };
+    }
   }
+  return { stopped: false };
 }
 
 /**
@@ -359,6 +421,11 @@ async function pollOnce(
       if (brand) await recordDone(row, poll, brand, null);
       continue;
     }
+    if (stopsTheRun(dataForSeoErrorCategory(poll.statusCode))) {
+      await recordFailed(row, poll.statusCode, poll.message, poll.raw);
+      await stopOnAccountProblem(auditId, poll.statusCode, "all");
+      return 0;
+    }
     // One more (billed) attempt for the provider's retryable codes, if it fits under the ceiling.
     const price = GOOGLE_PRICE_PER_QUESTION_USD[settings.queueMode][row.surface];
     const fits = (await spentSoFar(auditId)) + price <= settings.maxCostUsdPerAudit + 1e-9;
@@ -427,7 +494,9 @@ async function liveOne(
       return;
     }
     if (live.poll.state === "error" && !live.poll.retryable) {
-      return recordFailed(current, live.poll.statusCode, live.poll.message, live.poll.raw);
+      await recordFailed(current, live.poll.statusCode, live.poll.message, live.poll.raw);
+      await stopOnAccountProblem(auditId, live.poll.statusCode, "all");
+      return;
     }
     if (live.poll.state === "error" && attempt + 1 >= MAX_ATTEMPTS) {
       return recordFailed(current, live.poll.statusCode, live.poll.message, live.poll.raw);
@@ -469,6 +538,19 @@ export async function finishGoogleSurfaces(
     .update(auditGoogleSurfaces)
     .set({ status: "complete", costUsd: costUsd.toFixed(6), completedAt: new Date() })
     .where(eq(auditGoogleSurfaces.auditId, auditId));
+  // Part 3: a refused account tells the operators, at most once per category per 24 hours. Never fails
+  // the step: the audit's Google part is already complete.
+  try {
+    await alertOperatorsOnAccountProblem(auditId);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "google_surfaces_alert_failed",
+        auditId,
+        error: err instanceof Error ? err.name : "unknown",
+      }),
+    );
+  }
   return { costUsd };
 }
 
@@ -503,7 +585,9 @@ export async function collectGoogleSurfaces(
       settings.queueMode === "priority" ? 2 : 1,
       deps.provider,
     );
-    return { mode: "queue" as const, liveRows: [] as string[] };
+    // Nothing posted to wait for (all refused, or stopped): no waiting, straight to the end.
+    const waiting = (await pendingRows(auditId)).some((r) => r.providerTaskId);
+    return { mode: waiting ? ("queue" as const) : ("none" as const), liveRows: [] as string[] };
   });
 
   if (plan.mode === "live") {

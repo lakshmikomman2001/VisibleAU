@@ -172,6 +172,14 @@ export function GoogleSurfacesAdmin({
             Provider credentials (DATAFORSEO_LOGIN, DATAFORSEO_PASSWORD):{" "}
             <OnOff on={view.credentialsPresent} /> {view.credentialsPresent ? "set" : "not set"}
           </p>
+          {/* 12 Nov, part 3: "set" only means the env vars exist; this is what the provider last said. */}
+          <p
+            className="text-[13px] mt-2"
+            style={health.lastRun?.problem ? { color: "var(--danger)" } : muted}
+            data-admin-last-run={health.lastRun?.problem ? "problem" : "ok"}
+          >
+            {health.lastRun?.line ?? "Last Google run: none yet."}
+          </p>
         </section>
 
         <section className="mb-6 p-5 rounded-xl" style={card} data-admin-global="">

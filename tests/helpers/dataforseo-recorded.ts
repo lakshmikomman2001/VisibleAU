@@ -12,6 +12,8 @@
  *   "40100 You are not authorized" body (rejected-login-40100.json, recorded 12 Nov with a made-up login,
  *   identical for both surfaces' task_post and for appendix/user_data; it's what production's audit #44
  *   got).
+ * - `timeoutTasks`: fetching those task ids times out, every time, as a request that gets no answer in 60
+ *   seconds does (AbortSignal.timeout's TimeoutError) -- no response is made up.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,7 +43,12 @@ export interface RecordedCall {
 }
 
 export function recordedDataForSeoFetch(
-  options: { lostOnce?: string[]; unreachable?: boolean; rejected?: boolean } = {},
+  options: {
+    lostOnce?: string[];
+    unreachable?: boolean;
+    rejected?: boolean;
+    timeoutTasks?: string[];
+  } = {},
 ) {
   const calls: RecordedCall[] = [];
   const gets = new Map<string, Json>();
@@ -85,6 +92,9 @@ export function recordedDataForSeoFetch(
       return Response.json({ ...recorded, cost, tasks_count: tasks.length, tasks });
     }
     const id = url.split("/").pop() ?? "";
+    if (options.timeoutTasks?.includes(id)) {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }
     if (lost.has(id)) {
       lost.delete(id);
       return Response.json(

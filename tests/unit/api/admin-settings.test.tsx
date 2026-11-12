@@ -53,6 +53,18 @@ vi.mock("@/lib/governance/google-surfaces", async (importOriginal) => {
 const RAW_40100 =
   "The provider refused the question: 40100 You are not authorized to access this resource. See your login details here: https://app.dataforseo.com/api-access .";
 const HEALTH = {
+  // 12 Nov, part 3: what the provider last said, not only that the env vars exist.
+  lastRun: {
+    auditId: "55555555-5555-4555-8555-555555555555",
+    auditNumber: 44,
+    brand: "Omega Services",
+    workspace: "Splice",
+    at: "2026-11-12T03:04:00.000Z",
+    questions: 26,
+    checked: 0,
+    problem: { code: 40100, label: "login rejected", at: "2026-11-12T03:03:00.000Z" },
+    line: "Last Google run: login rejected at 2026-11-12 03:03 UTC (audit #44, Omega Services)",
+  },
   providerErrors: [
     {
       id: "44444444-4444-4444-8444-444444444444",
@@ -209,5 +221,9 @@ describe("/admin/settings (the page)", () => {
     expect(html).toContain("40100 · login rejected");
     expect(html).toContain("You are not authorized to access this resource");
     expect(html).toContain("#44 · Omega Services (Splice)");
+    expect(html).toContain('data-admin-last-run="problem"');
+    expect(html).toContain(
+      "Last Google run: login rejected at 2026-11-12 03:03 UTC (audit #44, Omega Services)",
+    );
   });
 });

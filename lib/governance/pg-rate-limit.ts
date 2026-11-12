@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { rateLimitCounters } from "@/db/schema";
 
@@ -79,4 +79,32 @@ export async function checkPostgresRateLimit(opts: {
     remaining: Math.max(0, opts.max - row.count),
     resetAt,
   };
+}
+
+/**
+ * Google AI follow-ups (12 Nov), part 3 -- "at most once per `windowMs`" for one key, across every
+ * instance: true for the one caller that claims it (no row yet, or the last claim is older than the
+ * window), false for everyone else until then. One atomic upsert: a claim made concurrently by two
+ * callers is won by one. The key is stored as given (it names an alert, never a person); the daily
+ * cleanup's retention (days) is longer than any window used with it.
+ */
+export async function claimOncePerWindow(key: string, windowMs: number): Promise<boolean> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - windowMs);
+  const claimed = await serviceDb
+    .insert(rateLimitCounters)
+    .values({ bucketKey: key, windowStart: now, count: 1 })
+    .onConflictDoUpdate({
+      target: rateLimitCounters.bucketKey,
+      set: { windowStart: now, count: sql`${rateLimitCounters.count} + 1`, updatedAt: now },
+      // As an ISO string: a Date in raw sql reaches Postgres as its local toString().
+      setWhere: sql`${rateLimitCounters.windowStart} < ${cutoff.toISOString()}::timestamptz`,
+    })
+    .returning({ id: rateLimitCounters.id });
+  return claimed.length > 0;
+}
+
+/** Gives a claim back (what it was for didn't happen), so the next caller can make it. */
+export async function releaseClaim(key: string): Promise<void> {
+  await serviceDb.delete(rateLimitCounters).where(eq(rateLimitCounters.bucketKey, key));
 }

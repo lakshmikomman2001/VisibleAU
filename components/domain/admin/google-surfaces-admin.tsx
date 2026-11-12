@@ -9,6 +9,8 @@ import type {
   GoogleSurfaceDecision,
 } from "@/lib/governance/google-surfaces";
 import { usePostAction } from "@/lib/hooks/use-action";
+import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
+import { LOW_BALANCE_USD, type TestConnectionResult } from "@/lib/serp/test-connection";
 
 /**
  * Google AI surfaces, Phase 1, part 1 -- /admin/settings. Each control saves on its own (POST
@@ -62,6 +64,79 @@ function Decision({ title, decision }: { title: string; decision: GoogleSurfaceD
 function shown(value: unknown): string {
   if (value === null || value === undefined) return "none";
   return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+/**
+ * 12 Nov, part 4: asks DataForSEO (its free account endpoint) whether it accepts the login, and the
+ * balance. Once per 30 seconds; the server says so when it's too soon.
+ */
+function TestConnection() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<TestConnectionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetchOrFail("/api/admin/settings/test-connection", { method: "POST" });
+      setResult(await readJson<TestConnectionResult>(res));
+    } catch (err) {
+      setError(
+        err instanceof LoadFailure && err.detail
+          ? err.detail
+          : "The connection test couldn't be run. Check your connection and try again.",
+      );
+    } finally {
+      setRunning(false);
+    }
+  };
+  const tone =
+    result?.state === "accepted"
+      ? "var(--success)"
+      : result
+        ? "var(--danger)"
+        : "var(--text-secondary)";
+  return (
+    <div className="mt-3 flex flex-col gap-1" data-admin-test-connection="">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={running}
+          aria-busy={running}
+          onClick={run}
+          className="px-3 py-1 rounded-md text-[13px]"
+          style={field}
+        >
+          {running ? "Testing…" : "Test connection"}
+        </button>
+        {result ? (
+          <span
+            className="text-[13px]"
+            style={{ color: tone }}
+            data-admin-test-result={result.state}
+          >
+            {result.line} · checked {result.checkedAt.slice(11, 16)} UTC
+          </span>
+        ) : null}
+      </div>
+      {result?.lowBalance ? (
+        <p
+          role="alert"
+          className="text-[13px]"
+          style={{ color: "var(--warning)" }}
+          data-admin-low-balance=""
+        >
+          The balance is below US${LOW_BALANCE_USD}. Top it up at DataForSEO before it runs out:
+          when it does, Google checks stop with "out of credit".
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-[13px]" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -180,6 +255,7 @@ export function GoogleSurfacesAdmin({
           >
             {health.lastRun?.line ?? "Last Google run: none yet."}
           </p>
+          <TestConnection />
         </section>
 
         <section className="mb-6 p-5 rounded-xl" style={card} data-admin-global="">

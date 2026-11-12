@@ -12,6 +12,8 @@
  *   "40100 You are not authorized" body (rejected-login-40100.json, recorded 12 Nov with a made-up login,
  *   identical for both surfaces' task_post and for appendix/user_data; it's what production's audit #44
  *   got).
+ * - appendix/user_data (the free account endpoint): the real 11 Nov answer, trimmed to its balance
+ *   (user-data.json: the account's login, timezone, dates, rates and prices dropped): US$0.97 of US$1.
  * - `timeoutTasks`: fetching those task ids times out, every time, as a request that gets no answer in 60
  *   seconds does (AbortSignal.timeout's TimeoutError) -- no response is made up.
  */
@@ -77,6 +79,8 @@ export function recordedDataForSeoFetch(
       return Response.json(recordedFixture("rejected-login-40100.json"), { status: 401 });
     }
 
+    if (url.endsWith("/appendix/user_data"))
+      return Response.json(recordedFixture("user-data.json"));
     const surface = url.includes("/serp/google/organic/") ? "organic" : "ai_mode";
     if (url.endsWith("/task_post")) {
       const recorded = posts[surface];

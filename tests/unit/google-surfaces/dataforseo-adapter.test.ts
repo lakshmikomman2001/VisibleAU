@@ -193,6 +193,43 @@ describe("DataForSeoProvider: the requests it makes", () => {
     expect(poll).toMatchObject({ state: "error", statusCode: 40100, retryable: false });
   });
 
+  describe("the account check (12 Nov, part 4): appendix/user_data, free", () => {
+    it("accepted: the balance from DataForSEO's real 11 Nov answer, with one GET and no body", async () => {
+      const { fetchImpl, calls } = recordedDataForSeoFetch();
+      expect(await new DataForSeoProvider(fetchImpl).accountStatus()).toEqual({
+        state: "accepted",
+        statusCode: 20000,
+        balanceUsd: 0.97,
+      });
+      expect(calls).toEqual([
+        {
+          method: "GET",
+          url: "https://api.dataforseo.com/v3/appendix/user_data",
+          authorized: true,
+          body: null,
+        },
+      ]);
+      // The recorded answer says the call cost nothing.
+      expect(recordedFixture("user-data.json").cost).toBe(0);
+    });
+
+    it("rejected: DataForSEO's real 401 / 40100 for a login it doesn't know", async () => {
+      const { fetchImpl } = recordedDataForSeoFetch({ rejected: true });
+      const status = await new DataForSeoProvider(fetchImpl).accountStatus();
+      expect(status).toMatchObject({ state: "rejected", statusCode: 40100 });
+    });
+
+    it("no answer: an error with no code, and no credential in it", async () => {
+      const { fetchImpl } = recordedDataForSeoFetch({ unreachable: true });
+      const status = await new DataForSeoProvider(fetchImpl).accountStatus();
+      expect(status).toEqual({
+        state: "error",
+        statusCode: 0,
+        message: "The provider couldn't be reached (TypeError).",
+      });
+    });
+  });
+
   it("a request that times out: no answer within 60 seconds, retryable", async () => {
     const timedOut = (async () => {
       throw new DOMException("The operation was aborted due to timeout", "TimeoutError");

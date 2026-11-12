@@ -1,11 +1,12 @@
 import type { GoogleSurface } from "@/lib/governance/google-surfaces";
 import { dataForSeoCredentials } from "./credentials";
-import { NO_PROVIDER_ANSWER } from "./dataforseo-errors";
+import { dataForSeoErrorCategory, NO_PROVIDER_ANSWER } from "./dataforseo-errors";
 import type {
   CitedLink,
   GoogleSurfaceProvider,
   LiveResult,
   PostedTask,
+  ProviderAccountStatus,
   SurfaceAnswer,
   SurfaceTarget,
   TaskPoll,
@@ -320,5 +321,31 @@ export class DataForSeoProvider implements GoogleSurfaceProvider {
 
   aiMode(question: string, target: SurfaceTarget): Promise<LiveResult> {
     return this.live("google_ai_mode", question, target);
+  }
+
+  /**
+   * 12 Nov, part 4: is the login accepted, and the balance. GET /v3/appendix/user_data, which DataForSEO's
+   * docs say is free ("Your account will not be charged for using this API"; the 11 Nov answer's cost was
+   * 0). Only money.balance is read; the answer's other fields (the account's login among them) aren't kept.
+   */
+  async accountStatus(): Promise<ProviderAccountStatus> {
+    const res = await this.call("GET", "/appendix/user_data");
+    const task = res.tasks?.[0];
+    const statusCode = Number(task?.status_code ?? res.status_code ?? NO_PROVIDER_ANSWER);
+    const message = String(
+      task?.status_message ?? res.status_message ?? "No answer from the provider.",
+    );
+    if (statusCode === 20000) {
+      const money = (task?.result?.[0] as { money?: { balance?: unknown } } | undefined)?.money;
+      return {
+        state: "accepted",
+        statusCode,
+        balanceUsd: typeof money?.balance === "number" ? money.balance : null,
+      };
+    }
+    if (dataForSeoErrorCategory(statusCode) === "login_rejected") {
+      return { state: "rejected", statusCode, message };
+    }
+    return { state: "error", statusCode, message };
   }
 }

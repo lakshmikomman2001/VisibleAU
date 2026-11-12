@@ -91,3 +91,15 @@ export interface GoogleSurfaceProvider {
   aiOverview(question: string, target: SurfaceTarget): Promise<LiveResult>;
   aiMode(question: string, target: SurfaceTarget): Promise<LiveResult>;
 }
+
+/**
+ * Google AI follow-ups (12 Nov), part 4 -- what the provider says about the account itself, for the
+ * operator's Test connection (a free call: DataForSEO's appendix/user_data, "Your account will not be
+ * charged for using this API").
+ */
+export type ProviderAccountStatus =
+  | { state: "accepted"; statusCode: number; balanceUsd: number | null }
+  /** The login or password is wrong (or the account is refused): a login-rejected code. */
+  | { state: "rejected"; statusCode: number; message: string }
+  /** Anything else, or no answer (statusCode 0). */
+  | { state: "error"; statusCode: number; message: string };

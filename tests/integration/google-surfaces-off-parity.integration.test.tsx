@@ -106,6 +106,9 @@ function normalizeText(text: string): string {
       .replace(UUID, "<uuid>")
       .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g, "<iso>")
       .replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}(?::?\d{2})?)?/g, "<ts>")
+      // The run's date in a recommendation ("checked 2026-11-11"): missed on 11 Nov, so the golden failed
+      // the next day. The golden's one such value was set to <date> by hand (12 Nov), not regenerated.
+      .replace(/\b\d{4}-\d{2}-\d{2}\b/g, "<date>")
       .replace(new RegExp(`\\b\\d{1,2} (?:${MONTHS})[a-z]* \\d{4}\\b`, "g"), "<date>")
       .replace(new RegExp(`\\b(?:${MONTHS})[a-z]* \\d{1,2},? \\d{4}\\b`, "g"), "<date>")
       .replace(/\b\d{1,2}:\d{2}(?::\d{2})?(?:\s?[ap]\.?m\.?)?/gi, "<time>")

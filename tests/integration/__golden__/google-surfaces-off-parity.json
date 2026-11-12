@@ -3105,7 +3105,7 @@
         "actionItems": [
           {
             "title": "AI cited hipages in 3 of 9 answers — confirm your status",
-            "action": "hipages was cited in 3 of 9 answers to everyday customer questions (questions that don't name your business) (checked 2026-11-11). You haven't told us whether you're listed on hipages — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile. See the cited pages linked under this recommendation's evidence."
+            "action": "hipages was cited in 3 of 9 answers to everyday customer questions (questions that don't name your business) (checked <date>). You haven't told us whether you're listed on hipages — confirm your status on the Directory listings card on your brand page, so we can tell you whether AI is citing your own profile. See the cited pages linked under this recommendation's evidence."
           },
           {
             "title": "Cite verifiable statistics on your service pages",

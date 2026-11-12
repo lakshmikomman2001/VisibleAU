@@ -1,5 +1,8 @@
 import type { CSSProperties } from "react";
-import type { GoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
+import {
+  type GoogleSurfaceSummary,
+  googleCheckedAnything,
+} from "@/lib/audit/google-surfaces/summary";
 import { formatAudFromUsd } from "@/lib/constants/currency";
 import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
 
@@ -43,7 +46,9 @@ export function GoogleSearchAiSection({
   auditId: string;
   summary: GoogleSurfaceSummary;
 }) {
-  const questions = summary.rows[0]?.results ?? [];
+  // 12 Nov: when Google answered nothing on any surface there's no per-question result to list (each would
+  // only repeat "couldn't be checked"), so the list isn't shown; the lines above say why.
+  const questions = googleCheckedAnything(summary) ? (summary.rows[0]?.results ?? []) : [];
   return (
     <section
       className="mt-6 p-5 rounded-xl"

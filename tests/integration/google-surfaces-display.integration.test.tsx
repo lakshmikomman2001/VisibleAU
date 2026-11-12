@@ -297,12 +297,15 @@ describe("an audit that ran with Google: every surface shows its Google Search A
     switchOn();
     vi.stubGlobal("fetch", recordedDataForSeoFetch({ unreachable: true }).fetchImpl);
     const { auditId } = await googleAudit();
-    const block = text(await page(auditId), "data-google-search-ai");
-    expect(block).toContain(
-      "AI Overviews: shown for 0 of 4 questions · no everyday question had an answer to be mentioned in · 4 questions couldn't be checked",
-    );
+    const html = await page(auditId);
+    const block = text(html, "data-google-search-ai");
+    // 12 Nov, part 1: nothing was checked, so no counts -- never "shown for 0 of 4".
+    expect(block).toContain("AI Overviews: couldn't be checked this time");
+    expect(block).toContain("AI Mode: couldn't be checked this time");
+    expect(block).not.toMatch(/\b0 of \d+/);
+    expect(block).not.toContain("no everyday question had an answer to be mentioned in");
     expect(block).toContain("The provider refused the question: 50000");
-    expect(block).toContain("Couldn't be checked");
+    expect(html).not.toContain("data-google-question");
   }, 180_000);
 
   it("count in headline on: the headline includes Google and says so; never compared with one that didn't", async () => {

@@ -51,6 +51,8 @@ export interface GoogleSurfaceRow {
   /** "google.com.au" for AI Overviews; "google.com, Australia" for AI Mode (it runs on google.com, gl=AU). */
   domainLabel: string;
   questions: number;
+  /** Questions Google actually answered for (an answer shown, or none shown): the counts' denominator. */
+  checked: number;
   shown: number;
   notShown: number;
   pending: number;
@@ -92,6 +94,16 @@ export const GOOGLE_DOMAIN_LABELS: Record<GoogleSurface, string> = {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+const COULD_NOT_CHECK: readonly GoogleOutcome[] = ["failed", "not_completed", "skipped"];
+
+/**
+ * The surface's one line (12 Nov, after audit #44's 26 refused tasks read "shown for 0 of 13"): a check
+ * that failed is never a result.
+ * - nothing checked: "couldn't be checked this time", with no counts at all;
+ * - some checked: the counts are over the questions checked ("shown for 9 of 11 checked"), and the rest
+ *   are stated ("2 questions couldn't be checked");
+ * - the mention part only when Google showed at least one answer to be mentioned in.
+ */
 function surfaceLine(
   row: Omit<GoogleSurfaceRow, "line">,
   status: GoogleSurfaceSummary["status"],
@@ -101,18 +113,63 @@ function surfaceLine(
     const back = row.questions - row.pending;
     return `${row.name}: checking Google… ${back} of ${row.questions} questions back`;
   }
+  if (row.checked === 0) return `${row.name}: couldn't be checked this time`;
+  const partial = row.couldNotCheck > 0;
   const answered =
     row.surface === "google_ai_overviews"
-      ? `shown for ${row.shown} of ${plural(row.questions, "question")}`
-      : `answered ${row.shown} of ${row.questions}`;
-  const mentioned =
-    row.everydayShown === 0
-      ? "no everyday question had an answer to be mentioned in"
-      : `you were mentioned in ${row.everydayMentioned} of the ${row.everydayShown} everyday ${row.everydayShown === 1 ? "one" : "ones"}`;
-  const parts = [`${row.name}: ${answered}`, mentioned];
-  if (row.couldNotCheck > 0)
-    parts.push(`${plural(row.couldNotCheck, "question")} couldn't be checked`);
+      ? `shown for ${row.shown} of ${partial ? `${row.checked} checked` : plural(row.questions, "question")}`
+      : `answered ${row.shown} of ${partial ? `${row.checked} checked` : row.questions}`;
+  const parts = [`${row.name}: ${answered}`];
+  if (row.shown > 0) {
+    parts.push(
+      row.everydayShown === 0
+        ? "no everyday question had an answer to be mentioned in"
+        : `you were mentioned in ${row.everydayMentioned} of the ${row.everydayShown} everyday ${row.everydayShown === 1 ? "one" : "ones"}`,
+    );
+  }
+  if (partial) parts.push(`${plural(row.couldNotCheck, "question")} couldn't be checked`);
   return parts.join(" · ");
+}
+
+/**
+ * One surface's counts and line from its questions' results (pure: the loader below reads them, and the
+ * tests build them). `directories` are the directories its shown answers cite, Google's own links left out.
+ */
+export function summarizeGoogleSurface(input: {
+  surface: GoogleSurface;
+  results: GoogleQuestionResult[];
+  directories: readonly string[];
+  status: GoogleSurfaceSummary["status"];
+}): GoogleSurfaceRow {
+  const { surface, results, status } = input;
+  const shown = results.filter((r) => r.outcome === "shown");
+  const notShown = results.filter((r) => r.outcome === "not_shown").length;
+  const couldNotCheck = results.filter((r) => COULD_NOT_CHECK.includes(r.outcome));
+  const base: Omit<GoogleSurfaceRow, "line"> = {
+    surface,
+    name: GOOGLE_SURFACE_NAMES[surface],
+    domainLabel: GOOGLE_DOMAIN_LABELS[surface],
+    questions: results.length,
+    checked: shown.length + notShown,
+    shown: shown.length,
+    notShown,
+    pending: results.filter((r) => r.outcome === "pending").length,
+    couldNotCheck: couldNotCheck.length,
+    everydayShown: shown.filter((r) => !r.isBranded).length,
+    everydayMentioned: shown.filter((r) => !r.isBranded && r.verified).length,
+    brandedShown: shown.filter((r) => r.isBranded).length,
+    brandedMentioned: shown.filter((r) => r.isBranded && r.verified).length,
+    googleLinks: results.reduce((n, r) => n + r.googleLinks, 0),
+    directories: [...input.directories].sort(),
+    reasons: [...new Set(couldNotCheck.map((r) => r.reason).filter((x): x is string => !!x))],
+    results,
+  };
+  return { ...base, line: surfaceLine(base, status) };
+}
+
+/** True when Google answered (or is still answering) at least one question on some surface. */
+export function googleCheckedAnything(summary: GoogleSurfaceSummary): boolean {
+  return summary.rows.some((r) => r.checked > 0 || r.pending > 0);
 }
 
 export async function loadGoogleSurfaceSummary(
@@ -163,7 +220,6 @@ export async function loadGoogleSurfaceSummary(
         googleLinks: r.googleLinks ?? 0,
       };
     });
-    const shown = results.filter((r) => r.outcome === "shown");
     const directories = new Set<string>();
     for (const r of mine.filter((x) => x.outcome === "shown")) {
       for (const link of (r.citedLinks as CitedLink[] | null) ?? []) {
@@ -172,28 +228,7 @@ export async function loadGoogleSurfaceSummary(
         if (dir) directories.add(dir.name);
       }
     }
-    const couldNotCheck = results.filter((r) =>
-      ["failed", "not_completed", "skipped"].includes(r.outcome),
-    );
-    const base: Omit<GoogleSurfaceRow, "line"> = {
-      surface,
-      name: GOOGLE_SURFACE_NAMES[surface],
-      domainLabel: GOOGLE_DOMAIN_LABELS[surface],
-      questions: results.length,
-      shown: shown.length,
-      notShown: results.filter((r) => r.outcome === "not_shown").length,
-      pending: results.filter((r) => r.outcome === "pending").length,
-      couldNotCheck: couldNotCheck.length,
-      everydayShown: shown.filter((r) => !r.isBranded).length,
-      everydayMentioned: shown.filter((r) => !r.isBranded && r.verified).length,
-      brandedShown: shown.filter((r) => r.isBranded).length,
-      brandedMentioned: shown.filter((r) => r.isBranded && r.verified).length,
-      googleLinks: results.reduce((n, r) => n + r.googleLinks, 0),
-      directories: [...directories].sort(),
-      reasons: [...new Set(couldNotCheck.map((r) => r.reason).filter((x): x is string => !!x))],
-      results,
-    };
-    return { ...base, line: surfaceLine(base, status) };
+    return summarizeGoogleSurface({ surface, results, directories: [...directories], status });
   });
 
   const ranAt = snap.completedAt ?? snap.createdAt;
@@ -226,9 +261,11 @@ export interface GoogleSurfaceBlock {
 }
 
 export function googleSurfaceBlock(summary: GoogleSurfaceSummary): GoogleSurfaceBlock {
+  // The same rule as the audit page's block: nothing checked and a reason for the whole audit -> that reason.
   const lines =
     summary.rows.length === 0 ||
-    summary.rows.every((r) => r.questions === 0 && summary.status === "complete")
+    summary.rows.every((r) => r.questions === 0 && summary.status === "complete") ||
+    (summary.status === "complete" && summary.statusReason && !googleCheckedAnything(summary))
       ? [
           `Google couldn't be checked for this audit${summary.statusReason ? `: ${summary.statusReason}` : "."}`,
         ]

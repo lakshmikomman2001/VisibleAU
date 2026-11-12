@@ -148,4 +148,6 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   { name: "Billing", route: "/settings/billing", url: () => "/settings/billing" },
   // Google AI surfaces (Phase 1, part 1): operators only; a signed-in user who isn't one sees "Forbidden".
   { name: "Operator settings", route: "/admin/settings", url: () => "/admin/settings" },
+  // Part 14 (13 Nov): the operator's provider costs; anyone else sees "Forbidden".
+  { name: "Provider costs", route: "/admin/costs", url: () => "/admin/costs" },
 ];

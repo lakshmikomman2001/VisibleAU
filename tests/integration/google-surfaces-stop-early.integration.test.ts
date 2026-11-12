@@ -191,6 +191,13 @@ describe("a refused login stops the audit's Google run", () => {
       QUESTIONS.map(() => ["failed", 40100]),
     );
     expect(aio[0].outcome_reason).toContain("40100 You are not authorized to access this resource");
+    // 12 Nov, part 7: a refused task keeps the provider's whole answer, for the operator.
+    const [refused] = await client`
+      SELECT raw_response AS raw FROM google_surface_results
+      WHERE audit_id = ${auditId} AND surface = 'google_ai_overviews' AND prompt_index = 0
+    `;
+    const { tasks: _none, ...answer } = recordedFixture("rejected-login-40100.json");
+    expect(refused.raw).toEqual(answer);
     expect(aim.map((r) => [r.outcome, r.provider_status_code, r.provider_task_id])).toEqual(
       QUESTIONS.map(() => ["not_completed", 40100, null]),
     );

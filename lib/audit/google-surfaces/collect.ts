@@ -324,6 +324,8 @@ async function postRows(
                   p.statusCode === NO_PROVIDER_ANSWER
                     ? p.message
                     : `The provider refused the question: ${p.statusCode} ${p.message}`,
+                // The provider's whole answer for a refused task, for the operator (part 7).
+                rawResponse: p.raw ?? null,
               }
             : {}),
           updatedAt: new Date(),

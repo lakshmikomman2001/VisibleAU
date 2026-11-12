@@ -284,6 +284,22 @@ describe("Google AI surfaces on: the real pipeline, the provider's recorded answ
     expect(rows.filter((r) => r.is_branded_prompt).map((r) => r.prompt_index)).toEqual([
       2, 3, 2, 3,
     ]);
+    // 12 Nov, part 7: a finished task keeps only the fields the display and the mention check use.
+    const stored = await client<
+      { raw: Record<string, unknown> & { result: { items: unknown[] } } }[]
+    >`
+      SELECT raw_response AS raw FROM google_surface_results WHERE audit_id = ${auditId}
+    `;
+    for (const { raw } of stored) {
+      expect(Object.keys(raw).sort()).toEqual([
+        "cost",
+        "id",
+        "result",
+        "status_code",
+        "status_message",
+      ]);
+      expect(raw.result.items.length).toBeLessThanOrEqual(1);
+    }
 
     const [after] =
       await client`SELECT status, cost_usd FROM audit_google_surfaces WHERE audit_id = ${auditId}`;

@@ -67,6 +67,8 @@ export interface PostedTask {
   message: string;
   /** What the provider says it charged for this task (US$); null when it didn't say. */
   costUsd: number | null;
+  /** A refused task's whole answer, kept for the operator (absent for an accepted one). */
+  raw?: unknown;
 }
 
 export interface LiveResult {

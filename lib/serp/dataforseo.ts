@@ -174,24 +174,83 @@ export function parseDataForSeoResult(result: Json | null | undefined): SurfaceA
   };
 }
 
-/** What's kept of a task: its status and cost, the result's own fields, and only the AI answer item. */
-export function rawForStorage(task: DfsTask): Json {
+/** The AI answer's links as parseDataForSeoResult reads them: every `references` in it, first seen first. */
+function referencesOf(overview: Json): Json[] {
+  const out: Json[] = [];
+  const seen = new Set<string>();
+  walk(overview, (o) => {
+    if (!Array.isArray(o.references)) return;
+    for (const r of o.references as Json[]) {
+      const url = typeof r?.url === "string" ? r.url : null;
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      out.push({ url, domain: r.domain ?? null, title: r.title ?? null });
+    }
+  });
+  return out;
+}
+
+/**
+ * 12 Nov, part 7 -- what's kept of a FINISHED task as its stored raw response: only the fields
+ * the display and the mention check use, all of which parseDataForSeoResult reads --
+ * - the task: id, status_code, status_message, cost (what was charged);
+ * - the result: se_domain (the domain shown per surface), location_code (the location it echoed),
+ *   language_code, datetime (when Google was asked: fetched_at);
+ * - the AI answer item only (type "ai_overview"): its markdown (the answer text, where the brand mention is
+ *   looked for), or, only when it has none, its elements' markdown or text; and its references' url, domain
+ *   and title (the cited links: directories, Google's own links, the mention's verification), flattened
+ *   in the order they're first seen.
+ * Dropped: the organic results, the local pack, images, the other SERP items, the elements' own copies of
+ * the references, and the posted fields echoed back. parseDataForSeoResult(kept.result) equals
+ * parseDataForSeoResult(the full result) (tests/unit/google-surfaces/raw-response-storage.test.ts).
+ * A FAILED task keeps the provider's whole answer, for the operator (pollOfTask).
+ */
+export function answerForStorage(task: DfsTask): Json {
   const result = task.result?.[0] ?? null;
+  const items = Array.isArray(result?.items) ? (result.items as unknown[]) : [];
+  const overview = items.find(
+    (i): i is Json => !!i && typeof i === "object" && (i as Json).type === "ai_overview",
+  );
+  let kept: Json | null = null;
+  if (overview) {
+    const markdown = typeof overview.markdown === "string" ? overview.markdown : null;
+    kept = {
+      type: "ai_overview",
+      ...(markdown?.trim()
+        ? { markdown }
+        : {
+            items: (Array.isArray(overview.items) ? (overview.items as Json[]) : []).map((e) =>
+              typeof e?.markdown === "string"
+                ? { markdown: e.markdown }
+                : typeof e?.text === "string"
+                  ? { text: e.text }
+                  : {},
+            ),
+          }),
+      references: referencesOf(overview),
+    };
+  }
   return {
     id: task.id ?? null,
     status_code: task.status_code ?? null,
     status_message: task.status_message ?? null,
     cost: task.cost ?? null,
-    data: task.data ?? null,
     result: result
       ? {
-          ...Object.fromEntries(Object.entries(result).filter(([k]) => k !== "items")),
-          items: (Array.isArray(result.items) ? (result.items as Json[]) : []).filter(
-            (i) => i?.type === "ai_overview",
-          ),
+          se_domain: result.se_domain ?? null,
+          location_code: result.location_code ?? null,
+          language_code: result.language_code ?? null,
+          datetime: result.datetime ?? null,
+          items: kept ? [kept] : [],
         }
       : null,
   };
+}
+
+/** A failed task's whole answer, for the operator: the response's own status and the task as it came. */
+function failureForStorage(task: DfsTask | undefined, top: DfsResponse): Json {
+  const { tasks: _all, ...status } = top;
+  return task ? { ...status, tasks: [task] } : status;
 }
 
 /** A finished, pending or failed task, from a task_get or live answer. */
@@ -207,7 +266,7 @@ export function pollOfTask(task: DfsTask | undefined, top: DfsResponse): TaskPol
       statusCode,
       answer: parseDataForSeoResult(task.result?.[0]),
       costUsd: typeof task.cost === "number" ? task.cost : null,
-      raw: rawForStorage(task),
+      raw: answerForStorage(task),
     };
   }
   return {
@@ -215,9 +274,7 @@ export function pollOfTask(task: DfsTask | undefined, top: DfsResponse): TaskPol
     statusCode,
     message,
     retryable: isRetryable(statusCode),
-    raw: task
-      ? rawForStorage(task)
-      : { status_code: top.status_code ?? null, status_message: top.status_message ?? null },
+    raw: failureForStorage(task, top),
   };
 }
 
@@ -287,6 +344,8 @@ export class DataForSeoProvider implements GoogleSurfaceProvider {
           task?.status_message ?? res.status_message ?? "No answer from the provider.",
         ),
         costUsd: typeof task?.cost === "number" ? task.cost : null,
+        // A refused task's whole answer, for the operator (12 Nov, part 7).
+        ...(statusCode === 20100 && task?.id ? {} : { raw: failureForStorage(task, res) }),
       };
     });
   }

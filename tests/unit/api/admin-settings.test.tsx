@@ -49,6 +49,27 @@ vi.mock("@/lib/governance/google-surfaces", async (importOriginal) => {
   };
 });
 
+/** 12 Nov, part 2: the provider's own code and message -- the operator's page is the only place it's shown. */
+const RAW_40100 =
+  "The provider refused the question: 40100 You are not authorized to access this resource. See your login details here: https://app.dataforseo.com/api-access .";
+const HEALTH = {
+  providerErrors: [
+    {
+      id: "44444444-4444-4444-8444-444444444444",
+      at: "2026-11-12T03:03:00.000Z",
+      auditNumber: 44,
+      workspace: "Splice",
+      brand: "Omega Services",
+      surface: "AI Overviews",
+      code: 40100,
+      category: "login rejected",
+      message: RAW_40100,
+    },
+  ],
+};
+const { loadHealth } = vi.hoisted(() => ({ loadHealth: vi.fn() }));
+vi.mock("@/lib/audit/google-surfaces/operator", () => ({ loadGoogleOperatorHealth: loadHealth }));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
@@ -70,6 +91,8 @@ beforeEach(() => {
   admin.allowed = false;
   admin.userId = "better-auth-user";
   writes.length = 0;
+  loadHealth.mockReset();
+  loadHealth.mockResolvedValue(HEALTH);
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
@@ -78,6 +101,7 @@ describe("/api/admin/settings", () => {
     const res = await GET(new Request("http://localhost/api/admin/settings"));
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(loadHealth).not.toHaveBeenCalled();
   });
 
   it("403 for a POST too, and nothing is written", async () => {
@@ -95,7 +119,7 @@ describe("/api/admin/settings", () => {
     admin.allowed = true;
     const res = await GET(new Request("http://localhost/api/admin/settings?workspace=x"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(VIEW);
+    expect(await res.json()).toEqual({ ...VIEW, health: HEALTH });
   });
 
   it("an operator's changes go to the writers with the operator's profile id", async () => {
@@ -159,6 +183,8 @@ describe("/admin/settings (the page)", () => {
     expect(html).toContain("data-admin-forbidden");
     expect(html).not.toContain("data-admin-settings");
     expect(html).not.toContain("Demo Workspace");
+    expect(html).not.toContain("40100");
+    expect(loadHealth).not.toHaveBeenCalled();
   });
 
   it("an operator sees each switch, the kill switch's state and the workspace list", async () => {
@@ -171,5 +197,17 @@ describe("/admin/settings (the page)", () => {
     expect(html).toContain("AI Overviews on for every eligible workspace");
     expect(html).toContain("Count Google in the headline");
     expect(html).toContain("Demo Workspace");
+  });
+
+  it("an operator sees the provider's own code and message (12 Nov, part 2)", async () => {
+    admin.allowed = true;
+    const html = renderToStaticMarkup(
+      await AdminSettingsPage({ searchParams: Promise.resolve({}) }),
+    ).replace(/<!-- -->/g, "");
+    expect(html).toContain("data-admin-provider-errors");
+    expect(html).toContain('data-admin-provider-error="40100"');
+    expect(html).toContain("40100 · login rejected");
+    expect(html).toContain("You are not authorized to access this resource");
+    expect(html).toContain("#44 · Omega Services (Splice)");
   });
 });

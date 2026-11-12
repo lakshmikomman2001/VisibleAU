@@ -1,5 +1,6 @@
 import type { GoogleSurface } from "@/lib/governance/google-surfaces";
 import { dataForSeoCredentials } from "./credentials";
+import { NO_PROVIDER_ANSWER } from "./dataforseo-errors";
 import type {
   CitedLink,
   GoogleSurfaceProvider,
@@ -31,12 +32,16 @@ const isPending = (code: number) => code >= 40600 && code < 40700;
 
 /**
  * Worth one more attempt (DataForSEO's errors appendix): 40101 "search engine error after retries",
- * 40401 "Task Not Found." for a task it just accepted (recorded 11 Nov), and any 5xxxx internal or service
- * error. Each attempt is billed as the provider reports; everything else (an invalid field, 40102 "no
- * search results", 40004 "this id is used by another function", an account problem) is final.
+ * 40401 "Task Not Found." for a task it just accepted (recorded 11 Nov), any 5xxxx internal or service
+ * error, and no answer at all (NO_PROVIDER_ANSWER: the request timed out or couldn't connect). Each attempt
+ * is billed as the provider reports; everything else (an invalid field, 40102 "no search results", 40004
+ * "this id is used by another function", an account problem) is final.
  */
 const isRetryable = (code: number) =>
-  code === 40101 || code === 40401 || (code >= 50000 && code < 60000);
+  code === NO_PROVIDER_ANSWER ||
+  code === 40101 ||
+  code === 40401 ||
+  (code >= 50000 && code < 60000);
 
 type Json = Record<string, unknown>;
 interface DfsTask {
@@ -234,18 +239,24 @@ export class DataForSeoProvider implements GoogleSurfaceProvider {
         signal: AbortSignal.timeout(60_000),
       });
     } catch (err) {
-      // The request's own error never carries the headers; only its kind is kept.
+      // No answer, so no status code of the provider's (NO_PROVIDER_ANSWER; stored as null). The request's
+      // own error never carries the headers; only its kind is kept.
+      const kind = err instanceof Error ? err.name : "error";
       return {
-        status_code: 50000,
-        status_message: `The provider couldn't be reached (${err instanceof Error ? err.name : "error"}).`,
+        status_code: NO_PROVIDER_ANSWER,
+        status_message:
+          kind === "TimeoutError" || kind === "AbortError"
+            ? `No answer from the provider within 60 seconds (${kind}).`
+            : `The provider couldn't be reached (${kind}).`,
       };
     }
     try {
       return (await res.json()) as DfsResponse;
     } catch {
+      // Not the provider's JSON (a gateway's page): no status code of its own either.
       return {
-        status_code: res.status >= 500 ? 50000 : res.status * 100,
-        status_message: `HTTP ${res.status}`,
+        status_code: NO_PROVIDER_ANSWER,
+        status_message: `HTTP ${res.status} without the provider's JSON answer.`,
       };
     }
   }

@@ -7,6 +7,7 @@ import { GOOGLE_SURFACE_NAMES, type GoogleSurface } from "@/lib/governance/googl
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import type { CitedLink } from "@/lib/serp/provider";
 import type { StoredGoogleSettings } from "./dispatch";
+import { googleCustomerReason, googleCustomerStatusReason } from "./reasons";
 
 /**
  * Google AI surfaces, Phase 1, part 3 -- what an audit's "Google Search AI" block says, wherever it's shown
@@ -21,7 +22,9 @@ import type { StoredGoogleSettings } from "./dispatch";
  * - "no AI answer shown" is its own outcome, neither a failure nor "not mentioned";
  * - "mentioned" counts verified mentions only (the same rule as every engine), in everyday questions:
  *   a question that names the business isn't evidence it's found;
- * - questions that couldn't be checked (failed, not completed, skipped) are counted apart, with why;
+ * - questions that couldn't be checked (failed, not completed, skipped) are counted apart, with why -- in the
+ *   customer's words (lib/audit/google-surfaces/reasons.ts, 12 Nov): never the provider's raw message, a
+ *   code or a provider URL, which stay with the operator (/admin/settings);
  * - Google's own links (google.com/searchviewer) are counted, never shown as directory evidence.
  */
 
@@ -38,6 +41,7 @@ export interface GoogleQuestionResult {
   prompt: string;
   isBranded: boolean;
   outcome: GoogleOutcome;
+  /** Why it wasn't checked, in the customer's words (googleCustomerReason); null when it was. */
   reason: string | null;
   mentioned: boolean;
   verified: boolean;
@@ -73,6 +77,7 @@ export interface GoogleSurfaceRow {
 
 export interface GoogleSurfaceSummary {
   status: "queued" | "collecting" | "complete";
+  /** Why Google wasn't checked for the whole audit, in the customer's words (googleCustomerStatusReason). */
   statusReason: string | null;
   location: GoogleLocation | null;
   device: "desktop" | "mobile";
@@ -188,7 +193,8 @@ export async function loadGoogleSurfaceSummary(
       prompt: googleSurfaceResults.prompt,
       isBranded: googleSurfaceResults.isBrandedPrompt,
       outcome: googleSurfaceResults.outcome,
-      reason: googleSurfaceResults.outcomeReason,
+      storedReason: googleSurfaceResults.outcomeReason,
+      statusCode: googleSurfaceResults.providerStatusCode,
       mentioned: googleSurfaceResults.brandMentioned,
       verification: googleSurfaceResults.mentionVerification,
       citedLinks: googleSurfaceResults.citedLinks,
@@ -213,7 +219,11 @@ export async function loadGoogleSurfaceSummary(
         prompt: r.prompt,
         isBranded: r.isBranded,
         outcome: r.outcome,
-        reason: r.reason,
+        reason: googleCustomerReason({
+          outcome: r.outcome,
+          providerStatusCode: r.statusCode,
+          outcomeReason: r.storedReason,
+        }),
         mentioned: r.mentioned === true,
         verified,
         links: links.length,
@@ -239,7 +249,7 @@ export async function loadGoogleSurfaceSummary(
   ].filter(Boolean);
   return {
     status,
-    statusReason: snap.statusReason,
+    statusReason: googleCustomerStatusReason(snap.statusReason),
     location,
     device: settings.device,
     labelLine: labelParts.join(" · "),
@@ -250,6 +260,11 @@ export async function loadGoogleSurfaceSummary(
     ranAt: new Date(ranAt).toISOString(),
     rows: surfaceRows,
   };
+}
+
+/** Why questions couldn't be checked, once each across the surfaces (the customer's words). */
+export function googleSurfaceReasons(summary: GoogleSurfaceSummary): string[] {
+  return [...new Set(summary.rows.flatMap((r) => r.reasons))];
 }
 
 /** The block as plain lines, for the PDFs, the client portal and the email (the same words as the page). */
@@ -269,7 +284,7 @@ export function googleSurfaceBlock(summary: GoogleSurfaceSummary): GoogleSurface
       ? [
           `Google couldn't be checked for this audit${summary.statusReason ? `: ${summary.statusReason}` : "."}`,
         ]
-      : summary.rows.map((r) => r.line);
+      : [...summary.rows.map((r) => r.line), ...googleSurfaceReasons(summary)];
   const counted = summary.countInHeadline
     ? "Counted in the Visibility %, for the questions where Google showed an AI answer."
     : "Not counted in the Visibility %: Google is shown on its own.";

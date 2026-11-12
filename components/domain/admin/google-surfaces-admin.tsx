@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useState } from "react";
+import type { GoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import type {
   GoogleSurface,
   GoogleSurfaceAdminView,
@@ -63,7 +64,71 @@ function shown(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-export function GoogleSurfacesAdmin({ view }: { view: GoogleSurfaceAdminView }) {
+/**
+ * 12 Nov, part 2: the provider's own code and message, for the operator only (customers see a plain
+ * sentence; lib/audit/google-surfaces/reasons.ts).
+ */
+function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErrors"] }) {
+  return (
+    <section className="mb-6 p-5 rounded-xl" style={card} data-admin-provider-errors="">
+      <h2 className="text-sm font-semibold mb-1" style={label}>
+        Provider errors
+      </h2>
+      <p className="text-[12px] mb-3" style={muted}>
+        The latest Google questions the provider failed, with its code and its own message.
+        Customers are shown only a plain reason (for example "a problem on our side").
+      </p>
+      {errors.length === 0 ? (
+        <p className="text-[13px]" style={muted}>
+          None recorded.
+        </p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table className="text-[12px] w-full" style={muted}>
+            <thead>
+              <tr style={label}>
+                <th className="text-left pr-3 pb-1">When (UTC)</th>
+                <th className="text-left pr-3 pb-1">Audit</th>
+                <th className="text-left pr-3 pb-1">Surface</th>
+                <th className="text-left pr-3 pb-1">Code</th>
+                <th className="text-left pb-1">What the provider said</th>
+              </tr>
+            </thead>
+            <tbody>
+              {errors.map((e) => (
+                <tr key={e.id} data-admin-provider-error={e.code ?? "none"}>
+                  <td className="pr-3 py-1 whitespace-nowrap">
+                    {e.at.slice(0, 16).replace("T", " ")}
+                  </td>
+                  <td className="pr-3 py-1">
+                    {e.auditNumber !== null ? `#${e.auditNumber}` : "—"}
+                    {e.brand ? ` · ${e.brand}` : ""}
+                    {e.workspace ? ` (${e.workspace})` : ""}
+                  </td>
+                  <td className="pr-3 py-1 whitespace-nowrap">{e.surface}</td>
+                  <td className="pr-3 py-1 whitespace-nowrap">
+                    {e.code ?? "no answer"} · {e.category}
+                  </td>
+                  <td className="py-1" style={{ wordBreak: "break-word" }}>
+                    {e.message ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function GoogleSurfacesAdmin({
+  view,
+  health,
+}: {
+  view: GoogleSurfaceAdminView;
+  health: GoogleOperatorHealth;
+}) {
   const router = useRouter();
   const save = usePostAction("/api/admin/settings", {
     onDone: () => router.refresh(),
@@ -327,6 +392,8 @@ export function GoogleSurfacesAdmin({ view }: { view: GoogleSurfaceAdminView }) 
             </p>
           )}
         </section>
+
+        <ProviderErrors errors={health.providerErrors} />
 
         <section className="p-5 rounded-xl" style={card} data-admin-history="">
           <h2 className="text-sm font-semibold mb-3" style={label}>

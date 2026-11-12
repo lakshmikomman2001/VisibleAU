@@ -7,6 +7,7 @@ import {
   GOOGLE_COLLECT_EVENT,
   type GoogleCollectEventData,
 } from "@/lib/audit/google-surfaces/dispatch";
+import { GOOGLE_STORED_REASON } from "@/lib/audit/google-surfaces/reasons";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 
@@ -38,10 +39,7 @@ export const collectGoogleSurfacesFn = inngest.createFunction(
     }) => {
       const data = event.data.event.data;
       await step.run("google:failed", () =>
-        finishGoogleSurfaces(
-          data.auditId,
-          "Not completed: Google couldn't be checked for this audit.",
-        ),
+        finishGoogleSurfaces(data.auditId, GOOGLE_STORED_REASON.functionFailed),
       );
       if (data.sendAuditComplete) {
         await step.sendEvent("google:audit-complete-after-failure", {

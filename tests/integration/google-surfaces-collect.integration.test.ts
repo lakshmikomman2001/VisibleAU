@@ -345,7 +345,9 @@ describe("Google AI surfaces on: the real pipeline, the provider's recorded answ
     expect(steps.map((s) => s.id)).toContain("google:audit-complete");
     const rows = await googleRows(auditId);
     expect(new Set(rows.map((r) => r.outcome))).toEqual(new Set(["failed"]));
-    expect(rows[0].outcome_reason).toContain("The provider refused the question: 50000");
+    // 12 Nov, part 2: no answer is no status code (null), for the operator in plain words.
+    expect(rows[0].outcome_reason).toBe("The provider couldn't be reached (TypeError).");
+    expect(rows[0].provider_status_code).toBeNull();
     expect(await coreOf(auditId)).toEqual(await coreOf(off.auditId));
   }, 120_000);
 

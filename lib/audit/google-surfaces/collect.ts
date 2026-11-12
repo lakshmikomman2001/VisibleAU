@@ -14,8 +14,10 @@ import {
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { hasGoogleSurfaceProviderCredentials } from "@/lib/serp/credentials";
 import { DataForSeoProvider } from "@/lib/serp/dataforseo";
+import { NO_PROVIDER_ANSWER } from "@/lib/serp/dataforseo-errors";
 import type { GoogleSurfaceProvider, SurfaceTarget, TaskPoll } from "@/lib/serp/provider";
 import type { GoogleCollectEventData, StoredGoogleSettings } from "./dispatch";
+import { GOOGLE_STORED_REASON } from "./reasons";
 
 /**
  * Google AI surfaces, Phase 1, part 2 -- collecting one audit's Google AI Overviews and AI Mode answers,
@@ -57,15 +59,11 @@ export const GOOGLE_PRICE_PER_QUESTION_USD: Record<
   live: { google_ai_overviews: 0.004, google_ai_mode: 0.004 },
 };
 
-const REASON = {
-  switchedOff: "Skipped: Google was switched off (GOOGLE_AI_SURFACES_ENABLED) during the audit.",
-  noCredentials: "Skipped: the provider's credentials aren't set.",
-  dailyCap:
-    "Skipped: today's spend limit -- Google is skipped first so the four engines can still run.",
-  costCeiling: (usd: number) =>
-    `Skipped: the cost limit for Google (US$${usd.toFixed(usd < 0.01 ? 4 : 2)} per audit) was reached.`,
-  notCompleted: "Not completed: Google hadn't answered within 15 minutes.",
-};
+/** Stored for the operator; customers see lib/audit/google-surfaces/reasons.ts's googleCustomerReason. */
+const REASON = GOOGLE_STORED_REASON;
+
+/** The provider's status code as stored: null when it didn't answer at all (no code of its own). */
+const storedCode = (code: number) => (code === NO_PROVIDER_ANSWER ? null : code);
 
 type Row = typeof googleSurfaceResults.$inferSelect;
 
@@ -219,8 +217,11 @@ async function recordFailed(row: Row, statusCode: number, message: string, raw: 
     .update(googleSurfaceResults)
     .set({
       outcome: "failed",
-      outcomeReason: `The provider answered ${statusCode}: ${message}`,
-      providerStatusCode: statusCode,
+      outcomeReason:
+        statusCode === NO_PROVIDER_ANSWER
+          ? message
+          : `The provider answered ${statusCode}: ${message}`,
+      providerStatusCode: storedCode(statusCode),
       rawResponse: raw,
       updatedAt: new Date(),
     })
@@ -258,14 +259,17 @@ async function postRows(
         .update(googleSurfaceResults)
         .set({
           providerTaskId: p.taskId,
-          providerStatusCode: p.statusCode,
+          providerStatusCode: storedCode(p.statusCode),
           attempts: row.attempts + 1,
           costUsd: cost,
           costSource: p.costUsd === null ? row.costSource : "provider_reported",
           ...(p.taskId === null
             ? {
                 outcome: "failed" as const,
-                outcomeReason: `The provider refused the question: ${p.statusCode} ${p.message}`,
+                outcomeReason:
+                  p.statusCode === NO_PROVIDER_ANSWER
+                    ? p.message
+                    : `The provider refused the question: ${p.statusCode} ${p.message}`,
               }
             : {}),
           updatedAt: new Date(),
@@ -432,7 +436,10 @@ async function liveOne(
 }
 
 /** The end: anything still waiting is "not completed", the cost is recorded once, the audit's Google part is complete. */
-export async function finishGoogleSurfaces(auditId: string, leftoverReason = REASON.notCompleted) {
+export async function finishGoogleSurfaces(
+  auditId: string,
+  leftoverReason: string = REASON.notCompleted,
+) {
   await serviceDb
     .update(googleSurfaceResults)
     .set({ outcome: "not_completed", outcomeReason: leftoverReason, updatedAt: new Date() })

@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import {
   type GoogleSurfaceSummary,
   googleCheckedAnything,
+  googleSurfaceReasons,
 } from "@/lib/audit/google-surfaces/summary";
 import { formatAudFromUsd } from "@/lib/constants/currency";
 import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
@@ -99,12 +100,13 @@ export function GoogleSearchAiSection({
                   Directories cited: {row.directories.join(", ")}
                 </p>
               ) : null}
-              {row.reasons.map((reason) => (
-                <p key={reason} className="text-[12px] mt-0.5" style={muted}>
-                  {reason}
-                </p>
-              ))}
             </div>
+          ))}
+          {/* 12 Nov, part 2: why, in the customer's words, once each (never the provider's message). */}
+          {googleSurfaceReasons(summary).map((reason) => (
+            <p key={reason} className="text-[12px]" style={muted} data-google-reason="">
+              {reason}
+            </p>
           ))}
         </div>
       )}

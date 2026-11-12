@@ -11,6 +11,7 @@ import {
   parseDataForSeoResult,
   pollOfTask,
 } from "@/lib/serp/dataforseo";
+import { dataForSeoErrorCategory } from "@/lib/serp/dataforseo-errors";
 import {
   recordedDataForSeoFetch,
   recordedFixture,
@@ -163,8 +164,46 @@ describe("DataForSeoProvider: the requests it makes", () => {
   it("an unreachable provider is a retryable error, with no header or credential in its message", async () => {
     const { fetchImpl } = recordedDataForSeoFetch({ unreachable: true });
     const poll = await new DataForSeoProvider(fetchImpl).getTask("google_ai_overviews", "x");
-    expect(poll).toMatchObject({ state: "error", statusCode: 50000, retryable: true });
+    // 12 Nov, part 2: no answer has no status code of the provider's (0, stored as null), not a made-up 50000.
+    expect(poll).toMatchObject({
+      state: "error",
+      statusCode: 0,
+      retryable: true,
+      message: "The provider couldn't be reached (TypeError).",
+    });
     if (poll.state === "error") expect(poll.message).not.toMatch(/test-login|test-password|Basic/);
+  });
+
+  it("a refused login (DataForSEO's real 401 / 40100, audit #44's answer): every task refused, final, 'login rejected'", async () => {
+    const { fetchImpl, calls } = recordedDataForSeoFetch({ rejected: true });
+    const posted = await new DataForSeoProvider(fetchImpl).postTasks(
+      "google_ai_overviews",
+      recordedQuestions().map((question, promptIndex) => ({ promptIndex, question })),
+      TARGET,
+      1,
+    );
+    expect(calls).toHaveLength(1);
+    expect(posted).toHaveLength(4);
+    for (const p of posted) {
+      expect(p).toMatchObject({ taskId: null, statusCode: 40100, costUsd: null });
+      expect(p.message).toContain("You are not authorized to access this resource");
+    }
+    expect(dataForSeoErrorCategory(posted[0].statusCode)).toBe("login_rejected");
+    const poll = await new DataForSeoProvider(fetchImpl).getTask("google_ai_mode", "x");
+    expect(poll).toMatchObject({ state: "error", statusCode: 40100, retryable: false });
+  });
+
+  it("a request that times out: no answer within 60 seconds, retryable", async () => {
+    const timedOut = (async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }) as unknown as typeof fetch;
+    const poll = await new DataForSeoProvider(timedOut).getTask("google_ai_mode", "x");
+    expect(poll).toMatchObject({
+      state: "error",
+      statusCode: 0,
+      retryable: true,
+      message: "No answer from the provider within 60 seconds (TimeoutError).",
+    });
   });
 
   it("no credentials: no request at all", async () => {

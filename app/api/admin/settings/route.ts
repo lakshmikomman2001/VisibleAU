@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { loadGoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import {
   GOOGLE_SETTING_KEYS,
@@ -35,7 +36,11 @@ export async function GET(req: Request) {
   const { allowed } = await operator();
   if (!allowed) return forbidden();
   const workspace = new URL(req.url).searchParams.get("workspace");
-  return NextResponse.json(await loadGoogleSurfaceAdminView(workspace));
+  const [view, health] = await Promise.all([
+    loadGoogleSurfaceAdminView(workspace),
+    loadGoogleOperatorHealth(),
+  ]);
+  return NextResponse.json({ ...view, health });
 }
 
 const settingNames = Object.keys(GOOGLE_SETTING_KEYS) as [

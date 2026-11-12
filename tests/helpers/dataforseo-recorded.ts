@@ -8,6 +8,10 @@
  * - `lostOnce`: those task ids first answer with the provider's real "40401 Task Not Found." response
  *   (recorded 11 Nov with a free task_get of an unknown id), then their result -- a billed retry.
  * - `unreachable`: every call fails as a network error does.
+ * - `rejected`: every call is refused as DataForSEO refuses a login it doesn't know: HTTP 401 with its real
+ *   "40100 You are not authorized" body (rejected-login-40100.json, recorded 12 Nov with a made-up login,
+ *   identical for both surfaces' task_post and for appendix/user_data; it's what production's audit #44
+ *   got).
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,7 +41,7 @@ export interface RecordedCall {
 }
 
 export function recordedDataForSeoFetch(
-  options: { lostOnce?: string[]; unreachable?: boolean } = {},
+  options: { lostOnce?: string[]; unreachable?: boolean; rejected?: boolean } = {},
 ) {
   const calls: RecordedCall[] = [];
   const gets = new Map<string, Json>();
@@ -62,6 +66,9 @@ export function recordedDataForSeoFetch(
       body,
     });
     if (options.unreachable) throw new TypeError("fetch failed");
+    if (options.rejected) {
+      return Response.json(recordedFixture("rejected-login-40100.json"), { status: 401 });
+    }
 
     const surface = url.includes("/serp/google/organic/") ? "organic" : "ai_mode";
     if (url.endsWith("/task_post")) {

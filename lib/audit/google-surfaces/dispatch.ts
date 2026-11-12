@@ -9,6 +9,7 @@ import {
   resolveGoogleSurfaces,
 } from "@/lib/governance/google-surfaces";
 import { inngest } from "@/lib/inngest/client";
+import { GOOGLE_STORED_REASON } from "./reasons";
 
 /**
  * Google AI surfaces, Phase 1, part 2 -- how an audit hands its questions to Google AI Overviews and AI Mode
@@ -145,7 +146,7 @@ export async function queueGoogleQuestions(
       })),
     );
     if (rows.length === 0) {
-      await finishWithoutCollecting(auditId, "The audit had no questions.");
+      await finishWithoutCollecting(auditId, GOOGLE_STORED_REASON.noQuestions);
       return false;
     }
     await serviceDb.insert(googleSurfaceResults).values(rows).onConflictDoNothing();
@@ -208,9 +209,6 @@ export async function dispatchGoogleSurfacesInline(
         error: err instanceof Error ? err.name : "unknown",
       }),
     );
-    await finishWithoutCollecting(
-      audit.id,
-      "Google couldn't be checked: the background runner wasn't reachable.",
-    ).catch(() => {});
+    await finishWithoutCollecting(audit.id, GOOGLE_STORED_REASON.runnerUnreachable).catch(() => {});
   }
 }

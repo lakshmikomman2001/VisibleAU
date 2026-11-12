@@ -304,8 +304,13 @@ describe("an audit that ran with Google: every surface shows its Google Search A
     expect(block).toContain("AI Mode: couldn't be checked this time");
     expect(block).not.toMatch(/\b0 of \d+/);
     expect(block).not.toContain("no everyday question had an answer to be mentioned in");
-    expect(block).toContain("The provider refused the question: 50000");
     expect(html).not.toContain("data-google-question");
+    // 12 Nov, part 2: the reason in the customer's words, once -- never the provider's message or code.
+    expect(block).toContain(
+      "Google didn't answer in time. It will be checked again on the next audit.",
+    );
+    expect(block.split("Google didn't answer in time")).toHaveLength(2);
+    expect(block).not.toMatch(/refused|couldn't be reached|TypeError|50000|dataforseo\.com/);
   }, 180_000);
 
   it("count in headline on: the headline includes Google and says so; never compared with one that didn't", async () => {

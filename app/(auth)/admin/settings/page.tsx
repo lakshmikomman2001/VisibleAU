@@ -1,4 +1,5 @@
 import { GoogleSurfacesAdmin } from "@/components/domain/admin/google-surfaces-admin";
+import { loadGoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
 import { loadGoogleSurfaceAdminView } from "@/lib/governance/google-surfaces";
 
@@ -30,6 +31,9 @@ export default async function AdminSettingsPage({
     );
   }
   const { workspace } = await searchParams;
-  const view = await loadGoogleSurfaceAdminView(workspace ?? null);
-  return <GoogleSurfacesAdmin view={view} />;
+  const [view, health] = await Promise.all([
+    loadGoogleSurfaceAdminView(workspace ?? null),
+    loadGoogleOperatorHealth(),
+  ]);
+  return <GoogleSurfacesAdmin view={view} health={health} />;
 }

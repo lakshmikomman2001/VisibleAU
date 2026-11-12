@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { pageNavigation, useRetriedNavigation, useSafePoll } from "@/lib/hooks/use-safe-poll";
 
 /**
@@ -37,6 +37,19 @@ export function GoogleSurfacesRefresher({ auditId }: { auditId: string }) {
     intervalMs: 15_000,
     maxWaitMs: 20 * 60_000,
   });
+  // 13 Nov (Sri's walk-through, part 5): Sri had to reload to see results that came 2 minutes after he
+  // looked. The block polls (above); a browser slows a background tab's timers, so coming back to the tab
+  // asks at once too.
+  useEffect(() => {
+    if (complete) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const request = new AbortController();
+      void poll(request.signal);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [complete, poll]);
   useRetriedNavigation(complete, {
     attempt: () => router.refresh(),
     fallback: () => pageNavigation.reload(),

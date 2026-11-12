@@ -22,6 +22,10 @@ import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/pr
 
 const MAX_INLINE_URLS = 3;
 
+/** What these links are, for someone reading the audit for the first time (13 Nov, part 5). */
+export const DIRECTORIES_EXPLAINED =
+  "These are the pages AI used as sources for these answers. They list local businesses; being listed on them is one way businesses get recommended.";
+
 export interface DirectoryCitedPanelUrl {
   url: string;
   displayUrl: string;
@@ -71,6 +75,14 @@ export function DirectoriesCitedPanel({
       >
         Directories AI cited
       </h3>
+      {/* 13 Nov (Sri's walk-through, part 5): reading his own product, Sri couldn't tell what these links
+          were. One line says it. */}
+      <p
+        data-directories-explained=""
+        style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 4px" }}
+      >
+        {DIRECTORIES_EXPLAINED}
+      </p>
       <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 20px" }}>
         {totalAnswers === 0
           ? "No answers to everyday customer questions (questions that don't name your business) to check yet."

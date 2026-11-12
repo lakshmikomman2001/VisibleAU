@@ -327,6 +327,17 @@ export function displayBasisLabels(
       }
       if (context.recommendationKey === undefined)
         return { chip: "Checked by us", text: "Checked by us" };
+      // 13 Nov (Sri's walk-through, part 5): "Strengthen your business profiles on Google, trade directories
+      // and local press" read "Wikipedia searched 12 Nov 2026: no article for your business" as its reason,
+      // which didn't say why those profiles. The check is the same; the reason now says what it means for
+      // the title (lib/recommendations/entity-profiles.ts's own action says it at length).
+      if (context.recommendationKey === "entity-profiles") {
+        const searched = date ? ` (Wikipedia searched ${date})` : "";
+        return {
+          chip: "Wikipedia searched",
+          text: `No Wikipedia article for your business${searched}, so your Google, directory and press profiles are what AI can read about you`,
+        };
+      }
       return {
         chip: "Wikipedia searched",
         text: date

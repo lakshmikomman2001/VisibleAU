@@ -247,6 +247,9 @@ describe("Audit page 'Recommended actions' uses the same display functions", () 
     expect(block).not.toContain("beyond Wikipedia");
     const entity = cardHtml(block, OMEGA_ENTITY_ITEM);
     expect(entity).toContain(">Low<");
-    expect(entity).toContain("Wikipedia searched 20 Oct 2026: no article for your business");
+    // 13 Nov (part 5): the reason says what the check means for the title.
+    expect(entity).toContain(
+      "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so your Google, directory and press profiles are what AI can read about you",
+    );
   });
 });

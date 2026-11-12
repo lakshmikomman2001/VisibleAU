@@ -306,7 +306,8 @@ describe("one basis -> label mapping (item 3)", () => {
       "verified",
       {
         chip: "Wikipedia searched",
-        text: "Wikipedia searched 20 Oct 2026: no article for your business",
+        // 13 Nov (part 5): the reason supports the title (profiles on Google, directories, press).
+        text: "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so your Google, directory and press profiles are what AI can read about you",
       },
     ],
     [

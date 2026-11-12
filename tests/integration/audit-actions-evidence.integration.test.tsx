@@ -154,7 +154,7 @@ describe("no Reddit in any answer (#41): the Reddit advice is general advice", (
       `Low ${REDDIT_TITLE} General advice, not drawn from this audit's answers`,
     );
     expect(advice).toContain(
-      `Low ${ENTITY_PROFILES_TITLE} Wikipedia searched 7 Nov 2026: no article for your business`,
+      `Low ${ENTITY_PROFILES_TITLE} No Wikipedia article for your business (Wikipedia searched 7 Nov 2026), so your Google, directory and press profiles are what AI can read about you`,
     );
     // The directory item is measured: it's the evidence action's, never general advice.
     expect(advice).not.toContain("confirm your status");

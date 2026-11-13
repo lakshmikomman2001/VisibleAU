@@ -71,6 +71,7 @@ import {
   resolveAuditDimensionsAndHeadline,
 } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
+import { LINK_MAY_NOT_WORK, linkDoubt, linkDoubtReason } from "@/lib/urls/link-doubt";
 import { linkHref } from "@/lib/urls/strip-tracking";
 import { isUuid } from "@/lib/validation/uuid";
 import { shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
@@ -2176,8 +2177,14 @@ export default async function AuditPage({
                   {/* Cited sources -- decision 1 (6 Nov): only the ones the answer cited. */}
                   {citedSourcesOf(c.citedSources).length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {citedSourcesOf<{ domain?: string; url?: string }>(c.citedSources).map(
-                        (src, si) => (
+                      {citedSourcesOf<{ domain?: string; url?: string; origin?: string }>(
+                        c.citedSources,
+                      ).map((src, si) => {
+                        // 13 Nov follow-up, item 5: a link the AI wrote, or one whose path repeats itself.
+                        const doubt = src.url
+                          ? linkDoubt({ url: src.url, origin: src.origin })
+                          : null;
+                        return (
                           <span
                             key={`src-${si}`}
                             style={{
@@ -2224,9 +2231,18 @@ export default async function AuditPage({
                             ) : (
                               (src.domain ?? "source")
                             )}
+                            {doubt && (
+                              <span
+                                data-link-doubt={doubt}
+                                title={linkDoubtReason(doubt)}
+                                style={{ color: "var(--warning)", flexShrink: 0 }}
+                              >
+                                · {LINK_MAY_NOT_WORK}
+                              </span>
+                            )}
                           </span>
-                        ),
-                      )}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

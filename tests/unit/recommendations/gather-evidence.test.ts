@@ -136,6 +136,7 @@ describe("gatherRecommendationEvidence", () => {
                 {
                   url: "https://hipages.com.au/connect/someone-else",
                   displayUrl: "https://hipages.com.au/connect/someone-else",
+                  doubt: null,
                 },
               ],
               ownerProfileCited: false,
@@ -165,6 +166,7 @@ describe("gatherRecommendationEvidence", () => {
               {
                 url: "https://hipages.com.au/connect/someone-else",
                 displayUrl: "https://hipages.com.au/connect/someone-else",
+                doubt: null,
               },
             ],
             ownerProfileCited: false,
@@ -207,6 +209,7 @@ describe("toDirectoryVisibility", () => {
             {
               url: "https://hipages.com.au/connect/x",
               displayUrl: "https://hipages.com.au/connect/x",
+              doubt: null,
             },
           ],
         },

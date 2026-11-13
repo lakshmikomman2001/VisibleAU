@@ -20,6 +20,7 @@ import { LinkSuggestedProfile } from "@/components/domain/audit/link-suggested-p
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
 import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/profile-status";
+import { LINK_MAY_NOT_WORK, type LinkDoubt, linkDoubtReason } from "@/lib/urls/link-doubt";
 
 const MAX_INLINE_URLS = 3;
 
@@ -30,6 +31,8 @@ export const DIRECTORIES_EXPLAINED =
 export interface DirectoryCitedPanelUrl {
   url: string;
   displayUrl: string;
+  /** 13 Nov follow-up, item 5: why it may not work (lib/urls/link-doubt.ts); the link still opens it as stored. */
+  doubt?: LinkDoubt | null;
 }
 
 export interface DirectoryCitedPanelRow {
@@ -149,14 +152,34 @@ export function DirectoriesCitedPanel({
                       minWidth: 0,
                     }}
                   >
-                    {inline.map((entry) => (
-                      <UrlLink
-                        key={entry.url}
-                        url={entry.url}
-                        label={displayUrl(entry.displayUrl)}
-                        style={{ fontSize: 12, color: "var(--accent-blue)" }}
-                      />
-                    ))}
+                    {inline.map((entry) =>
+                      entry.doubt ? (
+                        <div
+                          key={entry.url}
+                          style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}
+                        >
+                          <UrlLink
+                            url={entry.url}
+                            label={displayUrl(entry.displayUrl)}
+                            style={{ fontSize: 12, color: "var(--accent-blue)" }}
+                          />
+                          <span
+                            data-link-doubt={entry.doubt}
+                            title={linkDoubtReason(entry.doubt)}
+                            style={{ fontSize: 11, color: "var(--warning)", flexShrink: 0 }}
+                          >
+                            {LINK_MAY_NOT_WORK}
+                          </span>
+                        </div>
+                      ) : (
+                        <UrlLink
+                          key={entry.url}
+                          url={entry.url}
+                          label={displayUrl(entry.displayUrl)}
+                          style={{ fontSize: 12, color: "var(--accent-blue)" }}
+                        />
+                      ),
+                    )}
                     {more > 0 && (
                       <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                         and {more} more

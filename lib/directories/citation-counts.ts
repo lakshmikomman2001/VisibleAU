@@ -8,6 +8,7 @@ import {
   GOOGLE_GROUNDING_REDIRECT_HOST,
   isGoogleGroundingRedirect,
 } from "@/lib/llm/web-search-config";
+import { type LinkDoubt, linkDoubt } from "@/lib/urls/link-doubt";
 import { type DirectoryEntry, findDirectoryByDomain, getDirectoriesForBrand } from "./registry";
 
 /**
@@ -44,6 +45,8 @@ function isUnresolvableGeminiRedirect(domain: string): boolean {
 interface CitedSourceEntry {
   domain?: unknown;
   url?: unknown;
+  /** "retrieved" (the engine's search returned it) or "recalled" (written in the answer's text). */
+  origin?: unknown;
 }
 
 function safeParseUrl(raw: string): URL | null {
@@ -104,6 +107,12 @@ export interface DirectoryCitedUrl {
   /** The same URL, lower-cased host and tracking params/trailing
    * slash stripped, for display only. */
   displayUrl: string;
+  /**
+   * 13 Nov follow-up, item 5: why this link may not work (lib/urls/link-doubt.ts), or null. Judged from what's
+   * stored -- written by the AI rather than returned by its search, or a path that repeats itself; never fetched.
+   * A page any answer's engine returned as a search result isn't "written_by_ai".
+   */
+  doubt: LinkDoubt | null;
 }
 
 export interface DirectoryCitationResult {
@@ -222,7 +231,7 @@ export async function getDirectoryCitationsForAudit(
       directory: DirectoryEntry;
       citedCount: number;
       citedUrls: DirectoryCitedUrl[];
-      seenDedupeKeys: Set<string>;
+      seenPages: Map<string, DirectoryCitedUrl>;
       ownerProfileCitedCount: number;
     }
   >();
@@ -231,7 +240,7 @@ export async function getDirectoryCitationsForAudit(
       directory,
       citedCount: 0,
       citedUrls: [],
-      seenDedupeKeys: new Set(),
+      seenPages: new Map(),
       ownerProfileCitedCount: 0,
     });
   }
@@ -259,10 +268,20 @@ export async function getDirectoryCitationsForAudit(
       // path + query once tracking params are stripped) never
       // consumes another of the 10 slots, and never appears twice.
       const normalized = normalizeForDisplay(url);
-      if (normalized && !bucket.seenDedupeKeys.has(normalized.dedupeKey)) {
-        if (bucket.citedUrls.length < 10) {
-          bucket.seenDedupeKeys.add(normalized.dedupeKey);
-          bucket.citedUrls.push({ url, displayUrl: normalized.displayUrl });
+      // 13 Nov follow-up, item 5: whether it may not work, from the stored source alone.
+      const doubt = linkDoubt({
+        url,
+        origin: typeof entry.origin === "string" ? entry.origin : undefined,
+      });
+      if (normalized) {
+        const seen = bucket.seenPages.get(normalized.dedupeKey);
+        if (seen) {
+          // The same page, returned by an engine's search in another answer: not just written by the AI.
+          if (seen.doubt === "written_by_ai" && doubt !== "written_by_ai") seen.doubt = doubt;
+        } else if (bucket.citedUrls.length < 10) {
+          const page: DirectoryCitedUrl = { url, displayUrl: normalized.displayUrl, doubt };
+          bucket.seenPages.set(normalized.dedupeKey, page);
+          bucket.citedUrls.push(page);
         }
       }
 

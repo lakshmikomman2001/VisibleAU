@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { UrlLink } from "@/components/shared/url-link";
+import { LINK_MAY_NOT_WORK, linkDoubt, linkDoubtReason } from "@/lib/urls/link-doubt";
 
 // Task XXX: mirrors app/(auth)/methods/page.tsx's gate (task VVV) -- a ref
 // is only ever shown as research when it genuinely carries sourceType
@@ -100,6 +101,16 @@ export function EvidenceLink({ evidenceRefs, fallbackDescription }: EvidenceLink
                       rel="noopener noreferrer nofollow"
                       style={{ fontSize: 12, color: "var(--accent-blue)", marginTop: 2 }}
                     />
+                  ) : null}
+                  {/* 13 Nov follow-up, item 5: evidence keeps no origin, so only a path that repeats itself. */}
+                  {ref.url && linkDoubt({ url: ref.url }) ? (
+                    <span
+                      data-link-doubt="repeated_path"
+                      title={linkDoubtReason("repeated_path")}
+                      style={{ fontSize: 11, color: "var(--warning)" }}
+                    >
+                      {LINK_MAY_NOT_WORK}
+                    </span>
                   ) : null}
                 </div>
               );

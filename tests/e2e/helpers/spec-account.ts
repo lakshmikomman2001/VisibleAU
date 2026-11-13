@@ -19,14 +19,15 @@
  *
  * Keys are stable, so a run that crashed before its afterAll is cleared by the next: making an account
  * first removes whatever an earlier run left under the same key. Everything is in the local e2e
- * database only (e2eDatabaseUrl refuses anything else before connecting).
+ * database only (assertSeedDatabaseUrl refuses anything else before connecting), or, for this helper's own
+ * integration test, the integration tests' database (13 Nov, part 6).
  *
  * Relative imports only: tests/qa/* run under their own Playwright configs.
  */
 import type { Page } from "@playwright/test";
 import { hashPassword } from "better-auth/crypto";
 import postgres from "postgres";
-import { e2eDatabaseUrl } from "./e2e-database";
+import { assertSeedDatabaseUrl } from "./e2e-database";
 
 /** A plan a subscription row carries. Free is `null`: no subscription row, as a workspace that never paid. */
 export type SpecPlan = "starter" | "growth" | "agency" | "agency_pro" | "enterprise";
@@ -75,7 +76,11 @@ function namesFor(key: string) {
 }
 
 function connect() {
-  return postgres(e2eDatabaseUrl(), { max: 1, onnotice: () => {} });
+  // 13 Nov, part 6: the e2e database, or the integration tests' own when its integration test runs it.
+  return postgres(assertSeedDatabaseUrl(process.env.DATABASE_URL, "DATABASE_URL"), {
+    max: 1,
+    onnotice: () => {},
+  });
 }
 
 async function upsertPlan(

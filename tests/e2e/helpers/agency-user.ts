@@ -5,7 +5,8 @@
  * it to the wizard and a spec's sign-in wait never ends) and a live agency
  * subscription.
  *
- * In the local e2e database only: anything else is refused before connecting,
+ * In the local e2e database (or, for its own integration test, the integration tests' database: 13 Nov,
+ * part 6) only: anything else is refused before connecting,
  * visibleau_prod first of all. Safe to run again. No server needed: sign-in works
  * because the password is stored the way better-auth stores it.
  *
@@ -13,7 +14,7 @@
  */
 import { hashPassword } from "better-auth/crypto";
 import postgres from "postgres";
-import { assertE2eDatabaseUrl } from "./e2e-database";
+import { assertE2eDatabaseUrl, assertSeedDatabaseUrl } from "./e2e-database";
 
 export { assertE2eDatabaseUrl };
 
@@ -31,7 +32,7 @@ export const E2E_AGENCY_USER = {
 export async function ensureE2eAgencyUser(
   rawUrl = process.env.TEST_DATABASE_URL,
 ): Promise<{ organizationId: string; authUserId: string; brandId: string }> {
-  const url = assertE2eDatabaseUrl(rawUrl);
+  const url = assertSeedDatabaseUrl(rawUrl);
   const passwordHash = await hashPassword(E2E_AGENCY_USER.password);
   const sql = postgres(url, { max: 1 });
   try {
@@ -96,7 +97,7 @@ export async function ensureE2eAgencyUser(
 
 /** Removes everything ensureE2eAgencyUser made, and whatever a spec added to the workspace. */
 export async function removeE2eAgencyUser(rawUrl = process.env.TEST_DATABASE_URL): Promise<void> {
-  const url = assertE2eDatabaseUrl(rawUrl);
+  const url = assertSeedDatabaseUrl(rawUrl);
   const sql = postgres(url, { max: 1 });
   try {
     const [org] = await sql<

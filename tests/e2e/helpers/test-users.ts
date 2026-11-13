@@ -12,12 +12,12 @@
  * specs' clerk org id) now gets that workspace and a profile linked by the account's
  * id, the rows those helpers would find and keep.
  *
- * In the local e2e database only (assertE2eDatabaseUrl refuses anything else before
- * connecting). Safe to run again; run it again after anything truncates the fixtures.
+ * In the local e2e database only (assertSeedDatabaseUrl refuses anything else before
+ * connecting; its own integration test runs it in the integration tests' database: 13 Nov, part 6). Safe to run again; run it again after anything truncates the fixtures.
  * pnpm seed:e2e-users.
  */
 import postgres from "postgres";
-import { assertE2eDatabaseUrl } from "./agency-user";
+import { assertSeedDatabaseUrl } from "./e2e-database";
 
 export interface E2eTestUser {
   address: string;
@@ -52,7 +52,8 @@ export async function linkE2eTestUsers(
   users: E2eTestUser[],
   rawUrl = process.env.TEST_DATABASE_URL,
 ): Promise<LinkedTestUser[]> {
-  const url = assertE2eDatabaseUrl(rawUrl);
+  // 13 Nov, part 6: the e2e database, or the integration tests' own when its integration test runs it.
+  const url = assertSeedDatabaseUrl(rawUrl);
   const sql = postgres(url, { max: 1 });
   try {
     const out: LinkedTestUser[] = [];

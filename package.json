@@ -22,6 +22,7 @@
     "db:push": "node scripts/qa/guard-drizzle-kit.mjs",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:local": "tsx scripts/db/migrate-local.ts",
+    "db:setup:integration": "tsx scripts/db/setup-integration-db.ts",
     "db:studio": "drizzle-kit studio",
     "db:drift": "tsx scripts/qa/schema-drift.ts",
     "db:drift:local": "tsx scripts/qa/schema-drift-local.ts",

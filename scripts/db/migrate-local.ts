@@ -49,6 +49,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
 import { APP_ROLE, applyAppRoleGrants } from "./app-role-grants";
+import { createLocalDatabaseIfMissing } from "./create-local-database";
 import { assertLocalSafeDatabaseUrl } from "./local-db-guard";
 
 const MIGRATIONS_DIR = join(__dirname, "../../db/migrations");
@@ -66,6 +67,11 @@ async function main(): Promise<void> {
   }
   assertLocalSafeDatabaseUrl(url);
 
+  // 13 Nov, part 6: `pnpm db:setup:integration` makes visibleau_integration from nothing.
+  if (process.argv.includes("--create-database") && (await createLocalDatabaseIfMissing(url))) {
+    console.log(`db:migrate:local: created ${new URL(url).pathname.replace(/^\//, "")}.`);
+  }
+
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith(".sql"))
     .sort((a, b) => a.localeCompare(b));
@@ -79,7 +85,9 @@ async function main(): Promise<void> {
       )
     `;
 
-    const appliedRows = await sql<{ filename: string }[]>`SELECT filename FROM _local_migrations_applied`;
+    const appliedRows = await sql<
+      { filename: string }[]
+    >`SELECT filename FROM _local_migrations_applied`;
     const applied = new Set(appliedRows.map((r) => r.filename));
 
     if (applied.size === 0) {

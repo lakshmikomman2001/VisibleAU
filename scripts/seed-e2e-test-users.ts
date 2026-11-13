@@ -6,6 +6,7 @@
  */
 import path from "node:path";
 import { config } from "dotenv";
+import { assertE2eDatabaseUrl } from "../tests/e2e/helpers/e2e-database";
 import { linkE2eTestUsers } from "../tests/e2e/helpers/test-users";
 
 config({ path: path.resolve(process.cwd(), ".env.test.local") });
@@ -17,7 +18,8 @@ const users = [1, 2].flatMap((n) => {
   return [{ address, ...(clerkOrgId ? { workspace: { clerkOrgId, name: `E2E Org ${n}` } } : {}) }];
 });
 
-linkE2eTestUsers(users)
+// 13 Nov, part 6: the helper also serves its integration test's own database; this script is Playwright's only.
+linkE2eTestUsers(users, assertE2eDatabaseUrl(process.env.TEST_DATABASE_URL))
   .then((results) => {
     const linked = results.filter((r) => r.verified && r.linked).length;
     const created = results.filter((r) => r.created).length;

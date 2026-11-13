@@ -26,6 +26,30 @@ export function assertE2eDatabaseUrl(
   return rawUrl;
 }
 
+/** The integration tests' own database (13 Nov, part 6: tests/helpers/integration-database.ts). */
+export const INTEGRATION_DATABASE = "visibleau_integration";
+
+/**
+ * 13 Nov, part 6: the seed helpers (spec-account.ts, agency-user.ts) write to the local test database they're
+ * pointed at -- Playwright's visibleau_e2e (loadE2eEnv already insists on it for every spec and the server), or
+ * the integration tests' own visibleau_integration, where their own integration tests run them, so those never
+ * write to Playwright's data. Nothing else. Throws without connecting.
+ */
+export function assertSeedDatabaseUrl(
+  rawUrl: string | undefined,
+  variable = "TEST_DATABASE_URL",
+): string {
+  if (!rawUrl) throw new Error(`${variable} is not set: load .env.test.local first.`);
+  assertLocalSafeDatabaseUrl(rawUrl);
+  const name = new URL(rawUrl).pathname.replace(/^\//, "");
+  if (name !== E2E_DATABASE && name !== INTEGRATION_DATABASE) {
+    throw new Error(
+      `Refusing to run: the e2e seed helpers write only to ${E2E_DATABASE} or ${INTEGRATION_DATABASE}, not "${name}".`,
+    );
+  }
+  return rawUrl;
+}
+
 /** DATABASE_URL, checked: what a spec's own postgres client connects with. */
 export function e2eDatabaseUrl(): string {
   return assertE2eDatabaseUrl(process.env.DATABASE_URL, "DATABASE_URL");

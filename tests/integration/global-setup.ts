@@ -58,6 +58,11 @@ import { AU_EN_PROVIDERS } from "../../db/seed/provider-market-capabilities";
 import { APP_ROLE, appRolePrivilegeDrift } from "../../scripts/db/app-role-grants";
 import { assertLocalSafeDatabaseUrl } from "../../scripts/db/local-db-guard";
 import { checkSchemaDrift } from "../../scripts/qa/schema-drift";
+import {
+  assertIntegrationDatabaseUrl,
+  INTEGRATION_DATABASE,
+  integrationEnv,
+} from "../helpers/integration-database";
 import { ensureSharedFixtures } from "./shared-fixtures";
 
 // Plain `vitest run` does NOT load .env.test.local into process.env on
@@ -70,12 +75,31 @@ import { ensureSharedFixtures } from "./shared-fixtures";
 // set (`override: false`, dotenv's default).
 loadDotenv({ path: resolve(__dirname, "../../.env.test.local") });
 
+/** Postgres's "database does not exist". */
+const NO_SUCH_DATABASE = "3D000";
+
 export default async function globalSetup(): Promise<void> {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    throw new Error("integration bootstrap: DATABASE_URL is not set.");
-  }
+  // 13 Nov, part 6: the integration tests' own database, never Playwright's visibleau_e2e (a sprint4 test's
+  // truncateAll() removed user 1's membership and every vertical-pack prompt there). vitest.config.ts gives the
+  // test workers the same env (tests/helpers/integration-database.ts); this process sets it for itself.
+  Object.assign(process.env, integrationEnv(process.env));
+  const dbUrl = assertIntegrationDatabaseUrl(process.env.DATABASE_URL);
   assertLocalSafeDatabaseUrl(dbUrl);
+
+  const probe = postgres(dbUrl, { max: 1, onnotice: () => {} });
+  try {
+    await probe`SELECT 1`;
+  } catch (error) {
+    if ((error as { code?: string }).code === NO_SUCH_DATABASE) {
+      throw new Error(
+        `integration bootstrap: ${INTEGRATION_DATABASE} doesn't exist yet -- run 'pnpm db:setup:integration' ` +
+          "(creates it on the local server and applies every migration), then run the tests again.",
+      );
+    }
+    throw error;
+  } finally {
+    await probe.end();
+  }
 
   const { fatals } = await checkSchemaDrift(dbUrl);
   const schemaFatals = fatals.filter((f) => !f.startsWith("launch invariant:"));
@@ -83,7 +107,7 @@ export default async function globalSetup(): Promise<void> {
     const dbName = new URL(dbUrl).pathname.replace(/^\//, "");
     throw new Error(
       `integration bootstrap: schema drift detected against "${dbName}" -- run ` +
-        `'pnpm db:migrate:local' before running the integration suite:\n` +
+        `'pnpm db:setup:integration' (it applies every migration) before running the integration suite:\n` +
         schemaFatals.map((f) => `  - ${f}`).join("\n"),
     );
   }
@@ -97,7 +121,7 @@ export default async function globalSetup(): Promise<void> {
       const dbName = new URL(dbUrl).pathname.replace(/^\//, "");
       throw new Error(
         `integration bootstrap: ${APP_ROLE}'s privileges on "${dbName}" differ from production's ` +
-          `(prod-fix 0052) -- run 'pnpm db:migrate:local' against it:\n` +
+          `(prod-fix 0052) -- run 'pnpm db:setup:integration':\n` +
           grantDrift.map((d) => `  - ${d}`).join("\n"),
       );
     }

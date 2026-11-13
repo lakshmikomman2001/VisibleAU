@@ -5,11 +5,16 @@
  */
 import path from "node:path";
 import { config } from "dotenv";
-import { E2E_AGENCY_USER, ensureE2eAgencyUser } from "../tests/e2e/helpers/agency-user";
+import {
+  assertE2eDatabaseUrl,
+  E2E_AGENCY_USER,
+  ensureE2eAgencyUser,
+} from "../tests/e2e/helpers/agency-user";
 
 config({ path: path.resolve(process.cwd(), ".env.test.local") });
 
-ensureE2eAgencyUser()
+// 13 Nov, part 6: the helper also serves its integration test's own database; this script is Playwright's only.
+ensureE2eAgencyUser(assertE2eDatabaseUrl(process.env.TEST_DATABASE_URL))
   .then(() => {
     console.log(`Agency-plan test user ready: ${E2E_AGENCY_USER.email}`);
   })

@@ -1,5 +1,5 @@
+import { resolve } from "node:path";
 import { config } from "dotenv";
-import { resolve } from "path";
 
 config({ path: resolve(__dirname, "../../../../.env.test.local") });
 
@@ -13,18 +13,26 @@ import { queryFanOutResults } from "@/db/schema/query-fan-out-results";
 import { subscriptions } from "@/db/schema/subscriptions";
 import { verticalPackPrompts } from "@/db/schema/vertical-pack-prompts";
 import { verticalPacks } from "@/db/schema/vertical-packs";
+import { assertIntegrationDatabaseUrl } from "@/tests/helpers/integration-database";
 
-const client = postgres(process.env.DATABASE_URL!, { max: 1 });
+// 13 Nov, part 6: truncateAll() below empties organizations, users and the vertical packs. It ran against
+// Playwright's visibleau_e2e (removing user 1's membership and all 336 pack prompts); it runs only against the
+// integration tests' own database now, and refuses anything else before connecting.
+const client = postgres(assertIntegrationDatabaseUrl(process.env.DATABASE_URL), { max: 1 });
 export const testDb = drizzle(client);
 
-export async function seedOrganization(data: { clerkOrgId: string; name: string; tier?: string }) {
+export async function seedOrganization(data: {
+  clerkOrgId: string;
+  name: string;
+  tier?: (typeof organizations.$inferInsert)["tier"];
+}) {
   const [org] = await testDb
     .insert(organizations)
     .values({
       clerkOrgId: data.clerkOrgId,
       name: data.name,
       region: "au",
-      tier: (data.tier ?? "free") as any,
+      tier: data.tier ?? "free",
     })
     .returning();
   return org;

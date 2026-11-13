@@ -1,5 +1,7 @@
+import { resolve } from "node:path";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig, defineProject } from "vitest/config";
+import { integrationProjectEnv } from "./tests/helpers/integration-database";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
@@ -32,6 +34,9 @@ export default defineConfig({
             "tests/integration/**/*.test.{ts,tsx}",
           ],
           fileParallelism: false,
+          // 13 Nov, part 6: their own database, visibleau_integration -- never Playwright's visibleau_e2e
+          // (tests/helpers/integration-database.ts; global-setup.ts refuses anything else).
+          env: integrationProjectEnv(resolve(__dirname, ".env.test.local")),
           // Task #46 (7th follow-up): refuses to run against anything
           // but a disposable local DB, fails fast on schema drift, and
           // seeds the shared fixture rows the pre-existing visibleau_prod-

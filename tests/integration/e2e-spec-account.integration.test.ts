@@ -51,7 +51,7 @@ describe("it refuses anything but the local e2e database, before connecting", ()
   });
 });
 
-describe("in the e2e database", () => {
+describe("in a test database (the integration tests' own, 13 Nov part 6; never Playwright's)", () => {
   let sql: ReturnType<typeof postgres>;
   let owner: SpecAccount;
 

@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { E2E_SERVER_ENV, e2eWebServer } from "@/tests/e2e/helpers/e2e-config";
-import { assertE2eDatabaseUrl } from "@/tests/e2e/helpers/e2e-database";
+import { assertE2eDatabaseUrl, assertSeedDatabaseUrl } from "@/tests/e2e/helpers/e2e-database";
 import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
 readSourcesBeforeAll(["tests/e2e", "tests/qa", "playwright.config.ts"]);
@@ -41,7 +41,9 @@ describe("each Playwright spec signs in as an account whose workspace it seeds",
 });
 
 describe("everything that connects to a database checks it's the local e2e one first", () => {
-  const checked = /\be2eDatabaseUrl\(|\bassertE2eDatabaseUrl\(/;
+  // 13 Nov, part 6: the two seed helpers (spec-account.ts, agency-user.ts) check with assertSeedDatabaseUrl --
+  // the e2e database, or the integration tests' own when their integration tests run them; nothing else.
+  const checked = /\be2eDatabaseUrl\(|\bassertE2eDatabaseUrl\(|\bassertSeedDatabaseUrl\(/;
 
   it("every tests/e2e file that makes a postgres client", () => {
     const files = live(sourcePaths(["tests/e2e"])).filter((p) =>
@@ -65,6 +67,7 @@ describe("everything that connects to a database checks it's the local e2e one f
     ["another host", "postgresql://u:p@db.example.com:5432/visibleau_e2e"],
   ])("refuses %s", (_name, url) => {
     expect(() => assertE2eDatabaseUrl(url, "DATABASE_URL")).toThrow(/Refusing to run/);
+    expect(() => assertSeedDatabaseUrl(url, "DATABASE_URL")).toThrow(/Refusing to run/);
   });
 
   it("accepts only the local e2e database", () => {

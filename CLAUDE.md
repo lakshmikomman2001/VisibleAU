@@ -19,6 +19,16 @@ say so — don't push to satisfy it, even if asked a clarifying question about i
 
 Default all work to dev. Production changes require explicit user authorization and a pg_dump backup first.
 
+## Test databases (13 Nov 2026)
+- `visibleau_integration` — the vitest "integration" project only (vitest.config.ts and
+  tests/integration/global-setup.ts refuse anything else; tests/helpers/integration-database.ts). Create and
+  migrate it with `pnpm db:setup:integration`, and run that again after each new migration, as for `visibleau`
+  and `visibleau_e2e`. Its tests may truncate it freely.
+- `visibleau_e2e` — Playwright only (the specs, `pnpm e2e:server`, the seed scripts). No integration test may
+  touch it: a phase2 sprint4 test's `truncateAll()` once removed user 1's membership and all 336 vertical-pack
+  prompts there. Restore it with `pnpm seed:e2e-users` and `scripts/ops/seed-vertical-packs.ts`, never
+  `pnpm seed` (it fabricates subscriptions for every workspace).
+
 # Git worktrees
 
 Never symlink or junction `node_modules` into a git worktree or any temporary copy of this repo. Removing a

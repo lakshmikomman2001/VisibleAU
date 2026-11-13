@@ -11,7 +11,9 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
-vi.mock("@/lib/hooks/use-safe-poll", () => ({ pageNavigation: { reload: vi.fn(), assign: vi.fn() } }));
+vi.mock("@/lib/hooks/use-safe-poll", () => ({
+  pageNavigation: { reload: vi.fn(), assign: vi.fn() },
+}));
 
 import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cited-panel";
 import { likelyOwnProfileUrl } from "@/lib/directories/own-profile";

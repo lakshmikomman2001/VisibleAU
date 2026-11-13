@@ -1246,6 +1246,7 @@
           "suburb": "Bondi",
           "city": null,
           "state": "NSW",
+          "postcode": null,
           "country": "Australia",
           "locationMode": "fixed",
           "locationConfirmedAt": "<iso>",

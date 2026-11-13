@@ -187,7 +187,15 @@ describe("Google AI surfaces switches (real database)", () => {
     expect(view.selected?.name).toBe("Switches Growth Co");
     expect(view.selected?.tier).toBe("growth");
     expect(view.selected?.brands).toEqual([
-      { id: BRAND, name: "Switches Plumbing", suburb: "Norwest", state: "NSW", postcode: "2153" },
+      // 13 Nov (part 8): with the brand's own postcode beside the operator's override.
+      {
+        id: BRAND,
+        name: "Switches Plumbing",
+        suburb: "Norwest",
+        state: "NSW",
+        postcode: "2153",
+        ownPostcode: null,
+      },
     ]);
     expect(view.history[0]).toMatchObject({
       scope: "brand",

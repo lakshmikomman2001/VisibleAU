@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema";
-import { type GoogleLocation, resolveGoogleLocation } from "@/lib/google-surfaces/location";
+import { type GoogleLocation, googleLocationForBrand } from "@/lib/google-surfaces/location";
 import {
   brandGooglePostcode,
   type GoogleSurface,
@@ -62,6 +62,8 @@ export async function startGoogleSurfaces(input: {
     suburb: string | null;
     city: string | null;
     state: string | null;
+    /** The owner's postcode (migration 0146); the operator's one on /admin/settings overrides it. */
+    postcode: string | null;
     locationMode: string | null;
   };
   tier: string;
@@ -73,13 +75,9 @@ export async function startGoogleSurfaces(input: {
       isSample: audit.triggeredBy === "sample",
     });
     if (resolved.surfaces.length === 0) return null;
-    const location = resolveGoogleLocation({
-      postcode: await brandGooglePostcode(brand.id),
-      suburb: brand.suburb,
-      city: brand.city,
-      state: brand.state,
-      locationMode: brand.locationMode,
-    });
+    // 13 Nov (part 8): the operator's postcode is an override; the brand's own comes next (Yennora's 2161
+    // instead of "Results for Sydney NSW, not your suburb").
+    const location = googleLocationForBrand(await brandGooglePostcode(brand.id), brand);
     const settings: StoredGoogleSettings = {
       ...resolved.settings,
       provider: GOOGLE_PROVIDER,

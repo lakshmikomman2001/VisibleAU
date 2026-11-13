@@ -9,10 +9,10 @@ import { checkBrandLimit, inheritRegion } from "@/lib/brands";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
+import { roleRefusal } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
-import { roleRefusal } from "@/lib/governance";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -58,6 +58,13 @@ const createBrandSchema = z.object({
   // lib/locations list (never a guessed/invented city).
   city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
+  // 13 Nov (part 8): the brand's own postcode, for Google (migration 0146); null clears it.
+  postcode: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, "An Australian postcode is four digits.")
+    .nullable()
+    .optional(),
   country: z.string().trim().min(1).max(100).optional(),
   // 2 Nov: a logo uploaded through POST /api/branding/logo -- checked
   // below to be this workspace's own; never a URL from elsewhere.
@@ -149,6 +156,7 @@ export async function POST(req: Request) {
         suburb: parsed.data.suburb ?? null,
         city: parsed.data.city ?? null,
         state: parsed.data.state ?? null,
+        postcode: parsed.data.postcode ?? null,
         country: parsed.data.country ?? null,
         locationConfirmedAt: parsed.data.locationMode ? new Date() : null,
         logoUrl,

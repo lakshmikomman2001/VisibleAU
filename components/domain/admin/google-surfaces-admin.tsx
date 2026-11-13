@@ -504,9 +504,10 @@ export function GoogleSurfacesAdmin({
                   Google location per brand
                 </h3>
                 <p className="text-[12px] mb-2" style={muted}>
-                  Brands have no postcode. With one set here, Google results are for that postcode;
-                  without one, for the nearest place the provider has (the suburb, then the city,
-                  then the state's capital), and the audit says so. Clear it and Save to remove it.
+                  Google results are for the brand&apos;s own postcode (its owner gives it with the
+                  suburb). A postcode set here overrides it; with neither, they&apos;re for the
+                  nearest place the provider has (the suburb, then the city, then the state&apos;s
+                  capital), and the audit says so. Clear it and Save to remove the override.
                 </p>
                 <div className="flex flex-col gap-2">
                   {view.selected.brands.map((b) => (
@@ -515,6 +516,9 @@ export function GoogleSurfacesAdmin({
                         {b.name}{" "}
                         <span style={muted}>
                           {[b.suburb, b.state].filter(Boolean).join(" ") || "no suburb"}
+                          {b.ownPostcode
+                            ? ` · own postcode ${b.ownPostcode}`
+                            : " · no postcode of its own"}
                         </span>
                       </span>
                       <SavingField

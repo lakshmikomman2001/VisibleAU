@@ -98,6 +98,8 @@ interface BrandDetailClientProps {
     suburb?: string | null;
     city?: string | null;
     state?: string | null;
+    /** The owner's postcode, for Google (migration 0146, 13 Nov part 8). */
+    postcode?: string | null;
     locationMode?: "fixed" | "online_only" | null;
     // Vunnara hotfix (18 Oct, post-df27ef8): the OWNER'S OWN confirmed
     // audience (brands.audience) -- distinct from classification.
@@ -570,6 +572,7 @@ export function BrandDetailClient({
                     label: brandLocationLabel(brand),
                     onlineOnly: brand.locationMode === "online_only",
                     primaryRegion: brand.primaryRegions[0],
+                    postcode: brand.postcode ?? null,
                     isLegacyDefaultRegion,
                   }
             }
@@ -594,6 +597,7 @@ export function BrandDetailClient({
             brandId={brand.id}
             currentPrimaryRegion={brand.primaryRegions[0]}
             isLegacyDefaultRegion={isLegacyDefaultRegion}
+            currentPostcode={brand.postcode ?? null}
           />
         )}
       </div>
@@ -1687,6 +1691,7 @@ export function BrandDetailClient({
                   brandId={brand.id}
                   currentPrimaryRegion={brand.primaryRegions[0]}
                   isLegacyDefaultRegion={isLegacyDefaultRegion}
+                  currentPostcode={brand.postcode ?? null}
                 />
               </div>
             )}

@@ -15,12 +15,17 @@ interface LocationConfirmCardProps {
   // "confirmed" until they actually click Confirm.
   currentPrimaryRegion?: string;
   isLegacyDefaultRegion: boolean;
+  /** The brand's postcode, when it has one (migration 0146, 13 Nov part 8). */
+  currentPostcode?: string | null;
 }
+
+const POSTCODE = /^\d{4}$/;
 
 export function LocationConfirmCard({
   brandId,
   currentPrimaryRegion,
   isLegacyDefaultRegion,
+  currentPostcode = null,
 }: LocationConfirmCardProps) {
   const router = useRouter();
   const [currentState, currentSuburb] = (currentPrimaryRegion ?? "").split(":");
@@ -29,6 +34,9 @@ export function LocationConfirmCard({
     (currentState as AuStateCode) || "NSW",
   );
   const [suburbInput, setSuburbInput] = useState(isLegacyDefaultRegion ? "" : currentSuburb || "");
+  // 13 Nov (part 8): Google is located by postcode -- the app's suburb list has none, and without one a
+  // suburb Google doesn't list (Yennora) fell back to "Sydney NSW, not your suburb".
+  const [postcodeInput, setPostcodeInput] = useState(currentPostcode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -41,7 +49,7 @@ export function LocationConfirmCard({
         const res = await fetch(`/api/brands/${brandId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ locationMode: "online_only", primaryRegions: [] }),
+          body: JSON.stringify({ locationMode: "online_only", primaryRegions: [], postcode: null }),
         });
         if (!res.ok) {
           setError("Couldn't save — try again.");
@@ -65,6 +73,11 @@ export function LocationConfirmCard({
       setError("Letters and spaces only.");
       return;
     }
+    const postcode = postcodeInput.trim();
+    if (postcode && !POSTCODE.test(postcode)) {
+      setError("An Australian postcode is four digits.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -84,6 +97,7 @@ export function LocationConfirmCard({
           // dataset.
           city: resolveCityForSuburb(entry),
           state: selectedState,
+          postcode: postcode || null,
           country: "Australia",
           primaryRegions: [entry],
         }),
@@ -120,7 +134,9 @@ export function LocationConfirmCard({
         marginBottom: 32,
       }}
     >
-      <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}>
+      <h2
+        style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}
+      >
         Confirm your business location
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
@@ -175,7 +191,25 @@ export function LocationConfirmCard({
             placeholder="e.g. Bondi"
             style={{ ...inputStyle, flex: "1 1 120px", minWidth: 120 }}
           />
+          <input
+            aria-label="Postcode"
+            inputMode="numeric"
+            maxLength={4}
+            value={postcodeInput}
+            onChange={(e) => {
+              setPostcodeInput(e.target.value);
+              setError(null);
+            }}
+            placeholder="Postcode"
+            style={{ ...inputStyle, width: 96 }}
+          />
         </div>
+      )}
+      {!isOnlineOnly && (
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "-4px 0 12px" }}>
+          The postcode is where we check Google&apos;s AI answers from; without it, Google is
+          checked for the nearest place it lists.
+        </p>
       )}
 
       {error && <p style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</p>}

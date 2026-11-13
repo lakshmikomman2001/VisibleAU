@@ -52,6 +52,13 @@ const updateBrandSchema = z.object({
   // city from a previous save rather than leaving it untouched.
   city: z.string().trim().min(1).max(100).nullable().optional(),
   state: z.enum(AU_STATE_CODES).optional(),
+  // 13 Nov (part 8): the brand's own postcode, for Google (migration 0146); null clears it.
+  postcode: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, "An Australian postcode is four digits.")
+    .nullable()
+    .optional(),
   country: z.string().trim().min(1).max(100).optional(),
   // Fair competitor counting (7 Nov): { "<competitor name>": "<website>" }; an empty value removes
   // it. Normalised and kept to this brand's competitors below (lib/brands/competitor-websites.ts).

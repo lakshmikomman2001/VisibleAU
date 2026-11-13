@@ -27,10 +27,12 @@ export function brandLocationLabel(brand: {
   suburb?: string | null;
   city?: string | null;
   state?: string | null;
+  postcode?: string | null;
   primaryRegions?: readonly string[];
 }): string | null {
   const place = brand.suburb ?? brand.city;
-  if (place) return brand.state ? `${place}, ${brand.state}` : place;
+  const postcode = brand.postcode ? ` ${brand.postcode}` : "";
+  if (place) return brand.state ? `${place}, ${brand.state}${postcode}` : `${place}${postcode}`;
   const region = brand.primaryRegions?.[0];
   if (!region) return null;
   const [state, suburb] = region.split(":");

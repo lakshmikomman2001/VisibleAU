@@ -67,6 +67,10 @@ export const brands = pgTable("brands", {
   suburb: text("suburb"),
   city: text("city"),
   state: text("state"),
+  // Migration 0146 (13 Nov, part 8): the owner's postcode, four digits, for Google's location
+  // (lib/google-surfaces/location.ts); null until they give it. The operator's brand_google_locations postcode
+  // overrides it.
+  postcode: text("postcode"),
   country: text("country"),
   locationMode: text("location_mode", { enum: ["fixed", "online_only"] }),
   locationConfirmedAt: timestamp("location_confirmed_at", { withTimezone: true }),

@@ -5,9 +5,10 @@ import locations from "./data/dataforseo-au-locations.json";
  * the postcode, from the brand's confirmed location; with no postcode, the nearest Google location the
  * provider supports, labelled; never silently the whole country).
  *
- * Brands have no postcode column, so the postcode is the one an operator set on /admin/settings
- * (brand_google_locations). In order:
- * 1. that postcode, if it's in the provider's list ("2153 NSW", precise);
+ * The postcode (13 Nov, part 8): the operator's on /admin/settings (brand_google_locations) as an override, else
+ * the brand's own (brands.postcode, migration 0146, given by the owner with the suburb) -- googleLocationForBrand
+ * below. In order:
+ * 1. that postcode, if it's in the provider's list ("2161 NSW", precise);
  * 2. the confirmed suburb, if the provider has it as a place ("Castle Hill NSW", precise);
  * 3. the confirmed city ("Results for Sydney NSW, not your suburb");
  * 4. the state's capital ("Results for Sydney NSW, not your suburb").
@@ -154,4 +155,22 @@ export function resolveGoogleLocation(brand: {
   const capitalCode = place(state, capital);
   if (capitalCode !== null) return nearest(capitalCode, capital, "state_capital");
   return { ok: false, reason: `The provider has no Google location for ${state}.` };
+}
+
+/**
+ * 13 Nov (Sri's walk-through, part 8): Hero Home Services is in Yennora (2161), but with no operator postcode
+ * its Google block was for "Sydney NSW, not your suburb" (Yennora isn't one of the provider's places, and the
+ * app's suburb list has no postcodes). The brand's own postcode is used now; the operator's is an override.
+ */
+export function googleLocationForBrand(
+  operatorPostcode: string | null,
+  brand: {
+    postcode: string | null;
+    suburb: string | null;
+    city: string | null;
+    state: string | null;
+    locationMode: string | null;
+  },
+): GoogleLocationResult {
+  return resolveGoogleLocation({ ...brand, postcode: operatorPostcode ?? brand.postcode });
 }

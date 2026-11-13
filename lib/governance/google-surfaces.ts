@@ -341,7 +341,10 @@ export interface GoogleSurfaceAdminView {
       name: string;
       suburb: string | null;
       state: string | null;
+      /** The operator's postcode (brand_google_locations): an override. */
       postcode: string | null;
+      /** The brand's own postcode, from its owner (brands.postcode, migration 0146). */
+      ownPostcode: string | null;
     }[];
   } | null;
   history: GoogleSurfaceHistoryEntry[];
@@ -381,6 +384,7 @@ export async function loadGoogleSurfaceAdminView(
         suburb: brands.suburb,
         state: brands.state,
         postcode: brandGoogleLocations.postcode,
+        ownPostcode: brands.postcode,
       })
       .from(brands)
       .leftJoin(brandGoogleLocations, eq(brandGoogleLocations.brandId, brands.id))

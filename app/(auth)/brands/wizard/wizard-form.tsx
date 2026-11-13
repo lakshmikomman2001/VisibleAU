@@ -61,6 +61,9 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const [selectedPackPrompts, setSelectedPackPrompts] = useState(0);
   const [suburbs, setSuburbs] = useState<string[]>([]);
   const [suburbInput, setSuburbInput] = useState("");
+  // 13 Nov (part 8): the first suburb's postcode, where Google's AI answers are checked from (optional).
+  const [postcode, setPostcode] = useState("");
+  const postcodeValid = postcode.trim() === "" || /^\d{4}$/.test(postcode.trim());
   const [selectedState, setSelectedState] = useState<AuStateCode>("NSW");
   const [suburbError, setSuburbError] = useState("");
   // Vunnara Build 1, Part D: location is required -- either at least
@@ -147,6 +150,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 suburb: firstSuburbName,
                 city: firstSuburbEntry ? resolveCityForSuburb(firstSuburbEntry) : null,
                 state: firstState,
+                postcode: postcode.trim() || null,
                 country: "Australia",
               }),
         }),
@@ -237,7 +241,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
       : step === 2
         ? !!vertical
         : step === 3
-          ? isOnlineOnly || suburbs.length > 0
+          ? isOnlineOnly || (suburbs.length > 0 && postcodeValid)
           : true;
 
   return (
@@ -711,6 +715,40 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
                   Add at least one suburb to continue, or tick &quot;no fixed location&quot; above.
                 </p>
+              )}
+              {!isOnlineOnly && suburbs.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <label
+                    htmlFor="wiz-postcode"
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "var(--text-secondary)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Postcode of {suburbs[0].split(":").slice(1).join(":")} (optional)
+                  </label>
+                  <input
+                    id="wiz-postcode"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={postcode}
+                    onChange={(e) => setPostcode(e.target.value)}
+                    style={{ ...inputStyle, width: 96 }}
+                  />
+                  <p
+                    style={{
+                      fontSize: 11,
+                      color: postcodeValid ? "var(--text-tertiary)" : "var(--danger)",
+                      margin: "4px 0 0",
+                    }}
+                  >
+                    {postcodeValid
+                      ? "Where we check Google's AI answers from; without it, Google is checked for the nearest place it lists."
+                      : "An Australian postcode is four digits."}
+                  </p>
+                </div>
               )}
             </div>
 

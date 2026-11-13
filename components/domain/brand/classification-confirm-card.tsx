@@ -15,6 +15,7 @@ export interface ConfirmCardLocation {
   label: string | null;
   onlineOnly: boolean;
   primaryRegion?: string;
+  postcode?: string | null;
   isLegacyDefaultRegion: boolean;
 }
 
@@ -229,6 +230,7 @@ export function ClassificationConfirmCard({
                 brandId={brandId}
                 currentPrimaryRegion={location.primaryRegion}
                 isLegacyDefaultRegion={location.isLegacyDefaultRegion}
+                currentPostcode={location.postcode ?? null}
               />
             </div>
           )}

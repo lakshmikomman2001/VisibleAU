@@ -43,7 +43,14 @@ function view(overrides: Partial<GoogleSurfaceAdminView> = {}): GoogleSurfaceAdm
       now: { google_ai_overviews: off, google_ai_mode: off },
       withEnvOn: { google_ai_overviews: off, google_ai_mode: off },
       brands: [
-        { id: BRAND, name: "Omega Services", suburb: "Norwest", state: "NSW", postcode: "2153" },
+        {
+          id: BRAND,
+          name: "Omega Services",
+          suburb: "Norwest",
+          state: "NSW",
+          postcode: "2153",
+          ownPostcode: null,
+        },
       ],
     },
     history: [],

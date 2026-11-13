@@ -66,6 +66,16 @@ function nameList(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
+/** "localsearch.com.au/profile/hero-home-services/yennora-nsw": host without www., path, no query. */
+function pageShown(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.hostname.replace(/^www\./, "")}${u.pathname === "/" ? "" : u.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return url;
+  }
+}
+
 /** Monospace columns: pad each label to the longest. */
 function padded(labels: string[]): string[] {
   const width = Math.max(...labels.map((l) => l.length));
@@ -122,10 +132,22 @@ function directoryFinding(data: FindingsData): Finding | null {
       : `Complete and activate your profiles on ${these} first`,
     // 9 Nov (part 6): in answers, as the evidence above it -- not "32 of 48 directory citations" (answer-directory
     // pairs), which read like a different denominator.
+    // 13 Nov (part 9): when a cited page looks like the brand's own profile (lib/directories/own-profile.ts),
+    // the recommendation names it -- the owner links it on the audit page with one click.
     recommendation: notLinked
       ? {
           title: `Link your ${nameList(names)} ${plural(names.length, "profile")}`,
-          detail: `${gapSubject} ${gapCited}; add your profile links in brand settings so we can match them with what AI cites.`,
+          detail: (() => {
+            const suggested = gaps.filter((r) => r.suggestedProfileUrl);
+            const base = `${gapSubject} ${gapCited}`;
+            if (suggested.length === 0) {
+              return `${base}; add your profile links in brand settings so we can match them with what AI cites.`;
+            }
+            const pages = suggested.map(
+              (r) => `${pageShown(r.suggestedProfileUrl ?? "")} looks like your ${r.name} profile`,
+            );
+            return `${base}. AI cited what looks like yours: ${pages.join("; ")}. Link it under Directories AI cited, so we can match it with what AI cites.`;
+          })(),
         }
       : {
           title: `Complete your ${nameList(names)} ${plural(names.length, "profile")}`,

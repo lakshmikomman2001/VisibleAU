@@ -21,6 +21,7 @@ const zeroHits: Omit<DirectoryCitationResult, "directory"> = {
   ownerProfileCitedCount: 0,
   ownerStatus: null,
   ownerConfirmedAt: null,
+  suggestedProfileUrl: null,
 };
 
 const NOW = new Date("2026-10-16T00:00:00.000Z");
@@ -42,7 +43,11 @@ function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
       { pageUrl: "https://bondi.test/pricing", lastModified: "2025-06-01T00:00:00.000Z" },
       { pageUrl: "https://bondi.test/", lastModified: null },
     ],
-    getDirectoryCitations: async () => ({ totalAnswers: 0, computedAt: NOW.toISOString(), results: [] }),
+    getDirectoryCitations: async () => ({
+      totalAnswers: 0,
+      computedAt: NOW.toISOString(),
+      results: [],
+    }),
     ...overrides,
   };
 }
@@ -138,6 +143,7 @@ describe("gatherRecommendationEvidence", () => {
               ownerProfileCitedCount: 0,
               ownerStatus: "not_listed",
               ownerConfirmedAt: "2026-10-01T00:00:00.000Z",
+              suggestedProfileUrl: null,
             },
             { ...zeroHits, directory: oneflare },
           ],
@@ -197,7 +203,12 @@ describe("toDirectoryVisibility", () => {
           directory: hipages,
           totalAnswers: 10,
           citedCount: 2,
-          citedUrls: [{ url: "https://hipages.com.au/connect/x", displayUrl: "https://hipages.com.au/connect/x" }],
+          citedUrls: [
+            {
+              url: "https://hipages.com.au/connect/x",
+              displayUrl: "https://hipages.com.au/connect/x",
+            },
+          ],
         },
       ],
     });
@@ -210,7 +221,11 @@ describe("toDirectoryVisibility", () => {
 
   it("totalAnswers === 0 is still 'ok' with empty findings, never 'unavailable'", async () => {
     const { toDirectoryVisibility } = await import("@/lib/recommendations/gather-evidence");
-    const result = toDirectoryVisibility({ totalAnswers: 0, computedAt: "2026-10-21T00:00:00.000Z", results: [] });
+    const result = toDirectoryVisibility({
+      totalAnswers: 0,
+      computedAt: "2026-10-21T00:00:00.000Z",
+      results: [],
+    });
     expect(result).toEqual({
       status: "ok",
       data: { computedAt: "2026-10-21T00:00:00.000Z", findings: [] },

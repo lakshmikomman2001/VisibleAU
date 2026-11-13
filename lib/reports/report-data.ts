@@ -112,6 +112,8 @@ export interface ReportDirectoryRow {
   /** Answers citing the owner's own profile page (0 when not linked). */
   ownerProfileCitedCount: number;
   ownerStatus: "listed" | "not_listed" | "unsure" | null;
+  /** 13 Nov (part 9): a cited page that looks like the brand's own profile here (only while none is linked). */
+  suggestedProfileUrl?: string | null;
 }
 
 export interface ReportTrendPoint {
@@ -446,7 +448,16 @@ export async function basisAuditEvidence(
       getDirectoryCitationsForAudit(
         db,
         basis.id,
-        { id: brand.id, region: brand.region, categories: brand.categories },
+        {
+          id: brand.id,
+          region: brand.region,
+          categories: brand.categories,
+          name: brand.name,
+          domain: brand.domain,
+          suburb: brand.suburb,
+          state: brand.state,
+          postcode: brand.postcode,
+        },
         now,
       ),
       shareOfVoiceForBrands(
@@ -587,6 +598,7 @@ export function evidenceFields(
         ownerProfileLinked: r.ownerProfileLinked,
         ownerProfileCitedCount: r.ownerProfileCitedCount,
         ownerStatus: r.ownerStatus,
+        suggestedProfileUrl: r.suggestedProfileUrl,
       })),
     },
     sources: evidence.sources,

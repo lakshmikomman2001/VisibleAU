@@ -1918,7 +1918,8 @@
             "citedCount": 3,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "serviceseeking",
@@ -1926,7 +1927,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "oneflare",
@@ -1934,7 +1936,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "airtasker",
@@ -1942,7 +1945,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "yellow_pages_au",
@@ -1950,7 +1954,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "true_local",
@@ -1958,7 +1963,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "localsearch",
@@ -1966,7 +1972,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "product_review",
@@ -1974,7 +1981,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "word_of_mouth",
@@ -1982,7 +1990,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "google_business_profile",
@@ -1990,7 +1999,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           }
         ]
       },
@@ -3173,7 +3183,8 @@
             "citedCount": 3,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "serviceseeking",
@@ -3181,7 +3192,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "oneflare",
@@ -3189,7 +3201,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "airtasker",
@@ -3197,7 +3210,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "yellow_pages_au",
@@ -3205,7 +3219,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "true_local",
@@ -3213,7 +3228,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "localsearch",
@@ -3221,7 +3237,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "product_review",
@@ -3229,7 +3246,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "word_of_mouth",
@@ -3237,7 +3255,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           },
           {
             "key": "google_business_profile",
@@ -3245,7 +3264,8 @@
             "citedCount": 0,
             "ownerProfileLinked": false,
             "ownerProfileCitedCount": 0,
-            "ownerStatus": null
+            "ownerStatus": null,
+            "suggestedProfileUrl": null
           }
         ]
       },

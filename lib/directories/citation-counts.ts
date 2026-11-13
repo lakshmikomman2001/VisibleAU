@@ -3,6 +3,7 @@ import type { DbClient } from "@/db/client";
 import { brandDirectoryListings, citations } from "@/db/schema";
 import { citedSourcesOf } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { likelyOwnProfileUrl } from "@/lib/directories/own-profile";
 import {
   GOOGLE_GROUNDING_REDIRECT_HOST,
   isGoogleGroundingRedirect,
@@ -135,6 +136,12 @@ export interface DirectoryCitationResult {
    * null when they've never confirmed anything for it. */
   ownerStatus: "listed" | "not_listed" | "unsure" | null;
   ownerConfirmedAt: string | null;
+  /**
+   * 13 Nov (part 9): a cited page that is very likely the brand's own profile here
+   * (lib/directories/own-profile.ts), cleaned of tracking parameters -- only while no profile is linked, and
+   * only a suggestion: nothing is linked until the owner confirms it. Null otherwise.
+   */
+  suggestedProfileUrl: string | null;
 }
 
 export interface AuditDirectoryCitations {
@@ -152,6 +159,12 @@ interface BrandForCitationCounts {
   id: string;
   region: string;
   categories: readonly string[];
+  /** With these, a cited page that looks like the brand's own profile is suggested (13 Nov, part 9). */
+  name?: string;
+  domain?: string;
+  suburb?: string | null;
+  state?: string | null;
+  postcode?: string | null;
 }
 
 /**
@@ -286,6 +299,22 @@ export async function getDirectoryCitationsForAudit(
       ownerProfileCitedCount: bucket?.ownerProfileCitedCount ?? 0,
       ownerStatus: confirmed?.status ?? null,
       ownerConfirmedAt: confirmed?.confirmedAt ? confirmed.confirmedAt.toISOString() : null,
+      suggestedProfileUrl:
+        brand.name &&
+        brand.domain &&
+        !(confirmed?.status === "listed" && confirmed.profileUrl?.trim())
+          ? likelyOwnProfileUrl(
+              directory.profileUrlPattern,
+              (bucket?.citedUrls ?? []).map((u) => u.url),
+              {
+                name: brand.name,
+                domain: brand.domain,
+                suburb: brand.suburb,
+                state: brand.state,
+                postcode: brand.postcode,
+              },
+            )
+          : null,
     };
   });
 

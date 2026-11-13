@@ -1649,8 +1649,10 @@ export default async function AuditPage({
               citedUrls: r.citedUrls,
               ownerProfileLinked: r.ownerProfileLinked,
               ownerProfileCitedCount: r.ownerProfileCitedCount,
+              suggestedProfileUrl: r.suggestedProfileUrl,
             }))}
             totalAnswers={directoryCitations.totalAnswers}
+            brandId={brand.id}
           />
 
           {/* Sri's decision (7 Nov): "from this audit" is only what this audit's answers measured -- the

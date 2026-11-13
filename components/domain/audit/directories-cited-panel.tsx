@@ -16,6 +16,7 @@
  * shown -- as host and path on one line, cut off with an ellipsis on a
  * phone; the link itself still goes to the real, un-normalized url.
  */
+import { LinkSuggestedProfile } from "@/components/domain/audit/link-suggested-profile";
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
 import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/profile-status";
@@ -40,6 +41,9 @@ export interface DirectoryCitedPanelRow {
    * profile URL -- without one, whether AI cited "your profile" isn't known. */
   ownerProfileLinked: boolean;
   ownerProfileCitedCount: number;
+  /** 13 Nov (part 9): a cited page that looks like the brand's own profile, offered to link; never linked
+   * by itself (lib/directories/own-profile.ts). */
+  suggestedProfileUrl?: string | null;
 }
 
 const status = (r: DirectoryCitedPanelRow) => directoryProfileStatus(r);
@@ -47,9 +51,12 @@ const status = (r: DirectoryCitedPanelRow) => directoryProfileStatus(r);
 export function DirectoriesCitedPanel({
   rows,
   totalAnswers,
+  brandId,
 }: {
   rows: DirectoryCitedPanelRow[];
   totalAnswers: number;
+  /** Where "Link it" stores a suggested profile (13 Nov, part 9); without it, no suggestion is offered. */
+  brandId?: string;
 }) {
   const cited = rows
     .filter((r) => r.citedCount > 0)
@@ -124,6 +131,14 @@ export function DirectoriesCitedPanel({
                     · Your profile: {status(r).label}
                   </span>
                 </div>
+                {brandId && r.suggestedProfileUrl && status(r).kind === "not_linked" && (
+                  <LinkSuggestedProfile
+                    brandId={brandId}
+                    directoryKey={r.key}
+                    directoryName={r.name}
+                    url={r.suggestedProfileUrl}
+                  />
+                )}
                 {inline.length > 0 && (
                   <div
                     style={{

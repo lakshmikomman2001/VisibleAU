@@ -23,7 +23,7 @@ export const GOOGLE_STORED_REASON = {
   switchedOff: "Skipped: Google was switched off (GOOGLE_AI_SURFACES_ENABLED) during the audit.",
   noCredentials: "Skipped: the provider's credentials aren't set.",
   dailyCap:
-    "Skipped: today's spend limit -- Google is skipped first so the four engines can still run.",
+    "Skipped: today's spend limit. Google is skipped first so the four engines can still run.",
   costCeilingPrefix: "Skipped: the cost limit for Google",
   costCeiling: (usd: number) =>
     `Skipped: the cost limit for Google (US$${usd.toFixed(usd < 0.01 ? 4 : 2)} per audit) was reached.`,

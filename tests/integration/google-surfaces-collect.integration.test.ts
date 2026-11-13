@@ -460,7 +460,7 @@ describe("Google AI surfaces on: the real pipeline, the provider's recorded answ
     const rows = await googleRows(auditId);
     expect(new Set(rows.map((r) => r.outcome))).toEqual(new Set(["skipped"]));
     expect(rows[0].outcome_reason).toBe(
-      "Skipped: today's spend limit -- Google is skipped first so the four engines can still run.",
+      "Skipped: today's spend limit. Google is skipped first so the four engines can still run.",
     );
     expect(calls).toEqual([]);
     const [audit] = await client`SELECT status FROM audits WHERE id = ${auditId}`;

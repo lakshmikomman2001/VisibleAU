@@ -13,6 +13,7 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ORG_ID = randomUUID();
@@ -80,7 +81,7 @@ beforeAll(async () => {
       ${BRAND_CURRENT_ID}, ${ORG_ID}, 'Current Pack Plumbing', 'currentpack.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[],
       ${client.json(CLASSIFICATION)}, 'complete', now(), ARRAY['trades_plumbing'], 'households',
       'fixed', now(), 'Bondi', 'Sydney', 'NSW',
-      ${client.json(STALE_PACK)}, 5, 2
+      ${client.json(STALE_PACK)}, 5, ${PROMPT_GENERATOR_VERSION}
     )
   `;
 });
@@ -127,7 +128,8 @@ describe("getAuditPrompts -- regenerates a stale-generator pack first (hotfix 2,
     const prompts = await callGetAuditPrompts(BRAND_STALE_ID);
 
     const after = await getBrandRow(BRAND_STALE_ID);
-    expect(after.prompt_pack_generator_version).toBe(2);
+    // The current generator (3 since 13 Nov, part 4: no " -- " in a question).
+    expect(after.prompt_pack_generator_version).toBe(PROMPT_GENERATOR_VERSION);
     // The real generator's output, not the stale duplicate-place pack.
     expect(after.prompt_pack).not.toEqual(STALE_PACK);
     expect(after.prompt_pack_version).toBeGreaterThan(before.prompt_pack_version);
@@ -141,7 +143,7 @@ describe("getAuditPrompts -- regenerates a stale-generator pack first (hotfix 2,
 
   it("a pack already stamped with the current generator version is NOT regenerated", async () => {
     const before = await getBrandRow(BRAND_CURRENT_ID);
-    expect(before.prompt_pack_generator_version).toBe(2);
+    expect(before.prompt_pack_generator_version).toBe(PROMPT_GENERATOR_VERSION);
 
     await callGetAuditPrompts(BRAND_CURRENT_ID);
 

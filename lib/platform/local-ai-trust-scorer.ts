@@ -141,7 +141,7 @@ export function localTrustFromParts(
     return {
       localAiTrustScore: null,
       breakdown,
-      reason: `Local AI Trust Score: ${NOT_MEASURED} -- none of its parts has been checked.`,
+      reason: `Local AI Trust Score: ${NOT_MEASURED}. None of its parts has been checked.`,
       measuredParts,
       notMeasuredParts,
     };
@@ -153,7 +153,7 @@ export function localTrustFromParts(
     breakdown,
     reason:
       notMeasuredParts.length === 0
-        ? `Local AI Trust Score: ${total}/100 -- from ${measuredParts.join(", ")}.`
+        ? `Local AI Trust Score: ${total}/100 from ${measuredParts.join(", ")}.`
         : `Local AI Trust Score: ${total}/100 from ${measuredParts.join(", ")} only; ${NOT_MEASURED.toLowerCase()}: ${notMeasuredParts.join(", ")}.`,
     measuredParts,
     notMeasuredParts,

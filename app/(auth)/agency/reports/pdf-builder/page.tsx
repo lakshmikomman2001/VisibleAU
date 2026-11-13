@@ -573,7 +573,7 @@ export default function PdfBuilderPage() {
                           organic answers) -- show that plainly, not "— / 100". */}
                       {audit.scoreComposite == null ? (
                         <p className="text-sm text-gray-500">
-                          Not enough data -- no AI answers were returned for this audit.
+                          Not enough data: no AI answers were returned for this audit.
                         </p>
                       ) : (
                         <div className="flex items-end gap-3">

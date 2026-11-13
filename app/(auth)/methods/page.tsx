@@ -103,20 +103,20 @@ export default async function MethodologyPage() {
         </h2>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           The Visibility Score is how often AI answers mention your business when customers ask
-          everyday questions about businesses like yours -- never a question that names your
-          business directly. A question that does name it is shown separately, on its own, and is
-          never counted toward this score.
+          everyday questions about businesses like yours, never a question that names your business
+          directly. A question that does name it is shown separately, on its own, and is never
+          counted toward this score.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           Position (where in the answer you're mentioned) and Source citation (how often a mention
-          links to a source) describe how you appear in the answers that DO mention you -- they're
+          links to a source) describe how you appear in the answers that DO mention you. They're
           shown next to the score, but they never change the score itself. Sentiment and Context are
-          planned but not yet scored -- no real tone/framing classifier exists yet, so both are
-          marked "Not yet measured" rather than shown as a number.
+          planned but not yet scored: no real tone/framing classifier exists yet, so both are marked
+          "Not yet measured" rather than shown as a number.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are
-          recalculated the same way, every time they're viewed -- there's no separate, older scoring
+          recalculated the same way, every time they're viewed; there's no separate, older scoring
           method still applying to older audits.
         </p>
       </div>
@@ -146,23 +146,22 @@ export default async function MethodologyPage() {
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           Each brand gets a fixed set of questions, generated once from its confirmed categories
           plus a few that name the brand directly. The same questions are reused on every later
-          audit unless the brand's categories, competitors, or location change -- so a trend line
+          audit unless the brand's categories, competitors, or location change, so a trend line
           compares like with like, not a freshly-randomised set each time.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           Most engines search the live web for each answer by default. Each question is asked once
-          per engine per audit -- "12 questions × 4 engines = 48 answers" means 48 real
-          conversations, not 48 attempts at fewer questions.
+          per engine per audit: "12 questions × 4 engines = 48 answers" means 48 real conversations,
+          not 48 attempts at fewer questions.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           An identical question, to the same engine, under the same web-search setting, asked again
-          shortly after may reuse that recent answer instead of placing a fresh call -- a
-          web-searched answer is reused for a shorter time than a memory-only one, since it can go
-          stale faster.
+          shortly after may reuse that recent answer instead of placing a fresh call. A web-searched
+          answer is reused for a shorter time than a memory-only one, since it can go stale faster.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-          A brand's suburb or city is only passed to an engine once confirmed -- and not every
-          engine supports it: Gemini's search tool has no location-targeting option at all.
+          A brand's suburb or city is only passed to an engine once confirmed, and not every engine
+          supports it: Gemini's search tool has no location-targeting option at all.
         </p>
       </div>
 

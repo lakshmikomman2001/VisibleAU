@@ -132,7 +132,7 @@ export const sampleAuditCleanup = inngest.createFunction(
             .where(eq(brands.id, brandId));
           if (!brand || brand.organizationId !== sampleOrg.id) {
             throw new Error(
-              `sample-audit-cleanup: brand ${brandId} is not a __sample__-org brand -- refusing to delete`,
+              `sample-audit-cleanup: brand ${brandId} is not a __sample__-org brand; refusing to delete`,
             );
           }
 

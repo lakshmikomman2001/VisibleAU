@@ -139,11 +139,7 @@ export const TEMPLATE_AUDIENCE_OVERRIDES: Partial<Record<CategoryKey, Record<str
   },
 };
 
-function templateMatchesAudience(
-  category: string,
-  template: string,
-  audience?: Audience,
-): boolean {
+function templateMatchesAudience(category: string, template: string, audience?: Audience): boolean {
   if (!audience || audience === "both") return true;
   const override = TEMPLATE_AUDIENCE_OVERRIDES[category as CategoryKey]?.[template];
   return !override || override === audience;
@@ -227,7 +223,10 @@ export const CATEGORY_ALIASES: Record<string, CategoryKey> = {
 };
 
 function normalizeCategorySlug(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }
 
 /**
@@ -282,7 +281,10 @@ export function categoryServicePhrase(category: string): string {
  * first" rule the round-robin allocation itself uses.
  */
 export function matchCategoryInText(text: string, candidates: readonly string[]): string | null {
-  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  const words = text
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
   for (const word of words) {
     const resolved = (CATEGORY_KEYS as readonly string[]).includes(word)
       ? word
@@ -457,7 +459,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       // sub-specialty not every plumber offers (the same failure as
       // asking a plumber about painters) -- replaced with a generic
       // customer-intent phrasing every plumbing business can answer.
-      "Plumber in {region} -- who do locals trust for general repairs?",
+      "Plumber in {region} — who do locals trust for general repairs?",
       "Plumber in {region} with good reviews for bathroom renovations?",
     ],
   },
@@ -589,7 +591,7 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       // firm may not practise -- a family-law firm doesn't do criminal
       // defence either. Replaced with generic customer-intent phrasing
       // every law firm in this category can answer.
-      "Lawyer in {region} -- who do locals recommend?",
+      "Lawyer in {region} — who do locals recommend?",
       "Best law firm in {region} with good reviews?",
       "Lawyer in {region} who offers fixed-fee services?",
       "Who are the most experienced lawyers in {region}?",

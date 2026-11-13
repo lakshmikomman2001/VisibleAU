@@ -82,7 +82,7 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
       if (!res.ok) {
         setRowError((prev) => ({
           ...prev,
-          [key]: body?.error ?? "Couldn't save that -- try again.",
+          [key]: body?.error ?? "Couldn't save that. Try again.",
         }));
         return;
       }
@@ -103,7 +103,7 @@ export function DirectoryListingsCard({ brandId }: { brandId: string }) {
     } catch {
       setRowError((prev) => ({
         ...prev,
-        [key]: "Couldn't save that -- check your connection and try again.",
+        [key]: "Couldn't save that. Check your connection and try again.",
       }));
     } finally {
       setSavingKey(null);

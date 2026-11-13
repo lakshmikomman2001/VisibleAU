@@ -26,9 +26,7 @@ export interface AuditPrompt {
  * run-audit.ts) already fail the audit honestly on any thrown error. */
 export class BrandNeedsConfirmationError extends Error {
   constructor(brandId: string) {
-    super(
-      "Confirm your business type and location before running an audit -- see the brand's detail page.",
-    );
+    super("Confirm your business type and location on the brand's page before running an audit.");
     this.name = "BrandNeedsConfirmationError";
     this.brandId = brandId;
   }

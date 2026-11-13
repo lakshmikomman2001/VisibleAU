@@ -207,22 +207,26 @@ export function ClassificationConfirmCard({
                 ? "Online only (no fixed location)"
                 : (location.label ?? "No location yet")}
             </span>
-            <button
-              type="button"
-              onClick={() => setChangingLocation((open) => !open)}
-              aria-expanded={changingLocation}
-              style={{
-                fontSize: 12,
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                color: "var(--accent-primary)",
-                textDecoration: "underline",
-              }}
-            >
-              {changingLocation ? "Keep this location" : "Change"}
-            </button>
+            {/* 13 Nov, part 2: one action. While the picker is open, its own Save and Cancel are the
+                only controls; this link no longer turns into "Keep this location". */}
+            {!changingLocation && (
+              <button
+                type="button"
+                onClick={() => setChangingLocation(true)}
+                aria-expanded={false}
+                style={{
+                  fontSize: 12,
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  color: "var(--accent-primary)",
+                  textDecoration: "underline",
+                }}
+              >
+                Change
+              </button>
+            )}
           </div>
           {changingLocation && (
             <div style={{ marginTop: 12 }}>
@@ -231,6 +235,7 @@ export function ClassificationConfirmCard({
                 currentPrimaryRegion={location.primaryRegion}
                 isLegacyDefaultRegion={location.isLegacyDefaultRegion}
                 currentPostcode={location.postcode ?? null}
+                onClose={() => setChangingLocation(false)}
               />
             </div>
           )}

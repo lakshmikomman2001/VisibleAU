@@ -145,7 +145,8 @@ describe("Primary regions", () => {
     const view = render(<BrandDetailClient {...PROPS} brand={BRAND} />);
     expect(screen.getByText("1 suburb")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change location" }));
-    expect(screen.getByText("Confirm your business location")).toBeInTheDocument();
+    // 13 Nov, part 2: the location is already confirmed, so the picker changes it (Save, Cancel).
+    expect(screen.getByText("Change your business location")).toBeInTheDocument();
     view.rerender(
       <BrandDetailClient
         {...PROPS}

@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 import { ClassificationConfirmCard } from "@/components/domain/brand/classification-confirm-card";
 import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-websites-form";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
+import { PostcodeCard } from "@/components/domain/brand/postcode-card";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -48,6 +49,7 @@ import {
   firstAuditFailedSentence,
   takeFirstAuditFailure,
 } from "@/lib/brands/first-audit-notice";
+import { locationNeed } from "@/lib/brands/location-need";
 import { brandLocationLabel } from "@/lib/brands/region-label";
 import { pluralise } from "@/lib/format/pluralise";
 import { refusalMessage } from "@/lib/governance/permissions";
@@ -258,6 +260,14 @@ export function BrandDetailClient({
     brand.locationConfirmedAt === undefined ? false : !brand.locationConfirmedAt;
   const isLegacyDefaultRegion =
     brand.primaryRegions.length === 1 && brand.primaryRegions[0] === "NSW:Sydney CBD";
+  // 13 Nov, part 2: a confirmed location that only lacks the postcode asks for just that (one field, one
+  // Save), once the business details are settled; it stays to say "Saved" after the save.
+  const [postcodeJustSaved, setPostcodeJustSaved] = useState(false);
+  const showPostcodeCard =
+    canEditBrand &&
+    !locationNeedsConfirmation &&
+    classification === "complete" &&
+    (locationNeed(brand) === "postcode" || postcodeJustSaved);
 
   // Build 1 addendum, item 9 + 10: Part C.5's original design let an
   // unconfirmed brand run anyway, with only a warning -- that silently
@@ -598,6 +608,14 @@ export function BrandDetailClient({
             currentPrimaryRegion={brand.primaryRegions[0]}
             isLegacyDefaultRegion={isLegacyDefaultRegion}
             currentPostcode={brand.postcode ?? null}
+          />
+        )}
+
+        {showPostcodeCard && (
+          <PostcodeCard
+            brandId={brand.id}
+            locationLabel={brandLocationLabel(brand)}
+            onSaved={() => setPostcodeJustSaved(true)}
           />
         )}
       </div>
@@ -1665,12 +1683,15 @@ export function BrandDetailClient({
                   </span>
                 ))
               )}
-              {canEditBrand && (
+              {/* 13 Nov, part 2: one action. Hidden while the picker is open (its Save and Cancel are the
+                  controls; this used to turn into "Keep this location", which only closed it) and while
+                  the location still needs confirming (the card at the top is the one place for that). */}
+              {canEditBrand && !changingLocation && !locationNeedsConfirmation && (
                 <button
                   type="button"
                   data-change-location=""
-                  onClick={() => setChangingLocation((open) => !open)}
-                  aria-expanded={changingLocation}
+                  onClick={() => setChangingLocation(true)}
+                  aria-expanded={false}
                   style={{
                     fontSize: 12,
                     background: "none",
@@ -1681,7 +1702,7 @@ export function BrandDetailClient({
                     textDecoration: "underline",
                   }}
                 >
-                  {changingLocation ? "Keep this location" : "Change location"}
+                  Change location
                 </button>
               )}
             </div>
@@ -1692,6 +1713,7 @@ export function BrandDetailClient({
                   currentPrimaryRegion={brand.primaryRegions[0]}
                   isLegacyDefaultRegion={isLegacyDefaultRegion}
                   currentPostcode={brand.postcode ?? null}
+                  onClose={() => setChangingLocation(false)}
                 />
               </div>
             )}

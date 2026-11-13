@@ -108,7 +108,8 @@ describe("the panel shows on the first load whenever confirmation is needed", ()
   it("Change shows the location picker inside the panel", () => {
     renderBrand("needs_confirmation");
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
-    expect(screen.getByText("Confirm your business location")).toBeInTheDocument();
+    // 13 Nov, part 2: the location is already confirmed, so the picker changes it (Save, Cancel).
+    expect(screen.getByText("Change your business location")).toBeInTheDocument();
   });
 
   it.each([

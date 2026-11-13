@@ -17,6 +17,13 @@ interface LocationConfirmCardProps {
   isLegacyDefaultRegion: boolean;
   /** The brand's postcode, when it has one (migration 0146, 13 Nov part 8). */
   currentPostcode?: string | null;
+  /**
+   * 13 Nov, part 2: given when the location is already confirmed and the owner opened this to change it
+   * ("Change location", or "Change" in the details panel). The card is then "Change your business location"
+   * with Save and Cancel, and closes itself after a save. The link that opened it used to turn into "Keep
+   * this location", which only closed the picker but read like a second way to confirm.
+   */
+  onClose?: () => void;
 }
 
 const POSTCODE = /^\d{4}$/;
@@ -26,7 +33,9 @@ export function LocationConfirmCard({
   currentPrimaryRegion,
   isLegacyDefaultRegion,
   currentPostcode = null,
+  onClose,
 }: LocationConfirmCardProps) {
+  const changing = onClose !== undefined;
   const router = useRouter();
   const [currentState, currentSuburb] = (currentPrimaryRegion ?? "").split(":");
   const [isOnlineOnly, setIsOnlineOnly] = useState(false);
@@ -57,6 +66,7 @@ export function LocationConfirmCard({
         }
         markJustConfirmed(brandId);
         router.refresh();
+        onClose?.();
       } finally {
         setSaving(false);
       }
@@ -108,6 +118,7 @@ export function LocationConfirmCard({
       }
       markJustConfirmed(brandId);
       router.refresh();
+      onClose?.();
     } finally {
       setSaving(false);
     }
@@ -137,7 +148,7 @@ export function LocationConfirmCard({
       <h2
         style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px" }}
       >
-        Confirm your business location
+        {changing ? "Change your business location" : "Confirm your business location"}
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
         {isLegacyDefaultRegion
@@ -231,8 +242,28 @@ export function LocationConfirmCard({
           opacity: saving ? 0.5 : 1,
         }}
       >
-        {saving ? "Saving..." : "Confirm"}
+        {saving ? "Saving..." : changing ? "Save" : "Confirm"}
       </button>
+      {changing && (
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          style={{
+            height: 32,
+            marginLeft: 8,
+            padding: "0 12px",
+            borderRadius: 6,
+            fontSize: 13,
+            background: "none",
+            border: "1px solid var(--border-default)",
+            color: "var(--text-secondary)",
+            cursor: saving ? "not-allowed" : "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      )}
     </div>
   );
 }

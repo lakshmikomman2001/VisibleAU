@@ -20,6 +20,7 @@ import { buildJunit } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
+import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   displayRecommendationAction,
   displayRecommendationTitle,
@@ -111,6 +112,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             action: actionItems.action,
             confidenceBasis: actionItems.confidenceBasis,
             recommendationKey: actionItems.recommendationKey,
+            expectedImpactScore: actionItems.expectedImpactScore,
+            createdAt: actionItems.createdAt,
           })
           .from(actionItems)
           .where(and(eq(actionItems.auditId, auditId), eq(actionItems.status, "open")))
@@ -123,7 +126,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
               brand && rows.some((r) => r.recommendationKey === "entity-profiles")
                 ? await getCitedDirectoryNames(tx, auditId, brand)
                 : [];
-            return rows.map((r) => ({
+            // 14 Nov (Sri): the audit page's order -- priority, then date, then title. Read with no ORDER BY,
+            // the Action Plan came out in whatever order Postgres returned (the off-parity snapshot saw two).
+            return [...rows].sort(compareActionItems).map((r) => ({
               title: displayRecommendationTitle(r),
               action: displayRecommendationAction(r, citedDirectories),
             }));

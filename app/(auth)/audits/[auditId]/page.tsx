@@ -43,6 +43,7 @@ import { methodologyLabel } from "@/lib/llm/methodology";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   type DisplayBasis,
   displayBasisLabels,
@@ -481,7 +482,8 @@ export default async function AuditPage({
           displayBasis: resolveDisplayBasis({ ...a, evidenceRefs }, ownerStatements),
         })),
         evidenceActions,
-      ).sort((a, b) => a.title.localeCompare(b.title));
+        // 14 Nov (Sri): the one order the PDF's Action Plan uses too -- priority, then date, then title.
+      ).sort(compareActionItems);
 
       // Task #46 Phase 1: real counts on the headline's own answers, never a
       // hard-coded "#1 you". One Share of Voice (7 Nov): from the one counter

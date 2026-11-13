@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { rateLimitCounters } from "@/db/schema";
+import { sqlTimestamp } from "@/db/sql-timestamp";
 
 /**
  * Task #46 (17th follow-up), Part C: a Postgres-backed fixed-window rate
@@ -98,7 +99,7 @@ export async function claimOncePerWindow(key: string, windowMs: number): Promise
       target: rateLimitCounters.bucketKey,
       set: { windowStart: now, count: sql`${rateLimitCounters.count} + 1`, updatedAt: now },
       // As an ISO string: a Date in raw sql reaches Postgres as its local toString().
-      setWhere: sql`${rateLimitCounters.windowStart} < ${cutoff.toISOString()}::timestamptz`,
+      setWhere: sql`${rateLimitCounters.windowStart} < ${sqlTimestamp(cutoff)}`,
     })
     .returning({ id: rateLimitCounters.id });
   return claimed.length > 0;

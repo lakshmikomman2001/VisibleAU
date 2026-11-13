@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { Activity, ArrowRight, Building2, ChevronRight, MapPin, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -11,7 +11,8 @@ import { InfoTip } from "@/components/domain/shared/info-tip";
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
-import { audits, brands } from "@/db/schema";
+import { audits, brands, engineCallFailures } from "@/db/schema";
+import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema/google-surfaces";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
@@ -24,11 +25,17 @@ import {
   latestAuditCard,
   monthWindowLabel,
 } from "@/lib/dashboard/overview-cards";
+import { enginesForTier } from "@/lib/llm/tier-engines";
 import {
   healthCheckBannerNotice,
   isNoticeDismissed,
   PRODUCT_TOUR_NOTICE,
 } from "@/lib/onboarding/dismissed-notices";
+import {
+  loadProviderStatus,
+  providerStatusLine,
+  STATUS_WINDOW_MS,
+} from "@/lib/platform/provider-status";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, formatVisibilityPercent } from "@/lib/scoring/visibility-display";
@@ -201,6 +208,64 @@ export default async function DashboardPage() {
     { label: LATEST_AUDIT_CARD_LABEL, value: latest.value, icon: Zap, sub: latest.sub },
   ];
 
+  // 13 Nov (Sri's walk-through, part 12): it said "All systems normal", a fixed label, the morning after
+  // Claude refused every question of audit #47 on a spend limit. What it says now is measured
+  // (lib/platform/provider-status.ts): an outage of an engine in this plan, or of Google's checks when this
+  // workspace's audits use them, linking to this workspace's latest audit that hit it; "answered" when
+  // answers were measured; nothing when nothing was.
+  const statusNow = new Date();
+  const providerStatus = await loadProviderStatus(statusNow);
+  const windowStart = new Date(statusNow.getTime() - STATUS_WINDOW_MS);
+  const { usesGoogle } = await withRlsContext(orgId, async (tx) => {
+    const [google] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(auditGoogleSurfaces)
+      .where(
+        and(
+          eq(auditGoogleSurfaces.organizationId, orgId),
+          gte(auditGoogleSurfaces.createdAt, new Date(statusNow.getTime() - 30 * STATUS_WINDOW_MS)),
+        ),
+      );
+    return { usesGoogle: Number(google?.n ?? 0) > 0 };
+  });
+  const statusLine = providerStatusLine(
+    providerStatus,
+    { planEngines: enginesForTier(tier), usesGoogle },
+    statusNow,
+  );
+  const affectedAuditId =
+    statusLine?.provider == null
+      ? null
+      : await withRlsContext(orgId, async (tx) => {
+          const [row] =
+            statusLine.provider === "dataforseo"
+              ? await tx
+                  .select({ auditId: googleSurfaceResults.auditId })
+                  .from(googleSurfaceResults)
+                  .where(
+                    and(
+                      eq(googleSurfaceResults.organizationId, orgId),
+                      gte(googleSurfaceResults.updatedAt, windowStart),
+                      eq(googleSurfaceResults.outcome, "failed"),
+                    ),
+                  )
+                  .orderBy(desc(googleSurfaceResults.updatedAt))
+                  .limit(1)
+              : await tx
+                  .select({ auditId: engineCallFailures.auditId })
+                  .from(engineCallFailures)
+                  .where(
+                    and(
+                      eq(engineCallFailures.organizationId, orgId),
+                      eq(engineCallFailures.engine, statusLine.provider ?? ""),
+                      gte(engineCallFailures.createdAt, windowStart),
+                    ),
+                  )
+                  .orderBy(desc(engineCallFailures.createdAt))
+                  .limit(1);
+          return row?.auditId ?? null;
+        });
+
   const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;
   // Each person's own (Sri, 8 Nov); a workspace whose tour was ended for everyone before that keeps it ended.
   const showTour =
@@ -250,30 +315,39 @@ export default async function DashboardPage() {
               Here&apos;s what&apos;s happening across your brands.
             </p>
           </div>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "2px 8px",
-              borderRadius: 9999,
-              fontSize: 11,
-              fontWeight: 500,
-              background: "var(--success-soft)",
-              color: "var(--success)",
-            }}
-          >
+          {statusLine && (
             <span
+              data-provider-status={statusLine.tone}
               style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--success)",
-                animation: "pulse-soft 2.4s ease-in-out infinite",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "2px 8px",
+                borderRadius: 9999,
+                fontSize: 11,
+                fontWeight: 500,
+                background:
+                  statusLine.tone === "ok" ? "var(--success-soft)" : "var(--warning-soft)",
+                color: statusLine.tone === "ok" ? "var(--success)" : "var(--warning)",
               }}
-            />
-            All systems normal
-          </span>
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: statusLine.tone === "ok" ? "var(--success)" : "var(--warning)",
+                }}
+              />
+              {affectedAuditId ? (
+                <Link href={`/audits/${affectedAuditId}`} style={{ color: "inherit" }}>
+                  {statusLine.text}
+                </Link>
+              ) : (
+                statusLine.text
+              )}
+            </span>
+          )}
         </div>
 
         {/* FIX 7: KPI cards with icons + mono font */}

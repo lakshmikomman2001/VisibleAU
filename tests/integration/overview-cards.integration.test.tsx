@@ -189,6 +189,8 @@ describe("Overview cards say what they cover", () => {
     expect(text).toContain(`Latest audit1 ${month}Deltaview Glass · Complete`);
     // Part 14: no spend, no A$ or US$ figure, no provider usage.
     expect(text).not.toMatch(/LLM spend|A\$\d|US\$\d|provider usage/);
+    // Part 12 (13 Nov): no fixed "All systems normal" -- the status is measured (lib/platform/provider-status.ts).
+    expect(text).not.toContain("All systems normal");
   }, 120_000);
 
   it("Avg visibility leaves out the brand with no audit and the one with too few answers, and says so", async () => {

@@ -21,15 +21,17 @@ import {
   integrationEnv,
   integrationProjectEnv,
 } from "../../helpers/integration-database";
-import { readSourcesBeforeAll, sourceText } from "../../helpers/source-files";
+import { readSourcesBeforeAll, sourcePaths, sourceText } from "../../helpers/source-files";
 
 const E2E = "postgresql://postgres:secret@localhost:5432/visibleau_e2e";
 const INTEGRATION = "postgresql://postgres:secret@localhost:5432/visibleau_integration";
 
-readSourcesBeforeAll([
-  "tests/phase2/sprint4/helpers/test-db.ts",
-  "tests/integration/global-setup.ts",
-]);
+readSourcesBeforeAll(["tests/integration", "tests/phase2", "tests/helpers"]);
+
+/** Code without comments: what could open a connection. */
+function codeOf(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+}
 
 describe("the integration database's URL", () => {
   it("is .env.test.local's TEST_DATABASE_URL on the same server, with its own name", () => {
@@ -133,5 +135,22 @@ describe("the integration project's env (vitest.config.ts)", () => {
     expect(sourceText("tests/integration/global-setup.ts")).toMatch(
       /assertIntegrationDatabaseUrl\(process\.env\.DATABASE_URL\)/,
     );
+  });
+
+  // Part 6 follow-up: the env can't redirect a connection string written into a file. The only integration
+  // files that name Playwright's database do so to check a guard refuses or accepts it, never to connect.
+  it("no integration test or helper hardcodes a connection to Playwright's database", () => {
+    const files = sourcePaths(["tests/integration", "tests/phase2", "tests/helpers"]);
+    expect(files.length).toBeGreaterThan(300);
+    const naming = files.filter((path) => /\/visibleau_e2e\b/.test(codeOf(sourceText(path))));
+    expect(naming.sort()).toEqual([
+      "tests/integration/e2e-agency-user-seed.integration.test.ts",
+      "tests/integration/e2e-spec-account.integration.test.ts",
+    ]);
+    for (const path of naming) {
+      const code = codeOf(sourceText(path));
+      expect(code, path).not.toMatch(/postgres\(\s*(["'`][^"'`]*visibleau_e2e|LOCAL_E2E)/);
+      expect(code, path).not.toMatch(/process\.env\.\w+\s*=\s*["'`][^"'`]*visibleau_e2e/);
+    }
   });
 });

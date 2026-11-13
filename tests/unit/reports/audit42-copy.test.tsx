@@ -22,8 +22,9 @@ describe("directory counts are in answers, the same unit as the evidence above t
     const data = reportDataFixture("39");
     const finding = reportFindings(data).find((f) => f.rule === "a");
     const n = data.directories.totalAnswers;
+    // 13 Nov, part 3: each directory by name, as the title names them.
     expect(finding?.recommendation.detail).toBe(
-      `They're cited in 8, 6 and 5 of ${n} answers; add your profile links in brand settings so we can match them with what AI cites.`,
+      `hipages is cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers; add your profile links in brand settings so we can match them with what AI cites.`,
     );
     expect(finding?.recommendation.detail).not.toMatch(/directory citations/);
     expect(finding?.evidence.map((line) => line[1].text)).toEqual([

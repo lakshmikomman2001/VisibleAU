@@ -1,5 +1,5 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
-import { citedInAnswers, citedInAnswersList } from "@/lib/directories/cited-in-answers";
+import { citedInAnswers, namedCitedInAnswersList } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
@@ -87,11 +87,8 @@ function directoryFinding(data: FindingsData): Finding | null {
   if (gaps.length === 0) return null;
   const cited = citedDirectories(data);
   const total = cited.reduce((s, r) => s + r.citedCount, 0);
-  const gapCited = citedInAnswersList(
-    gaps.map((r) => r.citedCount),
-    data.directories.totalAnswers,
-  );
-  const gapSubject = gaps.length === 1 ? "It's" : "They're";
+  // 13 Nov, part 3: the recommendation names each directory its title names, with its own count.
+  const gapCited = namedCitedInAnswersList(gaps, data.directories.totalAnswers);
   const notLinked = gaps.every((r) => !r.ownerProfileLinked);
   const names = gaps.map((r) => r.name);
   const labels = padded(names);
@@ -139,19 +136,25 @@ function directoryFinding(data: FindingsData): Finding | null {
           title: `Link your ${nameList(names)} ${plural(names.length, "profile")}`,
           detail: (() => {
             const suggested = gaps.filter((r) => r.suggestedProfileUrl);
-            const base = `${gapSubject} ${gapCited}`;
             if (suggested.length === 0) {
-              return `${base}; add your profile links in brand settings so we can match them with what AI cites.`;
+              return `${gapCited}; add your profile links in brand settings so we can match them with what AI cites.`;
             }
             const pages = suggested.map(
               (r) => `${pageShown(r.suggestedProfileUrl ?? "")} looks like your ${r.name} profile`,
             );
-            return `${base}. AI cited what looks like yours: ${pages.join("; ")}. Link it under Directories AI cited, so we can match it with what AI cites.`;
+            const linkIt = `Link ${suggested.length === 1 ? "it" : "them"} under Directories AI cited, so we can match ${suggested.length === 1 ? "it" : "them"} with what AI cites.`;
+            // 13 Nov, part 3: the directories with no suggested page are still named, with what to do.
+            const others = gaps.filter((r) => !r.suggestedProfileUrl).map((r) => r.name);
+            const rest =
+              others.length > 0
+                ? ` Add your ${nameList(others)} ${plural(others.length, "profile link")} in brand settings.`
+                : "";
+            return `${gapCited}. AI cited what looks like yours: ${pages.join("; ")}. ${linkIt}${rest}`;
           })(),
         }
       : {
           title: `Complete your ${nameList(names)} ${plural(names.length, "profile")}`,
-          detail: `${gapSubject} ${gapCited}; none linked you.`,
+          detail: `${gapCited}; none linked you.`,
         },
   };
 }
@@ -170,20 +173,39 @@ const GENERIC_ENGINE_FIX = {
  * "Make your services easy for AI to match" / "Strengthen your Google Business Profile"). The subtitle names a
  * reason only where the stored rows show one: whether the site was among Claude's web-search results
  * (lib/reports/search-results.ts). Otherwise none.
+ *
+ * 13 Nov, part 3 (Sri's live check): "Claude and Gemini didn't name you in any of 20 answers" gave only
+ * Claude's reason. When any engine has a measured reason, the subtitle now covers every engine in the title:
+ * each measured reason, then the engines whose stored answers keep only the pages they cited (no search
+ * results), said plainly to have no measured reason.
  */
 function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recommendation"] {
   const answers = silent.reduce((s, e) => s + e.sampleCount, 0);
   const title = `${engineNameList(silent.map((e) => e.engine))} didn't name you in any of ${answers} ${plural(answers, "answer")}`;
-  const claude = silent.find((e) => e.engine === "claude")?.searchResults;
-  if (!claude) return { title };
-  const of = `${claude.answers} ${plural(claude.answers, "answer")}`;
-  return {
-    title,
-    detail:
-      claude.withYourSite === 0
-        ? `Your site didn't appear in Claude's search results in any of ${of}.`
-        : `Your site was in Claude's search results in ${claude.withYourSite} of ${of}, and Claude still didn't name you.`,
-  };
+  const reasons: string[] = [];
+  const unmeasured: ReportEngineRow[] = [];
+  for (const e of silent) {
+    const seen = e.searchResults;
+    if (!seen) {
+      unmeasured.push(e);
+      continue;
+    }
+    const of = `${seen.answers} ${plural(seen.answers, "answer")}`;
+    reasons.push(
+      seen.withYourSite === 0
+        ? `Your site didn't appear in ${e.name}'s search results in any of ${of}.`
+        : `Your site was in ${e.name}'s search results in ${seen.withYourSite} of ${of}, and ${e.name} still didn't name you.`,
+    );
+  }
+  if (reasons.length === 0) return { title };
+  if (unmeasured.length > 0) {
+    const one = unmeasured.length === 1;
+    const n = unmeasured.reduce((s, e) => s + e.sampleCount, 0);
+    reasons.push(
+      `Only the pages ${nameList(unmeasured.map((e) => e.name))} cited are stored, not the search results ${one ? "it" : "they"} read, so there's no measured reason for ${one ? "its" : "their"} ${n} ${plural(n, "answer")}.`,
+    );
+  }
+  return { title, detail: reasons.join(" ") };
 }
 
 function silentEngineFinding(data: FindingsData): Finding | null {

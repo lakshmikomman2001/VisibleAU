@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnswerMarkdown } from "@/components/domain/audit/answer-markdown";
 
 /**
  * Task #46 Phase 3, Part B: the Responses tab's answer body.
@@ -40,11 +41,11 @@ export function ResponseAnswerText({
           color: "var(--text-secondary)",
           paddingLeft: 12,
           borderLeft: "2px solid var(--accent-blue)",
-          whiteSpace: "pre-wrap",
           ...(clamped ? { maxHeight: "7.2em", overflow: "hidden" } : {}),
         }}
       >
-        {body}
+        {/* 13 Nov (part 10): formatted, not raw markdown (components/domain/audit/answer-markdown.tsx). */}
+        <AnswerMarkdown text={body} />
       </div>
       {collapsible && (
         <button

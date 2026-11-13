@@ -68,21 +68,34 @@ const HEALTH = {
     questions: 26,
     checked: 0,
     problem: { code: 40100, label: "login rejected", at: "2026-11-12T03:03:00.000Z" },
-    line: "Last Google run: login rejected at 2026-11-12 03:03 UTC (audit #44, Omega Services)",
+    line: "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)",
   },
-  providerErrors: [
-    {
-      id: "44444444-4444-4444-8444-444444444444",
-      at: "2026-11-12T03:03:00.000Z",
-      auditNumber: 44,
-      workspace: "Splice",
-      brand: "Omega Services",
-      surface: "AI Overviews",
-      code: 40100,
-      category: "login rejected",
-      message: RAW_40100,
-    },
-  ],
+  // 13 Nov, part 13: audit #44's 26 identical failures are one line, the questions behind it.
+  providerErrorGroups: {
+    groups: [
+      {
+        key: "55555555-5555-4555-8555-555555555555|40100|login",
+        at: "2026-11-12T03:03:00.000Z",
+        auditNumber: 44,
+        workspace: "Splice",
+        brand: "Omega Services",
+        code: 40100,
+        category: "login rejected",
+        message: RAW_40100,
+        surfaces: [
+          { surface: "AI Mode", count: 13 },
+          { surface: "AI Overviews", count: 13 },
+        ],
+        rows: Array.from({ length: 26 }, (_, i) => ({
+          id: `row-${i}`,
+          at: "2026-11-12T03:03:00.000Z",
+          surface: i < 13 ? "AI Mode" : "AI Overviews",
+          prompt: `best plumber question ${i % 13}`,
+        })),
+      },
+    ],
+    total: 3,
+  },
 };
 const { loadHealth } = vi.hoisted(() => ({ loadHealth: vi.fn() }));
 vi.mock("@/lib/audit/google-surfaces/operator", () => ({ loadGoogleOperatorHealth: loadHealth }));
@@ -242,12 +255,33 @@ describe("/admin/settings (the page)", () => {
     ).replace(/<!-- -->/g, "");
     expect(html).toContain("data-admin-provider-errors");
     expect(html).toContain('data-admin-provider-error="40100"');
-    expect(html).toContain("40100 · login rejected");
+    expect(html).toContain("40100 login rejected");
     expect(html).toContain("You are not authorized to access this resource");
-    expect(html).toContain("#44 · Omega Services (Splice)");
     expect(html).toContain('data-admin-last-run="problem"');
     expect(html).toContain(
-      "Last Google run: login rejected at 2026-11-12 03:03 UTC (audit #44, Omega Services)",
+      "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)",
     );
+  });
+
+  it("13 Nov, part 13: one line per audit and answer, the questions behind it, how many are shown, Sydney time", async () => {
+    admin.allowed = true;
+    const html = renderToStaticMarkup(
+      await AdminSettingsPage({ searchParams: Promise.resolve({}) }),
+    ).replace(/<!-- -->/g, "");
+    const text = html.replace(/<[^>]+>/g, "");
+    expect(text).toContain(
+      `12 Nov 14:03 · Audit #44 · Omega Services (Splice) · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · ${RAW_40100}`,
+    );
+    // One line, not 26: the questions are behind it, not 26 copies of the message.
+    expect(html.match(/data-admin-provider-error=/g)).toHaveLength(1);
+    expect(html.split(RAW_40100).length - 1).toBe(1);
+    expect(html.match(/<details/g)).toHaveLength(1);
+    expect(html).toContain("best plumber question 12");
+    // Not silently capped: 1 of the 3 groups is shown, and it says so.
+    expect(text).toContain("Showing the latest 1 of 3.");
+    // Sydney time, UTC on hover.
+    expect(html).toContain('title="2026-11-12 03:03 UTC"');
+    expect(html).toContain("When (Sydney time)");
+    expect(html).not.toContain("When (UTC)");
   });
 });

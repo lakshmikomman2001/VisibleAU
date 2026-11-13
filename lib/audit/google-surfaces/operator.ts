@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import {
   auditGoogleSurfaces,
@@ -30,23 +30,24 @@ import { GOOGLE_STORED_REASON, googleRowErrorCategory } from "./reasons";
  * when a refused account stopped a run -- at most once per category per 24 hours.
  */
 
-/** "2026-11-12 03:03 UTC", as the page's change history shows times. */
+/**
+ * 13 Nov (part 13): "12 Nov 14:03 Sydney time" -- the operators are in Sydney, and the rest of the app reads
+ * times there (the page shows UTC on hover).
+ */
+/** "2026-11-12 03:03 UTC" -- the operators' alert email keeps it (one time zone for everyone it reaches). */
 const utc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
-export interface GoogleProviderErrorEntry {
-  id: string;
-  at: string;
-  auditNumber: number | null;
-  workspace: string | null;
-  brand: string | null;
-  surface: string;
-  /** The provider's status code; null when it didn't answer at all. */
-  code: number | null;
-  /** "login rejected", "timed out", ... */
-  category: string;
-  /** The stored reason: the provider's own message, as it answered. */
-  message: string | null;
-}
+const sydney = (d: Date) =>
+  `${d
+    .toLocaleString("en-AU", {
+      timeZone: "Australia/Sydney",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(",", "")} Sydney time`;
 
 export interface GoogleAccountProblem {
   code: number;
@@ -64,22 +65,151 @@ export interface GoogleLastRun {
   checked: number;
   /** The refused account that stopped it, if one did. */
   problem: GoogleAccountProblem | null;
-  /** "Last Google run: login rejected at 2026-11-12 03:03 UTC (audit #44, Omega Services)". */
+  /** "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)". */
   line: string;
 }
 
 /** Everything the operator's page shows about the provider's health. */
 export interface GoogleOperatorHealth {
   lastRun: GoogleLastRun | null;
-  providerErrors: GoogleProviderErrorEntry[];
+  /**
+   * The provider's failures, one line per audit and answer, with how many are shown (13 Nov, part 13; it
+   * was one row per question).
+   */
+  providerErrorGroups: GoogleProviderErrorGroups;
 }
 
 export async function loadGoogleOperatorHealth(): Promise<GoogleOperatorHealth> {
-  const [lastRun, providerErrors] = await Promise.all([
+  const [lastRun, providerErrorGroups] = await Promise.all([
     loadLastGoogleRun(),
-    loadRecentGoogleProviderErrors(),
+    loadGoogleProviderErrorGroups(),
   ]);
-  return { lastRun, providerErrors };
+  return { lastRun, providerErrorGroups };
+}
+
+/** One audit's identical failures: the same code and the same message, counted per surface. */
+export interface GoogleProviderErrorGroup {
+  key: string;
+  /** The latest of them. */
+  at: string;
+  auditNumber: number | null;
+  workspace: string | null;
+  brand: string | null;
+  /** The provider's status code; null when it didn't answer at all. */
+  code: number | null;
+  /** "login rejected", "timed out", ... */
+  category: string;
+  /** The stored reason: the provider's own message, as it answered. */
+  message: string | null;
+  /** "AI Mode ×13", "AI Overviews ×13", in the page's order. */
+  surfaces: { surface: string; count: number }[];
+  /** Each question's failure, for the expand. */
+  rows: { id: string; at: string; surface: string; prompt: string }[];
+}
+
+export interface GoogleProviderErrorGroups {
+  groups: GoogleProviderErrorGroup[];
+  /** How many groups there are in all; more than groups.length means the page shows the latest only. */
+  total: number;
+}
+
+/**
+ * 13 Nov (Sri's walk-through, part 13): the Provider errors table listed audit #44's failures one identical
+ * row per question ("AI Mode · 40100 · login rejected" thirteen times), and only 10 of its 26 -- the latest
+ * 10 rows, silently. Now one line per audit and (code, message) -- "Audit #44 · Omega Services · AI Mode
+ * ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with the questions behind an expand, the
+ * latest `limit` groups, and the total so the page can say "showing the latest N of M".
+ */
+export async function loadGoogleProviderErrorGroups(
+  limit = 10,
+): Promise<GoogleProviderErrorGroups> {
+  // Failed only: a question stopped after a refusal (part 3) isn't something the provider said.
+  const failed = eq(googleSurfaceResults.outcome, "failed");
+  const shown = await serviceDb
+    .select({
+      auditId: googleSurfaceResults.auditId,
+      code: googleSurfaceResults.providerStatusCode,
+      message: googleSurfaceResults.outcomeReason,
+      // Counted over the groups, before the limit: the page says "showing the latest N of M".
+      total: sql<number>`count(*) over ()`.mapWith(Number),
+    })
+    .from(googleSurfaceResults)
+    .where(failed)
+    .groupBy(
+      googleSurfaceResults.auditId,
+      googleSurfaceResults.providerStatusCode,
+      googleSurfaceResults.outcomeReason,
+    )
+    .orderBy(desc(sql`max(${googleSurfaceResults.updatedAt})`))
+    .limit(limit);
+  if (shown.length === 0) return { groups: [], total: 0 };
+
+  const rows = await serviceDb
+    .select({
+      id: googleSurfaceResults.id,
+      auditId: googleSurfaceResults.auditId,
+      at: googleSurfaceResults.updatedAt,
+      surface: googleSurfaceResults.surface,
+      prompt: googleSurfaceResults.prompt,
+      promptIndex: googleSurfaceResults.promptIndex,
+      code: googleSurfaceResults.providerStatusCode,
+      message: googleSurfaceResults.outcomeReason,
+      outcome: googleSurfaceResults.outcome,
+      auditNumber: audits.auditNumber,
+      brand: brands.name,
+      workspace: organizations.name,
+    })
+    .from(googleSurfaceResults)
+    .leftJoin(audits, eq(audits.id, googleSurfaceResults.auditId))
+    .leftJoin(brands, eq(brands.id, audits.brandId))
+    .leftJoin(organizations, eq(organizations.id, googleSurfaceResults.organizationId))
+    .where(
+      and(
+        failed,
+        inArray(
+          googleSurfaceResults.auditId,
+          shown.map((g) => g.auditId),
+        ),
+      ),
+    )
+    .orderBy(googleSurfaceResults.surface, googleSurfaceResults.promptIndex);
+
+  const keyOf = (auditId: string, code: number | null, message: string | null) =>
+    `${auditId}|${code ?? ""}|${message ?? ""}`;
+  const groups: GoogleProviderErrorGroup[] = [];
+  for (const g of shown) {
+    const key = keyOf(g.auditId, g.code, g.message);
+    const mine = rows.filter((r) => keyOf(r.auditId, r.code, r.message) === key);
+    const first = mine[0];
+    if (!first) continue;
+    const category = googleRowErrorCategory({
+      outcome: first.outcome,
+      providerStatusCode: first.code,
+      outcomeReason: first.message,
+    });
+    const surfaceName = (s: string) => GOOGLE_SURFACE_NAMES[s as GoogleSurface] ?? s;
+    const counts = new Map<string, number>();
+    for (const r of mine)
+      counts.set(surfaceName(r.surface), (counts.get(surfaceName(r.surface)) ?? 0) + 1);
+    groups.push({
+      key,
+      at: new Date(Math.max(...mine.map((r) => r.at.getTime()))).toISOString(),
+      auditNumber: first.auditNumber,
+      workspace: first.workspace,
+      brand: first.brand,
+      code: first.code,
+      category: GOOGLE_PROVIDER_ERROR_LABELS[category ?? "other"],
+      message: first.message,
+      surfaces: [...counts].map(([surface, count]) => ({ surface, count })),
+      rows: mine.map((r) => ({
+        id: r.id,
+        at: r.at.toISOString(),
+        surface: surfaceName(r.surface),
+        prompt: r.prompt,
+      })),
+    });
+  }
+  return { groups, total: shown[0]?.total ?? groups.length };
 }
 
 interface StoredOutcome {
@@ -158,8 +288,8 @@ export async function loadLastGoogleRun(): Promise<GoogleLastRun | null> {
     .filter(Boolean)
     .join(", ");
   const line = problem
-    ? `Last Google run: ${problem.label} at ${utc(new Date(problem.at))} (${where})`
-    : `Last Google run: ${checked} of ${rows.length} questions checked, at ${utc(snap.completedAt)} (${where})`;
+    ? `Last Google run: ${problem.label} at ${sydney(new Date(problem.at))} (${where})`
+    : `Last Google run: ${checked} of ${rows.length} questions checked, at ${sydney(snap.completedAt)} (${where})`;
   return {
     auditId: snap.auditId,
     auditNumber: meta?.auditNumber ?? null,
@@ -244,52 +374,4 @@ export async function alertOperatorsOnAccountProblem(auditId: string): Promise<n
     throw err;
   }
   return recipients.length;
-}
-
-/** The latest questions the provider failed, every workspace. */
-export async function loadRecentGoogleProviderErrors(
-  limit = 10,
-): Promise<GoogleProviderErrorEntry[]> {
-  const rows = await serviceDb
-    .select({
-      id: googleSurfaceResults.id,
-      at: googleSurfaceResults.updatedAt,
-      outcome: googleSurfaceResults.outcome,
-      surface: googleSurfaceResults.surface,
-      code: googleSurfaceResults.providerStatusCode,
-      message: googleSurfaceResults.outcomeReason,
-      auditNumber: audits.auditNumber,
-      brand: brands.name,
-      workspace: organizations.name,
-    })
-    .from(googleSurfaceResults)
-    .leftJoin(audits, eq(audits.id, googleSurfaceResults.auditId))
-    .leftJoin(brands, eq(brands.id, audits.brandId))
-    .leftJoin(organizations, eq(organizations.id, googleSurfaceResults.organizationId))
-    // Failed only: a question stopped after a refusal (part 3) isn't something the provider said.
-    .where(eq(googleSurfaceResults.outcome, "failed"))
-    .orderBy(desc(googleSurfaceResults.updatedAt))
-    .limit(limit);
-  return rows
-    .map((r) => {
-      const category = googleRowErrorCategory({
-        outcome: r.outcome,
-        providerStatusCode: r.code,
-        outcomeReason: r.message,
-      });
-      return category
-        ? {
-            id: r.id,
-            at: r.at.toISOString(),
-            auditNumber: r.auditNumber,
-            workspace: r.workspace,
-            brand: r.brand,
-            surface: GOOGLE_SURFACE_NAMES[r.surface as GoogleSurface] ?? r.surface,
-            code: r.code,
-            category: GOOGLE_PROVIDER_ERROR_LABELS[category],
-            message: r.message,
-          }
-        : null;
-    })
-    .filter((e): e is GoogleProviderErrorEntry => e !== null);
 }

@@ -118,7 +118,7 @@ function TestConnection() {
             style={{ color: tone }}
             data-admin-test-result={result.state}
           >
-            {result.line} · checked {result.checkedAt.slice(11, 16)} UTC
+            {result.line} · checked <SydneyTime iso={result.checkedAt} timeOnly /> Sydney time
           </span>
         ) : null}
       </div>
@@ -143,10 +143,34 @@ function TestConnection() {
 }
 
 /**
- * 12 Nov, part 2: the provider's own code and message, for the operator only (customers see a plain
- * sentence; lib/audit/google-surfaces/reasons.ts).
+ * 13 Nov (part 13): times on this page read in Sydney (the operators are there, and the rest of the app
+ * reads times there), with UTC on hover.
  */
-function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErrors"] }) {
+function SydneyTime({ iso, timeOnly = false }: { iso: string; timeOnly?: boolean }) {
+  const at = new Date(iso);
+  const sydney = at
+    .toLocaleString("en-AU", {
+      timeZone: "Australia/Sydney",
+      ...(timeOnly ? {} : { day: "numeric", month: "short" }),
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace(",", "");
+  return (
+    <time dateTime={iso} title={`${iso.slice(0, 16).replace("T", " ")} UTC`}>
+      {sydney}
+    </time>
+  );
+}
+
+/**
+ * 12 Nov, part 2: the provider's own code and message, for the operator only (customers see a plain
+ * sentence; lib/audit/google-surfaces/reasons.ts). 13 Nov, part 13: one line per audit and answer -- "Audit
+ * #44 · Omega Services · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with each
+ * question behind it, and how many are shown (it listed 10 identical rows, silently capped).
+ */
+function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErrorGroups"] }) {
   return (
     <section className="mb-6 p-5 rounded-xl" style={card} data-admin-provider-errors="">
       <h2 className="text-sm font-semibold mb-1" style={label}>
@@ -156,44 +180,60 @@ function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErro
         The latest Google questions the provider failed, with its code and its own message.
         Customers are shown only a plain reason (for example "a problem on our side").
       </p>
-      {errors.length === 0 ? (
+      {errors.total > errors.groups.length && (
+        <p className="text-[12px] mb-2" style={muted} data-admin-provider-errors-shown="">
+          Showing the latest {errors.groups.length} of {errors.total}.
+        </p>
+      )}
+      {errors.groups.length === 0 ? (
         <p className="text-[13px]" style={muted}>
           None recorded.
         </p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="text-[12px] w-full" style={muted}>
-            <thead>
-              <tr style={label}>
-                <th className="text-left pr-3 pb-1">When (UTC)</th>
-                <th className="text-left pr-3 pb-1">Audit</th>
-                <th className="text-left pr-3 pb-1">Surface</th>
-                <th className="text-left pr-3 pb-1">Code</th>
-                <th className="text-left pb-1">What the provider said</th>
-              </tr>
-            </thead>
-            <tbody>
-              {errors.map((e) => (
-                <tr key={e.id} data-admin-provider-error={e.code ?? "none"}>
-                  <td className="pr-3 py-1 whitespace-nowrap">
-                    {e.at.slice(0, 16).replace("T", " ")}
-                  </td>
-                  <td className="pr-3 py-1">
-                    {e.auditNumber !== null ? `#${e.auditNumber}` : "—"}
-                    {e.brand ? ` · ${e.brand}` : ""}
-                    {e.workspace ? ` (${e.workspace})` : ""}
-                  </td>
-                  <td className="pr-3 py-1 whitespace-nowrap">{e.surface}</td>
-                  <td className="pr-3 py-1 whitespace-nowrap">
-                    {e.code ?? "no answer"} · {e.category}
-                  </td>
-                  <td className="py-1" style={{ wordBreak: "break-word" }}>
-                    {e.message ?? "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-2">
+          {errors.groups.map((g) => (
+            <details
+              key={g.key}
+              className="text-[12px]"
+              style={muted}
+              data-admin-provider-error={g.code ?? "none"}
+            >
+              <summary style={{ cursor: "pointer", wordBreak: "break-word" }}>
+                <SydneyTime iso={g.at} /> · Audit{" "}
+                {g.auditNumber !== null ? `#${g.auditNumber}` : "—"}
+                {g.brand ? ` · ${g.brand}` : ""}
+                {g.workspace ? ` (${g.workspace})` : ""} ·{" "}
+                {g.surfaces.map((x) => `${x.surface} ×${x.count}`).join(", ")} ·{" "}
+                <span style={label}>
+                  {g.code !== null ? `${g.code} ` : ""}
+                  {g.category}
+                </span>{" "}
+                · {g.message ?? "—"}
+              </summary>
+              <div style={{ overflowX: "auto", marginTop: 6 }}>
+                <table className="text-[12px] w-full">
+                  <thead>
+                    <tr style={label}>
+                      <th className="text-left pr-3 pb-1">When (Sydney time)</th>
+                      <th className="text-left pr-3 pb-1">Surface</th>
+                      <th className="text-left pb-1">Question</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.rows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="pr-3 py-1 whitespace-nowrap">
+                          <SydneyTime iso={r.at} />
+                        </td>
+                        <td className="pr-3 py-1 whitespace-nowrap">{r.surface}</td>
+                        <td className="py-1">{r.prompt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ))}
         </div>
       )}
     </section>
@@ -554,7 +594,7 @@ export function GoogleSurfacesAdmin({
           )}
         </section>
 
-        <ProviderErrors errors={health.providerErrors} />
+        <ProviderErrors errors={health.providerErrorGroups} />
 
         <section className="p-5 rounded-xl" style={card} data-admin-history="">
           <h2 className="text-sm font-semibold mb-3" style={label}>
@@ -569,7 +609,7 @@ export function GoogleSurfacesAdmin({
               <table className="text-[12px] w-full" style={muted}>
                 <thead>
                   <tr style={label}>
-                    <th className="text-left pr-3 pb-1">When (UTC)</th>
+                    <th className="text-left pr-3 pb-1">When (Sydney time)</th>
                     <th className="text-left pr-3 pb-1">Setting</th>
                     <th className="text-left pr-3 pb-1">Where</th>
                     <th className="text-left pr-3 pb-1">From → to</th>
@@ -580,7 +620,7 @@ export function GoogleSurfacesAdmin({
                   {view.history.map((h) => (
                     <tr key={`${h.at}-${h.setting}-${h.target ?? "global"}`}>
                       <td className="pr-3 py-1 whitespace-nowrap">
-                        {h.at.slice(0, 16).replace("T", " ")}
+                        <SydneyTime iso={h.at} />
                       </td>
                       <td className="pr-3 py-1">{h.setting}</td>
                       <td className="pr-3 py-1">{h.target ?? "Global"}</td>

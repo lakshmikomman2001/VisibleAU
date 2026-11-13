@@ -58,7 +58,10 @@ function view(overrides: Partial<GoogleSurfaceAdminView> = {}): GoogleSurfaceAdm
   };
 }
 
-const HEALTH: GoogleOperatorHealth = { lastRun: null, providerErrors: [] };
+const HEALTH: GoogleOperatorHealth = {
+  lastRun: null,
+  providerErrorGroups: { groups: [], total: 0 },
+};
 
 let Admin: typeof import("@/components/domain/admin/google-surfaces-admin").GoogleSurfacesAdmin;
 
@@ -91,6 +94,10 @@ function heldFetch(answer: () => Response) {
   return { calls, release: () => release() };
 }
 
+/** The whole Test connection line: its time is its own element (Sydney, with UTC on hover). */
+const testResult = (line: string) => (_: string, el: Element | null) =>
+  el?.hasAttribute("data-admin-test-result") === true && el.textContent === line;
+
 describe("Test connection (part 4)", () => {
   it("'Testing…' while it runs, then DataForSEO's answer, the time checked and the low-balance warning", async () => {
     const held = heldFetch(() =>
@@ -112,9 +119,11 @@ describe("Test connection (part 4)", () => {
       init: { method: "POST" },
     });
     held.release();
+    // 13 Nov, part 13: Sydney time, UTC on hover.
     expect(
-      await screen.findByText("Accepted · balance US$0.97 · checked 03:15 UTC"),
-    ).toBeInTheDocument();
+      await screen.findByText(testResult("Accepted · balance US$0.97 · checked 14:15 Sydney time")),
+    ).toHaveAttribute("data-admin-test-result", "accepted");
+    expect(screen.getByTitle("2026-11-12 03:15 UTC")).toHaveTextContent("14:15");
     expect(screen.getByRole("alert")).toHaveTextContent("The balance is below US$5.");
     expect(screen.getByRole("button", { name: "Test connection" })).toBeEnabled();
   }, 30_000);
@@ -135,7 +144,9 @@ describe("Test connection (part 4)", () => {
     held.release();
     expect(
       await screen.findByText(
-        "Rejected: the login or password is wrong (DataForSEO 40100) · checked 03:16 UTC",
+        testResult(
+          "Rejected: the login or password is wrong (DataForSEO 40100) · checked 14:16 Sydney time",
+        ),
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/below US\$5/)).not.toBeInTheDocument();

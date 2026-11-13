@@ -4,6 +4,7 @@ import {
   ENGINE_SUPPLIES_STRUCTURED_CITATIONS,
   type Engine,
 } from "@/lib/llm/interface";
+import { withoutTrackingValues } from "@/lib/urls/strip-tracking";
 
 /**
  * Task #45: "retrieved" (a provider's own structured citation metadata,
@@ -90,8 +91,14 @@ export function extractCitations(response: string): CitedSource[] {
   // class -- a 2+-char fragment that happens to form a real-looking
   // word is still indistinguishable from a genuine short domain -- see
   // docs/ops/post-launch-db-hardening.md section 46.
+  //
+  // 13 Nov follow-up, item 6: read from the text with tracking tags' values taken out. ChatGPT tags each link it
+  // gives "?utm_source=chatgpt.com"; that counted chatgpt.com as a cited site. The URLs above keep their tags as
+  // stored; a site named in the answer's own words still counts.
   const domainRefs = [
-    ...response.matchAll(/\b([a-z0-9][a-z0-9-]*[a-z0-9]\.(?:com\.au|com|net|org|io|co\.nz))\b/gi),
+    ...withoutTrackingValues(response).matchAll(
+      /\b([a-z0-9][a-z0-9-]*[a-z0-9]\.(?:com\.au|com|net|org|io|co\.nz))\b/gi,
+    ),
   ];
   for (const m of domainRefs) {
     const domain = m[1].toLowerCase();

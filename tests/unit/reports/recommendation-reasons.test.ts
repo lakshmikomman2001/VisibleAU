@@ -3,8 +3,9 @@
  * "Your site didn't appear in Claude's search results in any of 10 answers" -- Gemini missing. A recommendation's
  * reason (its subtitle, lib/reports/report-findings.ts) must cover everything its title names. The templates that
  * name several things in a title, each tested here:
- * - silent engines ("Claude and Gemini didn't name you…"): every engine, measured or said to have no measured
- *   reason (only Claude's stored answers keep their search results);
+ * - silent engines ("Claude and Gemini didn't name you…"): every engine, measured or said plainly to have no
+ *   reason we can see (only Claude's stored answers keep their search results; 13 Nov follow-up: "We can see the
+ *   pages it cited, but not what it searched, so we can't say why.");
  * - directories ("Link your hipages, Word of Mouth and Localsearch profiles", "Complete your …"): each by name
  *   with its own count, and what to do for the ones with no suggested page;
  * - unmeasured engines ("Re-run with all four engines"): each engine that wasn't measured.
@@ -47,7 +48,7 @@ describe("silent engines: the reason covers every engine in the title", () => {
     expect(action).toEqual({
       title: "Claude and Gemini didn't name you in any of 20 answers",
       detail:
-        "Your site didn't appear in Claude's search results in any of 10 answers. Only the pages Gemini cited are stored, not the search results it read, so there's no measured reason for its 10 answers.",
+        "Your site didn't appear in Claude's search results in any of 10 answers. Gemini didn't name you in any of 10 answers. We can see the pages it cited, but not what it searched, so we can't say why.",
     });
   });
 
@@ -60,7 +61,7 @@ describe("silent engines: the reason covers every engine in the title", () => {
     ])?.recommendation;
     expect(action?.title).toBe("ChatGPT, Claude and Gemini didn't name you in any of 30 answers");
     expect(action?.detail).toBe(
-      "Your site was in Claude's search results in 3 of 10 answers, and Claude still didn't name you. Only the pages ChatGPT and Gemini cited are stored, not the search results they read, so there's no measured reason for their 20 answers.",
+      "Your site was in Claude's search results in 3 of 10 answers, and Claude still didn't name you. ChatGPT and Gemini didn't name you in any of 20 answers. We can see the pages they cited, but not what they searched, so we can't say why.",
     );
   });
 

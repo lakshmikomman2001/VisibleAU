@@ -198,11 +198,14 @@ function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recomme
     );
   }
   if (reasons.length === 0) return { title };
+  // 13 Nov follow-up (Sri): said plainly -- "Gemini didn't name you in any of 10 answers. We can see the pages it
+  // cited, but not what it searched, so we can't say why."
   if (unmeasured.length > 0) {
     const one = unmeasured.length === 1;
     const n = unmeasured.reduce((s, e) => s + e.sampleCount, 0);
+    const it = one ? "it" : "they";
     reasons.push(
-      `Only the pages ${nameList(unmeasured.map((e) => e.name))} cited are stored, not the search results ${one ? "it" : "they"} read, so there's no measured reason for ${one ? "its" : "their"} ${n} ${plural(n, "answer")}.`,
+      `${nameList(unmeasured.map((e) => e.name))} didn't name you in any of ${n} ${plural(n, "answer")}. We can see the pages ${it} cited, but not what ${it} searched, so we can't say why.`,
     );
   }
   return { title, detail: reasons.join(" ") };

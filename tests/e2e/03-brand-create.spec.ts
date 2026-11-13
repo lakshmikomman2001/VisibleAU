@@ -14,7 +14,10 @@
  *   afterAll removes the spec's account, its workspace and every brand in it.
  */
 
+import { eq } from "drizzle-orm";
+import { brands } from "@/db/schema";
 import { expect, testSignedInAs } from "./helpers/auth";
+import { db } from "./helpers/db";
 import {
   createSpecAccount,
   removeSpecAccount,
@@ -181,6 +184,73 @@ test.describe("Brand create form (/brands/new)", () => {
       createdBrandIds.push(created.id);
       expect(created.domain).toBe("e2edomainstrip.com.au");
     }
+  });
+
+  // ── A new brand's setup (13 Nov, part 1; e2e in part 11) ──────────────────
+
+  test("a new brand's setup panel is there on the first load; Confirm, and Run audit is enabled", async ({
+    page,
+  }) => {
+    await page.goto("/brands/new");
+    await page
+      .getByLabel(/brand name/i)
+      .or(page.getByPlaceholder(/bondi plumbing/i))
+      .fill("E2E Setup Brand");
+    await page
+      .getByLabel(/domain/i)
+      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+      .fill("e2esetup.com.au");
+    await page.getByLabel("Vertical").selectOption("tradies");
+    await page.getByRole("button", { name: /create brand/i }).click();
+    await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
+    const { brands: list } = await (await page.request.get("/api/brands")).json();
+    const created = (list as Array<{ name: string; id: string }>).find(
+      (b) => b.name === "E2E Setup Brand",
+    );
+    expect(created, "the new brand is listed").toBeTruthy();
+    if (!created) return;
+    createdBrandIds.push(created.id);
+
+    // The first load, no reload or Save: the panel's place says the classifier is working, and Run
+    // audit waits (it was hidden until a Save happened to refresh the page).
+    await page.goto(`/brands/${created.id}`);
+    await expect(page.locator("[data-classification-running]")).toContainText(
+      "Working out your business type…",
+    );
+    const runAudit = page.getByRole("button", { name: "Run audit" });
+    await expect(runAudit).toBeDisabled();
+
+    // The e2e server runs no classifier (no Inngest), so this one never finishes: past the 3-minute
+    // timeout (from when it started), the page's own 5-second poll offers the choice instead.
+    await db
+      .update(brands)
+      .set({ updatedAt: new Date(Date.now() - 4 * 60_000) })
+      .where(eq(brands.id, created.id));
+    await expect(page.locator('[data-confirm-mode="could_not_classify"]')).toBeVisible({
+      timeout: 20_000,
+    });
+    const details = page
+      .locator("#confirm-business-details > div")
+      .filter({ hasText: "Confirm your business details" });
+    // The vertical's own types first.
+    await expect(details.locator("[data-category-choices] button").first()).toHaveText("Plumbing");
+    await details.getByRole("button", { name: "Plumbing", exact: true }).click();
+    await details.getByRole("button", { name: "Households", exact: true }).click();
+    await details.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.locator("[data-confirm-mode]")).toHaveCount(0, { timeout: 15_000 });
+
+    // The form asked for no location, so its own card is next; then nothing is in the way.
+    const location = page
+      .locator("#confirm-business-details > div")
+      .filter({ hasText: "Confirm your business location" });
+    await location.getByPlaceholder("e.g. Bondi").fill("Bondi");
+    await location.getByLabel("Postcode").fill("2026");
+    await location.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(runAudit).toBeEnabled({ timeout: 15_000 });
+    const stored = await db.select().from(brands).where(eq(brands.id, created.id));
+    expect(stored[0]?.categoryConfirmedAt).not.toBeNull();
+    expect(stored[0]?.categories).toEqual(["trades_plumbing"]);
+    expect(stored[0]?.postcode).toBe("2026");
   });
 
   // ── Validation ─────────────────────────────────────────────────────────────

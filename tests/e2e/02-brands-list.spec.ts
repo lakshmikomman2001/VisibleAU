@@ -16,7 +16,12 @@
 
 import { expect, testSignedInAs } from "./helpers/auth";
 import { deleteAllBrandsForOrg } from "./helpers/db";
-import { createSpecAccount, removeSpecAccount, type SpecAccount } from "./helpers/spec-account";
+import {
+  createSpecAccount,
+  removeSpecAccount,
+  type SpecAccount,
+  setSpecPlan,
+} from "./helpers/spec-account";
 
 // Its own account and workspace (tests/e2e/helpers/spec-account.ts), on an Agency plan so the
 // brands it makes through the API stay under the plan's limit.
@@ -45,6 +50,23 @@ test.describe("Brand list page (/brands)", () => {
     // Page heading or nav indicator
     // S8: the page's heading; an .or() with "any text that says brands" matched the nav link too.
     await expect(page.getByRole("heading", { name: "Brands", level: 1 })).toBeVisible();
+  });
+
+  // 13 Nov (part 11): the plan's name on both sidebar cards -- it said "Agency_pro · AU" until 01e9024.
+  test('the sidebar names the plan: "Agency Pro · AU" and "Agency Pro plan · AU"', async ({
+    page,
+  }) => {
+    await setSpecPlan(account, "agency_pro");
+    try {
+      await page.goto("/brands");
+      // The desktop sidebar (the phone's "Main menu" has the same cards, hidden at this width).
+      const sidebar = page.locator("aside");
+      await expect(sidebar.getByText("Agency Pro · AU", { exact: true })).toBeVisible();
+      await expect(sidebar.getByText("Agency Pro plan · AU", { exact: true })).toBeVisible();
+      await expect(page.getByText(/agency_pro/i)).toHaveCount(0);
+    } finally {
+      await setSpecPlan(account, "agency");
+    }
   });
 
   test('sidebar "Brands" link navigates to /brands', async ({ page }) => {

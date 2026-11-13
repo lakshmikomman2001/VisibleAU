@@ -177,6 +177,45 @@ async function fits(page: Page) {
   expect(overflow, "no sideways scroll").toBeLessThanOrEqual(1);
 }
 
+// 13 Nov (part 11): one Save round trip on /admin/settings, on this spec's own brand (nothing global):
+// "Saving…" while it's sent, "Saved", the value in force after a reload and in Changes; then the unchanged
+// case -- another operator saved the same value first, so the server says "No change".
+test("the operator's Save: Saving…, Saved, kept after a reload; No change when it was already saved", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto(`/admin/settings?workspace=${ORG_ID}`);
+  const field = page.locator(`[data-admin-field="postcode-${BRAND_ID}"]`);
+  const input = field.getByLabel("Postcode for Omega Services");
+  const save = field.getByRole("button", { name: "Save" });
+  await expect(save).toBeDisabled();
+  await input.fill("2153");
+
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/admin/settings", async (route) => {
+    if (route.request().method() === "POST") await held;
+    await route.continue();
+  });
+  await save.click();
+  await expect(field.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  release();
+  await expect(field.getByRole("status")).toHaveText("Saved");
+  await page.unroute("**/api/admin/settings");
+
+  await page.reload();
+  await expect(input).toHaveValue("2153");
+  await expect(page.locator("[data-admin-history]")).toContainText("2153");
+
+  await input.fill("2154");
+  await sql`UPDATE brand_google_locations SET postcode = '2154' WHERE brand_id = ${BRAND_ID}`;
+  await save.click();
+  await expect(field.getByRole("status")).toHaveText("No change: that was already the value");
+  await sql`DELETE FROM brand_google_locations WHERE brand_id = ${BRAND_ID}`;
+});
+
 for (const width of [375, 1280] as const) {
   test.describe(`at ${width}px`, () => {
     test.use({ viewport: { width, height: width === 375 ? 812 : 900 } });

@@ -246,6 +246,8 @@ describe("/admin/settings (the page)", () => {
     expect(html).toContain("AI Overviews on for every eligible workspace");
     expect(html).toContain("Count Google in the headline");
     expect(html).toContain("Demo Workspace");
+    // 13 Nov, part 1: the heading is the page's breadcrumb (lib/navigation/breadcrumbs.ts ADMIN_PAGE_TITLES).
+    expect(html).toMatch(/<h1[^>]*>Operator settings<\/h1>/);
   });
 
   it("an operator sees the provider's own code and message (12 Nov, part 2)", async () => {

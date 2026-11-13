@@ -4,10 +4,15 @@
  * bare "Workspace" most pages used to fall back to (which then claimed to be the
  * current page), and every part before it links to a page that exists.
  */
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { brandCrumb, breadcrumbsForPath, CRUMB } from "@/lib/navigation/breadcrumbs";
+import {
+  ADMIN_PAGE_TITLES,
+  brandCrumb,
+  breadcrumbsForPath,
+  CRUMB,
+} from "@/lib/navigation/breadcrumbs";
 
 const AUTH = join(__dirname, "../../../app/(auth)");
 
@@ -90,5 +95,34 @@ describe("breadcrumbsForPath", () => {
       `/brands/${ID}/trust`,
       undefined,
     ]);
+  });
+});
+
+/**
+ * 13 Nov, part 1 -- /admin/costs's breadcrumb said "Operator settings" (its heading is "Provider costs"). Each /admin
+ * page's title is one value (ADMIN_PAGE_TITLES): its breadcrumb's last part, and its <h1> renders it. The rendered
+ * headings: tests/unit/admin/operator-costs-plan-price.test.tsx and tests/unit/api/admin-settings.test.tsx.
+ */
+describe("each /admin page: the breadcrumb names it as its heading does", () => {
+  const ADMIN = ROUTES.filter((route) => route.startsWith("/admin/")).sort();
+
+  it("every /admin page has a title (a new one can't fall back to another page's name)", () => {
+    expect(ADMIN).toEqual(["/admin/costs", "/admin/settings"]);
+    for (const route of ADMIN) {
+      expect(Object.keys(ADMIN_PAGE_TITLES), route).toContain(route.split("/")[2]);
+    }
+  });
+
+  it.each([
+    ["/admin/settings", "Operator settings", "components/domain/admin/google-surfaces-admin.tsx"],
+    ["/admin/costs", "Provider costs", "components/domain/admin/operator-costs.tsx"],
+  ])('%s: the breadcrumb ends "%s", the heading in %s', (route, title, view) => {
+    const segment = route.split("/")[2] as keyof typeof ADMIN_PAGE_TITLES;
+    expect(ADMIN_PAGE_TITLES[segment]).toBe(title);
+    expect(breadcrumbsForPath(route).map((c) => c.label)).toEqual(["Workspace", title]);
+    const source = readFileSync(join(__dirname, "../../..", view), "utf8");
+    expect(source).toMatch(
+      new RegExp(`<h1[^>]*>\\s*\\{ADMIN_PAGE_TITLES\\.${segment}\\}\\s*</h1>`),
+    );
   });
 });

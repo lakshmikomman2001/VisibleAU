@@ -57,6 +57,15 @@ const NOT_OUR_PRICES: Record<string, string> = {
 };
 
 const SHIPPED = /\.(ts|tsx|js|jsx|mjs|html|txt|md|json)$/;
+
+/** A price said to include or exclude a tax: "incl. GST", "inc GST", "ex. GST", "excluding tax", "tax-inclusive". */
+const TAX_INCLUSION =
+  /\b(?:incl?|excl?|ex)\.?\s+(?:GST|tax)\b|\b(?:including|excluding|inclusive of|exclusive of)\s+(?:GST|tax)\b|\btax[- ]inclusive\b/i;
+/** The fields that hold a plan's (or the one-off audit's) price, in A$ cents. */
+const PLAN_PRICE_FIELD =
+  /\b(?:monthlyPriceCentsIncGst|annualPriceCentsIncGst|planPriceAudCents|ONE_OFF_AUDIT_PRICE_CENTS_INC_GST)\b/;
+/** Formatting that shows cents ("1499.00"): right for a provider's cost, wrong for a plan price. */
+const CENTS_FORMAT = /\b(?:formatAudCents|formatAudDecimal)\s*\(|\.toFixed\s*\(/;
 readSourcesBeforeAll([...NON_TEST_ROOTS, "public"], SHIPPED);
 
 /** Code without comments, import lines or module paths: what could reach a page, an email or a PDF. */
@@ -93,6 +102,57 @@ describe("no GST wording outside lib/pricing/gst.ts", () => {
           .map(({ at, line }) => `${at}  ${line.trim()}`),
       );
     expect(offenders).toEqual([]);
+  });
+
+  /*
+   * 13 Nov, part 1: c953a58 wrote "Agency Pro plan · A$1499.00 a month incl. GST" on /admin/costs. The scan above
+   * caught it, but it ran only as a whole-repo scan that `vitest related` never selects. These checks name the two
+   * problems: a price said to include (or exclude) a tax in any spelling, outside the switch, and a plan price
+   * formatted with cents instead of formatAud (thousands separator, whole dollars).
+   */
+  it("a price is never said to include or exclude GST (or 'tax'), in any spelling, outside the switch", () => {
+    const offenders = sourcePaths([...NON_TEST_ROOTS, "public"], SHIPPED)
+      .filter((path) => path !== "lib/pricing/gst.ts" && !NOT_OUR_PRICES[path])
+      .flatMap((path) =>
+        copyOf(sourceText(path))
+          .split("\n")
+          .map((line, i) => ({ line, at: `${path}:${i + 1}` }))
+          .filter(({ line }) => TAX_INCLUSION.test(line))
+          .map(({ at, line }) => `${at}  ${line.trim()}`),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("a plan price is formatted by formatAud, never with cents (formatAudCents, formatAudDecimal, toFixed)", () => {
+    const offenders = sourcePaths([...NON_TEST_ROOTS], SHIPPED)
+      .filter((path) => path !== "lib/pricing/gst.ts")
+      .flatMap((path) =>
+        copyOf(sourceText(path))
+          .split("\n")
+          .map((line, i) => ({ line, at: `${path}:${i + 1}` }))
+          .filter(({ line }) => PLAN_PRICE_FIELD.test(line) && CENTS_FORMAT.test(line))
+          .map(({ at, line }) => `${at}  ${line.trim()}`),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it("both checks catch the line c953a58 shipped, and its other spellings", () => {
+    const shipped = "      : `A$${formatAudCents(ws.planPriceAudCents)} a month incl. GST`;";
+    expect(TAX_INCLUSION.test(shipped)).toBe(true);
+    expect(PLAN_PRICE_FIELD.test(shipped) && CENTS_FORMAT.test(shipped)).toBe(true);
+    for (const words of [
+      "inc. GST",
+      "inc GST",
+      "incl GST",
+      "ex. GST",
+      "excl. tax",
+      "including GST",
+      "tax-inclusive",
+    ]) {
+      expect(TAX_INCLUSION.test(`A$99 a month ${words}`), words).toBe(true);
+    }
+    expect(TAX_INCLUSION.test("A$1,499 a month")).toBe(false);
+    expect(CENTS_FORMAT.test("monthlyPlanPrice(ws.planPriceAudCents)")).toBe(false);
   });
 
   it("the allowed places still need it (the list can't rot)", () => {

@@ -11,6 +11,7 @@ import type {
 } from "@/lib/governance/google-surfaces";
 import { MAX_COST_CEILING_USD } from "@/lib/governance/google-surfaces-limits";
 import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
+import { ADMIN_PAGE_TITLES } from "@/lib/navigation/breadcrumbs";
 import { tierDisplayName } from "@/lib/pricing/tiers";
 import { LOW_BALANCE_USD, type TestConnectionResult } from "@/lib/serp/test-connection";
 
@@ -394,7 +395,7 @@ export function GoogleSurfacesAdmin({
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "32px 16px" }} data-admin-settings="">
         <div className="mb-6">
           <h1 className="text-xl font-semibold" style={label}>
-            Operator settings
+            {ADMIN_PAGE_TITLES.settings}
           </h1>
           <p className="text-[13px] mt-1" style={muted}>
             Google Search AI (AI Overviews and AI Mode). A change applies to the next audit; an

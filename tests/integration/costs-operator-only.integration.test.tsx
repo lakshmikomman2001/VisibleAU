@@ -241,7 +241,8 @@ describe("the operator's /admin/costs", () => {
     const AdminCostsPage = (await import("@/app/(auth)/admin/costs/page")).default;
     const html = renderToStaticMarkup(await AdminCostsPage()).replace(/<!-- -->/g, "");
     expect(html).toContain(ORG_NAME);
-    expect(html).toContain("Free plan · A$0.00 a month incl. GST");
+    // 13 Nov, part 1: through the GST switch (off) and formatAud, never "A$0.00 a month incl. GST".
+    expect(html).toContain("Free plan · A$0 a month</p>");
     const section = html.slice(html.indexOf(`data-admin-cost-workspace="${ORG_ID}"`));
     expect(section).toMatch(/data-admin-cost-google="">A\$0\.01 · US\$0\.01/);
     expect(section).toMatch(/data-admin-cost-total="">A\$0\.7\d · US\$0\.48/);

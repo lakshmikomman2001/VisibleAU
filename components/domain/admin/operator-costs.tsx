@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { EngineCost, OperatorCosts, OperatorWorkspaceCost } from "@/lib/admin/costs";
 import { formatAudCents, formatAudFromUsd, formatUsd } from "@/lib/constants/currency";
+import { ADMIN_PAGE_TITLES } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { monthlyPlanPrice } from "@/lib/pricing/gst";
 
 /**
  * Part 14 (Sri, 13 Nov): the operator's view of what the providers cost us (lib/admin/costs.ts), on
@@ -76,7 +78,7 @@ function Workspace({ ws }: { ws: OperatorWorkspaceCost }) {
   const price =
     ws.planPriceAudCents === null
       ? "price agreed per deal"
-      : `A$${formatAudCents(ws.planPriceAudCents)} a month incl. GST`;
+      : monthlyPlanPrice(ws.planPriceAudCents);
   return (
     <section style={card} className="space-y-3" data-admin-cost-workspace={ws.organizationId}>
       <div>
@@ -155,7 +157,7 @@ export function OperatorCostsView({ costs }: { costs: OperatorCosts }) {
       >
         <div>
           <h1 className="text-xl font-semibold" style={strong}>
-            Provider costs
+            {ADMIN_PAGE_TITLES.costs}
           </h1>
           <p className="text-[13px] mt-1" style={muted}>
             Since 1 {formatInOrgTimezone(asOf, undefined, "MMM")}, Sydney time: what the AI engines

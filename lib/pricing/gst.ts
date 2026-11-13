@@ -82,6 +82,14 @@ export function priceTaxSuffix(registered: boolean = GST_REGISTERED): string {
   return registered ? " inc. GST" : "";
 }
 
+/**
+ * A plan's monthly price in running text (13 Nov, part 1): "A$1,499 a month", or "A$1,499 a month inc. GST" once
+ * registered. The list price (what the plan costs), through formatAud: a thousands separator, whole dollars.
+ */
+export function monthlyPlanPrice(listCents: number, registered: boolean = GST_REGISTERED): string {
+  return `${formatAud(listCents)} a month${priceTaxSuffix(registered)}`;
+}
+
 /** The billing page's Region value. */
 export function billingRegionLabel(registered: boolean = GST_REGISTERED): string {
   return registered ? "AU (GST inclusive)" : "AU";

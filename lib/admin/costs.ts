@@ -49,7 +49,7 @@ export interface OperatorWorkspaceCost {
   organizationId: string;
   name: string;
   plan: string;
-  /** The plan's monthly list price incl. GST (A$ cents), for context; null for a price agreed per deal. */
+  /** The plan's monthly list price (A$ cents; monthlyPlanPrice words it); null for a price agreed per deal. */
   planPriceAudCents: number | null;
   audits: OperatorAuditCost[];
   byEngine: EngineCost[];

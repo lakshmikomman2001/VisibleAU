@@ -35,6 +35,21 @@ export const CRUMB = {
   settings: { label: "Account", href: "/settings" },
 } as const satisfies Record<string, ParentCrumb>;
 
+/**
+ * Each /admin page's title (13 Nov, part 1): its heading and its breadcrumb's last part, from this one place.
+ * tests/unit/navigation/breadcrumbs.test.ts checks every /admin page has one, and that its heading uses it.
+ */
+export const ADMIN_PAGE_TITLES = {
+  settings: "Operator settings",
+  costs: "Provider costs",
+} as const;
+
+function adminTitle(segment: string | undefined): string {
+  return segment !== undefined && Object.hasOwn(ADMIN_PAGE_TITLES, segment)
+    ? ADMIN_PAGE_TITLES[segment as keyof typeof ADMIN_PAGE_TITLES]
+    : "Operator";
+}
+
 /** A brand's own page, by its name. */
 export function brandCrumb(brand: { id: string; name: string }): ParentCrumb {
   return { label: brand.name, href: `/brands/${brand.id}` };
@@ -154,8 +169,8 @@ export function breadcrumbsForPath(pathname: string): Breadcrumbs {
       if (!second) return [{ label: CRUMB.settings.label }];
       return [CRUMB.settings, { label: labelFor(second) }];
     case "admin":
-      // /admin/settings: the operator's own page (Google AI surfaces, Phase 1); /admin has no page.
-      return [CRUMB.workspace, { label: "Operator settings" }];
+      // The operator's own pages (/admin/settings, /admin/costs), each named by its heading; /admin has no page.
+      return [CRUMB.workspace, { label: adminTitle(second) }];
     case "organizations":
       // /organizations/[orgId]/… -- the workspace's own schedules and templates.
       return [CRUMB.workspace, { label: labelFor(third ?? "", "Workspace settings") }];

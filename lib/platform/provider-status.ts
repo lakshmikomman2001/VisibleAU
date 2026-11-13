@@ -1,5 +1,5 @@
-import { and, eq, gte, inArray, isNotNull, max, sql } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import { and, desc, eq, gte, inArray, isNotNull, max, sql } from "drizzle-orm";
+import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
 import { googleSurfaceResults } from "@/db/schema/google-surfaces";
 import { describeEngineFailure, type EngineFailureReasonKey } from "@/lib/audit/engine-failure";
@@ -174,6 +174,49 @@ export async function loadProviderStatus(
     }),
   ];
   return { outages: providerOutages({ failures, lastSuccess }), answered };
+}
+
+/**
+ * This workspace's latest audit in the window that the provider failed, read as the workspace (RLS): the
+ * status line links to it. Here, not in the dashboard page: only the operator's code and this module read
+ * the Google results table (tests/unit/google-surfaces/customer-reasons.test.tsx), and this reads its audit
+ * id only.
+ */
+export async function latestAuditHitBy(
+  organizationId: string,
+  provider: string,
+  now: Date = new Date(),
+): Promise<string | null> {
+  const windowStart = new Date(now.getTime() - STATUS_WINDOW_MS);
+  return withRlsContext(organizationId, async (tx) => {
+    const [row] =
+      provider === "dataforseo"
+        ? await tx
+            .select({ auditId: googleSurfaceResults.auditId })
+            .from(googleSurfaceResults)
+            .where(
+              and(
+                eq(googleSurfaceResults.organizationId, organizationId),
+                gte(googleSurfaceResults.updatedAt, windowStart),
+                eq(googleSurfaceResults.outcome, "failed"),
+              ),
+            )
+            .orderBy(desc(googleSurfaceResults.updatedAt))
+            .limit(1)
+        : await tx
+            .select({ auditId: engineCallFailures.auditId })
+            .from(engineCallFailures)
+            .where(
+              and(
+                eq(engineCallFailures.organizationId, organizationId),
+                eq(engineCallFailures.engine, provider),
+                gte(engineCallFailures.createdAt, windowStart),
+              ),
+            )
+            .orderBy(desc(engineCallFailures.createdAt))
+            .limit(1);
+    return row?.auditId ?? null;
+  });
 }
 
 export interface ProviderStatusLine {

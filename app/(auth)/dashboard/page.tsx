@@ -11,8 +11,8 @@ import { InfoTip } from "@/components/domain/shared/info-tip";
 import { DashboardSovStrip } from "@/components/domain/visibility/dashboard-sov-strip";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
-import { audits, brands, engineCallFailures } from "@/db/schema";
-import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema/google-surfaces";
+import { audits, brands } from "@/db/schema";
+import { auditGoogleSurfaces } from "@/db/schema/google-surfaces";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
@@ -32,6 +32,7 @@ import {
   PRODUCT_TOUR_NOTICE,
 } from "@/lib/onboarding/dismissed-notices";
 import {
+  latestAuditHitBy,
   loadProviderStatus,
   providerStatusLine,
   STATUS_WINDOW_MS,
@@ -215,7 +216,6 @@ export default async function DashboardPage() {
   // answers were measured; nothing when nothing was.
   const statusNow = new Date();
   const providerStatus = await loadProviderStatus(statusNow);
-  const windowStart = new Date(statusNow.getTime() - STATUS_WINDOW_MS);
   const { usesGoogle } = await withRlsContext(orgId, async (tx) => {
     const [google] = await tx
       .select({ n: sql<number>`count(*)::int` })
@@ -236,35 +236,7 @@ export default async function DashboardPage() {
   const affectedAuditId =
     statusLine?.provider == null
       ? null
-      : await withRlsContext(orgId, async (tx) => {
-          const [row] =
-            statusLine.provider === "dataforseo"
-              ? await tx
-                  .select({ auditId: googleSurfaceResults.auditId })
-                  .from(googleSurfaceResults)
-                  .where(
-                    and(
-                      eq(googleSurfaceResults.organizationId, orgId),
-                      gte(googleSurfaceResults.updatedAt, windowStart),
-                      eq(googleSurfaceResults.outcome, "failed"),
-                    ),
-                  )
-                  .orderBy(desc(googleSurfaceResults.updatedAt))
-                  .limit(1)
-              : await tx
-                  .select({ auditId: engineCallFailures.auditId })
-                  .from(engineCallFailures)
-                  .where(
-                    and(
-                      eq(engineCallFailures.organizationId, orgId),
-                      eq(engineCallFailures.engine, statusLine.provider ?? ""),
-                      gte(engineCallFailures.createdAt, windowStart),
-                    ),
-                  )
-                  .orderBy(desc(engineCallFailures.createdAt))
-                  .limit(1);
-          return row?.auditId ?? null;
-        });
+      : await latestAuditHitBy(orgId, statusLine.provider, statusNow);
 
   const orgMeta = (currentUser.organization.metadata ?? {}) as Record<string, unknown>;
   // Each person's own (Sri, 8 Nov); a workspace whose tour was ended for everyone before that keeps it ended.

@@ -96,6 +96,11 @@ describe("the dashboard's measured status", () => {
         NOW,
       )?.text,
     ).toMatch(/^Claude unavailable since (\d{1,2} \w{3} )?\d{2}:\d{2} — audits use 3 engines$/);
+    // The line links to this workspace's latest audit the outage hit (read as the workspace).
+    const { latestAuditHitBy } = await import("@/lib/platform/provider-status");
+    expect(await latestAuditHitBy(ORG_ID, "claude", NOW)).toBe(AUDIT_ID);
+    expect(await latestAuditHitBy(ORG_ID, "gemini", NOW)).toBeNull();
+    expect(await latestAuditHitBy(ORG_ID, "dataforseo", NOW)).toBeNull();
   });
 
   it("a later Claude answer ends it", async () => {

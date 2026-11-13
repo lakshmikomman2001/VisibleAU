@@ -271,6 +271,10 @@ describe("source scan: only the operator's code reads the stored reason, code or
     "lib/scoring/resolve-audit-dimensions.ts",
     // Part 14 (13 Nov): the operator's costs (/admin/costs, operator-checked) sum its cost_usd only.
     "lib/admin/costs.ts",
+    // Part 12 (13 Nov): the dashboard's measured status reads the provider's code only to decide whether
+    // Google's checks are out (stopsTheRun); it passes on the provider's name and a time, never the code
+    // or the stored reason (tests/unit/platform/provider-status.test.ts).
+    "lib/platform/provider-status.ts",
   ]);
   const RAW =
     /\b(outcomeReason|providerStatusCode|rawResponse|outcome_reason|provider_status_code|raw_response)\b/;

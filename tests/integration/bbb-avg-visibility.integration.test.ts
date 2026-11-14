@@ -8,8 +8,9 @@
  */
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 
 const TEST_ORG_ID = "bbb00000-0000-4000-8000-000000000001";
 const BRAND_1_ID = "bbb00000-0000-4000-8000-000000000002";

@@ -18,8 +18,9 @@ import {
   buildCitationSourceIntelligence,
   getCurrentCitationSources,
 } from "@/lib/trust/citation-intelligence";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_ID = "88007fc3-8888-4eee-8fff-000000000001";
 
 // Brand A: Gemini has 5 empty-answer citations (the sentinel) alongside
@@ -57,9 +58,9 @@ async function seedRealCitations(auditId: string) {
   for (let run = 1; run <= 5; run++) {
     await client`
       INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources)
-      VALUES (${auditId}, 'perplexity', 'Perplexity prompt', ${run}, false, false, ${JSON.stringify([
-        { domain: "g.page", url: "https://g.page/bondi-plumbing", origin: "retrieved" },
-      ])})
+      VALUES (${auditId}, 'perplexity', 'Perplexity prompt', ${run}, false, false, ${JSON.stringify(
+        [{ domain: "g.page", url: "https://g.page/bondi-plumbing", origin: "retrieved" }],
+      )})
     `;
   }
 }
@@ -102,7 +103,9 @@ afterAll(async () => {
   await client`DELETE FROM citation_source_intelligence WHERE brand_id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(
     () => {},
   );
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_A_ID}, ${AUDIT_B_ID})`.catch(() => {});
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_A_ID}, ${AUDIT_B_ID})`.catch(
+    () => {},
+  );
   await client`DELETE FROM audits WHERE id IN (${AUDIT_A_ID}, ${AUDIT_B_ID})`.catch(() => {});
   await client`DELETE FROM brands WHERE id IN (${BRAND_A_ID}, ${BRAND_B_ID})`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
@@ -112,10 +115,7 @@ afterAll(async () => {
 describe("category counts and shares exclude the sentinel (real DB)", () => {
   it("categories excludes Gemini's sentinel entirely -- only Claude's and Perplexity's real categories appear", async () => {
     const { db } = await import("@/db/client");
-    const { categories, enginesWithoutCitations } = await getCurrentCitationSources(
-      db,
-      BRAND_A_ID,
-    );
+    const { categories, enginesWithoutCitations } = await getCurrentCitationSources(db, BRAND_A_ID);
 
     expect(categories.every((c) => c.engine !== "gemini")).toBe(true);
     expect(enginesWithoutCitations).toHaveLength(1);

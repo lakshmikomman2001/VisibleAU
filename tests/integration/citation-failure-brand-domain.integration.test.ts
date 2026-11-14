@@ -9,8 +9,9 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { diagnose } from "@/lib/visibility/citation-failure-diagnosis";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_ID = "7a11b000-7a11-4000-8a11-000000000001";
 
 let client: ReturnType<typeof postgres>;
@@ -68,7 +69,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  for (const id of auditIds) await client`DELETE FROM citations WHERE audit_id = ${id}`.catch(() => {});
+  for (const id of auditIds)
+    await client`DELETE FROM citations WHERE audit_id = ${id}`.catch(() => {});
   for (const id of auditIds) await client`DELETE FROM audits WHERE id = ${id}`.catch(() => {});
   for (const id of brandIds) await client`DELETE FROM brands WHERE id = ${id}`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
@@ -91,13 +93,17 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       auditId,
       engine: "perplexity",
       prompt: "emergency plumber",
-      citedSources: [{ domain: "oneflare.com.au", url: "https://oneflare.com.au/b", origin: "retrieved" }],
+      citedSources: [
+        { domain: "oneflare.com.au", url: "https://oneflare.com.au/b", origin: "retrieved" },
+      ],
     });
 
     const diagnoses = await diagnose(db, { brandId });
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
-    expect(d?.evidence).toContain("AI engines cited 2 sources across 2 engines, and none was your website.");
+    expect(d?.evidence).toContain(
+      "AI engines cited 2 sources across 2 engines, and none was your website.",
+    );
   });
 
   it("silent: the brand's own domain was cited", async () => {
@@ -163,7 +169,12 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const auditId = await makeCompletedAudit(brandId, 90005, new Date());
 
     await insertCitation({ auditId, engine: "claude", prompt: "best plumber", citedSources: [] });
-    await insertCitation({ auditId, engine: "perplexity", prompt: "emergency plumber", citedSources: [] });
+    await insertCitation({
+      auditId,
+      engine: "perplexity",
+      prompt: "emergency plumber",
+      citedSources: [],
+    });
 
     const diagnoses = await diagnose(db, { brandId });
     expect(diagnoses.find((x) => x.patternKey === "brand_domain_not_cited")).toBeUndefined();
@@ -215,7 +226,9 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const diagnoses = await diagnose(db, { brandId });
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
-    expect(d?.evidence).toContain("AI engines cited 1 source across 1 engine, and none was your website.");
+    expect(d?.evidence).toContain(
+      "AI engines cited 1 source across 1 engine, and none was your website.",
+    );
   });
 
   it("excludes branded-prompt rows: a branded-prompt-only brand citation does NOT suppress the diagnosis", async () => {
@@ -245,7 +258,9 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const diagnoses = await diagnose(db, { brandId });
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
-    expect(d?.evidence).toContain("AI engines cited 1 source across 1 engine, and none was your website.");
+    expect(d?.evidence).toContain(
+      "AI engines cited 1 source across 1 engine, and none was your website.",
+    );
   });
 
   it("reads the latest completed audit only -- an older audit's state does not leak in", async () => {
@@ -272,7 +287,9 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const diagnoses = await diagnose(db, { brandId });
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
-    expect(d?.evidence).toContain("AI engines cited 1 source across 1 engine, and none was your website.");
+    expect(d?.evidence).toContain(
+      "AI engines cited 1 source across 1 engine, and none was your website.",
+    );
   });
 });
 

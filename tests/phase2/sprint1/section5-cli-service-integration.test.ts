@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const ROOT = resolve(__dirname, "../../..");
 
@@ -150,14 +151,17 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   it("config:validate runs and exits non-zero (dev DB missing sampling_policy + active bundle)", {
     timeout: 30000,
   }, () => {
-    const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+    const DB_URL = getTestDatabaseUrl();
     try {
-      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
-        cwd: ROOT,
-        env: { ...process.env, DATABASE_URL: DB_URL },
-        stdio: "pipe",
-        timeout: CLI_EXEC_TIMEOUT_MS,
-      });
+      execSync(
+        `npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`,
+        {
+          cwd: ROOT,
+          env: { ...process.env, DATABASE_URL: DB_URL },
+          stdio: "pipe",
+          timeout: CLI_EXEC_TIMEOUT_MS,
+        },
+      );
       // If it reaches here, exit code was 0 — unexpected
       expect.unreachable("expected non-zero exit (missing sampling policy + active bundle)");
     } catch (err: unknown) {
@@ -171,14 +175,17 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   it("config:validate prints check results (providers pass, sampling policy fails)", {
     timeout: 30000,
   }, () => {
-    const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+    const DB_URL = getTestDatabaseUrl();
     try {
-      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`, {
-        cwd: ROOT,
-        env: { ...process.env, DATABASE_URL: DB_URL },
-        stdio: "pipe",
-        timeout: CLI_EXEC_TIMEOUT_MS,
-      });
+      execSync(
+        `npx --no-install tsx cli/visibleau/index.ts config:validate --market AU_EN --locale en-AU`,
+        {
+          cwd: ROOT,
+          env: { ...process.env, DATABASE_URL: DB_URL },
+          stdio: "pipe",
+          timeout: CLI_EXEC_TIMEOUT_MS,
+        },
+      );
     } catch (err: unknown) {
       const e = err as { stdout: Buffer; stderr: Buffer };
       const stdout = e.stdout?.toString() ?? "";
@@ -190,14 +197,17 @@ describe("Part A: CLI real invocation — config:validate against dev DB", () =>
   });
 
   it("config:validate with unknown market → all checks fail", { timeout: 30000 }, () => {
-    const DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+    const DB_URL = getTestDatabaseUrl();
     try {
-      execSync(`npx --no-install tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`, {
-        cwd: ROOT,
-        env: { ...process.env, DATABASE_URL: DB_URL },
-        stdio: "pipe",
-        timeout: CLI_EXEC_TIMEOUT_MS,
-      });
+      execSync(
+        `npx --no-install tsx cli/visibleau/index.ts config:validate --market XX_XX --locale xx-XX`,
+        {
+          cwd: ROOT,
+          env: { ...process.env, DATABASE_URL: DB_URL },
+          stdio: "pipe",
+          timeout: CLI_EXEC_TIMEOUT_MS,
+        },
+      );
       expect.unreachable("expected non-zero exit");
     } catch (err: unknown) {
       const e = err as { status: number; stderr: Buffer; stdout: Buffer };

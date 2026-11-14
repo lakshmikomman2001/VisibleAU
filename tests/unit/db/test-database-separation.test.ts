@@ -26,7 +26,8 @@ import { readSourcesBeforeAll, sourcePaths, sourceText } from "../../helpers/sou
 const E2E = "postgresql://postgres:secret@localhost:5432/visibleau_e2e";
 const INTEGRATION = "postgresql://postgres:secret@localhost:5432/visibleau_integration";
 
-readSourcesBeforeAll(["tests/integration", "tests/phase2", "tests/helpers"]);
+// 15 Nov, part 5: every test file, for the dev-database guard at the end.
+readSourcesBeforeAll(["tests"]);
 
 /** Code without comments: what could open a connection. */
 function codeOf(text: string): string {
@@ -151,6 +152,48 @@ describe("the integration project's env (vitest.config.ts)", () => {
       const code = codeOf(sourceText(path));
       expect(code, path).not.toMatch(/postgres\(\s*(["'`][^"'`]*visibleau_e2e|LOCAL_E2E)/);
       expect(code, path).not.toMatch(/process\.env\.\w+\s*=\s*["'`][^"'`]*visibleau_e2e/);
+    }
+  });
+});
+
+// 15 Nov, part 5 (Sri): five files hard-coded the dev database ("postgresql://…/visibleau") and failed from 23aa24e
+// on, writing their rows into dev on the way (Sri's sprint2 workflow test left six "Test Org A" workspaces there):
+// their own connection went to dev while the app's went to visibleau_integration. 22 more did the same and passed
+// only because they never met the app's code. Every one now takes its database from the env (getTestDatabaseUrl,
+// visibleau_integration in the integration project). The only files that name the dev database do so to check a
+// guard refuses or accepts it, never to connect.
+describe("no test names the dev database", () => {
+  /** A connection string to the dev database: ".../visibleau", not visibleau_e2e or visibleau_integration. */
+  const DEV_URL = /\/\/[^\s"'`]*\/visibleau(?![\w-])/;
+  /** A check that the connection is the dev database (the agent-analytics fixtures' old "SAFETY" check). */
+  const DEV_NAME_CHECK = /[=!]==\s*["'`]visibleau["'`]/;
+  const GUARD_TESTS = [
+    "tests/integration/e2e-agency-user-seed.integration.test.ts",
+    "tests/integration/e2e-spec-account.integration.test.ts",
+    "tests/integration/e2e-test-users-seed.integration.test.ts",
+    "tests/unit/db/local-db-guard.test.ts",
+    "tests/unit/db/test-database-separation.test.ts",
+    "tests/unit/e2e/spec-accounts.test.ts",
+  ];
+
+  it("only the guards' own tests name it", () => {
+    const files = sourcePaths(["tests"], /\.(ts|tsx|js|mjs|cjs)$/);
+    expect(files.length).toBeGreaterThan(800);
+    const naming = files.filter((path) => {
+      const code = codeOf(sourceText(path));
+      return DEV_URL.test(code) || DEV_NAME_CHECK.test(code);
+    });
+    expect(naming.sort()).toEqual(GUARD_TESTS);
+  });
+
+  it("and none of them connects with it, or points the app at it", () => {
+    for (const path of GUARD_TESTS) {
+      const code = codeOf(sourceText(path));
+      expect(code, path).not.toMatch(/postgres\(\s*["'`][^"'`]*\/visibleau["'`]/);
+      expect(code, path).not.toMatch(/process\.env\.\w+\s*=\s*["'`][^"'`]*\/visibleau["'`]/);
+      expect(code, path).not.toMatch(
+        /\b(DATABASE_URL|DIRECT_URL|SERVICE_DATABASE_URL)\s*:\s*["'`][^"'`]*\/visibleau["'`]/,
+      );
     }
   });
 });

@@ -24,8 +24,9 @@ import {
   buildCitationSourceIntelligence,
   getCurrentCitationSources,
 } from "@/lib/trust/citation-intelligence";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 
 const TEST_ORG_ID = "55002ea0-5555-4aaa-8bbb-000000000001";
 const TEST_BRAND_ID = "55002ea0-5555-4aaa-8bbb-000000000002";
@@ -114,12 +115,25 @@ describe("⚠️ task #41 — buildCitationSourceIntelligence dedupes replays an
     const { db } = await import("@/db/client");
 
     await seedCitations(AUDIT_1_ID, [
-      { prompt: "Best plumber in Sydney (hipages)?", sourceType: "au_directory", brandMentioned: false },
-      { prompt: "Who installs hot water systems?", sourceType: "au_directory", brandMentioned: false },
+      {
+        prompt: "Best plumber in Sydney (hipages)?",
+        sourceType: "au_directory",
+        brandMentioned: false,
+      },
+      {
+        prompt: "Who installs hot water systems?",
+        sourceType: "au_directory",
+        brandMentioned: false,
+      },
       { prompt: "Emergency plumber near me?", sourceType: "au_directory", brandMentioned: true },
     ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_1_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_1_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
 
     const auDir = result.find((r) => r.sourceType === "au_directory");
     expect(auDir).toBeDefined();

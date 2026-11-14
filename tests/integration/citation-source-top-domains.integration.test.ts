@@ -9,8 +9,9 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_ID = "55004ea0-5555-4aaa-8bbb-000000000001";
 const TEST_BRAND_ID = "55004ea0-5555-4aaa-8bbb-000000000002";
 const AUDIT_1_ID = "55004ea0-5555-4aaa-8bbb-000000000003";
@@ -47,9 +48,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(() => {});
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(() => {});
-  await client`DELETE FROM audits WHERE id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(() => {});
+  await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(
+    () => {},
+  );
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(
+    () => {},
+  );
+  await client`DELETE FROM audits WHERE id IN (${AUDIT_1_ID}, ${AUDIT_2_ID}, ${AUDIT_3_ID})`.catch(
+    () => {},
+  );
   await client`DELETE FROM brands WHERE id = ${TEST_BRAND_ID}`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
   await client.end();
@@ -79,7 +86,12 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
       },
     ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_1_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_1_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
 
     // The brand's own domain classifies as brand_owned, not other -- a
     // separate (engine, sourceType) group/card.
@@ -116,9 +128,16 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
       domain: `site${i}.com.au`,
       url: `https://site${i}.com.au/`,
     }));
-    await seed(AUDIT_1_ID, "chatgpt", [{ text: "Prompt with 10 domains", citedSources: manyDomains }]);
+    await seed(AUDIT_1_ID, "chatgpt", [
+      { text: "Prompt with 10 domains", citedSources: manyDomains },
+    ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_1_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_1_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
     const other = result.find((r) => r.sourceType === "other");
 
     expect(other?.topDomains.length).toBeLessThanOrEqual(8);
@@ -136,7 +155,12 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
       },
     ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_2_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_2_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
     const auDir = result.find((r) => r.sourceType === "au_directory");
 
     expect(auDir?.topDomains[0]?.origin).toBe("retrieved");
@@ -176,7 +200,12 @@ describe("count integrity + gov.au grouping against a real audit (task #46)", ()
       },
     ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_3_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_3_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
 
     // Prompt B's entirely-junk citedSources array means NO group was
     // ever created for it -- government_regulator's count reflects

@@ -30,8 +30,9 @@ import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligence";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_ID = "66005fa1-6666-4ccc-8ddd-000000000001";
 const TEST_BRAND_ID = "66005fa1-6666-4ccc-8ddd-000000000002";
 const AUDIT_ID = "66005fa1-6666-4ccc-8ddd-000000000003";
@@ -73,8 +74,12 @@ afterAll(async () => {
   await client`ALTER TABLE citation_source_intelligence ADD COLUMN IF NOT EXISTS top_domains jsonb`.catch(
     () => {},
   );
-  await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(() => {});
-  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_ID}, ${AUDIT_ID_NO_TX})`.catch(() => {});
+  await client`DELETE FROM citation_source_intelligence WHERE brand_id = ${TEST_BRAND_ID}`.catch(
+    () => {},
+  );
+  await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_ID}, ${AUDIT_ID_NO_TX})`.catch(
+    () => {},
+  );
   await client`DELETE FROM audits WHERE id IN (${AUDIT_ID}, ${AUDIT_ID_NO_TX})`.catch(() => {});
   await client`DELETE FROM brands WHERE id = ${TEST_BRAND_ID}`.catch(() => {});
   await client`DELETE FROM organizations WHERE id = ${TEST_ORG_ID}`.catch(() => {});
@@ -137,7 +142,12 @@ describe("buildCitationSourceIntelligence with a plain (non-transactional) clien
     // transaction here at all -- this is exactly how the Inngest
     // function (serviceDb) and these integration tests (plain db) call
     // this function today.
-    const result = await buildCitationSourceIntelligence(db, AUDIT_ID_NO_TX, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_ID_NO_TX,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
     expect(result).toHaveLength(1);
 
     const row = await client`

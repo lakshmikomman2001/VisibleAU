@@ -9,8 +9,9 @@ import { metricQualityGates } from "@/db/schema/metric-quality-gates";
 import { promptPackCoverage } from "@/db/schema/prompt-pack-coverage";
 import { providerMarketCapabilities } from "@/db/schema/provider-market-capabilities";
 import { samplingPolicies } from "@/db/schema/sampling-policies";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 
 let client: ReturnType<typeof postgres>;
 let db: ReturnType<typeof drizzle>;

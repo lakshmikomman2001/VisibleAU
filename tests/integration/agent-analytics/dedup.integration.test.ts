@@ -2,10 +2,9 @@ import type postgres from "postgres";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL =
-    process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
   process.env.SERVICE_DATABASE_URL =
-    process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+    process.env.SERVICE_DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 });
 
 vi.mock("dns", () => ({
@@ -18,9 +17,10 @@ vi.mock("dns", () => ({
 }));
 
 import {
-  assertDevDatabase,
+  assertIntegrationDatabase,
   cleanupAll,
   createClient,
+  ensureBotRegistry,
   seedOrgAndBrand,
   TEST_BRAND_ID,
   TEST_DB_URL,
@@ -32,8 +32,9 @@ let client: ReturnType<typeof postgres>;
 
 beforeAll(async () => {
   client = createClient();
-  await assertDevDatabase(client);
+  await assertIntegrationDatabase(client);
   await seedOrgAndBrand(client);
+  await ensureBotRegistry();
 
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? TEST_DB_URL;
   process.env.SERVICE_DATABASE_URL = process.env.SERVICE_DATABASE_URL ?? TEST_DB_URL;

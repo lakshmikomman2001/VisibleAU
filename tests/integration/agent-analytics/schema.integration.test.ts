@@ -1,12 +1,12 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assertDevDatabase, createClient, TEST_DB_URL } from "./_fixtures";
+import { assertIntegrationDatabase, createClient, TEST_DB_URL } from "./_fixtures";
 
 let client: ReturnType<typeof postgres>;
 
 beforeAll(async () => {
   client = createClient();
-  await assertDevDatabase(client);
+  await assertIntegrationDatabase(client);
 });
 
 afterAll(async () => {

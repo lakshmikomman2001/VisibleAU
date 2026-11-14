@@ -33,7 +33,8 @@ import { buildCitationSourceIntelligence } from "@/lib/trust/citation-intelligen
 // (7 Nov), whose chain creates @/db/client's connection at import time -- it must already
 // point at the database this file seeds.
 const { TEST_DB_URL } = vi.hoisted(() => {
-  const url = "postgresql://postgres:password@localhost:5432/visibleau";
+  const url = process.env.TEST_DATABASE_URL;
+  if (!url) throw new Error("TEST_DATABASE_URL is not set (the integration project sets it).");
   process.env.DATABASE_URL = url;
   process.env.SERVICE_DATABASE_URL = url;
   return { TEST_DB_URL: url };

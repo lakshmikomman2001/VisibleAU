@@ -21,8 +21,9 @@ import {
   getCurrentCitationSources,
   NO_CITATIONS_SOURCE_TYPE,
 } from "@/lib/trust/citation-intelligence";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 const TEST_ORG_ID = "77006fb2-7777-4ddd-8eee-000000000001";
 const TEST_BRAND_ID = "77006fb2-7777-4ddd-8eee-000000000002";
 const AUDIT_N_ID = "77006fb2-7777-4ddd-8eee-000000000003";
@@ -88,7 +89,9 @@ afterAll(async () => {
   await client`ALTER TABLE citation_source_intelligence DROP CONSTRAINT IF EXISTS temp_block_null_audit_id`.catch(
     () => {},
   );
-  await client`DELETE FROM citation_source_intelligence WHERE brand_id IN (${TEST_BRAND_ID}, ${BRAND_2_ID})`.catch(() => {});
+  await client`DELETE FROM citation_source_intelligence WHERE brand_id IN (${TEST_BRAND_ID}, ${BRAND_2_ID})`.catch(
+    () => {},
+  );
   await client`DELETE FROM citations WHERE audit_id IN (${AUDIT_N_ID}, ${AUDIT_N1_ID}, ${AUDIT_N2_ID}, ${AUDIT_N3_ID}, ${AUDIT_N4_ID}, ${AUDIT_M_ID}, ${AUDIT_M1_ID})`.catch(
     () => {},
   );
@@ -109,7 +112,10 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
       // not "other" -- a response that cited nothing is zero citations,
       // not a phantom "other" one.
       { engine: "gemini", citedSources: [] },
-      { engine: "claude", citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }] },
+      {
+        engine: "claude",
+        citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }],
+      },
     ]);
     await buildCitationSourceIntelligence(db, AUDIT_N_ID, TEST_BRAND_ID, TEST_ORG_ID);
 
@@ -127,7 +133,10 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     // Audit N+1: only claude/au_directory this time -- no gemini
     // citations at all.
     await seedCitations(AUDIT_N1_ID, [
-      { engine: "claude", citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/b" }] },
+      {
+        engine: "claude",
+        citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/b" }],
+      },
     ]);
     await buildCitationSourceIntelligence(db, AUDIT_N1_ID, TEST_BRAND_ID, TEST_ORG_ID);
 
@@ -167,7 +176,12 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
       { engine: "claude", citedSources: [{ domain: "192.168.1.2", url: "https://192.168.1.2/y" }] },
     ]);
 
-    const result = await buildCitationSourceIntelligence(db, AUDIT_N2_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_N2_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
     expect(result.every((r) => r.sourceType === NO_CITATIONS_SOURCE_TYPE)).toBe(true);
     expect(result).toHaveLength(2); // one per engine
 
@@ -201,7 +215,12 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     // No seedCitations call at all -- AUDIT_N4_ID has zero rows in
     // `citations`, the genuine "nothing recorded" edge case (as
     // opposed to N2's "recorded, but all invalid").
-    const result = await buildCitationSourceIntelligence(db, AUDIT_N4_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_N4_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
     expect(result).toHaveLength(0);
 
     const aggregate = await client`
@@ -246,9 +265,17 @@ describe("aggregate replace-set semantics (task #46 follow-up)", () => {
     await client`ALTER TABLE citation_source_intelligence ADD CONSTRAINT temp_block_null_audit_id CHECK (audit_id IS NOT NULL) NOT VALID`;
 
     await seedCitations(AUDIT_N3_ID, [
-      { engine: "claude", citedSources: [{ domain: "oneflare.com.au", url: "https://oneflare.com.au/c" }] },
+      {
+        engine: "claude",
+        citedSources: [{ domain: "oneflare.com.au", url: "https://oneflare.com.au/c" }],
+      },
     ]);
-    const result = await buildCitationSourceIntelligence(db, AUDIT_N3_ID, TEST_BRAND_ID, TEST_ORG_ID);
+    const result = await buildCitationSourceIntelligence(
+      db,
+      AUDIT_N3_ID,
+      TEST_BRAND_ID,
+      TEST_ORG_ID,
+    );
 
     // Didn't throw.
     expect(result).toHaveLength(1);
@@ -290,7 +317,10 @@ describe("replace-set reversibility between the sentinel and a real category (ta
     expect(aggregate[0].source_type).toBe(NO_CITATIONS_SOURCE_TYPE);
 
     await seedCitations(AUDIT_M1_ID, [
-      { engine: "gemini", citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/z" }] },
+      {
+        engine: "gemini",
+        citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/z" }],
+      },
     ]);
     await buildCitationSourceIntelligence(db, AUDIT_M1_ID, BRAND_2_ID, TEST_ORG_ID);
 

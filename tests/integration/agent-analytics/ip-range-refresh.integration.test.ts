@@ -2,10 +2,9 @@ import type postgres from "postgres";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL =
-    process.env.DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
   process.env.SERVICE_DATABASE_URL =
-    process.env.SERVICE_DATABASE_URL ?? "postgresql://postgres:password@localhost:5432/visibleau";
+    process.env.SERVICE_DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 });
 
 vi.mock("dns", () => ({
@@ -18,7 +17,12 @@ vi.mock("dns", () => ({
 }));
 
 import { refreshIpRangesForVendor } from "@/lib/agent-analytics/ip-ranges";
-import { assertDevDatabase, cleanupTestIpRanges, createClient, TEST_DB_URL } from "./_fixtures";
+import {
+  assertIntegrationDatabase,
+  cleanupTestIpRanges,
+  createClient,
+  TEST_DB_URL,
+} from "./_fixtures";
 
 const TEST_VENDOR = "p3s1-test-vendor";
 const TEST_SOURCE_URL = "https://test.example.com/ranges.json";
@@ -27,7 +31,7 @@ let client: ReturnType<typeof postgres>;
 
 beforeAll(async () => {
   client = createClient();
-  await assertDevDatabase(client);
+  await assertIntegrationDatabase(client);
 
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? TEST_DB_URL;
   process.env.SERVICE_DATABASE_URL = process.env.SERVICE_DATABASE_URL ?? TEST_DB_URL;
@@ -173,7 +177,9 @@ describe("I2: re-ingesting the same vendor ranges twice gives no duplicates", ()
     // of {ipv4Prefix|ipv6Prefix|ip_prefix} objects instead).
     const prefixes = ["203.0.113.0/24", "203.0.113.128/25"];
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(prefixes), { status: 200 }));
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(prefixes), { status: 200 }));
 
     const first = await refreshIpRangesForVendor(TEST_VENDOR, TEST_SOURCE_URL);
     expect(first.status).toBe("updated");

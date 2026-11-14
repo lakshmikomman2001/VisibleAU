@@ -12,6 +12,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import postgres from "postgres";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 // ─── mock auth BEFORE any route import ───
 vi.mock("@/lib/auth/current-user", () => ({
@@ -29,7 +30,7 @@ vi.mock("@/lib/governance/access-control", async (importOriginal) => {
   };
 });
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 
 let client: ReturnType<typeof postgres>;
 let mockGetCurrentUser: ReturnType<typeof vi.fn>;

@@ -4,15 +4,16 @@
  * Covers: BE-1 (core workflow loop), BE-2 (error paths, RLS, idempotency),
  *         BE-3 (cross-sprint FK chains).
  *
- * Runs against the DEV database (visibleau), NOT prod.
+ * Runs against the integration tests' own database (visibleau_integration), NOT prod or dev.
  * Uses rls_test_role for RLS isolation assertions.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-// Force dev DB before @/db/client initializes its postgres pool
+// 15 Nov, part 5: the integration project's own database (it was the dev database), before
+// @/db/client initializes its postgres pool.
 vi.hoisted(() => {
-  process.env.DATABASE_URL = "postgresql://postgres:password@localhost:5432/visibleau";
-  process.env.DIRECT_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  process.env.DIRECT_URL = process.env.TEST_DATABASE_URL;
 });
 
 import { eq } from "drizzle-orm";
@@ -46,8 +47,9 @@ import {
   markFailed,
   markRunning,
 } from "@/lib/workflow/workflow-orchestrator";
+import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
-const TEST_DB_URL = "postgresql://postgres:password@localhost:5432/visibleau";
+const TEST_DB_URL = getTestDatabaseUrl();
 
 // Unique test identifiers to avoid collisions with real data
 const TEST_PREFIX = "s2_integ_test_";

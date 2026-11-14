@@ -27,7 +27,7 @@ import {
   clearVerificationCache,
   verifyCrawlerHit,
 } from "@/lib/agent-analytics/verify-crawler-hits";
-import { assertDevDatabase, createClient, TEST_DB_URL } from "./_fixtures";
+import { assertIntegrationDatabase, createClient, TEST_DB_URL } from "./_fixtures";
 
 let client: ReturnType<typeof postgres>;
 
@@ -48,7 +48,7 @@ function makeRegistry(vendor: string): RegistryMatch {
 
 beforeAll(async () => {
   client = createClient();
-  await assertDevDatabase(client);
+  await assertIntegrationDatabase(client);
 
   process.env.DATABASE_URL = process.env.DATABASE_URL ?? TEST_DB_URL;
   process.env.SERVICE_DATABASE_URL = process.env.SERVICE_DATABASE_URL ?? TEST_DB_URL;

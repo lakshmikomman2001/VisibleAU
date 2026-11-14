@@ -1,4 +1,6 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { possessive } from "@/lib/copy/possessive";
+import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
 import { formatTypicalRank } from "@/lib/scoring/measured-display";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
@@ -6,7 +8,6 @@ import { type AllowedFacts, groundNarrative } from "./narrative-grounding";
 import type { ReportData } from "./report-data";
 import { citedDirectories, plural } from "./report-format";
 import { competitorAhead, directoryGaps, failedEngines, silentEngines } from "./report-rules";
-import { possessive } from "@/lib/copy/possessive";
 
 /**
  * DEMO-BLOCKER (1 Nov), part 3 -- "The picture, in plain English": the
@@ -74,6 +75,9 @@ export function allowedFacts(data: ReportData, extraNumbers: readonly string[] =
   add(data.directories.totalAnswers, cited.length);
   add(cited.reduce((s, r) => s + r.citedCount, 0));
   for (const r of cited) add(r.citedCount);
+  // 14 Nov, part 2: the linked-state sentence's own counts (lib/directories/linked-state.ts).
+  for (const r of cited) add(r.ownerProfileCitedCount);
+  add(cited.filter((r) => !r.ownerProfileLinked).length);
   for (const c of data.competitors.rows) add(c.mentions);
   const about = aboutHowOften(data.mentionedCount, data.sampleCount);
   for (const n of about?.numbers ?? []) numbers.add(n);
@@ -203,15 +207,12 @@ function gapParagraph(data: ReportData, diagnosisSection: string | null): string
     const total = cited.reduce((s, r) => s + r.citedCount, 0);
     const lead = `AI leans heavily on directories, citing ${countWord(cited.length)} of them ${total} times`;
     // Part 5 point 3: "your profile wasn't cited" only where it's linked.
-    if (gaps.every((r) => !r.ownerProfileLinked)) {
+    // 14 Nov, part 2: said from every cited directory's linked state, never from the gaps alone (Hero had
+    // Localsearch linked, and this said "the profile links haven't been added").
+    if (cited.every((r) => !r.ownerProfileLinked)) {
       return `${lead}, and **we can't yet see whether any of those citations were ${possessive(brand)} own listings**: the profile links haven't been added. Adding them is the first step in this report${see}.`;
     }
-    const own = cited.filter((r) => r.ownerProfileCitedCount > 0).length;
-    const which =
-      own === 0
-        ? `**none of those citations linked ${possessive(brand)} own listings**`
-        : `only ${countWord(own)} of them linked ${possessive(brand)} own listing`;
-    return `${lead}, but ${which}. That is the clearest, most fixable gap in this report${see}.`;
+    return `${lead}. **${linkedStateSentence(cited)}** That is the clearest, most fixable gap in this report${see}.`;
   }
   const silent = silentEngines(data);
   if (silent.length > 0) {

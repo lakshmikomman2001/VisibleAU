@@ -1,5 +1,6 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { citedInAnswers, namedCitedInAnswersList } from "@/lib/directories/cited-in-answers";
+import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
@@ -101,9 +102,9 @@ function directoryFinding(data: FindingsData): Finding | null {
     title: notLinked
       ? "AI cites these directories, and we can't yet see your listings on them"
       : "Your directory listings aren't the ones AI links",
-    explanation: notLinked
-      ? `AI engines answer local questions by citing directories. They cited ${countWord(cited.length)} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}; your profile links aren't added yet, so we can't check which citations were yours.`
-      : `AI engines answer local questions by citing directories. They cited ${countWord(cited.length)} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}, but not your profile on ${these}.`,
+    // 14 Nov, part 2: what's linked, from every cited directory -- not "your profile links aren't added yet" when one
+    // is (Hero's Localsearch).
+    explanation: `AI engines answer local questions by citing directories. They cited ${countWord(cited.length)} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}. ${linkedStateSentence(cited)}`,
     severity: HIGH,
     evidenceLabel: `Evidence · Audit #${data.basis.auditNumber} · ${data.directories.totalAnswers} everyday answers`,
     evidence: gaps.map((r, i) => {

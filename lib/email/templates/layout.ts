@@ -1,6 +1,6 @@
+import { BRAND_COLORS, BRAND_MARK, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
 import { notificationSettingsUrl } from "@/lib/email/links";
 import { type EmailCategory, TRANSACTIONAL_CATEGORIES } from "@/lib/email/send";
-import { PRODUCT_NAME } from "@/lib/product";
 
 /**
  * Every email the app sends is built here, once, as both HTML and plain
@@ -56,6 +56,15 @@ const COLOR = {
 } as const;
 const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const BRAND = PRODUCT_NAME;
+
+/**
+ * Rebrand (15 Nov), part 1 -- the email's header: the mark (a blue rounded cell with the white letter; mail
+ * clients don't draw SVG) and the product's name, from lib/brand.ts.
+ */
+function brandHeaderHtml(): string {
+  const mark = `width:22px;height:22px;background:${BRAND_COLORS.mark};border-radius:6px;font-family:${FONT};font-size:13px;line-height:22px;font-weight:700;color:${BRAND_COLORS.markFg};`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="${mark}">${BRAND_MARK.letter}</td><td style="padding-left:8px;font-family:${FONT};font-size:15px;font-weight:700;color:${COLOR.text};">${BRAND}</td></tr></table>`;
+}
 
 export function escapeHtml(value: string): string {
   return value
@@ -144,14 +153,14 @@ export function renderEmail(content: EmailContent): RenderedEmail {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLOR.page};">
 <tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${COLOR.card};border:1px solid ${COLOR.border};border-radius:8px;">
-<tr><td style="padding:24px 32px 0;font-family:${FONT};font-size:15px;font-weight:700;color:${COLOR.text};">${BRAND}</td></tr>
+<tr><td style="padding:24px 32px 0;">${brandHeaderHtml()}</td></tr>
 <tr><td style="padding:16px 32px 16px;">
 <h1 style="margin:0 0 16px;font-family:${FONT};font-size:20px;line-height:28px;font-weight:600;color:${COLOR.text};">${escapeHtml(content.heading)}</h1>
 ${content.blocks.map(blockHtml).join("\n")}
 </td></tr>
 </table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-<tr><td style="padding:16px 32px;font-family:${FONT};font-size:12px;line-height:18px;color:${COLOR.tertiary};">${footerHtml}<br>${BRAND} · AI search visibility for Australian businesses</td></tr>
+<tr><td style="padding:16px 32px;font-family:${FONT};font-size:12px;line-height:18px;color:${COLOR.tertiary};">${footerHtml}<br>${BRAND} · ${PRODUCT_TAGLINE}</td></tr>
 </table>
 </td></tr>
 </table>

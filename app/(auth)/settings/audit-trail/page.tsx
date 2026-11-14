@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { AuditLogRow } from "@/components/domain/governance/audit-log-row";
 import { LoadError } from "@/components/shared/load-error";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { useLoad } from "@/lib/hooks/use-load";
 import { fetchJson } from "@/lib/load/fetch-json";
 
@@ -65,7 +66,7 @@ export default function AuditTrailPage() {
               No activity yet
             </p>
             <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              Actions will appear here as your team uses VisibleAU.
+              Actions will appear here as your team uses {PRODUCT_NAME}.
             </p>
           </div>
         ) : (

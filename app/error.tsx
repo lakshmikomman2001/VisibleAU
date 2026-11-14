@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { SUPPORT_EMAIL } from "@/lib/product";
 
 export default function ErrorPage({
@@ -17,6 +18,9 @@ export default function ErrorPage({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
+      <div className="mb-4">
+        <BrandLogo size="lg" />
+      </div>
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
       <p className="text-sm text-muted-foreground">
         {error.digest ? `Error ID: ${error.digest}` : "An unexpected error occurred."}

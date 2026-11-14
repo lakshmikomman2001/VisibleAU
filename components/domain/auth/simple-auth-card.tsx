@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { AppLogo } from "@/components/domain/app-logo";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 /** The plain card the password-reset pages sit in. */
 export function SimpleAuthCard({ title, children }: { title: string; children: ReactNode }) {
@@ -15,7 +15,7 @@ export function SimpleAuthCard({ title, children }: { title: string; children: R
       }}
     >
       <div style={{ width: "100%", maxWidth: 400 }}>
-        <AppLogo />
+        <BrandLogo />
         <h1
           style={{
             marginTop: 24,

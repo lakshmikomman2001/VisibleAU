@@ -6,6 +6,7 @@ import { useEffect } from "react";
 // define its own <html> and <body> tags, global styles, fonts..."); without them its button had no colours
 // (Playwright-run follow-ups, 10 Nov, part 8).
 import "./globals.css";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 export default function GlobalError({
   error,
@@ -22,6 +23,7 @@ export default function GlobalError({
     <html lang="en-AU" data-theme="dark">
       <body>
         <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+          <BrandLogo size="lg" />
           <h2 className="text-xl font-semibold">Critical error — please refresh</h2>
           <button
             type="button"

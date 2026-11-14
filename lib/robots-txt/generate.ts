@@ -1,4 +1,5 @@
 import { AI_BOTS } from "@/db/seed/ai-bots/seed";
+import { PRODUCT_NAME } from "@/lib/product";
 
 interface BotConfig {
   userAgent: string;
@@ -6,7 +7,7 @@ interface BotConfig {
 }
 
 export function generateRobotsTxtBlock(overrides?: BotConfig[]): string {
-  const lines: string[] = ["# === AI Crawler Configuration (VisibleAU) ===", ""];
+  const lines: string[] = [`# === AI Crawler Configuration (${PRODUCT_NAME}) ===`, ""];
 
   for (const bot of AI_BOTS) {
     const override = overrides?.find((o) => o.userAgent === bot.userAgent);

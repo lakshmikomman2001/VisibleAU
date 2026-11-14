@@ -32,7 +32,7 @@ function audit(k: number, n: number, detail: Partial<MentionDetailCounts> = {}):
 
 function suiteCounts(xml: string) {
   const m = xml.match(
-    /<testsuites name="VisibleAU Audit" tests="(\d+)" failures="(\d+)" skipped="(\d+)"/,
+    /<testsuites name="Vunnara Audit" tests="(\d+)" failures="(\d+)" skipped="(\d+)"/,
   );
   return m ? { tests: Number(m[1]), failures: Number(m[2]), skipped: Number(m[3]) } : null;
 }

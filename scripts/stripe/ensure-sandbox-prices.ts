@@ -1,5 +1,5 @@
 /**
- * Verify-and-emit for the 9 VisibleAU products/prices in a Stripe Sandbox.
+ * Verify-and-emit for the 9 Vunnara products/prices in a Stripe Sandbox.
  * Sri creates products by hand in the dashboard (never here) — this script
  * only looks them up by name, validates each price against the canonical
  * catalogue (lib/pricing/tiers.ts's amounts), and prints the ready-to-paste
@@ -13,6 +13,7 @@
  * the API key.
  */
 import Stripe from "stripe";
+import { PRODUCT_NAME } from "../../lib/product";
 
 interface CatalogueRow {
   productName: string;
@@ -22,20 +23,78 @@ interface CatalogueRow {
 }
 
 const CATALOGUE: CatalogueRow[] = [
-  { productName: "VisibleAU Starter (Monthly)", envName: "STRIPE_PRICE_STARTER_MONTHLY", amountCents: 9900, interval: "month" },
-  { productName: "VisibleAU Starter (Annual)", envName: "STRIPE_PRICE_STARTER_ANNUAL", amountCents: 99000, interval: "year" },
-  { productName: "VisibleAU Growth (Monthly)", envName: "STRIPE_PRICE_GROWTH_MONTHLY", amountCents: 29900, interval: "month" },
-  { productName: "VisibleAU Growth (Annual)", envName: "STRIPE_PRICE_GROWTH_ANNUAL", amountCents: 299000, interval: "year" },
-  { productName: "VisibleAU Agency (Monthly)", envName: "STRIPE_PRICE_AGENCY_MONTHLY", amountCents: 49900, interval: "month" },
-  { productName: "VisibleAU Agency (Annual)", envName: "STRIPE_PRICE_AGENCY_ANNUAL", amountCents: 499000, interval: "year" },
-  { productName: "VisibleAU Agency Pro (Monthly)", envName: "STRIPE_PRICE_AGENCY_PRO_MONTHLY", amountCents: 149900, interval: "month" },
-  { productName: "VisibleAU Agency Pro (Annual)", envName: "STRIPE_PRICE_AGENCY_PRO_ANNUAL", amountCents: 1499000, interval: "year" },
-  { productName: "VisibleAU Single Audit (One-off)", envName: "STRIPE_PRICE_ONE_OFF_AUDIT", amountCents: 29900, interval: "one_time" },
+  {
+    productName: `${PRODUCT_NAME} Starter (Monthly)`,
+    envName: "STRIPE_PRICE_STARTER_MONTHLY",
+    amountCents: 9900,
+    interval: "month",
+  },
+  {
+    productName: `${PRODUCT_NAME} Starter (Annual)`,
+    envName: "STRIPE_PRICE_STARTER_ANNUAL",
+    amountCents: 99000,
+    interval: "year",
+  },
+  {
+    productName: `${PRODUCT_NAME} Growth (Monthly)`,
+    envName: "STRIPE_PRICE_GROWTH_MONTHLY",
+    amountCents: 29900,
+    interval: "month",
+  },
+  {
+    productName: `${PRODUCT_NAME} Growth (Annual)`,
+    envName: "STRIPE_PRICE_GROWTH_ANNUAL",
+    amountCents: 299000,
+    interval: "year",
+  },
+  {
+    productName: `${PRODUCT_NAME} Agency (Monthly)`,
+    envName: "STRIPE_PRICE_AGENCY_MONTHLY",
+    amountCents: 49900,
+    interval: "month",
+  },
+  {
+    productName: `${PRODUCT_NAME} Agency (Annual)`,
+    envName: "STRIPE_PRICE_AGENCY_ANNUAL",
+    amountCents: 499000,
+    interval: "year",
+  },
+  {
+    productName: `${PRODUCT_NAME} Agency Pro (Monthly)`,
+    envName: "STRIPE_PRICE_AGENCY_PRO_MONTHLY",
+    amountCents: 149900,
+    interval: "month",
+  },
+  {
+    productName: `${PRODUCT_NAME} Agency Pro (Annual)`,
+    envName: "STRIPE_PRICE_AGENCY_PRO_ANNUAL",
+    amountCents: 1499000,
+    interval: "year",
+  },
+  {
+    productName: `${PRODUCT_NAME} Single Audit (One-off)`,
+    envName: "STRIPE_PRICE_ONE_OFF_AUDIT",
+    amountCents: 29900,
+    interval: "one_time",
+  },
 ];
+
+/**
+ * Rebrand (15 Nov), part 1: the products were named "VisibleAU ..." until Sri renames them in the dashboard.
+ * Until then the old name still finds each one (and says to rename it), so this never creates a second
+ * product beside a product that's only waiting for its new name.
+ */
+const LEGACY_PRODUCT_PREFIX = "VisibleAU ";
 
 async function findProductByName(stripe: Stripe, name: string): Promise<Stripe.Product | null> {
   const list = await stripe.products.list({ limit: 100, active: true });
-  return list.data.find((p) => p.name === name) ?? null;
+  const current = list.data.find((p) => p.name === name);
+  if (current) return current;
+  const legacyName = name.replace(`${PRODUCT_NAME} `, LEGACY_PRODUCT_PREFIX);
+  const legacy = list.data.find((p) => p.name === legacyName);
+  if (legacy)
+    console.log(`  rename in the dashboard: "${legacy.name}" (${legacy.id}) -> "${name}"`);
+  return legacy ?? null;
 }
 
 async function findMatchingPrice(
@@ -91,7 +150,9 @@ async function main() {
         // check the default_price specifically and report the mismatch
         // rather than silently creating a second, competing price.
         const defaultPrice = await stripe.prices.retrieve(
-          typeof product.default_price === "string" ? product.default_price : product.default_price.id,
+          typeof product.default_price === "string"
+            ? product.default_price
+            : product.default_price.id,
         );
         const expected = row.interval === "one_time" ? "one_time" : row.interval;
         const actual =
@@ -137,7 +198,9 @@ async function main() {
       `  ${ok ? "OK" : "MISMATCH"}  ${envName}: ${priceId} — ${(p.unit_amount ?? 0) / 100} ${p.currency}, ${actualInterval}, active=${p.active}`,
     );
   }
-  console.log(allOk ? "\nAll 9 verified." : "\nSome prices did not verify — see MISMATCH lines above.");
+  console.log(
+    allOk ? "\nAll 9 verified." : "\nSome prices did not verify — see MISMATCH lines above.",
+  );
 }
 
 main().catch((err) => {

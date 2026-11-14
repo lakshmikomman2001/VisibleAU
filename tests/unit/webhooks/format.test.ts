@@ -4,7 +4,7 @@ import { formatForChannel } from "@/lib/webhooks/format";
 const PAYLOAD = {
   brandName: "Test Co",
   scoreComposite: 72,
-  url: "https://app.visibleau.com/audit/123",
+  url: "https://vunnara.com.au/audits/123",
   createdAt: "2026-01-01T00:00:00.000Z",
   severity: "significant_drop",
   delta: -8,
@@ -57,6 +57,8 @@ describe("formatForChannel", () => {
     expect(result).toHaveProperty("subject");
     expect(result).toHaveProperty("html");
     expect(String(result.subject)).toContain("audit.complete");
+    // Rebrand (15 Nov), part 1: the product's name, never the old one.
+    expect(result.subject).toBe("Vunnara: audit.complete");
   });
 
   it("custom: returns envelope with event/timestamp/data", () => {
@@ -91,7 +93,10 @@ describe("formatForChannel", () => {
     });
 
     it("sheets: score_basis column next to score", () => {
-      const result = formatForChannel("sheets", "audit.completed", PAYLOAD) as Record<string, unknown>;
+      const result = formatForChannel("sheets", "audit.completed", PAYLOAD) as Record<
+        string,
+        unknown
+      >;
       expect(result).toHaveProperty("score", 72);
       expect(result).toHaveProperty("score_basis", "mention_rate");
     });
@@ -113,7 +118,10 @@ describe("formatForChannel", () => {
     });
 
     it("email: score_basis + mention-rate wording", () => {
-      const result = formatForChannel("email", "audit.completed", PAYLOAD) as Record<string, unknown>;
+      const result = formatForChannel("email", "audit.completed", PAYLOAD) as Record<
+        string,
+        unknown
+      >;
       expect(result).toHaveProperty("score_basis", "mention_rate");
       expect(String(result.html)).toContain("mentioned in 72.0% of AI answers");
     });

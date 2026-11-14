@@ -22,13 +22,14 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { AppLogo } from "@/components/domain/app-logo";
 import {
   type PagedPlanFeature,
   PLAN_FEATURE_PAGE,
   PlanLockBadge,
 } from "@/components/domain/pricing/plan-lock";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { signOut } from "@/lib/auth/client";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { planIncludes, tierDisplayName } from "@/lib/pricing/tiers";
 
 interface AppSidebarProps {
@@ -116,7 +117,7 @@ export function AppSidebar(props: AppSidebarProps) {
  * overflow: hidden shell, with nothing to scroll.)
  */
 export function SidebarContent({
-  orgName = "VisibleAU",
+  orgName = PRODUCT_NAME,
   orgTier = "free",
   userName = "",
   onNavigate,
@@ -152,7 +153,7 @@ export function SidebarContent({
             gap: 8,
           }}
         >
-          <AppLogo />
+          <BrandLogo />
           {headerAction}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Resend } from "resend";
+import { PRODUCT_NAME } from "@/lib/product";
 import { maskEmail } from "./mask";
 
 export { maskEmail };
@@ -145,6 +146,10 @@ const NAMED = /^([^<>@\r\n]+?)\s*<([^<>\s]+)>$/;
  * RESEND_FROM_EMAIL as a sender: "email@domain" or "Display Name <email@domain>", on
  * one of ALLOWED_FROM_DOMAINS, and nothing shaped like a key. Not set: production has
  * no fallback; elsewhere it's DEV_FROM_ADDRESS.
+ *
+ * Rebrand (15 Nov), part 1: the name a recipient sees is always the product's. A display name that doesn't
+ * include it (an old "VisibleAU <...>", or none at all) is replaced by PRODUCT_NAME; one that does
+ * ("Vunnara Audits") is kept.
  */
 export function checkFromAddress(raw: string | undefined): FromAddressCheck {
   const value = raw?.trim() ?? "";
@@ -160,7 +165,9 @@ export function checkFromAddress(raw: string | undefined): FromAddressCheck {
   if (!ALLOWED_FROM_DOMAINS.includes(address[1].toLowerCase())) {
     return { ok: false, reason: "from_domain" };
   }
-  return { ok: true, from: value };
+  const displayName = named?.[1].trim() ?? "";
+  const sender = displayName.includes(PRODUCT_NAME) ? displayName : PRODUCT_NAME;
+  return { ok: true, from: `${sender} <${address[0]}>` };
 }
 
 /** "misconfigured": both names are set, but the from address can't be used. */

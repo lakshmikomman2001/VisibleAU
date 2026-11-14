@@ -15,11 +15,12 @@ import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { EXPORT_FILE_PREFIX, PRODUCT_NAME } from "@/lib/brand";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { customerAuditMetadata, withoutCostColumns } from "@/lib/costs/customer-safe";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
-import { buildJunit } from "@/lib/exports/junit";
+import { buildJunit, JUNIT_SUITES_NAME } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
 import { renderAuditPdf } from "@/lib/pdf/render";
 import { assetToTheme } from "@/lib/pdf/theme";
@@ -82,7 +83,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       return new Response(csv, {
         headers: {
           "Content-Type": "text/csv",
-          "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.csv"`,
+          "Content-Disposition": `attachment; filename="${EXPORT_FILE_PREFIX}-audit-${audit.auditNumber}.csv"`,
         },
       });
     }
@@ -293,7 +294,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             version: "2.1.0",
             runs: [
               {
-                tool: { driver: { name: "VisibleAU", version: "1.0.0", rules: [] } },
+                tool: { driver: { name: PRODUCT_NAME, version: "1.0.0", rules: [] } },
                 results: [
                   {
                     ruleId: "VA000",
@@ -327,7 +328,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
 
         if (format === "junit") {
           const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="VisibleAU Audit" tests="1" failures="0" skipped="1">
+<testsuites name="${JUNIT_SUITES_NAME}" tests="1" failures="0" skipped="1">
   <testsuite name="${brand?.name ?? audit.brandId}" tests="1" failures="0" skipped="1" timestamp="${audit.createdAt.toISOString()}" time="0">
     <testcase name="Audit" classname="audit.skipped" time="0">
       <skipped message="${message}"/>
@@ -443,7 +444,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
       {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition": `attachment; filename="visibleau-audit-${audit.auditNumber}.json"`,
+          "Content-Disposition": `attachment; filename="${EXPORT_FILE_PREFIX}-audit-${audit.auditNumber}.json"`,
         },
       },
     );

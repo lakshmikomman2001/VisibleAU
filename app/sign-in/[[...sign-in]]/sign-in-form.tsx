@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { CheckInbox } from "@/components/domain/auth/check-inbox";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signIn } from "@/lib/auth/client";
 import {
@@ -13,69 +14,6 @@ import {
   SESSION_ENDED_REASON,
   safeRedirectPath,
 } from "@/lib/auth/paths";
-
-function LogoMark() {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          background: "var(--accent-primary)",
-          color: "var(--accent-primary-fg)",
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          overflow: "hidden",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontWeight: 700,
-            fontSize: 14,
-            position: "relative",
-            zIndex: 1,
-          }}
-        >
-          V
-        </span>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(135deg, rgba(255,255,255,0.15), transparent 50%)",
-          }}
-        />
-      </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 16,
-            letterSpacing: "-0.02em",
-            color: "var(--text-primary)",
-          }}
-        >
-          visible
-        </span>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 16,
-            letterSpacing: "-0.02em",
-            color: "var(--text-tertiary)",
-          }}
-        >
-          au
-        </span>
-      </div>
-    </div>
-  );
-}
 
 const FEATURES = [
   "AU-first vertical content & compliance",
@@ -185,7 +123,7 @@ export function SignInForm({ invite }: { invite?: InviteSignIn }) {
 
         <div style={{ position: "relative", zIndex: 1, alignSelf: "flex-start" }}>
           <Link href="/" style={{ textDecoration: "none" }}>
-            <LogoMark />
+            <BrandLogo size="lg" />
           </Link>
         </div>
 

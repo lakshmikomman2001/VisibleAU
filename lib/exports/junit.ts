@@ -1,4 +1,5 @@
 import { create } from "xmlbuilder2";
+import { PRODUCT_NAME } from "@/lib/product";
 import {
   type CiExportInput,
   NOT_MEASURED_TEXT,
@@ -7,6 +8,9 @@ import {
   visibilityBandText,
   visibilityCheck,
 } from "./ci-checks";
+
+/** The report's <testsuites name>: it was "VisibleAU Audit" until the rebrand (15 Nov, part 1). */
+export const JUNIT_SUITES_NAME = `${PRODUCT_NAME} Audit`;
 
 export interface JunitAuditInput extends CiExportInput {
   id: string;
@@ -31,7 +35,7 @@ export function buildJunit(audit: JunitAuditInput): string {
   const tests = 5;
 
   const root = create({ version: "1.0", encoding: "UTF-8" }).ele("testsuites", {
-    name: "VisibleAU Audit",
+    name: JUNIT_SUITES_NAME,
     tests,
     failures,
     skipped,

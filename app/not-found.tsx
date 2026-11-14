@@ -1,10 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay, type VisibilityDisplay } from "@/lib/scoring/visibility-display";
@@ -76,6 +78,13 @@ export default async function NotFound() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
+      <Link
+        href={isAuthenticated ? "/dashboard" : "/"}
+        aria-label={`${PRODUCT_NAME} home`}
+        className="mb-4"
+      >
+        <BrandLogo size="lg" />
+      </Link>
       <h1 className="text-6xl font-bold text-muted-foreground">404</h1>
       <p className="text-lg text-muted-foreground">Couldn&apos;t find that page.</p>
       <a

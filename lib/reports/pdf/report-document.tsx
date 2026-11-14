@@ -18,6 +18,7 @@ import {
 } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { BRAND_MARK } from "@/lib/brand";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -196,20 +197,14 @@ const s = {
 
 // ------------------------------------------------------------ shared parts
 
-function Mark({ size, font }: { size: number; font: number }) {
+/** The mark (lib/brand.ts): the same square and letter as the app, the icons and the emails. */
+function Mark({ size }: { size: number }) {
+  const box = BRAND_MARK.viewBox;
   return (
-    <View
-      style={{
-        width: px(size),
-        height: px(size),
-        borderRadius: px(size * 0.28),
-        backgroundColor: C.brand,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Text style={{ color: C.white, fontSize: px(font), fontWeight: 700 }}>V</Text>
-    </View>
+    <Svg width={px(size)} height={px(size)} viewBox={`0 0 ${box} ${box}`}>
+      <Rect x={0} y={0} width={box} height={box} rx={BRAND_MARK.radius} fill={C.brand} />
+      <Path d={BRAND_MARK.glyphPath} fill={C.white} />
+    </Svg>
   );
 }
 
@@ -233,7 +228,7 @@ function RunningHeader({ title }: { title: string }) {
       }}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: px(8) }}>
-        <Mark size={18} font={11} />
+        <Mark size={18} />
         <Text
           style={{ fontSize: px(11), fontWeight: 700, color: C.ink, letterSpacing: ls(11, 0.02) }}
         >
@@ -482,7 +477,7 @@ export function CoverTopBar({
       )}
       <View style={{ flexDirection: "row", alignItems: "center", gap: px(6) }}>
         <Text style={{ fontSize: px(9.5), color: C.coverMuted }}>Powered by</Text>
-        <Mark size={16} font={10} />
+        <Mark size={16} />
         <Text style={{ fontSize: px(9.5), fontWeight: 700 }}>{PRODUCT_NAME}</Text>
       </View>
     </View>

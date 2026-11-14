@@ -31,6 +31,9 @@ const PUBLIC_ROUTES = [
   "/terms",
   "/robots.txt",
   "/sitemap.xml",
+  // Rebrand (15 Nov), part 1: the web manifest (app/manifest.ts) -- a browser fetches it without a session.
+  // The icons (.ico, .svg, .png) never reach the middleware (config.matcher below).
+  "/manifest.webmanifest",
   // The tracking snippet a site owner copies, under its name and its old one (Playwright-run follow-ups,
   // 10 Nov): opened without a session, it was a 307 to /sign-in.
   TRACKING_SNIPPET_PATH,

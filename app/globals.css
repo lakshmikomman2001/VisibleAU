@@ -34,7 +34,7 @@ body {
 }
 
 /* ================================================================
-   VisibleAU Design Tokens — source: visibleau-prototype-v2.59.jsx
+   Design tokens -- source: the v2.59 design prototype.
    Scoped to [data-theme="dark|light"] on <html>.
    ================================================================ */
 
@@ -141,6 +141,9 @@ body:has([data-app-shell]) {
      (tests/unit/design/token-contrast.test.ts). Only lightness moved, so each hue stays: --accent-blue was
      #3b82f6 (4.02:1 on its tint over a card) and --accent-red/--danger #ef4444 (4.19:1 on theirs). */
   --accent-primary: #ffffff; --accent-primary-fg: #09090b; --accent-muted: #27272a;
+  /* Rebrand (15 Nov), part 1: the logo mark -- lib/brand.ts BRAND_COLORS, the same in both themes (the PDF's
+     blue). A fill, never text: 3.9:1 on --bg-base here; its V, --brand-mark-fg, is 5.2:1 on it. */
+  --brand-mark: #2563eb; --brand-mark-fg: #ffffff;
   --accent-blue: #5190f7; --accent-blue-soft: rgba(81,144,247,0.15);
   /* Text on an --accent-blue button (white on it is 3.1:1 here). */
   --accent-blue-fg: #09090b;
@@ -170,6 +173,8 @@ body:has([data-app-shell]) {
      --success #16a34a (3.00:1 on --bg-subtle), --accent-amber and --warning #d97706 (2.90:1), --info #0891b2
      (3.35:1), --accent-red and --danger #dc2626 (4.39:1), --accent-blue #2563eb (4.45:1 on its tint). */
   --accent-primary: #18181b; --accent-primary-fg: #fafafa; --accent-muted: #f4f4f5;
+  /* The logo mark, as in dark: 4.9:1 on --bg-base here. */
+  --brand-mark: #2563eb; --brand-mark-fg: #ffffff;
   --accent-blue: #2160eb; --accent-blue-soft: rgba(33,96,235,0.08);
   --accent-blue-fg: #ffffff;
   --accent-red: #cf2121; --accent-green: #117c38; --accent-amber: #a25904;

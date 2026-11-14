@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { EXPORT_FILE_PREFIX } from "@/lib/brand";
 import { roleRefusal } from "@/lib/governance";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
@@ -179,7 +180,7 @@ export async function POST(req: Request) {
       status: 200,
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="visibleau-export-${formatInOrgTimezone(new Date(), currentUser.organizationId, "yyyy-MM-dd")}.csv"`,
+        "Content-Disposition": `attachment; filename="${EXPORT_FILE_PREFIX}-export-${formatInOrgTimezone(new Date(), currentUser.organizationId, "yyyy-MM-dd")}.csv"`,
       },
     });
   });

@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 interface Props {
   orgName: string;
@@ -39,7 +40,7 @@ export default function WelcomeModal({ orgName }: Props) {
         </div>
 
         <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
-          Welcome to VisibleAU!
+          Welcome to {PRODUCT_NAME}!
         </h2>
 
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>

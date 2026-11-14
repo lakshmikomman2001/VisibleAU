@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/product";
 import { SCORE_BASIS } from "../events";
 
 export function formatDiscord(eventName: string, payload: Record<string, unknown>) {
@@ -28,7 +29,7 @@ export function formatDiscord(eventName: string, payload: Record<string, unknown
           { name: "Delta", value: deltaStr, inline: true },
         ],
         url: payload.url ?? undefined,
-        footer: { text: "VisibleAU" },
+        footer: { text: PRODUCT_NAME },
         timestamp: new Date().toISOString(),
       },
     ],

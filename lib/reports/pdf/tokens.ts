@@ -4,6 +4,7 @@
  * prototype is in CSS px at 96 dpi; react-pdf lays out in points:
  * 1 px = 0.75 pt (A4 = 794 x 1123 px = 595 x 842 pt).
  */
+import { BRAND_COLORS } from "@/lib/brand";
 
 /** CSS px -> PDF points. */
 export const px = (n: number): number => n * 0.75;
@@ -18,7 +19,8 @@ export const C = {
   line: "#E2E8F0",
   surface: "#F8FAFC",
   surface2: "#F1F5F9",
-  brand: "#2563EB",
+  /** The mark's blue (lib/brand.ts), the app's and the icons' too. */
+  brand: BRAND_COLORS.mark,
   brandSoft: "#DBEAFE",
   /** Deviation: the prototype's brand blue on brand-soft is 4.2:1; chips
    * use blue-700 to reach 4.5:1. */

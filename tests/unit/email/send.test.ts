@@ -200,14 +200,30 @@ describe("the from address is checked before anything is sent", () => {
     expect(JSON.stringify(captureMessage.mock.calls)).not.toContain(KEY_AS_FROM);
   });
 
+  // Rebrand (15 Nov), part 1: the recipient always sees the product's name -- a bare address, or a display name
+  // without it, is sent as "Vunnara <address>"; a name that has it is kept.
   it.each([
-    ["a bare address", "audits@vunnara.com.au"],
-    ["a display name and an address", "Vunnara <audits@vunnara.com.au>"],
-  ])("%s on vunnara.com.au is sent as it is", async (_label, from) => {
+    ["a bare address", "audits@vunnara.com.au", "Vunnara <audits@vunnara.com.au>"],
+    [
+      "a display name and an address",
+      "Vunnara <audits@vunnara.com.au>",
+      "Vunnara <audits@vunnara.com.au>",
+    ],
+    [
+      "the old product's name",
+      "VisibleAU <audits@vunnara.com.au>",
+      "Vunnara <audits@vunnara.com.au>",
+    ],
+    [
+      "a name with the product's in it",
+      "Vunnara Audits <audits@vunnara.com.au>",
+      "Vunnara Audits <audits@vunnara.com.au>",
+    ],
+  ])("%s on vunnara.com.au is sent from Vunnara", async (_label, from, sent) => {
     vi.stubEnv("RESEND_FROM_EMAIL", from);
     sendMock.mockResolvedValue({ data: { id: "em_1" }, error: null, headers: null });
     expect((await sendEmail(INPUT)).ok).toBe(true);
-    expect(sendMock.mock.calls[0][0].from).toBe(from);
+    expect(sendMock.mock.calls[0][0].from).toBe(sent);
     expect(emailBackendStatus()).toBe("resend");
     expect(loggedEvents().some((e) => e.event === "email_config_invalid")).toBe(false);
   });

@@ -5,6 +5,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { auditModels } from "@/lib/audit/model-drift";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { getOverviewMonth, monthWindowLabel } from "@/lib/dashboard/overview-cards";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -368,8 +369,8 @@ export default async function AgencyDashboardPage() {
         <div className="rounded-lg border bg-card p-6">
           <h2 className="text-lg font-semibold mb-4">Client-Facing Portals</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Each client gets a read-only portal showing their brand&apos;s data — your branding, no
-            VisibleAU.
+            Each client gets a read-only portal showing their brand&apos;s data — your branding, not
+            {PRODUCT_NAME}&apos;s.
           </p>
           <p className="text-sm mb-4">
             <span className="text-2xl font-bold">{activePortals}</span>{" "}

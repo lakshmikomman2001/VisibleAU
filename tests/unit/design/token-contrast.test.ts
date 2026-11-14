@@ -126,9 +126,11 @@ describe("theme tokens: text on every surface is WCAG AA", () => {
 /**
  * Not text colours: surfaces, borders, tints, button-text tokens (checked on their fill), disabled text, and
  * :root's two aliases (--background is --bg-base; --foreground is --text-primary, checked under that name).
+ * Rebrand (15 Nov), part 1: --brand-mark is the logo mark's square, a fill (its V is --brand-mark-fg, checked
+ * on it like every -fg token; the square's own 3:1 on each surface is tests/unit/brand/brand-mark.test.tsx).
  */
 const NOT_TEXT =
-  /^--bg-|^--border-|-soft$|-fg$|^--accent-muted$|^--text-disabled$|^--(background|foreground)$|^--switch-thumb$/;
+  /^--bg-|^--border-|-soft$|-fg$|^--accent-muted$|^--text-disabled$|^--(background|foreground)$|^--switch-thumb$|^--brand-mark$/;
 /**
  * The surfaces text rests on: the three page surfaces, and (GST-free pricing, 11 Nov, part 2) a hovered row
  * (--bg-hover) and a selected or active one (--accent-muted). --bg-active only ever fills a dot, a bar or an

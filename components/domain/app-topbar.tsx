@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { RefObject } from "react";
 import { WorkspaceSwitcher } from "@/components/domain/agency/workspace-switcher";
-import { AppLogo } from "@/components/domain/app-logo";
 import { useOverrideBreadcrumbs } from "@/components/domain/breadcrumb-context";
 import { MAIN_MENU_ID } from "@/components/domain/mobile-nav-drawer";
 import { NewBrandButton } from "@/components/domain/new-brand-button";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import type { BrandUsage } from "@/lib/brands/limits";
 import { type Breadcrumbs, breadcrumbsForPath, type Crumb } from "@/lib/navigation/breadcrumbs";
@@ -84,7 +84,7 @@ export function AppTopbar({
           <Menu style={{ width: 20, height: 20 }} />
         </button>
         <div className="lg:hidden shrink-0">
-          <AppLogo />
+          <BrandLogo />
         </div>
         <nav aria-label="Breadcrumb" className="hidden lg:block min-w-0">
           <ol

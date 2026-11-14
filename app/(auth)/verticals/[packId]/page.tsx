@@ -6,6 +6,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
 import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 
 const CATEGORY_SAMPLES: Record<string, string> = {
@@ -348,7 +349,8 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
         />
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           Vertical packs are continuously updated based on AU search behaviour. New prompts added
-          monthly. Prompt editing ships in v1.1 — packs are currently curated by the VisibleAU team.
+          monthly. Prompt editing ships in v1.1 — packs are currently curated by the {PRODUCT_NAME}{" "}
+          team.
         </p>
       </div>
     </div>

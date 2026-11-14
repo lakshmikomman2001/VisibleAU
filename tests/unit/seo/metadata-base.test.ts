@@ -42,7 +42,8 @@ describe("the production site's address", () => {
   it("is the root layout's metadataBase, so every page below it resolves relative URLs there", async () => {
     const { metadata } = await import("@/app/layout");
     expect(String(metadata.metadataBase)).toBe("https://vunnara.com.au/");
-    expect(metadata.title).toBe(PRODUCT_NAME);
+    // Rebrand (15 Nov), part 1: "Vunnara" on a page that names nothing, "<title> | Vunnara" on one that does.
+    expect(metadata.title).toEqual({ default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` });
   }, 30_000);
 });
 
@@ -54,7 +55,9 @@ describe("each public page's metadata", () => {
     const expected = `https://vunnara.com.au${path}`;
     expect(meta.alternates?.canonical).toBe(expected);
     expect((meta.openGraph as { url?: string } | undefined)?.url).toBe(expected);
-    expect(String(meta.title)).toContain(PRODUCT_NAME);
+    // Absolute, so the root layout's "%s | Vunnara" template doesn't name the product twice.
+    expect((meta.title as { absolute: string }).absolute).toContain(PRODUCT_NAME);
+    expect((meta.title as { absolute: string }).absolute.split(PRODUCT_NAME)).toHaveLength(2);
     expect(JSON.stringify(meta)).not.toMatch(/visibleau|localhost/i);
   }, 30_000);
 
@@ -70,9 +73,10 @@ describe("each public page's metadata", () => {
   });
 
   it("names no image that isn't in public/", () => {
-    const meta = buildMetadata({ path: "/" }) as { openGraph: { images?: string[] } };
-    for (const image of meta.openGraph.images ?? []) {
-      expect(existsSync(join(process.cwd(), "public", image)), image).toBe(true);
+    const meta = buildMetadata({ path: "/" });
+    expect(meta.openGraph.images.length).toBeGreaterThan(0);
+    for (const image of [...meta.openGraph.images, ...meta.twitter.images]) {
+      expect(existsSync(join(process.cwd(), "public", image.url)), image.url).toBe(true);
     }
   });
 });

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { PRODUCT_NAME } from "../lib/product";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -44,7 +45,7 @@ const products = [
 async function main() {
   for (const p of products) {
     const product = await stripe.products.create({
-      name: `VisibleAU ${p.name}`,
+      name: `${PRODUCT_NAME} ${p.name}`,
       metadata: {
         tier: p.id,
         brands: String(p.brands),
@@ -76,7 +77,7 @@ async function main() {
   }
 
   const oneOff = await stripe.products.create({
-    name: "VisibleAU One-off Audit",
+    name: `${PRODUCT_NAME} One-off Audit`,
     metadata: { type: "one_off_audit" },
   });
   await stripe.prices.create({

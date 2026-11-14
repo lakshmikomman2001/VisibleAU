@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/product";
 import { formatAirtable } from "./channels/airtable";
 import { formatCustomHttp } from "./channels/custom-http";
 import { formatDiscord } from "./channels/discord";
@@ -32,10 +33,12 @@ export function formatForChannel(channel: string, eventName: string, payload: un
     case "email": {
       const score = p.scoreComposite ?? p.currentScore;
       const scoreText =
-        score == null ? "not enough data yet" : `mentioned in ${Number(score).toFixed(1)}% of AI answers`;
+        score == null
+          ? "not enough data yet"
+          : `mentioned in ${Number(score).toFixed(1)}% of AI answers`;
       return {
         to: p.url ?? "",
-        subject: `VisibleAU: ${eventName}`,
+        subject: `${PRODUCT_NAME}: ${eventName}`,
         html: `<p>${p.brandName ?? "Brand"} — ${scoreText}</p><a href="${p.url ?? ""}">View audit</a>`,
         score_basis: SCORE_BASIS,
       };

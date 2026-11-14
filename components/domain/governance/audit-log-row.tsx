@@ -30,7 +30,18 @@ const ACTION_LABELS: Record<string, string> = {
   member_role_changed: "Changed member role",
   member_removed: "Removed member",
   report_branding_changed: "Changed report branding",
+  trend_exclusion_changed: "Changed which audits count in trends",
 };
+
+/**
+ * 15 Nov, part 3: an entry that carries its own sentence (metadata.summary: "Vunnara excluded audit #46 from
+ * trends: …") shows it; an entry with no member behind it names who did it (metadata.changedBy: "Vunnara"),
+ * never "System".
+ */
+function summaryOf(entry: AuditLogEntry): string | null {
+  const summary = entry.metadata?.summary;
+  return entry.action === "trend_exclusion_changed" && typeof summary === "string" ? summary : null;
+}
 
 function truncateValue(v: unknown): string {
   const s = typeof v === "string" ? v : JSON.stringify(v);
@@ -39,12 +50,15 @@ function truncateValue(v: unknown): string {
 }
 
 export function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
-  const label = ACTION_LABELS[entry.action] ?? entry.action;
+  const label = summaryOf(entry) ?? ACTION_LABELS[entry.action] ?? entry.action;
   // An actor the workspace can't name any more (they left before names were kept with each entry) is
   // still a person, never "System".
+  const changedBy = entry.metadata?.changedBy;
   const actor = entry.actor
     ? (entry.actor.name ?? entry.actor.email ?? "A former member")
-    : "System";
+    : entry.action === "trend_exclusion_changed" && typeof changedBy === "string"
+      ? changedBy
+      : "System";
   const ts = new Date(entry.createdAt);
   const panelId = useId();
 

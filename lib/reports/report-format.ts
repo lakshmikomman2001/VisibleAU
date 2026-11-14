@@ -1,4 +1,5 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { PRODUCT_NAME } from "@/lib/product";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
 import { type HeadlineColorBand, headlineColorBand } from "@/lib/scoring/headline-color";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
@@ -192,6 +193,38 @@ export function trendLeftOutLine(data: ReportData): string | null {
   return `The chart shows the latest ${data.trend.points.length} audits; ${n} earlier ${plural(n, "audit is", "audits are")} left out.`;
 }
 
+/**
+ * 14 Nov, part 5: "Audit #46 is left out of this chart and every comparison: measured with an earlier version of
+ * the mention check." -- each excluded audit in the chart's window (ReportTrend.excluded), never silently missing.
+ */
+export function excludedTrendLines(data: ReportData): string[] {
+  return (data.trend.excluded ?? []).map(
+    (e) => `Audit #${e.auditNumber} is left out of this chart and every comparison: ${e.reason}.`,
+  );
+}
+
+/**
+ * What the chart's caption says about its points, before the comparison: each partial audit, each change of
+ * methodology or everyday questions, other models, model drift, earlier audits left out, and audits excluded from
+ * trends. 15 Nov, part 3: one list for the PDF's caption and for trendLines -- the PDF built its own and never
+ * named an excluded audit (Hero's #46), though trendLines did.
+ */
+export function trendNoteLines(data: ReportData): string[] {
+  const points = data.trend.points;
+  // 2 Nov follow-up, item 2: a partial audit is on the chart, hollow, and
+  // the comparison uses only like-for-like audits (trend.change).
+  return [
+    ...points.filter((p) => p.partial).map(partialTrendLine),
+    ...points.map(methodologyChangeTrendLine),
+    ...questionChangeTrendLines(points),
+    // Methodology v2.2 (7 Nov), part 3: other models than the basis audit's, and model drift.
+    ...otherModelsTrendLines(points),
+    ...points.map(modelDriftTrendLine),
+    trendLeftOutLine(data),
+    ...excludedTrendLines(data),
+  ].filter((line): line is string => !!line);
+}
+
 /** The trend, as measured -- never "trending up" unless the drift rule says the change is real. */
 export function trendLines(data: ReportData): string[] {
   const t = data.trend;
@@ -203,30 +236,23 @@ export function trendLines(data: ReportData): string[] {
   if (t.points.length > 1) {
     lines.push(`${shown.join(" → ")} across Audits #${numbers[0]}–#${numbers[numbers.length - 1]}`);
   }
-  // 2 Nov follow-up, item 2: a partial audit is on the chart, hollow, and
-  // the comparison below uses only like-for-like audits (trend.change).
-  for (const p of t.points.filter((p) => p.partial)) lines.push(partialTrendLine(p));
-  for (const p of t.points) {
-    const change = methodologyChangeTrendLine(p);
-    if (change) lines.push(change);
-  }
-  lines.push(...questionChangeTrendLines(t.points));
-  lines.push(...otherModelsTrendLines(t.points));
-  for (const p of t.points) {
-    const drift = modelDriftTrendLine(p);
-    if (drift) lines.push(drift);
-  }
-  const leftOut = trendLeftOutLine(data);
-  if (leftOut) lines.push(leftOut);
-  // 14 Nov, part 5: an audit an operator excluded is named, with why, never silently missing.
-  for (const e of t.excluded ?? []) {
-    lines.push(
-      `Audit #${e.auditNumber} is left out of this chart and every comparison: ${e.reason}.`,
-    );
-  }
+  lines.push(...trendNoteLines(data));
   const comparison = trendComparisonLine(data);
   if (comparison) lines.push(comparison);
   return lines;
+}
+
+/**
+ * 15 Nov, part 3: section 08's "What's excluded" line for audits Vunnara excluded from trends -- each in this
+ * report's trend window, with the reason; said even when there's none, so the reader knows it can happen.
+ */
+export function excludedAuditsMethodItem(data: ReportData): string {
+  const excluded = data.trend.excluded ?? [];
+  if (excluded.length === 0) {
+    return `Audits ${PRODUCT_NAME} excluded from trends, with the reason (none in this report)`;
+  }
+  const named = excluded.map((e) => `#${e.auditNumber}: ${e.reason}`).join("; ");
+  return `Audits ${PRODUCT_NAME} excluded from trends, from the chart and every comparison (${named})`;
 }
 
 /** The first vs latest like-for-like audit, by the drift rule; null with no comparison to state. */

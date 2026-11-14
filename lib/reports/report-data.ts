@@ -177,7 +177,11 @@ export interface ReportTrend {
   change: { fromAuditNumber: number; toAuditNumber: number; severity: DriftSeverity } | null;
   /** Earlier audits that would be on the chart but for TREND_MAX_POINTS. */
   leftOut: number;
-  /** 14 Nov, part 5: audits an operator excluded from trends, left off the chart and every comparison. */
+  /**
+   * 14 Nov, part 5: audits an operator excluded from trends, left off the chart and every comparison. 15 Nov,
+   * part 3: the ones in the chart's window -- the chart would have shown them had they counted: newer than its
+   * oldest point, or any when nothing earlier is left out. The caption and section 08 name each, with the reason.
+   */
   excluded?: Array<{ auditNumber: number; reason: string }>;
 }
 
@@ -710,9 +714,17 @@ export async function buildReportData(
   // from the name-matching bug), the basis included; the caption names it.
   const wouldChart = (a: Candidate) =>
     a.id === basis.id || inPeriod(a) || a.completedAt < basis.completedAt;
-  const excludedFromChart = complete.filter((a) => wouldChart(a) && isExcludedFromTrends(a));
   const trendEligible = complete.filter((a) => wouldChart(a) && !isExcludedFromTrends(a));
   const trendAudits = trendEligible.slice(0, TREND_MAX_POINTS).reverse();
+  // 15 Nov, part 3: only the excluded audits in the chart's window are named; one before the window (the chart
+  // full of later audits) would no more be on it than a counted one.
+  const nothingLeftOut = trendEligible.length <= TREND_MAX_POINTS;
+  const excludedFromChart = complete.filter(
+    (a) =>
+      wouldChart(a) &&
+      isExcludedFromTrends(a) &&
+      (nothingLeftOut || trendAudits.length === 0 || a.completedAt > trendAudits[0].completedAt),
+  );
   // 15 Nov, part 2: where the everyday questions change along the chart, what changed.
   const questionNotes = await questionChangeNotes(db, trendAudits);
 

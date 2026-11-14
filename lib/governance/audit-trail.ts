@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import { type DbClient, serviceDb } from "@/db/client";
 import { auditTrail, users } from "@/db/schema";
 
 /**
@@ -32,7 +32,13 @@ export type AuditAction =
   | "member_removed"
   | "directory_listing_confirmed"
   /** 2 Nov: Account -> Report branding saved, or a brand's override removed. */
-  | "report_branding_changed";
+  | "report_branding_changed"
+  /**
+   * 15 Nov, part 3 (Sri's decision): Vunnara excluded one of the workspace's audits from trends, included it
+   * again, or changed why (lib/admin/trend-exclusions.ts). metadata.summary is the sentence the trail shows:
+   * "Vunnara excluded audit #46 from trends: measured with an earlier version of the mention check".
+   */
+  | "trend_exclusion_changed";
 
 export type AuditResourceType =
   | "audit"
@@ -63,15 +69,24 @@ export interface RecordActionParams {
   userAgent?: string;
 }
 
-export async function recordAction(params: RecordActionParams): Promise<void> {
+/**
+ * Writes one entry to the workspace's audit trail. `db` is the connection to write it on: by default the service
+ * connection; 15 Nov, part 3: a caller already in a transaction under the workspace's RLS context
+ * (withRlsContext) passes it, so the entry is written with that change, through the workspace's own insert policy
+ * (audit_trail_org_insert), no bypass.
+ */
+export async function recordAction(
+  params: RecordActionParams,
+  db: DbClient = serviceDb,
+): Promise<void> {
   // The actor's own profile, by its id: the name it acted under.
   const [actor] = params.userId
-    ? await serviceDb.select({ name: users.name }).from(users).where(eq(users.id, params.userId))
+    ? await db.select({ name: users.name }).from(users).where(eq(users.id, params.userId))
     : [];
   const metadata = actor?.name
     ? { ...(params.metadata ?? {}), [ACTOR_NAME_KEY]: actor.name }
     : (params.metadata ?? null);
-  await serviceDb.insert(auditTrail).values({
+  await db.insert(auditTrail).values({
     organizationId: params.organizationId,
     userId: params.userId ?? null,
     action: params.action,

@@ -284,6 +284,8 @@ export async function seedReportFixture(
     await sql`DELETE FROM audits WHERE brand_id = ${brandId}`;
     await sql`DELETE FROM brands WHERE id = ${brandId}`;
     await sql`DELETE FROM subscriptions WHERE organization_id = ${orgId}`;
+    // 15 Nov, part 3: an operator's trend exclusion writes to the workspace's audit trail.
+    await sql`DELETE FROM audit_trail WHERE organization_id = ${orgId}`;
     await sql`DELETE FROM organizations WHERE id = ${orgId}`;
   };
 

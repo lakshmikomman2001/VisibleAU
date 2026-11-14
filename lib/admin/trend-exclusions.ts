@@ -1,6 +1,6 @@
 import { endOfISOWeek, startOfISOWeek } from "date-fns";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import { serviceDb, withRlsContext } from "@/db/client";
 import {
   audits,
   brands,
@@ -10,6 +10,8 @@ import {
   visibilityTrends,
 } from "@/db/schema";
 import { normalizeTrendExclusionReason } from "@/lib/audit/trend-exclusion";
+import { recordAction } from "@/lib/governance/audit-trail";
+import { PRODUCT_NAME } from "@/lib/product";
 import { refreshWeeklyVisibilityTrend } from "@/lib/visibility/refresh-weekly-trend";
 import {
   formatPeriodLabel,
@@ -24,6 +26,12 @@ import {
  * visibility_trends recomputed without it (lib/visibility/refresh-weekly-trend.ts, what the aggregate-
  * visibility-trend function runs), so the Visibility page and the wins feed stop counting it too. Nothing
  * is deleted: the audit, its answers and its PDFs stay. Only reached after checkPlatformAdmin.
+ *
+ * 15 Nov, part 3 (Sri's decision): every change is also written to that workspace's own Audit Trail ("Vunnara
+ * excluded audit #46 from trends: measured with an earlier version of the mention check"), so the customer sees
+ * every change Vunnara makes to their data. The whole change runs in one transaction under the workspace's RLS
+ * context (withRlsContext, the app's role): the audit, the trend rows and the trail entry are written through the
+ * workspace's own policies, never around them. feature_setting_changes is the operator's table (no RLS).
  */
 
 /** feature_setting_changes.setting_key for these changes. /admin/settings' history leaves them out. */
@@ -192,7 +200,7 @@ export async function setAuditTrendExclusion(
     r === null ? null : { auditId: audit.id, auditNumber: audit.auditNumber, reason: r };
   const completedAt = audit.completedAt;
 
-  await serviceDb.transaction(async (tx) => {
+  await withRlsContext(audit.organizationId, async (tx) => {
     await tx
       .update(audits)
       .set({ excludedFromTrendsReason: reason })
@@ -232,6 +240,42 @@ export async function setAuditTrendExclusion(
         completedAt,
       });
     }
+    // The workspace's own record of it, with the change (no user: the actor is Vunnara, not a member).
+    await recordAction(
+      {
+        organizationId: audit.organizationId,
+        userId: null,
+        action: "trend_exclusion_changed",
+        resourceType: "audit",
+        resourceId: audit.id,
+        metadata: {
+          summary: trendExclusionTrailSummary(audit.auditNumber, before, reason),
+          auditNumber: audit.auditNumber,
+          ...(before !== null ? { previousReason: before } : {}),
+          ...(reason !== null ? { reason } : {}),
+          changedBy: PRODUCT_NAME,
+        },
+      },
+      tx,
+    );
   });
   return "saved";
+}
+
+/**
+ * What the workspace's Audit Trail says for a change: "Vunnara excluded audit #46 from trends: measured with an
+ * earlier version of the mention check", "Vunnara included audit #46 in trends again (it was excluded: …)", or
+ * "Vunnara changed why audit #46 is excluded from trends: … (was: …)".
+ */
+export function trendExclusionTrailSummary(
+  auditNumber: number,
+  before: string | null,
+  after: string | null,
+): string {
+  if (after === null) {
+    return `${PRODUCT_NAME} included audit #${auditNumber} in trends again (it was excluded: ${before ?? "no reason recorded"})`;
+  }
+  if (before === null)
+    return `${PRODUCT_NAME} excluded audit #${auditNumber} from trends: ${after}`;
+  return `${PRODUCT_NAME} changed why audit #${auditNumber} is excluded from trends: ${after} (was: ${before})`;
 }

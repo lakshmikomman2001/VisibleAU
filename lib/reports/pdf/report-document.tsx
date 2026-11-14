@@ -34,18 +34,14 @@ import {
   basisReasonText,
   citedDirectories,
   coverageLine,
+  excludedAuditsMethodItem,
   headlineFigures,
   locationText,
-  methodologyChangeTrendLine,
-  modelDriftTrendLine,
-  otherModelsTrendLines,
-  partialTrendLine,
   periodFull,
   periodTitle,
   plural,
-  questionChangeTrendLines,
   trendComparisonLine,
-  trendLeftOutLine,
+  trendNoteLines,
   trendPointHollow,
 } from "../report-format";
 import { countWord, reportNarrative } from "../report-narrative";
@@ -2137,15 +2133,10 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
   // 2 Nov follow-up, item 2: each hollow point's own line ("Audit #37 used
   // 3 of 4 engines (Claude: …), so it's shown but not compared."), any
   // earlier audits left out, then the comparison -- like-for-like audits only.
+  // 15 Nov, part 3: the notes are trendNoteLines, the same as trendLines, so an
+  // audit excluded from trends is named here too (it never was).
   const caption = [
-    ...points.filter((p) => p.partial).map(partialTrendLine),
-    ...points.map(methodologyChangeTrendLine),
-    // 15 Nov, part 2: where the everyday questions changed, said, and the line breaks there.
-    ...questionChangeTrendLines(points),
-    // Methodology v2.2 (7 Nov), part 3: other models than the basis audit's, and model drift.
-    ...otherModelsTrendLines(points),
-    ...points.map(modelDriftTrendLine),
-    trendLeftOutLine(data),
+    ...trendNoteLines(data),
     data.trend.comparableCount < data.trend.minimum
       ? `Not enough comparable audits for a trend yet (minimum ${data.trend.minimum}); figures are shown as measured, without a trend claim.`
       : trendComparisonLine(data),
@@ -2359,6 +2350,8 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
             "Answers that failed (errors are shown, never counted)",
             "Branded questions, from the headline",
             "Engines that failed every question, from comparisons over time",
+            // 15 Nov, part 3: audits Vunnara excluded from trends, with the reason.
+            excludedAuditsMethodItem(data),
           ].map((item) => (
             <View
               key={item}

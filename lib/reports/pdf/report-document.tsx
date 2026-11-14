@@ -2316,7 +2316,9 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
     ["Source cited", "How many of your mentions linked to a web page as their source."],
     [
       "Directory citation",
-      'An answer that links a directory page (e.g. hipages). "Your profile" means the link goes to your own listing, which we can only check once you add your profile links.',
+      // 16 Nov, part 3: the example is one of this brand's own directories ("e.g. Yellow Pages" for a café), never
+      // hipages for everyone; none when the brand has no directory list (software).
+      `An answer that links a directory page${data.directories.rows[0] ? ` (e.g. ${data.directories.rows[0].name})` : ""}. "Your profile" means the link goes to your own listing, which we can only check once you add your profile links.`,
     ],
   ];
   return (

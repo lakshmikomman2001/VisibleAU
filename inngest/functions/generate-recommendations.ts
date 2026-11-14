@@ -102,6 +102,7 @@ export const generateRecommendations = inngest.createFunction(
             scoreComposite: audit.scoreComposite,
             confidenceIntervals: audit.confidenceIntervals,
             vertical: brand.vertical,
+            categories: brand.categories,
             mentionDetail: counts
               ? {
                   mentionedCount: counts.mentionedCount,

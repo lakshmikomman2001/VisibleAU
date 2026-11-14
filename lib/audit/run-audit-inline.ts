@@ -692,6 +692,7 @@ export async function runAuditInline(
             scoreComposite: headline.toFixed(2),
             confidenceIntervals: cis,
             vertical: b.vertical,
+            categories: b.categories,
             mentionDetail: {
               mentionedCount: counts.mentionedCount,
               rankedCount: counts.rankedCount,

@@ -385,11 +385,14 @@ describe("the sweep: the same shape elsewhere", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
-  it("Sample prompts: a failed fetch is an error, not a vanished preview", async () => {
+  it("Sample questions: nothing to fail -- drawn from the audit's own templates, no request made", async () => {
+    // 16 Nov, part 3: the wizard's preview no longer fetches the shared pack's prompts (plumber questions for
+    // everyone); it renders lib/prompts/wizard-preview.ts's questions for the vertical picked.
     stubFetch();
     const { PromptPreview } = await import("@/components/domain/vertical/prompt-preview");
-    render(<PromptPreview packId="p1" brandName="Omega" primaryRegion="NSW:Norwest" />);
-    await expectLoadError(/Couldn't load the sample prompts/);
+    render(<PromptPreview vertical="allied_health" primaryRegion="NSW:Norwest" />);
+    expect(screen.getAllByText(/Norwest/).length).toBeGreaterThan(0);
+    expect(calls).toEqual([]);
   });
 
   it("A prompt's trend: a failed fetch is an error, not 'Not enough history yet'", async () => {

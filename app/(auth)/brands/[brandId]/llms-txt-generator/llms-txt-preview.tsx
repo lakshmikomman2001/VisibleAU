@@ -74,15 +74,31 @@ const VERTICAL_TEMPLATES: Record<
     ],
     blog: "Product updates and industry insights",
   },
+  // 16 Nov, part 3: every other business (a café, a gym, a law firm, an agent...) gets this, not the tradie template
+  // ("24/7 callouts", "How much does a callout cost?") -- and it claims nothing the business would have to check.
+  local: {
+    tagline: ["Local business serving {regions}.", "Our services, hours and contact details."],
+    services: [
+      { name: "About us", slug: "about", desc: "Who we are and what we do" },
+      { name: "Services", slug: "services", desc: "What we offer" },
+      { name: "Contact", slug: "contact", desc: "How to reach us" },
+    ],
+    faqs: [
+      { q: "What areas do you serve?", anchor: "areas" },
+      { q: "What are your opening hours?", anchor: "hours" },
+      { q: "How do I get in touch?", anchor: "contact" },
+    ],
+    blog: "News and updates",
+  },
 };
 
-function generateLlmsTxt(
+export function generateLlmsTxt(
   brandName: string,
   domain: string,
   vertical: string,
   regions: string,
 ): string {
-  const tmpl = VERTICAL_TEMPLATES[vertical] ?? VERTICAL_TEMPLATES.tradies;
+  const tmpl = VERTICAL_TEMPLATES[vertical] ?? VERTICAL_TEMPLATES.local;
   const base = `https://${domain}`;
   const regionText = regions || "your local area";
 

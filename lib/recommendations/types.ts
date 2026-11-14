@@ -22,6 +22,8 @@ export interface TriggerContext {
   scoreComposite: string | null;
   confidenceIntervals: unknown;
   vertical: string;
+  /** 16 Nov, part 3: the brand's confirmed business types -- which examples a recommendation gives. */
+  categories?: readonly string[];
   /**
    * Audit #36 follow-up: what the Position and Source-citation rules
    * read -- this audit's verified mentions in successful everyday

@@ -30,7 +30,7 @@ const OMEGA_DIRECTORY_TITLE =
 const OWNER_DIRECTORY_TITLE = "AI cited hipages in 9 of 40 answers — you told us you're not listed";
 const OLD_ENTITY_TITLE = "Build your entity profile beyond Wikipedia";
 const NEW_ENTITY_TITLE =
-  "Strengthen your business profiles on Google, trade directories and local press";
+  "Strengthen your business profiles on Google, directories and local press";
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),

@@ -1,62 +1,21 @@
 "use client";
 
-import { useCallback } from "react";
-import { LoadError } from "@/components/shared/load-error";
-import { useLoad } from "@/lib/hooks/use-load";
-import { fetchJson } from "@/lib/load/fetch-json";
+import { previewRegion, wizardPreviewQuestions } from "@/lib/prompts/wizard-preview";
 
 interface PromptPreviewProps {
-  packId: string;
-  brandName: string;
+  vertical: string;
   primaryRegion: string;
 }
 
-export function PromptPreview({ packId, brandName, primaryRegion }: PromptPreviewProps) {
-  // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch read the error body (no expandedPrompts) or was
-  // logged to the console, and the preview vanished as if the pack had no questions. It says so now.
-  const load = useCallback(
-    async (signal: AbortSignal) => {
-      const region = primaryRegion || "NSW:Sydney CBD";
-      const params = new URLSearchParams({ preview: "true", brandName, primaryRegion: region });
-      const data = await fetchJson<{ expandedPrompts: string[] }>(
-        `/api/vertical-packs/${packId}/prompts?${params}`,
-        { signal },
-      );
-      return data.expandedPrompts;
-    },
-    [packId, brandName, primaryRegion],
-  );
-  const loaded = useLoad(load, {
-    enabled: Boolean(packId && brandName),
-    isEmpty: (rows) => rows.length === 0,
-  });
-
-  if (!packId || !brandName) return null;
-
-  if (loaded.status === "loading") {
-    return (
-      <div style={{ marginTop: 12, color: "var(--text-tertiary)", fontSize: 12 }}>
-        Loading sample prompts...
-      </div>
-    );
-  }
-
-  if (loaded.status === "error") {
-    return (
-      <LoadError
-        what="the sample prompts"
-        detail={loaded.detail}
-        onRetry={loaded.retry}
-        className="mt-3"
-      />
-    );
-  }
-
-  if (loaded.status === "empty") return null;
-  const prompts = loaded.data;
-
+/**
+ * The wizard's sample questions for the vertical the owner picked (16 Nov, part 3: lib/prompts/wizard-preview.ts,
+ * from the audit's own templates -- never the shared pack's plumber questions), in their suburb once entered.
+ */
+export function PromptPreview({ vertical, primaryRegion }: PromptPreviewProps) {
+  const questions = wizardPreviewQuestions(vertical, primaryRegion);
+  if (questions.length === 0) return null;
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 12 }} data-wizard-preview={vertical}>
       <p
         style={{
           fontSize: 11,
@@ -66,11 +25,11 @@ export function PromptPreview({ packId, brandName, primaryRegion }: PromptPrevie
           marginBottom: 8,
         }}
       >
-        Sample prompts for this pack
+        Sample questions
       </p>
-      {prompts.map((p) => (
+      {questions.map((q) => (
         <p
-          key={p}
+          key={q}
           style={{
             fontSize: 13,
             fontStyle: "italic",
@@ -78,9 +37,15 @@ export function PromptPreview({ packId, brandName, primaryRegion }: PromptPrevie
             margin: "4px 0",
           }}
         >
-          &ldquo;{p}&rdquo;
+          &ldquo;{q}&rdquo;
         </p>
       ))}
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 8 }}>
+        {previewRegion(primaryRegion) === "your suburb"
+          ? "Your suburb goes in once you add it. "
+          : ""}
+        Your own questions are written for your business type once you confirm it.
+      </p>
     </div>
   );
 }

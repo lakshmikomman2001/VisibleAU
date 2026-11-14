@@ -549,13 +549,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               onSelect={handlePackSelect}
               selectedPackId={selectedPackId}
             />
-            {selectedPackId && (
-              <PromptPreview
-                packId={selectedPackId}
-                brandName={name || "your brand"}
-                primaryRegion={suburbs[0] ?? ""}
-              />
-            )}
+            {vertical && <PromptPreview vertical={vertical} primaryRegion={suburbs[0] ?? ""} />}
           </div>
         )}
 

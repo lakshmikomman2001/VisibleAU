@@ -39,6 +39,7 @@ import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
+import { brandBusinessLabel } from "@/lib/brands/business-label";
 import {
   CLASSIFICATION_TIMEOUT_MS,
   type ClassificationState,
@@ -98,6 +99,9 @@ interface BrandDetailClientProps {
     // never a silent new requirement.
     classificationStatus?: "pending" | "processing" | "complete" | "failed" | "needs_confirmation";
     classificationError?: string | null;
+    /** 16 Nov, part 3: the confirmed business types, which the header names ("Café"). */
+    categories?: string[];
+    categoryConfirmedAt?: string | null;
     /** The confirmed location, for the confirmation panel's "Where is your business?" (13 Nov, part 1). */
     suburb?: string | null;
     city?: string | null;
@@ -908,7 +912,7 @@ export function BrandDetailClient({
           >
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Tag style={{ width: 12, height: 12 }} />
-              {brand.vertical}
+              <span data-brand-business-type="">{brandBusinessLabel(brand)}</span>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <MapPin style={{ width: 12, height: 12 }} />

@@ -16,7 +16,7 @@ import {
 import { evaluateTriggers } from "@/lib/recommendations/triggers";
 import type { TriggerContext, TriggeredRecommendation } from "@/lib/recommendations/types";
 
-const TITLE = "Strengthen your business profiles on Google, trade directories and local press";
+const TITLE = "Strengthen your business profiles on Google, directories and local press";
 
 const ctx: TriggerContext = {
   scoreFrequency: "20.00",

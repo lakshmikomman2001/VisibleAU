@@ -1,8 +1,10 @@
 // Written by triggers.ts for new items and shown by confidence-labels.ts for stored ones.
 
 // No Wikipedia or Wikidata in the title: Wikidata has its own notability bar a local trade may not meet.
+// 16 Nov, part 3: "directories", not "trade directories" -- the title reaches every business type (stored items are
+// shown with it too, confidence-labels.ts), and only the trades have trade directories.
 export const ENTITY_PROFILES_TITLE =
-  "Strengthen your business profiles on Google, trade directories and local press";
+  "Strengthen your business profiles on Google, directories and local press";
 
 // Nothing measures that a missing Google, directory or press profile costs AI visibility.
 export const ENTITY_PROFILES_IMPACT = "low";

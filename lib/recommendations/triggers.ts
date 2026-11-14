@@ -1,6 +1,7 @@
 import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import type { DimensionKey } from "@/lib/scoring/dimension-result";
 import { SMALL_SAMPLE_MENTIONS } from "@/lib/scoring/measured-display";
+import { businessExamples } from "./business-examples";
 import {
   ENTITY_PROFILES_IMPACT,
   ENTITY_PROFILES_TITLE,
@@ -56,7 +57,8 @@ interface RuleTemplate {
    */
   dimension: string;
   title: string;
-  action: string;
+  /** 16 Nov, part 3: a function when its examples depend on the brand's business type (business-examples.ts). */
+  action: string | ((ctx: TriggerContext) => string);
   expectedImpactScore: "high" | "medium" | "low";
   /** Every score `threshold` reads -- the not-measured gate (see
    * scoreSignalFor) is driven by this list, so it must be exact. The
@@ -70,6 +72,9 @@ interface RuleTemplate {
 }
 
 const score = (v: string | null | undefined): number => parseFloat(v ?? "100");
+
+/** 16 Nov, part 3: the examples for this brand's business type -- a plumber's only for the trades. */
+const examplesFor = (ctx: TriggerContext) => businessExamples(ctx.categories ?? [], ctx.vertical);
 
 /**
  * The scores a rule can still read. Frequency is the measured mention
@@ -506,8 +511,7 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     key: "faq-content",
     dimension: "context",
     title: "Add FAQ schema to your main service page",
-    action:
-      'Add a FAQPage schema block answering "What suburbs do you service?" and "What is your call-out fee?".',
+    action: (ctx) => `Add a FAQPage schema block answering ${examplesFor(ctx).faq}.`,
     expectedImpactScore: "medium",
     // Task #46 Phase 3, Part C: Context is permanently not_measured --
     // this rule's threshold is unreachable (isNotMeasured's gate in
@@ -520,8 +524,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     key: "expert-quotes",
     dimension: "accuracy",
     title: "Add attributed expert quotes to your about page",
-    action:
-      "Add 2-3 quotes from industry bodies (e.g. Master Plumbers AU) with attribution and date.",
+    action: (ctx) =>
+      `Add 2-3 quotes from industry bodies (e.g. ${examplesFor(ctx).industryBody}) with attribution and date.`,
     expectedImpactScore: "medium",
     reads: [],
     threshold: (ctx) => sourcedShareBelow(ctx, EXPERT_QUOTES_SOURCED_SHARE_BELOW),
@@ -530,7 +534,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     key: "cited-statistics",
     dimension: "accuracy",
     title: "Cite verifiable statistics on your service pages",
-    action: "Add 1-2 industry statistics with source links (e.g. WaterNSW, ABS building permits).",
+    action: (ctx) =>
+      `Add 1-2 industry statistics with source links (e.g. ${examplesFor(ctx).statSource}).`,
     expectedImpactScore: "medium",
     reads: [],
     threshold: (ctx) => sourcedShareBelow(ctx, CITED_STATISTICS_SOURCED_SHARE_BELOW),
@@ -563,8 +568,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     key: "reddit-absence",
     dimension: "frequency",
     title: "Get mentioned in relevant Reddit threads",
-    action:
-      "Identify 3 active subreddits (r/sydney, r/ausfinance, r/homeimprovement) and contribute helpful answers.",
+    action: (ctx) =>
+      `Identify 3 active subreddits (e.g. ${examplesFor(ctx).subreddits}) and contribute helpful answers.`,
     expectedImpactScore: "medium",
     reads: ["frequency"],
     threshold: (ctx) => score(ctx.scoreFrequency) < 45,
@@ -592,8 +597,8 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
     key: "press-mentions",
     dimension: "frequency",
     title: "Pitch your business story to local AU media",
-    action:
-      "Contact one AU trade publication or local news outlet with a newsworthy angle (e.g. milestone, award).",
+    action: (ctx) =>
+      `Contact ${examplesFor(ctx).publication} or local news outlet with a newsworthy angle (e.g. milestone, award).`,
     expectedImpactScore: "medium",
     // Score-only: there is no real press-coverage checker behind this.
     // Task #46 Phase 3, Part C: Sentiment is permanently not_measured --
@@ -606,6 +611,17 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
 ];
 
 export const UNIVERSAL_RULE_KEYS: readonly string[] = UNIVERSAL_TEMPLATES.map((t) => t.key);
+
+/** 16 Nov, part 3: every rule's title and advice for this brand, fired or not -- what the business-type guard reads. */
+export function universalRuleCopy(
+  ctx: TriggerContext,
+): Array<{ key: string; title: string; action: string }> {
+  return UNIVERSAL_TEMPLATES.map((rule) => ({
+    key: rule.key,
+    title: rule.title,
+    action: typeof rule.action === "function" ? rule.action(ctx) : rule.action,
+  }));
+}
 
 export function evaluateTriggers(
   ctx: TriggerContext,
@@ -624,7 +640,8 @@ export function evaluateTriggers(
       recommendationKey: outcome.key ?? rule.key,
       dimension: rule.dimension,
       title: outcome.title ?? rule.title,
-      action: outcome.action ?? rule.action,
+      action:
+        outcome.action ?? (typeof rule.action === "function" ? rule.action(ctx) : rule.action),
       expectedImpactScore: outcome.expectedImpactScore ?? rule.expectedImpactScore,
       evidenceRefs: outcome.evidenceRefs ?? [],
       confidenceBasis: outcome.basis,

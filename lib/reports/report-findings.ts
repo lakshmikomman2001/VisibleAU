@@ -1,4 +1,5 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
+import { possessive } from "@/lib/copy/possessive";
 import { citedInAnswers, namedCitedInAnswersList } from "@/lib/directories/cited-in-answers";
 import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
@@ -194,8 +195,8 @@ function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recomme
     const of = `${seen.answers} ${plural(seen.answers, "answer")}`;
     reasons.push(
       seen.withYourSite === 0
-        ? `Your site didn't appear in ${e.name}'s search results in any of ${of}.`
-        : `Your site was in ${e.name}'s search results in ${seen.withYourSite} of ${of}, and ${e.name} still didn't name you.`,
+        ? `Your site didn't appear in ${possessive(e.name)} search results in any of ${of}.`
+        : `Your site was in ${possessive(e.name)} search results in ${seen.withYourSite} of ${of}, and ${e.name} still didn't name you.`,
     );
   }
   if (reasons.length === 0) return { title };

@@ -37,6 +37,12 @@ export const CATEGORY_KEYS = [
   "real_estate_agency",
   "education_online",
   "hospitality_restaurant",
+  // 16 Nov, part 2: common local businesses that had no type of their own.
+  "cafe",
+  "fitness_gym",
+  "beauty_salon",
+  "retail_shop",
+  "accounting_practice",
   "general",
 ] as const;
 
@@ -68,6 +74,11 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   real_estate_agency: "Real estate",
   education_online: "Online education",
   hospitality_restaurant: "Hospitality & restaurants",
+  cafe: "Café",
+  fitness_gym: "Gym & fitness",
+  beauty_salon: "Hair & beauty salon",
+  retail_shop: "Local shop",
+  accounting_practice: "Accountant & bookkeeper",
   general: "Local business",
 };
 
@@ -103,6 +114,11 @@ export const CATEGORY_SERVICE_PHRASE: Record<CategoryKey, string> = {
   real_estate_agency: "a real estate agent",
   education_online: "online learning",
   hospitality_restaurant: "a restaurant",
+  cafe: "a café",
+  fitness_gym: "a gym",
+  beauty_salon: "a salon",
+  retail_shop: "a local shop",
+  accounting_practice: "an accountant",
   general: "a local business",
 };
 
@@ -136,6 +152,23 @@ export const TEMPLATE_AUDIENCE_OVERRIDES: Partial<Record<CategoryKey, Record<str
   legal_services: {
     "Best commercial lawyers in {region} for small businesses?": "businesses",
     "Affordable business lawyers in {region}?": "businesses",
+  },
+  // 16 Nov, part 2: a business owner's questions and a household's -- each audience keeps at least 10.
+  accounting_practice: {
+    "Best accountant in {region} for small business?": "businesses",
+    "Affordable bookkeeper in {region}?": "businesses",
+    "Best accountant in {region} for sole traders?": "businesses",
+    "Accountants in {region} who do BAS and GST?": "businesses",
+    "Recommended bookkeeping services in {region}?": "businesses",
+    "Accountant in {region} for setting up a company or trust?": "businesses",
+    "Accountant in {region} for payroll and super?": "businesses",
+    "Tax accountant in {region} for individual tax returns?": "households",
+    "Accountant in {region} for rental property tax?": "households",
+    "Accountant in {region} for a first-time tax return?": "households",
+    "Tax agent in {region} for a late tax return?": "households",
+    "Accountant in {region} for capital gains tax on shares?": "households",
+    "Accountant in {region} for a family tax return?": "households",
+    "Accountant in {region} who helps employees with their tax refund?": "households",
   },
 };
 
@@ -195,7 +228,41 @@ export const CATEGORY_ALIASES: Record<string, CategoryKey> = {
   property: "real_estate_agency",
   property_management: "real_estate_agency",
   restaurant: "hospitality_restaurant",
-  cafe: "hospitality_restaurant",
+  // 16 Nov, part 2: a café is its own type.
+  cafe: "cafe",
+  café: "cafe",
+  cafes: "cafe",
+  coffee_shop: "cafe",
+  coffee: "cafe",
+  espresso_bar: "cafe",
+  gym: "fitness_gym",
+  gyms: "fitness_gym",
+  fitness: "fitness_gym",
+  fitness_centre: "fitness_gym",
+  fitness_studio: "fitness_gym",
+  personal_training: "fitness_gym",
+  personal_trainer: "fitness_gym",
+  pilates: "fitness_gym",
+  yoga: "fitness_gym",
+  salon: "beauty_salon",
+  hair_salon: "beauty_salon",
+  hairdresser: "beauty_salon",
+  hairdressing: "beauty_salon",
+  barber: "beauty_salon",
+  beauty: "beauty_salon",
+  nail_salon: "beauty_salon",
+  beautician: "beauty_salon",
+  shop: "retail_shop",
+  store: "retail_shop",
+  retail_store: "retail_shop",
+  local_shop: "retail_shop",
+  boutique: "retail_shop",
+  gift_shop: "retail_shop",
+  accountant: "accounting_practice",
+  accountants: "accounting_practice",
+  bookkeeper: "accounting_practice",
+  tax_agent: "accounting_practice",
+  tax_accountant: "accounting_practice",
   hospitality: "hospitality_restaurant",
   food_service: "hospitality_restaurant",
   education: "education_online",
@@ -213,12 +280,14 @@ export const CATEGORY_ALIASES: Record<string, CategoryKey> = {
   marketing: "marketing_automation",
   ecommerce: "ecommerce_platform",
   e_commerce: "ecommerce_platform",
-  retail: "ecommerce_platform",
+  // 16 Nov, part 2: a shop, not an e-commerce platform ("Best Shopify alternatives...").
+  retail: "retail_shop",
   design: "saas_design_tools",
   design_software: "saas_design_tools",
   graphic_design: "saas_design_tools",
-  accounting: "accounting_software",
-  bookkeeping: "accounting_software",
+  // 16 Nov, part 2: a local accountant or bookkeeper, not accounting software.
+  accounting: "accounting_practice",
+  bookkeeping: "accounting_practice",
   project_management_software: "project_management",
 };
 
@@ -298,9 +367,15 @@ export function matchCategoryInText(text: string, candidates: readonly string[])
  * 16 Nov, part 1 -- the types whose questions name the business's own service ({service}): the classifier's words
  * (BrandClassification.service, "dog groomer"), or SERVICE_WORD_FALLBACK when it gave none.
  */
-export const SERVICE_TEMPLATE_CATEGORIES: readonly CategoryKey[] = ["general"];
+export const SERVICE_TEMPLATE_CATEGORIES: readonly CategoryKey[] = [
+  "general",
+  "beauty_salon",
+  "retail_shop",
+];
 export const SERVICE_WORD_FALLBACK: Partial<Record<CategoryKey, string>> = {
   general: "local business",
+  beauty_salon: "salon",
+  retail_shop: "local shop",
 };
 
 const GENERAL_LOCAL_TEMPLATES = [
@@ -678,9 +753,10 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   hospitality_restaurant: {
     consumer: [
       "Best restaurants in {region} for a special occasion?",
-      "Top-rated cafes in {region} on Google Maps?",
+      // 16 Nov, part 2: "Top-rated cafes" and "brunch spots" moved to the café type.
+      "Best places to eat in {region}?",
       "Best BYO restaurants in {region}?",
-      "Most popular brunch spots in {region}?",
+      "Best restaurants in {region} for a weekend lunch?",
       "Best family-friendly restaurants in {region}?",
       // Build 1 addendum, item 11: "good coffee"/"Italian restaurants"
       // named sub-specialties/cuisines not every venue in this
@@ -691,6 +767,105 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
       "Good spot for a date night in {region}?",
       "Highly rated restaurants in {region} on Google?",
       "Where locals go for a casual dinner in {region}?",
+    ],
+  },
+
+  // 16 Nov, part 2: a café is its own type -- its questions say café, coffee, brunch and breakfast, never
+  // "restaurant" (a café confirmed as a restaurant was asked about BYO dinners and date nights).
+  cafe: {
+    consumer: [
+      "Best cafés in {region}?",
+      "Where to get the best coffee in {region}?",
+      "Most popular brunch spots in {region}?",
+      "Cafés in {region} open early for breakfast?",
+      "Top-rated cafés in {region} on Google Maps?",
+      "Best café in {region} for a weekend brunch?",
+      "Cafés in {region} with good vegan or gluten-free options?",
+      "Family-friendly cafés in {region}?",
+      "Where do locals get their coffee in {region}?",
+      "Best café in {region} for a catch-up with friends?",
+      "Cosy cafés in {region} worth a visit?",
+      "Best breakfast café in {region}?",
+    ],
+  },
+
+  // 16 Nov, part 2: gyms and fitness studios.
+  fitness_gym: {
+    consumer: [
+      "Best gym in {region}?",
+      "24-hour gyms in {region}?",
+      "Gyms in {region} with group fitness classes?",
+      "Best gym in {region} for beginners?",
+      "Affordable gym memberships in {region}?",
+      "Gyms in {region} with no lock-in contract?",
+      "Best personal trainers in {region}?",
+      "Gyms in {region} that offer a free trial?",
+      "Top-rated fitness studios in {region}?",
+      "Best place to start strength training in {region}?",
+      "Gyms in {region} with good reviews?",
+      "Most popular fitness classes in {region}?",
+    ],
+  },
+
+  // 16 Nov, part 2: hair and beauty salons. They name the business's own service ({service}: "hair salon", "nail
+  // salon", "barber"), "salon" when the classifier gave none -- a nail salon isn't asked about haircuts.
+  beauty_salon: {
+    consumer: [
+      "Best {service} in {region}?",
+      "Top-rated {service} in {region} on Google?",
+      "Affordable {service} in {region}?",
+      "{service} in {region} that takes walk-ins?",
+      "Which {service} in {region} has the best reviews?",
+      "Best {service} in {region} for a special occasion?",
+      "Most popular {service} in {region}?",
+      "{service} in {region} with same-day appointments?",
+      "Highly recommended {service} near {region}?",
+      "{service} in {region} open late or on weekends?",
+      "Experienced {service} in {region}?",
+      "Which {service} do locals recommend in {region}?",
+    ],
+  },
+
+  // 16 Nov, part 2: a local shop, not an online store (retail used to mean e-commerce platforms: "Best Shopify
+  // alternatives..."). It names what the shop is ({service}: "gift shop", "bike shop"), "local shop" without it.
+  retail_shop: {
+    consumer: [
+      "Best {service} in {region}?",
+      "Independent {service} in {region} worth visiting?",
+      "Which {service} in {region} has the best range?",
+      "Locally owned {service} in {region}?",
+      "Top-rated {service} in {region} on Google?",
+      "{service} in {region} open on Sundays?",
+      "Where to shop local in {region}?",
+      "{service} in {region} with friendly, helpful staff?",
+      "Most popular {service} in {region}?",
+      "Which {service} do locals recommend in {region}?",
+      "{service} in {region} with good reviews?",
+      "Affordable {service} in {region}?",
+    ],
+  },
+
+  // 16 Nov, part 2: a local accountant or bookkeeper -- a practice, not accounting software (accounting used to
+  // resolve to accounting_software: "Best Xero alternatives for Australian small businesses?").
+  accounting_practice: {
+    consumer: [
+      "Best accountant in {region} for small business?",
+      "Tax accountant in {region} for individual tax returns?",
+      "Affordable bookkeeper in {region}?",
+      "Best accountant in {region} for sole traders?",
+      "Accountants in {region} who do BAS and GST?",
+      "Registered tax agent in {region}?",
+      "Accountant in {region} for rental property tax?",
+      "Top-rated accountants in {region} on Google?",
+      "Recommended bookkeeping services in {region}?",
+      "Accountant in {region} for setting up a company or trust?",
+      "Which accountant do locals recommend in {region}?",
+      "Accountant in {region} for a first-time tax return?",
+      "Tax agent in {region} for a late tax return?",
+      "Accountant in {region} for capital gains tax on shares?",
+      "Accountant in {region} for a family tax return?",
+      "Accountant in {region} for payroll and super?",
+      "Accountant in {region} who helps employees with their tax refund?",
     ],
   },
 

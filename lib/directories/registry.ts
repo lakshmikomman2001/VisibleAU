@@ -94,6 +94,14 @@ const LOCAL_SERVICE_CATEGORIES: readonly CategoryKey[] = [
   "legal_services",
   "real_estate_agency",
   "hospitality_restaurant",
+  // 16 Nov, part 2: the new local types. No further directory: the AU ones that fit (CPA Australia's and CA ANZ's
+  // member finders, the Tax Practitioners Board register) sit on sites whose other pages -- news, guidance --
+  // would count as directory citations, since a citation is matched by domain.
+  "cafe",
+  "fitness_gym",
+  "beauty_salon",
+  "retail_shop",
+  "accounting_practice",
   "general",
 ];
 

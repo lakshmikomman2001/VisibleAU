@@ -63,7 +63,8 @@ export const REPORT_PDF_STALLED_MINUTES = 10;
 export const REPORT_PDF_STALLED_MS = REPORT_PDF_STALLED_MINUTES * 60_000;
 
 /** Under "Generating…": how long it should take, and what happens if it doesn't finish. */
-export const REPORT_GENERATING_NOTE = `Usually under a minute. If it isn't ready in ${REPORT_PDF_STALLED_MINUTES} minutes, it's marked failed and you can try again.`;
+// Never "ready" in it: the reports pages' "Ready" badge is found by its text (tests/e2e/sprint4/sprint4-reports.spec.ts).
+export const REPORT_GENERATING_NOTE = `Usually under a minute. After ${REPORT_PDF_STALLED_MINUTES} minutes without a PDF, it's marked failed and you can try again.`;
 
 export function isPdfFailureReason(value: unknown): value is PdfFailureReason {
   return typeof value === "string" && (PDF_FAILURE_REASONS as readonly string[]).includes(value);

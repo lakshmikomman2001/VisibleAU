@@ -86,12 +86,13 @@ describe("the stored message", () => {
 });
 
 describe("a report stuck at Generating…", () => {
-  it("is marked failed after 10 minutes, and the page says so while it waits", () => {
+  it("is marked failed after 10 minutes, and the page says so while it waits (never 'ready': the Ready badge is found by its text)", () => {
     expect(REPORT_PDF_STALLED_MINUTES).toBe(10);
     expect(REPORT_PDF_STALLED_MS).toBe(10 * 60_000);
     expect(REPORT_GENERATING_NOTE).toBe(
-      "Usually under a minute. If it isn't ready in 10 minutes, it's marked failed and you can try again.",
+      "Usually under a minute. After 10 minutes without a PDF, it's marked failed and you can try again.",
     );
+    expect(REPORT_GENERATING_NOTE).not.toMatch(/ready/i);
   });
 
   it("the page keeps checking past that, so it turns to Failed on its own", () => {

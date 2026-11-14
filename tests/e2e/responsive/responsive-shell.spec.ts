@@ -766,7 +766,8 @@ test("breadcrumb: parents are links, the current page isn't (1280 and 375px)", a
   const parents: [name: string, href: string][] = [
     ["Workspace", "/dashboard"],
     ["Brands", "/brands"],
-    ["Brand", `/brands/${BRAND_ID}`],
+    // 14 Nov, part 6: the brand's name (its layout names it), not "Brand".
+    ["Omega Services", `/brands/${BRAND_ID}`],
     ["Trust", `/brands/${BRAND_ID}/trust`],
   ];
   await expect(links).toHaveCount(parents.length);

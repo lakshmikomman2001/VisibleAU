@@ -68,12 +68,16 @@ function genericProfilePattern(domain: string): RegExp {
   return new RegExp(`^https?://${hostPattern(domain)}/.+$`, "i");
 }
 
+/**
+ * The tradie directories (hipages, ServiceSeeking, Oneflare, Airtasker): the four trades types only. 16 Nov, part 1:
+ * the general type left this list -- it's a local business the classifier couldn't place (a dog groomer, a bike
+ * shop), and was matched against hipages and Airtasker. It's in LOCAL_SERVICE_CATEGORIES below.
+ */
 const TRADE_CATEGORIES: readonly CategoryKey[] = [
   "trades_plumbing",
   "trades_electrical",
   "trades_building",
   "trades_general",
-  "general",
 ];
 
 // General local-business directories -- relevant to every category this
@@ -90,6 +94,7 @@ const LOCAL_SERVICE_CATEGORIES: readonly CategoryKey[] = [
   "legal_services",
   "real_estate_agency",
   "hospitality_restaurant",
+  "general",
 ];
 
 export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> = {
@@ -105,7 +110,10 @@ export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> =
       // as the profile path ("Directory (/find) and profile (/connect)
       // pages"); diag-0082's real cited URL for a competitor confirms
       // the live shape, hipages.com.au/connect/{slug}.
-      profileUrlPattern: new RegExp(`^https?://${hostPattern("hipages.com.au")}/connect/[a-z0-9-]+/?$`, "i"),
+      profileUrlPattern: new RegExp(
+        `^https?://${hostPattern("hipages.com.au")}/connect/[a-z0-9-]+/?$`,
+        "i",
+      ),
       categories: TRADE_CATEGORIES,
       enabled: true,
     },

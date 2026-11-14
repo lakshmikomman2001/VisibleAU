@@ -121,6 +121,6 @@ describe("every question in a brand's set is its own: its categories' questions,
   });
 
   it("saved question sets rebuild without it on their next audit: the generator moved past 3", () => {
-    expect(PROMPT_GENERATOR_VERSION).toBe(4);
+    expect(PROMPT_GENERATOR_VERSION).toBeGreaterThan(3);
   });
 });

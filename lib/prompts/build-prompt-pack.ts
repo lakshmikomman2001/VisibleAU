@@ -1,4 +1,5 @@
 import { resolveAudience } from "@/lib/brands/audience";
+import { withIndefiniteArticle } from "@/lib/brands/service-phrase";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import type { Audience, BrandClassification } from "@/lib/types/brand";
 import { seededShuffle } from "./seeded-random";
@@ -8,6 +9,9 @@ import {
   categoryServicePhrase,
   getTemplatesForCategory,
   matchCategoryInText,
+  resolveCategory,
+  SERVICE_TEMPLATE_CATEGORIES,
+  SERVICE_WORD_FALLBACK,
 } from "./templates";
 import { stripPlaceToken, validateGeneratedQuestion } from "./validate-question";
 
@@ -52,6 +56,27 @@ function computeCategoryQuotas(categories: string[], total: number): number[] {
 }
 
 /**
+ * 16 Nov, part 1 -- what a {service} template names for this category: the classifier's own words for the business
+ * (place name taken out: "Parramatta dog groomer" in Parramatta is "dog groomer"), else the type's fallback word.
+ * Null for a category whose templates don't name a service.
+ */
+export function serviceWordFor(
+  category: string,
+  classification: Pick<BrandClassification, "service">,
+  region: string,
+): string | null {
+  const key = resolveCategory(category);
+  if (!SERVICE_TEMPLATE_CATEGORIES.includes(key)) return null;
+  const own = classification.service ? stripPlaceToken(classification.service, region) : "";
+  return own || SERVICE_WORD_FALLBACK[key] || null;
+}
+
+/** "{service} in Parramatta with good reviews?" -> "Dog groomer in Parramatta with good reviews?" */
+function capitalizeFirst(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
  * One category's own validated organic candidates -- its fixed
  * template list, {region}/{category} expanded and render-validated.
  * Rejects (and logs) anything malformed instead of ever shipping it,
@@ -63,9 +88,11 @@ function categoryTemplateCandidates(
   buyerType: BuyerType,
   audience: Audience,
   region: string,
+  service: string | null,
 ): string[] {
   const label = categoryLabel(category);
   return getTemplatesForCategory(category, buyerType, audience)
+    .filter((template) => service !== null || !template.includes("{service}"))
     .map((template) => ({
       // Vunnara hotfix 3 (19 Oct, post-9c2c73a) bugfix (found while
       // testing item 1's shortfall path, not one of the 4 listed
@@ -79,7 +106,14 @@ function categoryTemplateCandidates(
       // zero organic questions, only the 3 generic branded ones.
       // Only a template that actually carries {region} requires one.
       usesRegionPlaceholder: template.includes("{region}"),
-      text: template.replace(/\{region\}/g, region).replace(/\{category\}/g, label),
+      // 16 Nov, part 1: {service} is the business's own words (serviceWordFor), and a question that opens with
+      // it starts with a capital.
+      text: capitalizeFirst(
+        template
+          .replace(/\{region\}/g, region)
+          .replace(/\{category\}/g, label)
+          .replace(/\{service\}/g, service ?? ""),
+      ),
     }))
     .filter(({ text, usesRegionPlaceholder }) => {
       const result = validateGeneratedQuestion(text, region, usesRegionPlaceholder);
@@ -112,7 +146,16 @@ export function buildCandidatePoolsByCategory(
 ): Map<string, string[]> {
   const pools = new Map<string, string[]>();
   for (const cat of categories) {
-    pools.set(cat, categoryTemplateCandidates(cat, buyerType, audience, region));
+    pools.set(
+      cat,
+      categoryTemplateCandidates(
+        cat,
+        buyerType,
+        audience,
+        region,
+        serviceWordFor(cat, classification, region),
+      ),
+    );
   }
 
   const businessSuffix = audience === "businesses" ? "for Australian businesses" : `in ${region}`;
@@ -226,7 +269,15 @@ export function buildPromptPack(
   // templates use -- never built ad hoc here. Same "confirmed category
   // wins, classifier's guess only while unconfirmed" rule as the
   // organic budget below.
-  const servicePhrase = categoryServicePhrase(confirmed.categories[0] ?? classification.category);
+  const firstCategory = confirmed.categories[0] ?? classification.category;
+  // 16 Nov, part 1: a type whose questions name the business's own service says it here too ("a good choice for a
+  // dog groomer in Parramatta?"), not the type's generic phrase.
+  const ownService = classification.service
+    ? serviceWordFor(firstCategory, classification, region)
+    : null;
+  const servicePhrase = ownService
+    ? withIndefiniteArticle(ownService)
+    : categoryServicePhrase(firstCategory);
 
   const taggedOrganic = buildTaggedOrganicPrompts(
     classification,

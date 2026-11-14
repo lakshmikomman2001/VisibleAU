@@ -5,6 +5,7 @@ import { isMockMode } from "@/lib/mock-mode";
 import { CATEGORY_KEYS, resolveCategory } from "@/lib/prompts/templates";
 import type { Audience, BrandClassification } from "@/lib/types/brand";
 import { sanitizeIntentSignals } from "./intent-signals";
+import { sanitizeServicePhrase } from "./service-phrase";
 
 const MOCK_CLASSIFICATION: BrandClassification = {
   category: "saas_design_tools",
@@ -74,6 +75,7 @@ Classify this brand and return exactly this JSON structure:
   "category": "<EXACTLY one of: ${CATEGORY_KEYS.join(" | ")}>",
   "buyerType": "<one of: smb | enterprise | consumer | freelancer | agency | mixed>",
   "audience": "<one of: households | businesses | both -- who actually PAYS this business? e.g. a plumber serving homeowners is 'households', one serving only commercial clients is 'businesses', most trades are 'both'>",
+  "service": "<what this business is, in the words a customer would search: a short singular phrase, no place name, e.g. 'dog groomer', 'bike shop', 'hair salon', 'accountant'>",
   "intentSignals": ["<phrase 1>", "<phrase 2>", "<phrase 3>"],
   "competitors": ["<competitor 1>", "<competitor 2>", "<competitor 3>"],
   "auRelevance": "<one of: au_founded | au_strong | au_present | au_limited>",
@@ -83,6 +85,7 @@ Classify this brand and return exactly this JSON structure:
 Rules:
 - category MUST be one of the exact values listed above -- do not invent a new one. If none fit well, use "general".
 - audience answers "who pays this business?", not what it sells -- a B2B software company selling to small businesses is audience "businesses" even though its own buyerType is "smb".
+- service = what the business IS (singular, 1-4 words), not a slogan or a list -- "dog groomer", not "premium pet grooming services in Sydney".
 - intentSignals = the phrases real users type when looking for this TYPE of product/service. Never include location-dependent phrasing like "near me", "nearby", "in my area" or "close to me" -- our system has no real user location to match that against.
 - competitors = direct competitors the brand competes with (by name)
 - auRelevance: au_founded = HQ in Australia; au_strong = major AU presence; au_present = available in AU; au_limited = minimal AU presence
@@ -134,6 +137,7 @@ export async function classifyBrand(
     }
 
     const category = resolveCategory(parsed.category);
+    const service = sanitizeServicePhrase(parsed.service);
     const confidence = Math.max(0, Math.min(1, parsed.confidence ?? 0.5));
 
     return {
@@ -142,6 +146,7 @@ export async function classifyBrand(
       audience: coerceAudience(parsed.audience, parsed.buyerType),
       intentSignals: sanitizeIntentSignals(parsed.intentSignals),
       competitors: Array.isArray(parsed.competitors) ? parsed.competitors : [],
+      ...(service ? { service } : {}),
       auRelevance: parsed.auRelevance ?? "au_present",
       // Homepage signals failed to fetch -- classifying from name/domain
       // alone is a real, honest classification, just a less-informed

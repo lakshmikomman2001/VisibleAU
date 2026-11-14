@@ -68,7 +68,7 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   real_estate_agency: "Real estate",
   education_online: "Online education",
   hospitality_restaurant: "Hospitality & restaurants",
-  general: "General business",
+  general: "Local business",
 };
 
 /**
@@ -103,7 +103,7 @@ export const CATEGORY_SERVICE_PHRASE: Record<CategoryKey, string> = {
   real_estate_agency: "a real estate agent",
   education_online: "online learning",
   hospitality_restaurant: "a restaurant",
-  general: "a provider",
+  general: "a local business",
 };
 
 /**
@@ -293,6 +293,30 @@ export function matchCategoryInText(text: string, candidates: readonly string[])
   }
   return null;
 }
+
+/**
+ * 16 Nov, part 1 -- the types whose questions name the business's own service ({service}): the classifier's words
+ * (BrandClassification.service, "dog groomer"), or SERVICE_WORD_FALLBACK when it gave none.
+ */
+export const SERVICE_TEMPLATE_CATEGORIES: readonly CategoryKey[] = ["general"];
+export const SERVICE_WORD_FALLBACK: Partial<Record<CategoryKey, string>> = {
+  general: "local business",
+};
+
+const GENERAL_LOCAL_TEMPLATES = [
+  "Best {service} in {region}?",
+  "Who's the most recommended {service} in {region}?",
+  "Top-rated {service} in {region} on Google?",
+  "Which {service} in {region} has the best reviews?",
+  "Most trusted {service} in {region}?",
+  "Affordable {service} in {region}?",
+  "Good {service} in {region} open on weekends?",
+  "Which {service} do locals recommend in {region}?",
+  "Highly rated {service} near {region}?",
+  "Best-value {service} in {region}?",
+  "Experienced {service} in {region}?",
+  "{service} in {region} with good reviews?",
+];
 
 export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
   saas_design_tools: {
@@ -670,19 +694,12 @@ export const CATEGORY_TEMPLATES: Record<string, PromptTemplateMap> = {
     ],
   },
 
+  // 16 Nov, part 1: the general type is a local business the classifier couldn't place in another type, and its
+  // questions name what it is, in its own words ({service}: "dog groomer") and where -- never "Best General
+  // business options in Australia?". The same list for every audience: a local service is found the same way.
   general: {
-    smb: [
-      "Best {category} solutions for Australian small businesses?",
-      "Most popular {category} services in Australia?",
-      "Top-rated {category} providers in Australia?",
-      "What do Australian businesses use for {category}?",
-      "Recommended {category} tools or services in Australia?",
-    ],
-    consumer: [
-      "Best {category} options in Australia?",
-      "Most trusted {category} providers in Australia?",
-      "Top-reviewed {category} services in Australia?",
-    ],
+    smb: GENERAL_LOCAL_TEMPLATES,
+    consumer: GENERAL_LOCAL_TEMPLATES,
   },
 };
 

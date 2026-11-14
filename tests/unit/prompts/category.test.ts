@@ -60,7 +60,7 @@ describe("categoryLabel", () => {
   });
 
   it("falls back to the general label for unrecognised input", () => {
-    expect(categoryLabel("nonsense_category")).toBe("General business");
+    expect(categoryLabel("nonsense_category")).toBe("Local business");
   });
 });
 

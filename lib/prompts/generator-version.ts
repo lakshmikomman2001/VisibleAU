@@ -24,6 +24,8 @@
  *     founded brand of any vertical (it reached Hero Home Services, a
  *     handyman, and counted as an everyday question). Version 3 rebuilt
  *     packs with the same generator, so it kept it; 4 rebuilds them without.
+ *   - 5 (16 Nov, part 1): the general type is local -- its questions name the business's own service and its
+ *     suburb ("Best dog groomer in Parramatta?"), never "Best General business options in Australia?".
  *
  * lib/audit/get-audit-prompts.ts checks a ready brand's stamped
  * version against this constant at audit-creation time and
@@ -31,4 +33,4 @@
  * an old generator ever gets refreshed, since there's no natural
  * re-save once a brand is already confirmed.
  */
-export const PROMPT_GENERATOR_VERSION = 4;
+export const PROMPT_GENERATOR_VERSION = 5;

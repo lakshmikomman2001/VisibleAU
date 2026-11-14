@@ -116,7 +116,11 @@ describe("decision 2: role descriptions come from the matrix, and say only the o
       const code = sourceText(file)
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/^\s*\/\/.*$/gm, "");
-      if (/admins?\b[^.\n"]{0,60}\bdelet/i.test(code)) offenders.push(`${file}: admin + delete`);
+      // A route or an attribute name isn't copy: 75ebf87's show-deleted-brands link ("/admin/audits?deleted=1",
+      // data-admin-show-deleted) says nothing about who deletes a brand, so "admin" inside a path or a hyphenated
+      // name doesn't count.
+      if (/(?<![/-])admins?\b(?![/-])[^.\n"]{0,60}\bdelet/i.test(code))
+        offenders.push(`${file}: admin + delete`);
       for (const chip of [
         "Full access, billing",
         "Manage brands & team",

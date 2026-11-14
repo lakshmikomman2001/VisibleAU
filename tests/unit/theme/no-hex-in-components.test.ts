@@ -23,7 +23,9 @@ const ARTWORK: Record<string, string> = {
     "each AI engine's own brand colour beside its name (ChatGPT's green, Claude's orange, ...)",
 };
 
-const HEX = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/;
+// A colour is never followed by a hyphen: "#add-competitor" (30358f0's link to the brand page's competitor form) is
+// a URL fragment, not #aadddd.
+const HEX = /#[0-9a-fA-F]{6}(?![\w-])|#[0-9a-fA-F]{3}(?![\w-])/;
 
 readSourcesBeforeAll(ROOTS, COMPONENT_FILE);
 

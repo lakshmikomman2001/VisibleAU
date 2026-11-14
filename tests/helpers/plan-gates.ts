@@ -45,6 +45,9 @@ export const DIRECT_GATES = [
   "inngest/functions/run-comparison-prompts.ts",
   "inngest/functions/run-journey.ts",
   "inngest/functions/simulate-query-fan-out.ts",
+  // 13 Nov (c953a58): /admin/costs shows each workspace's plan and its price beside what its audits cost us -- the
+  // plan the workspace is actually on, so effectiveTier().
+  "lib/admin/costs.ts",
   "lib/audit/run-audit-inline.ts",
   // Team follow-ups, item 4: an invite to an address with no account is accepted only while there's a seat
   // (tests/integration/invite-new-account.integration.test.ts: a cancelled plan's last seat is taken).

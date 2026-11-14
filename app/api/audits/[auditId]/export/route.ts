@@ -10,6 +10,8 @@ import {
   loadGoogleSurfaceExportRows,
   loadGoogleSurfaceSummary,
 } from "@/lib/audit/google-surfaces/summary";
+import { sameQuestionSet } from "@/lib/audit/question-set";
+import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -138,10 +140,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           ? tx
               .select({
                 id: audits.id,
+                auditNumber: audits.auditNumber,
                 completedAt: audits.completedAt,
                 engines: audits.engines,
                 promptsCount: audits.promptsCount,
                 metadata: audits.metadata,
+                // 15 Nov, part 2: never compared across a change of everyday questions.
+                questionSetHash: audits.questionSetHash,
+                promptPackVersion: audits.promptPackVersion,
               })
               .from(audits)
               .where(
@@ -185,9 +191,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         sourcedCount,
         perEngine,
       } = await resolveAuditDimensionsAndHeadline(tx, auditId);
-      const priorHeadline = priorAudit
-        ? (await resolveAuditDimensionsAndHeadline(tx, priorAudit.id)).headline
-        : null;
+      // 15 Nov, part 2 (Sri, Hero's #48 and #50): the prior audit asked other everyday questions -- no "up 8
+      // points", the PDF says the questions changed instead (lib/audit/question-set.ts).
+      const priorQuestionsChanged =
+        priorAudit && !sameQuestionSet(audit, priorAudit)
+          ? await questionChangeNote(tx, priorAudit, audit)
+          : null;
+      const priorHeadline =
+        priorAudit && !priorQuestionsChanged
+          ? (await resolveAuditDimensionsAndHeadline(tx, priorAudit.id)).headline
+          : null;
       const priorComposite = priorHeadline?.status === "scored" ? priorHeadline.value : null;
       // Engine-failure follow-ups (1 Nov), item 4: "Based on 3 of 4
       // engines" under the headline, and the comparison with the prior
@@ -214,6 +227,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
             actionItems: items,
             priorComposite,
             priorCompletedAt: priorAudit?.completedAt?.toISOString() ?? null,
+            priorQuestionsChanged,
             // An engine every call of which failed has no row: "No answers".
             engineStats: (audit.engines ?? perEngine.map((e) => e.engine)).map(
               (engine) =>

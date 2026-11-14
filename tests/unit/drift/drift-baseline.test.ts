@@ -28,9 +28,19 @@ const DRIFT: ModelDrift = {
   engineAnswers: 13,
 };
 
-const audit = (id: string, methodologyVersion: number | null, failedEngine = false) => ({
+/** 15 Nov, part 2: the everyday questions an audit asked (audits.question_set_hash); the same unless a test says. */
+const QUESTIONS_V4 = { questionSetHash: "q-v4", promptPackVersion: 3 };
+const QUESTIONS_V3 = { questionSetHash: "q-v3", promptPackVersion: 3 };
+
+const audit = (
+  id: string,
+  methodologyVersion: number | null,
+  failedEngine = false,
+  questions: { questionSetHash: string | null; promptPackVersion: number | null } = QUESTIONS_V4,
+) => ({
   id,
   methodologyVersion,
+  ...questions,
   engines: ["chatgpt", "claude", "gemini", "perplexity"],
   promptsCount: 10,
   metadata: failedEngine ? { engineFailures: { claude: 10 } } : {},
@@ -55,7 +65,7 @@ describe("driftBaseline", () => {
     const candidates = [audit("v3-partial", 3, true), audit("v3-full", 3), audit("v2-full", 2)];
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 3 },
+        { id: "now", methodologyVersion: 3, ...QUESTIONS_V4 },
         candidates,
         models(["now", ...candidates.map((c) => c.id)]),
       ),
@@ -65,7 +75,7 @@ describe("driftBaseline", () => {
   it("a v2.1 audit with only v2 audits before it is not compared: methodology_changed", () => {
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 3 },
+        { id: "now", methodologyVersion: 3, ...QUESTIONS_V4 },
         [audit("a", 2), audit("b", 2)],
         models(["now", "a", "b"]),
       ),
@@ -75,7 +85,7 @@ describe("driftBaseline", () => {
   it("no earlier full audit at all: first_audit_no_comparison, as before", () => {
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 3 },
+        { id: "now", methodologyVersion: 3, ...QUESTIONS_V4 },
         [audit("a", 3, true)],
         models(["now", "a"]),
       ),
@@ -85,7 +95,11 @@ describe("driftBaseline", () => {
   it("an audit with no version recorded counts as version 1, as everywhere else", () => {
     const legacy = audit("legacy", null);
     expect(
-      driftBaseline({ id: "now", methodologyVersion: 1 }, [legacy], models(["now", "legacy"])),
+      driftBaseline(
+        { id: "now", methodologyVersion: 1, ...QUESTIONS_V4 },
+        [legacy],
+        models(["now", "legacy"]),
+      ),
     ).toEqual({ previous: legacy, reason: null });
   });
 });
@@ -94,14 +108,18 @@ describe("driftBaseline: the same models, no model drift (methodology v2.2, part
   it("two same-model, same-version audits are compared", () => {
     const earlier = audit("earlier", 4);
     expect(
-      driftBaseline({ id: "now", methodologyVersion: 4 }, [earlier], models(["now", "earlier"])),
+      driftBaseline(
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
+        [earlier],
+        models(["now", "earlier"]),
+      ),
     ).toEqual({ previous: earlier, reason: null });
   });
 
   it("Starter -> Growth (Claude Haiku -> Sonnet) isn't compared: models_changed", () => {
     expect(
       driftBaseline(
-        { id: "growth", methodologyVersion: 4 },
+        { id: "growth", methodologyVersion: 4, ...QUESTIONS_V4 },
         [audit("starter", 4)],
         models(["growth", "starter"], { growth: GROWTH }),
       ),
@@ -111,7 +129,7 @@ describe("driftBaseline: the same models, no model drift (methodology v2.2, part
   it("Gemini 2.5 Flash -> 3.5 Flash-Lite isn't compared: models_changed", () => {
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 4 },
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
         [audit("before-switch", 4)],
         models(["now", "before-switch"], { "before-switch": BEFORE_SWITCH }),
       ),
@@ -122,7 +140,7 @@ describe("driftBaseline: the same models, no model drift (methodology v2.2, part
     const candidates = [audit("starter", 4), audit("growth-earlier", 4)];
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 4 },
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
         candidates,
         models(["now", "starter", "growth-earlier"], { now: GROWTH, "growth-earlier": GROWTH }),
       ),
@@ -133,14 +151,14 @@ describe("driftBaseline: the same models, no model drift (methodology v2.2, part
     const candidates = [audit("drifted", 4), audit("clean", 4)];
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 4 },
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
         candidates,
         models(["now", "drifted", "clean"], {}, ["drifted"]),
       ),
     ).toEqual({ previous: candidates[1], reason: null });
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 4 },
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
         [audit("drifted", 4)],
         models(["now", "drifted"], {}, ["drifted"]),
       ),
@@ -150,10 +168,51 @@ describe("driftBaseline: the same models, no model drift (methodology v2.2, part
   it("nor is it compared itself: model_drift", () => {
     expect(
       driftBaseline(
-        { id: "now", methodologyVersion: 4 },
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
         [audit("earlier", 4)],
         models(["now", "earlier"], {}, ["now"]),
       ),
     ).toEqual({ previous: null, reason: "model_drift" });
+  });
+
+  // 15 Nov, part 2 (Sri, Hero's #48 and #50): #50 ran generator v4's questions under #48's pack version (the pack
+  // is regenerated after the audit row is stamped), so only the stored question set tells them apart.
+  it("nor across a change of everyday questions, even under the same pack version: questions_changed", () => {
+    expect(
+      driftBaseline(
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
+        [audit("v3-questions", 4, false, QUESTIONS_V3)],
+        models(["now", "v3-questions"]),
+      ),
+    ).toEqual({ previous: null, reason: "questions_changed" });
+  });
+
+  it("the latest earlier audit with the same questions is the baseline", () => {
+    const candidates = [audit("v3-questions", 4, false, QUESTIONS_V3), audit("v4-earlier", 4)];
+    expect(
+      driftBaseline(
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
+        candidates,
+        models(["now", ...candidates.map((c) => c.id)]),
+      ),
+    ).toEqual({ previous: candidates[1], reason: null });
+  });
+
+  it("an audit with no stored question set: the pack versions decide, as before migration 0150", () => {
+    const legacy = { questionSetHash: null, promptPackVersion: 3 };
+    expect(
+      driftBaseline(
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
+        [audit("legacy", 4, false, legacy)],
+        models(["now", "legacy"]),
+      ).previous?.id,
+    ).toBe("legacy");
+    expect(
+      driftBaseline(
+        { id: "now", methodologyVersion: 4, ...QUESTIONS_V4 },
+        [audit("older-pack", 4, false, { questionSetHash: null, promptPackVersion: 2 })],
+        models(["now", "older-pack"]),
+      ),
+    ).toEqual({ previous: null, reason: "questions_changed" });
   });
 });

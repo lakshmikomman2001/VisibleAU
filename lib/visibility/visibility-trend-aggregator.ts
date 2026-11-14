@@ -6,6 +6,7 @@ import { everyEngineAnswered } from "@/lib/audit/engine-failure";
 import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { citedSourcesSql } from "@/lib/audit/organic-filter";
+import { type QuestionSetOf, sameQuestionSet } from "@/lib/audit/question-set";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { modelSetKey } from "@/lib/llm/model-set";
@@ -300,7 +301,15 @@ export async function aggregateVisibilityTrend(
 export interface PeriodComparableAudits {
   auditIds: string[];
   methodologyVersion: number | null;
+  /** The group's models and (15 Nov, part 2) everyday questions: two periods compare only when equal. */
   modelSetKey: string | null;
+}
+
+type PeriodCandidate = QuestionSetOf & { id: string; methodologyVersion: number | null };
+
+/** The question set's part of a period's key: its hash, or its pack version without one (lib/audit/question-set.ts). */
+function questionSetKey(a: QuestionSetOf): string {
+  return a.questionSetHash ? `questions:${a.questionSetHash}` : `pack:${a.promptPackVersion ?? 1}`;
 }
 
 /**
@@ -309,10 +318,14 @@ export interface PeriodComparableAudits {
  * the period's newest methodology, and that asked the same engines for the same models as the newest of those
  * (lib/llm/model-set.ts). So a period never averages v2.1 with v2, or Claude Sonnet with Haiku. `rows` are the
  * candidates in the period, every engine answered, newest first.
+ *
+ * 15 Nov, part 2: and that asked the same everyday questions as the newest of those (lib/audit/question-set.ts),
+ * so a period never averages two question sets; the key carries the questions too, so the wins feed never
+ * compares two periods across a change of questions.
  */
 async function comparableGroup(
   tx: DbClient,
-  rows: ReadonlyArray<{ id: string; methodologyVersion: number | null }>,
+  rows: ReadonlyArray<PeriodCandidate>,
 ): Promise<PeriodComparableAudits> {
   const models = await auditModels(
     tx,
@@ -332,10 +345,15 @@ async function comparableGroup(
   const google = countsGoogle.has(sameVersion[0].id);
   return {
     auditIds: sameVersion
-      .filter((r) => keyOf(r.id) === key && countsGoogle.has(r.id) === google)
+      .filter(
+        (r) =>
+          keyOf(r.id) === key &&
+          countsGoogle.has(r.id) === google &&
+          sameQuestionSet(r, sameVersion[0]),
+      )
       .map((r) => r.id),
     methodologyVersion: version,
-    modelSetKey: key,
+    modelSetKey: `${key} | ${questionSetKey(sameVersion[0])}`,
   };
 }
 
@@ -347,7 +365,12 @@ export async function periodComparableAudits(
   periodEnd: Date,
 ): Promise<PeriodComparableAudits> {
   const rows = await tx
-    .select({ id: audits.id, methodologyVersion: audits.methodologyVersion })
+    .select({
+      id: audits.id,
+      methodologyVersion: audits.methodologyVersion,
+      questionSetHash: audits.questionSetHash,
+      promptPackVersion: audits.promptPackVersion,
+    })
     .from(audits)
     .where(
       and(
@@ -382,6 +405,8 @@ export async function periodModelSetKeys(
     .select({
       id: audits.id,
       methodologyVersion: audits.methodologyVersion,
+      questionSetHash: audits.questionSetHash,
+      promptPackVersion: audits.promptPackVersion,
       completedAt: audits.completedAt,
     })
     .from(audits)

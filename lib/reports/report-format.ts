@@ -127,7 +127,21 @@ export function methodologyChangeTrendLine(p: ReportTrendPoint): string | null {
  * model than the one asked for.
  */
 export function trendPointHollow(p: ReportTrendPoint): boolean {
-  return p.partial || p.earlierMethodology || p.otherModels !== null || p.modelDrift !== null;
+  return (
+    p.partial ||
+    p.earlierMethodology ||
+    p.otherQuestions ||
+    p.otherModels !== null ||
+    p.modelDrift !== null
+  );
+}
+
+/**
+ * 15 Nov, part 2 (Sri, Hero's #48 and #50): "Questions changed between #48 and #50 (one question removed), so
+ * these aren't compared." -- one line at each change of everyday questions along the chart.
+ */
+export function questionChangeTrendLines(points: ReportTrendPoint[]): string[] {
+  return points.map((p) => p.questionsChange).filter((line): line is string => line !== null);
 }
 
 /**
@@ -196,6 +210,7 @@ export function trendLines(data: ReportData): string[] {
     const change = methodologyChangeTrendLine(p);
     if (change) lines.push(change);
   }
+  lines.push(...questionChangeTrendLines(t.points));
   lines.push(...otherModelsTrendLines(t.points));
   for (const p of t.points) {
     const drift = modelDriftTrendLine(p);

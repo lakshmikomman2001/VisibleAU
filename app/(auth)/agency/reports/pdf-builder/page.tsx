@@ -76,6 +76,9 @@ interface EngineStat {
 interface PriorAudit {
   scoreComposite: string | null;
   completedAt: string | null;
+  /** 15 Nov, part 2: it asked other everyday questions, so it isn't compared (scoreComposite is null):
+   * "Questions changed between #48 and #50 (one question removed), so these aren't compared." */
+  questionsChanged?: string | null;
 }
 
 /** The latest-audit API's Visibility, or the shared "no audit" display. */
@@ -300,6 +303,7 @@ export default function PdfBuilderPage() {
       parts.push(
         `${currentBrandName} is mentioned in ${visibility.value} of AI answers (${visibility.detail}).`,
       );
+      if (priorAudit?.questionsChanged) parts.push(priorAudit.questionsChanged);
     }
 
     // Task #46 Phase 2, Part 2: matches lib/pdf/render.tsx's buildExecSummary

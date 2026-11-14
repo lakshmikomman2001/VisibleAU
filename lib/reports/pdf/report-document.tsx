@@ -27,7 +27,7 @@ import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import { type AgencyLogo, agencyInitials } from "../agency-branding";
-import type { ReportData, ReportMatrixRow } from "../report-data";
+import type { ReportData, ReportMatrixRow, ReportTrendPoint } from "../report-data";
 import { type EvidenceTone, type Finding, reportFindings } from "../report-findings";
 import {
   answeringEngineNames,
@@ -43,6 +43,7 @@ import {
   periodFull,
   periodTitle,
   plural,
+  questionChangeTrendLines,
   trendComparisonLine,
   trendLeftOutLine,
   trendPointHollow,
@@ -2038,6 +2039,21 @@ function DiagnosisPage({ ctx }: { ctx: Ctx }) {
 
 // --------------------------------------------------- over time + next steps
 
+/**
+ * 15 Nov, part 2: the plotted points split where the everyday questions changed (a point with questionsChange
+ * starts a new run), so the chart never draws a line between two question sets (Hero's #48 at 25% and #50 at
+ * 33% read as a rise). A point without a value between two others leaves the run whole, as before.
+ */
+export function trendSegments<T extends { p: ReportTrendPoint }>(plotted: T[]): T[][] {
+  const segments: T[][] = [];
+  for (const point of plotted) {
+    const last = segments[segments.length - 1];
+    if (!last || point.p.questionsChange !== null) segments.push([point]);
+    else last.push(point);
+  }
+  return segments;
+}
+
 function TrendChart({ data }: { data: ReportData }) {
   const points = data.trend.points;
   const W = 682;
@@ -2073,13 +2089,17 @@ function TrendChart({ data }: { data: ReportData }) {
           </Text>
         </G>
       ))}
-      {plotted.length > 1 && (
-        <Polyline
-          points={plotted.map(({ p, i }) => `${x(i)},${y(p.value as number)}`).join(" ")}
-          fill="none"
-          stroke={C.brand}
-          strokeWidth={2.5}
-        />
+      {/* 15 Nov, part 2: one line per run of the same everyday questions -- none across a change. */}
+      {trendSegments(plotted).map((segment) =>
+        segment.length > 1 ? (
+          <Polyline
+            key={`segment-${segment[0].p.auditId}`}
+            points={segment.map(({ p, i }) => `${x(i)},${y(p.value as number)}`).join(" ")}
+            fill="none"
+            stroke={C.brand}
+            strokeWidth={2.5}
+          />
+        ) : null,
       )}
       {plotted.map(({ p, i }) => (
         <G key={p.auditId}>
@@ -2120,6 +2140,8 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
   const caption = [
     ...points.filter((p) => p.partial).map(partialTrendLine),
     ...points.map(methodologyChangeTrendLine),
+    // 15 Nov, part 2: where the everyday questions changed, said, and the line breaks there.
+    ...questionChangeTrendLines(points),
     // Methodology v2.2 (7 Nov), part 3: other models than the basis audit's, and model drift.
     ...otherModelsTrendLines(points),
     ...points.map(modelDriftTrendLine),

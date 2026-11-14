@@ -66,6 +66,8 @@ export interface FixtureAuditSpec {
   models?: Partial<Record<FixtureEngine, string>>;
   /** engine -> the model its provider's response named (citations.llm_model_answered); NULL when not given. */
   answeredModels?: Partial<Record<FixtureEngine, string>>;
+  /** 15 Nov, part 2: the everyday questions this audit asked, instead of EVERYDAY_QUESTIONS. */
+  everydayQuestions?: readonly string[];
 }
 
 export interface ReportFixtureOptions {
@@ -171,7 +173,8 @@ export async function seedReportFixture(
     const auditId = randomUUID();
     auditIds[spec.number] = auditId;
     const failed = new Set(spec.failedEngines ?? []);
-    const promptsCount = EVERYDAY_QUESTIONS.length + BRANDED_QUESTIONS.length;
+    const everyday = spec.everydayQuestions ?? EVERYDAY_QUESTIONS;
+    const promptsCount = everyday.length + BRANDED_QUESTIONS.length;
     const engineFailures = Object.fromEntries([...failed].map((e) => [e, promptsCount]));
     const completedAt = new Date(spec.completedAt);
     const startedAt = new Date(completedAt.getTime() - 175_000);
@@ -188,7 +191,7 @@ export async function seedReportFixture(
     let answerIndex = 0;
     for (const engine of FIXTURE_ENGINES) {
       if (failed.has(engine)) {
-        const all = [...EVERYDAY_QUESTIONS, ...BRANDED_QUESTIONS];
+        const all = [...everyday, ...BRANDED_QUESTIONS];
         failureRows.push(
           ...all.map((prompt, i) => ({
             audit_id: auditId,
@@ -196,7 +199,7 @@ export async function seedReportFixture(
             engine,
             prompt,
             prompt_index: i,
-            is_branded_prompt: i >= EVERYDAY_QUESTIONS.length,
+            is_branded_prompt: i >= everyday.length,
             error_class: "other",
             error_message: SPEND_LIMIT_MESSAGE,
             attempts: 1,
@@ -206,7 +209,7 @@ export async function seedReportFixture(
         continue;
       }
       const mentioned = new Set(spec.mentions[engine] ?? []);
-      for (const [i, prompt] of EVERYDAY_QUESTIONS.entries()) {
+      for (const [i, prompt] of everyday.entries()) {
         const isMention = mentioned.has(i + 1);
         const sources: Array<{ domain: string; url: string }> = [];
         if (isMention) sources.push({ domain, url: `https://${domain}/` });
@@ -248,7 +251,7 @@ export async function seedReportFixture(
           audit_id: auditId,
           engine,
           prompt,
-          prompt_index: EVERYDAY_QUESTIONS.length + j,
+          prompt_index: everyday.length + j,
           run_number: 1,
           brand_mentioned: true,
           is_branded_prompt: true,

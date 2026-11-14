@@ -50,6 +50,7 @@ import {
   firstAuditFailedSentence,
   takeFirstAuditFailure,
 } from "@/lib/brands/first-audit-notice";
+import { isOnHistoryChart } from "@/lib/brands/history-chart";
 import { locationNeed } from "@/lib/brands/location-need";
 import { brandLocationLabel } from "@/lib/brands/region-label";
 import { pluralise } from "@/lib/format/pluralise";
@@ -145,6 +146,10 @@ interface BrandDetailClientProps {
     // unchanged" (no marker), the same backward-compat rule
     // classificationStatus/locationConfirmedAt already use above.
     promptPackVersion?: number | null;
+    /** 15 Nov, part 2: on the first point after a change of everyday questions (lib/audit/question-set.ts), what
+     * changed: "Questions changed between #48 and #50 (one question removed), so these aren't compared." The
+     * page works it out from each audit's stored question set; missing or null: the same questions. */
+    questionsChange?: string | null;
     // Vunnara Build 1, Part G.7: same backward-compat rule, for a
     // methodology (memory-only vs web-grounded) change.
     methodologyVersion?: number | null;
@@ -460,13 +465,13 @@ export function BrandDetailClient({
   // 14 Nov, part 5: an audit an operator excluded from trends isn't drawn (Hero's #46 drew a rise that never
   // happened); the note under the chart names it.
   const excludedFromChart = recentAudits.filter((a) => isExcludedFromTrends(a));
+  // The points the page worked out the question-change notes over (lib/brands/history-chart.ts).
   const sparkPoints = recentAudits
-    .filter((a) => !isExcludedFromTrends(a))
-    .filter((a): a is typeof a & { scoreComposite: string } => a.scoreComposite != null)
+    .filter((a): a is typeof a & { scoreComposite: string } => isOnHistoryChart(a))
     .map((a) => ({
       value: Number.parseFloat(a.scoreComposite),
       insufficientData: a.insufficientData ?? false,
-      promptPackVersion: a.promptPackVersion ?? null,
+      questionsChange: a.questionsChange ?? null,
       methodologyVersion: a.methodologyVersion ?? null,
       engineCoverage: a.engineCoverage ?? null,
       engines: a.engines ?? [],
@@ -1250,18 +1255,15 @@ export function BrandDetailClient({
                     {sparkPoints.map((p, i) => {
                       // Vunnara Build 1, Part E.2/G.7: a dashed left edge
                       // marks "something about how this audit was generated
-                      // changed here" between two consecutive audits with a
-                      // different promptPackVersion (the question set) or
-                      // methodologyVersion (memory-only vs web-grounded) --
-                      // null on either side (legacy audits predating these
-                      // columns) never triggers it, since "unknown" isn't
-                      // the same claim as "confirmed different".
+                      // changed here" between two consecutive audits with
+                      // different everyday questions (15 Nov, part 2: the
+                      // stored question set, worked out by the page, not the
+                      // pack version) or methodologyVersion (memory-only vs
+                      // web-grounded) -- null on either side (legacy audits
+                      // predating the column) never triggers it, since
+                      // "unknown" isn't the same claim as "confirmed different".
                       const prev = i > 0 ? sparkPoints[i - 1] : null;
-                      const questionsChanged =
-                        prev !== null &&
-                        p.promptPackVersion != null &&
-                        prev.promptPackVersion != null &&
-                        p.promptPackVersion !== prev.promptPackVersion;
+                      const questionsChanged = prev !== null && p.questionsChange !== null;
                       const methodologyChanged =
                         prev !== null &&
                         p.methodologyVersion != null &&
@@ -1271,7 +1273,7 @@ export function BrandDetailClient({
                       const versionChanged =
                         questionsChanged || methodologyChanged || modelsChanged;
                       const title = [
-                        questionsChanged ? "Questions changed since the previous audit" : null,
+                        questionsChanged ? p.questionsChange : null,
                         methodologyChanged
                           ? (methodologyNotes[i] ??
                             "Search methodology changed since the previous audit")
@@ -1319,9 +1321,7 @@ export function BrandDetailClient({
                   {(sparkPoints.some(
                     (p, i) =>
                       i > 0 &&
-                      ((p.promptPackVersion != null &&
-                        sparkPoints[i - 1].promptPackVersion != null &&
-                        p.promptPackVersion !== sparkPoints[i - 1].promptPackVersion) ||
+                      (p.questionsChange !== null ||
                         (p.methodologyVersion != null &&
                           sparkPoints[i - 1].methodologyVersion != null &&
                           p.methodologyVersion !== sparkPoints[i - 1].methodologyVersion)),
@@ -1345,6 +1345,12 @@ export function BrandDetailClient({
                           borderTop: "2px dashed var(--warning)",
                         }}
                       />
+                      {/* 15 Nov, part 2: each change of questions, said ("…, so these aren't compared."). */}
+                      {sparkPoints
+                        .slice(1)
+                        .map((p) => p.questionsChange)
+                        .filter(Boolean)
+                        .map((note) => `${note} `)}
                       {[...methodologyNotes, ...modelNotes]
                         .filter(Boolean)
                         .map((note) => `${note}. `)}

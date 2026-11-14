@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
+import { sameQuestionSet } from "@/lib/audit/question-set";
+import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { isExcludedFromTrends, trendExclusionLabel } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
@@ -36,14 +38,16 @@ export default async function ComparePage({
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!ids.every((id) => UUID_RE.test(id))) redirect("/audits");
 
-  const { auditA, auditB, dataA, dataB, googleBasisDiffers } = await withRlsContext(
-    currentUser.organizationId,
-    async (tx) => {
+  const { auditA, auditB, dataA, dataB, googleBasisDiffers, questionsChanged } =
+    await withRlsContext(currentUser.organizationId, async (tx) => {
       const [auditA] = await tx
         .select({
           id: audits.id,
           auditNumber: audits.auditNumber,
           excludedFromTrendsReason: audits.excludedFromTrendsReason,
+          // 15 Nov, part 2: never compared across a change of everyday questions.
+          questionSetHash: audits.questionSetHash,
+          promptPackVersion: audits.promptPackVersion,
         })
         .from(audits)
         .where(and(eq(audits.id, ids[0]), eq(audits.organizationId, currentUser.organizationId)));
@@ -52,6 +56,9 @@ export default async function ComparePage({
           id: audits.id,
           auditNumber: audits.auditNumber,
           excludedFromTrendsReason: audits.excludedFromTrendsReason,
+          // 15 Nov, part 2: never compared across a change of everyday questions.
+          questionSetHash: audits.questionSetHash,
+          promptPackVersion: audits.promptPackVersion,
         })
         .from(audits)
         .where(and(eq(audits.id, ids[1]), eq(audits.organizationId, currentUser.organizationId)));
@@ -90,15 +97,22 @@ export default async function ComparePage({
       const googleBasisDiffers =
         (resolvedByAuditId.get(auditA.id)?.googleIncluded === true) !==
         (resolvedByAuditId.get(auditB.id)?.googleIncluded === true);
+      // 15 Nov, part 2 (Sri, Hero's #48 and #50): two audits that asked different everyday questions aren't
+      // compared -- "Questions changed between #48 and #50 (one question removed), so these aren't compared."
+      const [earlier, later] =
+        auditA.auditNumber <= auditB.auditNumber ? [auditA, auditB] : [auditB, auditA];
+      const questionsChanged = sameQuestionSet(earlier, later)
+        ? null
+        : await questionChangeNote(tx, earlier, later);
       return {
         auditA,
         auditB,
         dataA: recompute(auditA.id),
         dataB: recompute(auditB.id),
         googleBasisDiffers,
+        questionsChanged,
       };
-    },
-  );
+    });
 
   // Display-only relabel ("Source citation"): this dimension measures citation rate
   // (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal
@@ -133,7 +147,7 @@ export default async function ComparePage({
   const excluded = [auditA, auditB].filter(isExcludedFromTrends);
 
   function getDelta(a: number | null, b: number | null): string {
-    if (excluded.length > 0) return "—";
+    if (excluded.length > 0 || questionsChanged) return "—";
     if (a == null || b == null) return "—";
     // Between the two rounded figures shown, in percentage points.
     const diff = Number(a.toFixed(0)) - Number(b.toFixed(0));
@@ -151,6 +165,11 @@ export default async function ComparePage({
         >
           Not like for like: one of these audits counts Google AI Overviews and AI Mode in its
           Visibility %, the other doesn&apos;t.
+        </p>
+      )}
+      {questionsChanged && (
+        <p className="text-sm mb-4 text-muted-foreground" data-compare-questions-changed="">
+          {questionsChanged}
         </p>
       )}
       {excluded.map((a) => (

@@ -147,6 +147,9 @@ export default async function AgencyDashboardPage() {
               promptsCount: audits.promptsCount,
               metadata: audits.metadata,
               methodologyVersion: audits.methodologyVersion,
+              // 15 Nov, part 2: never compared across a change of everyday questions.
+              questionSetHash: audits.questionSetHash,
+              promptPackVersion: audits.promptPackVersion,
             })
             .from(audits)
             .where(inArray(audits.id, auditIds))

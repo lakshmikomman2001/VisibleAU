@@ -18,6 +18,7 @@ import {
   startGoogleSurfaces,
 } from "@/lib/audit/google-surfaces/dispatch";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { buildEngineLocation } from "@/lib/brands/region-label";
@@ -490,6 +491,8 @@ export const runAudit = inngest.createFunction(
             runsPerPrompt,
             totalCalls,
             completedAt: new Date(),
+            // 15 Nov, part 2: the everyday questions it asked, from its stored rows (migration 0150).
+            questionSetHash: questionSetHashSql(auditId),
             // Build 1 addendum, item 6: merged, never overwritten.
             ...(Object.keys(engineFailures).length > 0
               ? { metadata: sql`metadata || ${JSON.stringify({ engineFailures })}::jsonb` }

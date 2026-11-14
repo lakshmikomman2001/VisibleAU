@@ -152,6 +152,7 @@ async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Pr
   // Methodology v2.2 (7 Nov), part 3: nor across a change of models -- a rise could be Claude Sonnet answering
   // where Haiku did, not the brand. Each period's figures come from one model set (lib/visibility/visibility-
   // trend-aggregator.ts); a period whose audits can't be found any more is compared on its methodology alone.
+  // 15 Nov, part 2: the key carries the period's everyday questions too, so a change of questions isn't a win.
   const [currentModels, previousModels] = await periodModelSetKeys(tx, brandId, [rows[0], rows[1]]);
   if (currentModels !== null && previousModels !== null && currentModels !== previousModels) {
     return [];

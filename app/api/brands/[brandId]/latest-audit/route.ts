@@ -2,6 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits } from "@/db/schema";
+import { sameQuestionSet } from "@/lib/audit/question-set";
+import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
@@ -66,6 +68,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         engines: audits.engines,
         promptsCount: audits.promptsCount,
         excludedFromTrendsReason: audits.excludedFromTrendsReason,
+        // 15 Nov, part 2: never compared across a change of everyday questions.
+        questionSetHash: audits.questionSetHash,
+        promptPackVersion: audits.promptPackVersion,
       })
       .from(audits)
       .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
@@ -121,6 +126,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       scoreConfidenceLow: headline ? headline.ci.lower.toFixed(2) : null,
       scoreConfidenceHigh: headline ? headline.ci.upper.toFixed(2) : null,
     };
+    // 15 Nov, part 2 (Sri, Hero's #48 and #50): a prior audit that asked other everyday questions isn't compared:
+    // no score to diff, and the PDF builder says why (lib/audit/question-set.ts).
+    const questionsChanged =
+      rawPriorAudit && !sameQuestionSet(rawAudit, rawPriorAudit)
+        ? await questionChangeNote(tx, rawPriorAudit, rawAudit)
+        : null;
     const resolvedPrior = rawPriorAudit
       ? await resolveAuditDimensionsAndHeadline(tx, rawPriorAudit.id)
       : null;
@@ -128,9 +139,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const priorAudit = rawPriorAudit
       ? {
           scoreComposite:
-            priorHeadline?.status === "scored" ? priorHeadline.value.toFixed(2) : null,
+            priorHeadline?.status === "scored" && !questionsChanged
+              ? priorHeadline.value.toFixed(2)
+              : null,
           visibility: visibilityDisplay(resolvedPrior),
           completedAt: rawPriorAudit.completedAt,
+          questionsChanged,
         }
       : null;
 

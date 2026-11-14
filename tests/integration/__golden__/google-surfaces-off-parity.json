@@ -1202,6 +1202,7 @@
           "failedAt": null,
           "errorMessage": null,
           "excludedFromTrendsReason": null,
+          "questionSetHash": "a37d0eaa8bbd7640479da6608662572fe97530dbbae837062d3d42eafcafb2b5",
           "createdAt": "<iso>",
           "configBundleId": null,
           "configDigest": null,
@@ -1777,6 +1778,7 @@
         "actionItems": [],
         "priorComposite": null,
         "priorCompletedAt": null,
+        "priorQuestionsChanged": null,
         "engineStats": [
           {
             "engine": "chatgpt",
@@ -2079,6 +2081,8 @@
             "otherModels": null,
             "modelDrift": null,
             "failedEngines": [],
+            "otherQuestions": false,
+            "questionsChange": null,
             "comparable": true,
             "isBasis": true,
             "inPeriod": false
@@ -3045,6 +3049,7 @@
         ],
         "priorComposite": null,
         "priorCompletedAt": null,
+        "priorQuestionsChanged": null,
         "engineStats": [
           {
             "engine": "chatgpt",
@@ -3346,6 +3351,8 @@
                 "reason": "Provider error: account/credit issue"
               }
             ],
+            "otherQuestions": false,
+            "questionsChange": null,
             "comparable": false,
             "isBasis": true,
             "inPeriod": false

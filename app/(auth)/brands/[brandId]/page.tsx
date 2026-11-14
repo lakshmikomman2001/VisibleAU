@@ -8,7 +8,9 @@ import { audits, brands, citations } from "@/db/schema";
 import { engineCoverageLabel, engineNoAnswerReason } from "@/lib/audit/engine-failure";
 import { auditModels } from "@/lib/audit/model-drift";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { questionChangeNotes } from "@/lib/audit/question-set-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isOnHistoryChart } from "@/lib/brands/history-chart";
 import {
   brandNeedsClassificationConfirmation,
   classificationState,
@@ -78,6 +80,9 @@ export default async function BrandDetailPage({
           // changed" between two consecutive audits that ran a different
           // prompt-pack generation, instead of implying a smooth trend.
           promptPackVersion: audits.promptPackVersion,
+          // 15 Nov, part 2: the everyday questions it asked (migration 0150) -- the pack version alone missed
+          // Hero's #48 -> #50 change (lib/audit/question-set.ts).
+          questionSetHash: audits.questionSetHash,
           // Vunnara Build 1, Part G.7: same marker, for a methodology
           // change (memory-only vs web-grounded) between two audits.
           methodologyVersion: audits.methodologyVersion,
@@ -138,11 +143,25 @@ export default async function BrandDetailPage({
         recentAudits.map((a) => a.id),
       );
 
+      // 15 Nov, part 2: between two neighbouring points of the chart (oldest first) that asked different everyday
+      // questions, what changed: "Questions changed between #48 and #50 (one question removed), so these aren't
+      // compared." The chart marks the change and lists the note under it.
+      const questionNotes = await questionChangeNotes(
+        tx,
+        [...recentAudits].reverse().filter((a) =>
+          isOnHistoryChart({
+            scoreComposite: recomputeComposite(a.id),
+            excludedFromTrendsReason: a.excludedFromTrendsReason,
+          }),
+        ),
+      );
+
       const recentAuditsWithStatus = recentAudits.map((a) => ({
         scoreComposite: recomputeComposite(a.id),
         completedAt: a.completedAt,
         insufficientData: isInsufficientData(a.id),
         promptPackVersion: a.promptPackVersion,
+        questionsChange: questionNotes.get(a.id) ?? null,
         methodologyVersion: a.methodologyVersion,
         engineCoverage: engineCoverageLabel(a),
         engines: a.engines ?? [],

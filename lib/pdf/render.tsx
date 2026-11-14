@@ -51,6 +51,9 @@ export interface AuditPdfData {
   actionItems: Array<{ title: string; action: string }>;
   priorComposite: number | null;
   priorCompletedAt: string | null;
+  /** 15 Nov, part 2: the prior audit asked other everyday questions, so it isn't compared (priorComposite is
+   * null) -- "Questions changed between #48 and #50 (one question removed), so these aren't compared." */
+  priorQuestionsChanged?: string | null;
   /** The same per-engine split the headline sums (successful everyday
    * answers, run 1). */
   engineStats: EngineAnswerCounts[];
@@ -176,6 +179,7 @@ export function buildExecSummary(data: AuditPdfData): string {
     parts.push(
       `${data.brandName} is mentioned in ${visibility.value} of AI answers to everyday customer questions (${visibility.detail}).`,
     );
+    if (data.priorQuestionsChanged) parts.push(data.priorQuestionsChanged);
   }
 
   // Position/Source-citation are only ever measured over the mentions

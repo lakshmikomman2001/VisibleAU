@@ -18,6 +18,7 @@ import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
@@ -452,6 +453,8 @@ export async function runAuditInline(
         runsPerPrompt,
         totalCalls,
         completedAt: new Date(),
+        // 15 Nov, part 2: the everyday questions it asked, from its stored rows (migration 0150).
+        questionSetHash: questionSetHashSql(auditId),
         // Build 1 addendum, item 6: merged, never overwritten --
         // metadata already carries mockScenario (set at audit-creation
         // time) and must keep it.
@@ -468,7 +471,7 @@ export async function runAuditInline(
       // that race loses cleanly: this UPDATE matches zero rows
       // instead of overwriting "failed" back to "complete".
       .where(and(eq(audits.id, auditId), inArray(audits.status, ["pending", "running"])))
-      .returning({ id: audits.id });
+      .returning({ id: audits.id, questionSetHash: audits.questionSetHash });
 
     if (!finalized) {
       // Stale-run guard follow-up, item 3 -- the money was still
@@ -567,7 +570,13 @@ export async function runAuditInline(
           auditId,
           ...candidates.map((c) => c.id),
         ]);
-        const baseline = driftBaseline(a, candidates, models, countsGoogle);
+        // 15 Nov, part 2: `a` was loaded before the audit ran; its question set is the one just written.
+        const baseline = driftBaseline(
+          { ...a, questionSetHash: finalized.questionSetHash },
+          candidates,
+          models,
+          countsGoogle,
+        );
         const previous = baseline.previous;
 
         if (!previous) {
@@ -575,6 +584,8 @@ export async function runAuditInline(
             {
               methodology_changed:
                 "[audit-inline] drift check: skipped — no earlier audit under the same methodology",
+              questions_changed:
+                "[audit-inline] drift check: skipped — no earlier audit with the same everyday questions",
               models_changed:
                 "[audit-inline] drift check: skipped — no earlier audit with the same models",
               model_drift:

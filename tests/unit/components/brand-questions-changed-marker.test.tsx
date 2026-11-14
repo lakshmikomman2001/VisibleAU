@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
  * Vunnara Build 1, Part E.2 — the brand detail sparkline marks
- * "questions changed" between two consecutive audits whose
- * promptPackVersion differs, so a trend doesn't silently imply a
+ * "questions changed" between two consecutive audits that asked
+ * different everyday questions (15 Nov, part 2: the page's note from
+ * the stored question sets, not promptPackVersion), so a trend doesn't silently imply a
  * smooth comparison across two incompatible question sets. Mirrors
  * the existing insufficientData per-point marker pattern, but as a
  * between-two-points edge marker.
@@ -93,8 +94,30 @@ const BASE_PROPS = {
   engineStats: [],
 };
 
+/** 15 Nov, part 2: what the page works out from each audit's stored question set (lib/audit/question-set-sql.ts). */
+const QUESTIONS_NOTE =
+  "Questions changed between #48 and #50 (one question removed), so these aren't compared.";
+
 describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
-  it("shows the caption when two consecutive audits used a different promptPackVersion", () => {
+  // 15 Nov, part 2 (Sri, Hero's #48 and #50): the page says where the everyday questions changed, from the stored
+  // question sets; the pack version missed it (stamped before a stale pack is regenerated).
+  it("marks the audit after a change of everyday questions, and the caption says what changed", () => {
+    const { container } = render(
+      <BrandDetailClient
+        {...BASE_PROPS}
+        recentAudits={[
+          { scoreComposite: "25.00", completedAt: "2026-11-11", questionsChange: null },
+          { scoreComposite: "32.50", completedAt: "2026-11-13", questionsChange: QUESTIONS_NOTE },
+        ]}
+      />,
+    );
+    expect(screen.getByText(CAPTION)).toHaveTextContent(QUESTIONS_NOTE);
+    const points = container.querySelectorAll("[data-spark-point]");
+    expect(points[0].getAttribute("title")).toBeNull();
+    expect(points[1].getAttribute("title")).toBe(QUESTIONS_NOTE);
+  });
+
+  it("the pack version alone decides nothing: the same questions under two pack versions aren't marked", () => {
     render(
       <BrandDetailClient
         {...BASE_PROPS}
@@ -104,16 +127,16 @@ describe("BrandDetailClient — questions-changed marker (Part E.2)", () => {
         ]}
       />,
     );
-    expect(screen.getByText(CAPTION)).toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 
-  it("does not show the caption when every audit used the same promptPackVersion", () => {
+  it("does not show the caption when the page found the same questions", () => {
     render(
       <BrandDetailClient
         {...BASE_PROPS}
         recentAudits={[
-          { scoreComposite: "40.00", completedAt: "2026-05-01", promptPackVersion: 1 },
-          { scoreComposite: "55.00", completedAt: "2026-06-01", promptPackVersion: 1 },
+          { scoreComposite: "40.00", completedAt: "2026-05-01", questionsChange: null },
+          { scoreComposite: "55.00", completedAt: "2026-06-01", questionsChange: null },
         ]}
       />,
     );

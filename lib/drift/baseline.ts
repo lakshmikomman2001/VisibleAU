@@ -1,15 +1,18 @@
 import { fullyFailedEngines } from "@/lib/audit/engine-failure";
 import type { AuditModelsOf } from "@/lib/audit/model-drift";
+import { type QuestionSetOf, sameQuestionSet } from "@/lib/audit/question-set";
 import { sameModelSet } from "@/lib/llm/model-set";
 
-type Candidate = Parameters<typeof fullyFailedEngines>[0] & {
-  id: string;
-  methodologyVersion: number | null;
-};
+type Candidate = Parameters<typeof fullyFailedEngines>[0] &
+  QuestionSetOf & {
+    id: string;
+    methodologyVersion: number | null;
+  };
 
 export type DriftBaselineReason =
   | "first_audit_no_comparison"
   | "methodology_changed"
+  | "questions_changed"
   | "models_changed"
   | "model_drift";
 
@@ -30,9 +33,12 @@ export type DriftBaseline<T> =
  * provider answered with another model (model drift) is never compared, as the new audit or as its baseline.
  * The reason says which rule left nothing to compare with. Shared by inngest/functions/detect-drift.ts and
  * lib/audit/run-audit-inline.ts.
+ *
+ * 15 Nov, part 2 (Sri, Hero's #48 and #50): and that asked the same everyday questions (lib/audit/question-set.ts)
+ * -- a change of questions would report itself as drift ("questions_changed").
  */
 export function driftBaseline<T extends Candidate>(
-  current: { id: string; methodologyVersion: number | null },
+  current: QuestionSetOf & { id: string; methodologyVersion: number | null },
   candidates: T[],
   models: ReadonlyMap<string, AuditModelsOf>,
   /** Google AI surfaces (Phase 1): the audits that counted Google in their headline (off by default). An
@@ -48,7 +54,9 @@ export function driftBaseline<T extends Candidate>(
     (a) => (a.methodologyVersion ?? 1) === (current.methodologyVersion ?? 1),
   );
   if (sameMethodology.length === 0) return { previous: null, reason: "methodology_changed" };
-  const sameModels = sameMethodology.filter((a) =>
+  const sameQuestions = sameMethodology.filter((a) => sameQuestionSet(a, current));
+  if (sameQuestions.length === 0) return { previous: null, reason: "questions_changed" };
+  const sameModels = sameQuestions.filter((a) =>
     sameModelSet(models.get(a.id)?.models, models.get(current.id)?.models),
   );
   if (sameModels.length === 0) return { previous: null, reason: "models_changed" };

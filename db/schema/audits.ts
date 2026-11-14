@@ -68,6 +68,12 @@ export const audits = pgTable(
     // (e.g. #46, measured before the mention-check fix): the audit stays in history with a label, and is left
     // out of trends, averages and comparisons (lib/audit/trend-exclusion.ts). NULL: counted as usual.
     excludedFromTrendsReason: text("excluded_from_trends_reason"),
+    // Migration 0150 (15 Nov, part 2): the SHA-256 of the everyday questions this audit actually asked, from its
+    // stored answers and failed calls (lib/audit/question-set.ts), written when it completes and backfilled. Two
+    // audits with different hashes asked different questions and are never compared. NULL (no stored everyday
+    // row): comparisons fall back to promptPackVersion, which is stamped before a stale pack is regenerated, so
+    // it can miss a change of questions (Hero's #48 and #50).
+    questionSetHash: text("question_set_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     // Phase 2 Sprint 1 columns (nullable, safe migration)
     configBundleId: uuid("config_bundle_id").references(() => configBundleCache.id),

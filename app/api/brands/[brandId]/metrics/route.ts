@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { sameQuestionSet } from "@/lib/audit/question-set";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
@@ -42,6 +43,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .select({
         id: audits.id,
         completedAt: audits.completedAt,
+        // 15 Nov, part 2: the change vs the prior audit only when they asked the same everyday questions.
+        questionSetHash: audits.questionSetHash,
+        promptPackVersion: audits.promptPackVersion,
       })
       .from(audits)
       // 14 Nov, part 5: a trend series and its change, so never an audit an operator excluded from trends.
@@ -78,7 +82,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // fallback this route already used when there was no prior audit.
     // No audits at all keeps its pre-existing 0.
     const lastScore = auditsWithScore.length === 0 ? 0 : auditsWithScore[0].compositeScore;
-    const priorScore = auditsWithScore[1]?.compositeScore ?? lastScore;
+    // 15 Nov, part 2: a prior audit that asked other everyday questions isn't compared (lib/audit/question-set.ts):
+    // no change, as with no prior audit.
+    const questionsChanged =
+      recentAudits.length > 1 && !sameQuestionSet(recentAudits[0], recentAudits[1]);
+    const priorScore = questionsChanged
+      ? lastScore
+      : (auditsWithScore[1]?.compositeScore ?? lastScore);
     const change = lastScore !== null && priorScore !== null ? lastScore - priorScore : 0;
     const trend = change > 2 ? "up" : change < -2 ? "down" : "flat";
 
@@ -87,6 +97,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       trend,
       lastAuditScore: lastScore,
       changeVsPriorAudit: change,
+      priorAuditComparable: !questionsChanged,
     });
   });
 }

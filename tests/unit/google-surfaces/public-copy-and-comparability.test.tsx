@@ -117,6 +117,8 @@ describe("drift compares like with like on Google too", () => {
   const audit = (id: string) => ({
     id,
     methodologyVersion: 4,
+    questionSetHash: "same-questions",
+    promptPackVersion: 1,
     engines: ["chatgpt"],
     promptsCount: 1,
     metadata: {},

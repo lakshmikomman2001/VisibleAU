@@ -10,6 +10,8 @@ import {
 } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { sameQuestionSet } from "@/lib/audit/question-set";
+import { questionChangeNotes } from "@/lib/audit/question-set-sql";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
@@ -150,8 +152,16 @@ export interface ReportTrendPoint {
   /** The engines that answered nothing, with the plain reason
    * (describeEngineFailure's label); empty unless partial. */
   failedEngines: Array<{ name: string; reason: string }>;
+  /**
+   * 15 Nov, part 2 (Sri, Hero's #48 and #50): asked other everyday questions than the basis audit
+   * (lib/audit/question-set.ts) -- drawn hollow, apart from the basis audit's line, never compared.
+   */
+  otherQuestions: boolean;
+  /** On the first point after a change of everyday questions: "Questions changed between #48 and #50 (one
+   * question removed), so these aren't compared." The chart's line breaks here. Null everywhere else. */
+  questionsChange: string | null;
   /** Like for like with the basis audit: every engine answered, the same
-   * question pack, the same methodology and the same models, no model drift,
+   * everyday questions, the same methodology and the same models, no model drift,
    * and a measured headline. */
   comparable: boolean;
   isBasis: boolean;
@@ -298,6 +308,8 @@ const COMPLETE_AUDIT_COLUMNS = {
   promptsCount: audits.promptsCount,
   metadata: audits.metadata,
   promptPackVersion: audits.promptPackVersion,
+  // 15 Nov, part 2: the everyday questions it asked (lib/audit/question-set.ts).
+  questionSetHash: audits.questionSetHash,
   methodologyVersion: audits.methodologyVersion,
   // 14 Nov, part 5: an operator's exclusion (lib/audit/trend-exclusion.ts) keeps it off the trend.
   excludedFromTrendsReason: audits.excludedFromTrendsReason,
@@ -679,13 +691,16 @@ export async function buildReportData(
   const basis = picked.audit;
 
   const isFull = (a: Candidate) => fullyFailedEngines(a).length === 0;
-  const samePack = (a: Candidate) => (a.promptPackVersion ?? 1) === (basis.promptPackVersion ?? 1);
+  // 15 Nov, part 2: the same everyday questions, from each audit's stored question set -- not the pack version,
+  // which is stamped before a stale pack is regenerated (Hero's #50 ran v4's questions under #48's version).
+  const sameQuestions = (a: Candidate) => sameQuestionSet(a, basis);
   const sameMethodology = (a: Candidate) =>
     (a.methodologyVersion ?? 1) === (basis.methodologyVersion ?? 1);
-  const sameMethod = (a: Candidate) => samePack(a) && sameMethodology(a);
+  const sameMethod = (a: Candidate) => sameQuestions(a) && sameMethodology(a);
 
   // The trend: every audit in the period, the basis itself, and earlier
-  // ones with the basis audit's question pack -- partial ones included,
+  // ones (15 Nov, part 2: whatever their questions; one with other everyday
+  // questions is drawn apart, hollow, with a note) -- partial ones included,
   // drawn hollow and never compared (2 Nov follow-up, item 2: a Week 45
   // report left out #37 without a word). "Mention detection" (6 Nov), part
   // 6: an earlier methodology is treated the same way -- shown, hollow,
@@ -694,10 +709,12 @@ export async function buildReportData(
   // 14 Nov, part 5: an audit an operator excluded from trends is never on the chart or compared (Hero's #46: 0%
   // from the name-matching bug), the basis included; the caption names it.
   const wouldChart = (a: Candidate) =>
-    a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && samePack(a));
+    a.id === basis.id || inPeriod(a) || a.completedAt < basis.completedAt;
   const excludedFromChart = complete.filter((a) => wouldChart(a) && isExcludedFromTrends(a));
   const trendEligible = complete.filter((a) => wouldChart(a) && !isExcludedFromTrends(a));
   const trendAudits = trendEligible.slice(0, TREND_MAX_POINTS).reverse();
+  // 15 Nov, part 2: where the everyday questions change along the chart, what changed.
+  const questionNotes = await questionChangeNotes(db, trendAudits);
 
   const resolved = await resolveOrganicDimensions(db, [
     ...new Set([basis.id, ...trendAudits.map((a) => a.id)]),
@@ -782,6 +799,8 @@ export async function buildReportData(
         name: engineName(f.engine),
         reason: f.reason.label,
       })),
+      otherQuestions: !sameQuestions(a),
+      questionsChange: questionNotes.get(a.id) ?? null,
       comparable: isComparable(a),
       isBasis: a.id === basis.id,
       inPeriod: inPeriod(a),

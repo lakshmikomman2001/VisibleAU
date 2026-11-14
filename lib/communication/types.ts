@@ -54,8 +54,16 @@ export const PDF_STALLED_LABEL = "it didn't finish";
  * A PDF normally takes well under a minute. A report with no PDF, no
  * recorded failure and no change for this long isn't being made any more
  * -- e.g. one that failed before migration 0110 could record why.
+ *
+ * 14 Nov, part 6 (Sri: a report sat at "Generating…"): 10 minutes, not 30 -- render-report-pdf's two retries
+ * take seconds, not minutes -- and the page says so while it waits (REPORT_GENERATING_NOTE), and polls past
+ * it (lib/communication/report-poll.ts), so it turns to Failed on its own.
  */
-export const REPORT_PDF_STALLED_MS = 30 * 60_000;
+export const REPORT_PDF_STALLED_MINUTES = 10;
+export const REPORT_PDF_STALLED_MS = REPORT_PDF_STALLED_MINUTES * 60_000;
+
+/** Under "Generating…": how long it should take, and what happens if it doesn't finish. */
+export const REPORT_GENERATING_NOTE = `Usually under a minute. If it isn't ready in ${REPORT_PDF_STALLED_MINUTES} minutes, it's marked failed and you can try again.`;
 
 export function isPdfFailureReason(value: unknown): value is PdfFailureReason {
   return typeof value === "string" && (PDF_FAILURE_REASONS as readonly string[]).includes(value);

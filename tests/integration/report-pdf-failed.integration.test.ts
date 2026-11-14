@@ -63,6 +63,12 @@ const currentUser = vi.hoisted(() => ({ value: null as Record<string, unknown> |
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(async () => currentUser.value),
 }));
+// 14 Nov, part 6: /admin/reports' operator check (lib/auth/platform-admin.ts reads the session), as a switch.
+const operatorState = vi.hoisted(() => ({ allowed: false }));
+vi.mock("@/lib/auth/platform-admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth/platform-admin")>()),
+  checkPlatformAdmin: vi.fn(async () => ({ allowed: operatorState.allowed, userId: "op-1" })),
+}));
 
 const ORG_ID = randomUUID();
 const BRAND_ID = randomUUID();
@@ -203,6 +209,14 @@ async function reasonInDb(): Promise<{
   return row;
 }
 
+/** 14 Nov, part 6: the failure's own message, for the operator (migration 0149). */
+async function detailInDb(): Promise<string | null> {
+  const [row] = await client<{ pdf_failure_detail: string | null }[]>`
+    SELECT pdf_failure_detail FROM generated_reports WHERE id = ${REPORT_ID}
+  `;
+  return row.pdf_failure_detail;
+}
+
 function signIn(who: keyof typeof PEOPLE) {
   const p = PEOPLE[who];
   currentUser.value = {
@@ -227,6 +241,14 @@ describe("a storage failure while making the PDF (1 Nov, part 2)", () => {
       pdf_failure_reason: "storage_unavailable",
       pdf_url: null,
     });
+    // 14 Nov, part 6: and why, for the operator -- the hostname, never a URL or the key.
+    const detail = await detailInDb();
+    expect(detail).toMatch(
+      /^Supabase Storage upload failed: fetch failed \(cause: ENOTFOUND, Error: getaddrinfo ENOTFOUND /,
+    );
+    expect(detail).toContain(HOST);
+    expect(detail).not.toMatch(/https?:\/\//);
+    expect(detail).not.toContain(FAKE_KEY);
   });
 
   it("alerts the owner and the operator once per run -- not the analyst or the viewer -- with no raw message", async () => {
@@ -261,12 +283,17 @@ describe("a storage failure while making the PDF (1 Nov, part 2)", () => {
     const failed = rows.find((r) => r.id === REPORT_ID);
     expect(failed?.status).toBe("failed");
     expect(failed?.pdfFailureReason).toBe("storage_unavailable");
+    // 14 Nov, part 6: the operator's detail (a hostname, the provider's words) never reaches the customer.
+    for (const row of rows) expect(row).not.toHaveProperty("pdfFailureDetail");
 
     const detail = await import("@/app/api/brands/[brandId]/reports/[reportId]/route");
     const one = await detail.GET(new Request("http://t/x"), {
       params: Promise.resolve({ brandId: BRAND_ID, reportId: REPORT_ID }),
     });
-    expect(((await one.json()) as { status: string }).status).toBe("failed");
+    const body = (await one.json()) as { status: string };
+    expect(body.status).toBe("failed");
+    expect(body).not.toHaveProperty("pdfFailureDetail");
+    expect(JSON.stringify(body)).not.toContain("ENOTFOUND");
   });
 
   it("a report WITH a PDF whose link can't be signed stays ready, marked unavailable -- not 'Generating...'", async () => {
@@ -283,6 +310,80 @@ describe("a storage failure while making the PDF (1 Nov, part 2)", () => {
     }>;
     const withPdf = rows.find((r) => r.id === EMAILED_REPORT_ID);
     expect(withPdf).toMatchObject({ status: "ready", pdfUrl: null, pdfLinkUnavailable: true });
+  });
+});
+
+describe("/admin/reports: why a PDF failed, for the operator (14 Nov, part 6)", () => {
+  const STALLED_ID = randomUUID();
+  const GENERATING_ID = randomUUID();
+
+  beforeAll(async () => {
+    // One that stopped 11 minutes ago with nothing recorded, and one started 2 minutes ago.
+    await client`
+      INSERT INTO generated_reports (id, brand_id, organization_id, report_type, period_label, narrative_text, headline, updated_at)
+      VALUES
+        (${STALLED_ID}, ${BRAND_ID}, ${ORG_ID}, 'monthly', '2026-10', 'Narrative.', 'AI Visibility Report', now() - interval '11 minutes'),
+        (${GENERATING_ID}, ${BRAND_ID}, ${ORG_ID}, 'weekly', '2026-W45', 'Narrative.', 'AI Visibility Report', now() - interval '2 minutes')
+    `;
+  });
+
+  afterAll(async () => {
+    await client`DELETE FROM generated_reports WHERE id IN (${STALLED_ID}, ${GENERATING_ID})`;
+  });
+
+  // The page is JSX: React's development runtime, which NODE_ENV=production (the file's emails) leaves out.
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "test");
+  });
+
+  async function page(): Promise<string> {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const AdminReportsPage = (await import("@/app/(auth)/admin/reports/page")).default;
+    return renderToStaticMarkup(await AdminReportsPage());
+  }
+
+  function row(html: string, id: string): string | null {
+    const match = html.match(new RegExp(`data-admin-report-failure="${id}"[\\s\\S]*?</tr>`));
+    return match
+      ? match[0]
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&#x27;/g, "'")
+          .replace(/\s+/g, " ")
+      : null;
+  }
+
+  it("the operator: the cause in plain words with the message; one that never finished; not one still going", async () => {
+    operatorState.allowed = true;
+    const html = await page();
+    const failed = row(html, REPORT_ID);
+    expect(failed).toContain("Storage unavailable (Supabase project paused or unreachable)");
+    expect(failed).toContain(`getaddrinfo ENOTFOUND ${HOST}`);
+    expect(failed).not.toContain(FAKE_KEY);
+    expect(row(html, STALLED_ID)).toContain(
+      "Didn't finish within 10 minutes, and no failure was recorded",
+    );
+    expect(row(html, GENERATING_ID)).toBeNull();
+    // A report with its PDF isn't a failure.
+    expect(row(html, EMAILED_REPORT_ID)).toBeNull();
+  });
+
+  it("anyone else: Forbidden, and none of it", async () => {
+    operatorState.allowed = false;
+    const html = await page();
+    expect(html).toContain("data-admin-forbidden");
+    expect(html).not.toContain("ENOTFOUND");
+    expect(html).not.toContain("Omega Services");
+  });
+
+  it("the customer's reports list: the stalled one is failed after 10 minutes, the new one still generating", async () => {
+    signIn("viewer");
+    const list = await import("@/app/api/brands/[brandId]/reports/route");
+    const res = await list.GET(new Request("http://t/x"), {
+      params: Promise.resolve({ brandId: BRAND_ID }),
+    });
+    const rows = (await res.json()) as Array<{ id: string; status: string }>;
+    expect(rows.find((r) => r.id === STALLED_ID)?.status).toBe("failed");
+    expect(rows.find((r) => r.id === GENERATING_ID)?.status).toBe("generating");
   });
 });
 
@@ -315,6 +416,8 @@ describe("'Try again' (1 Nov, part 2)", () => {
       data: { organizationId: ORG_ID, brandId: BRAND_ID, reportId: REPORT_ID },
     });
     expect((await reasonInDb()).pdf_failure_reason).toBeNull();
+    // 14 Nov, part 6: and its recorded cause -- the new attempt records its own.
+    expect(await detailInDb()).toBeNull();
   });
 
   it("while it's generating again: 409, no second render", async () => {

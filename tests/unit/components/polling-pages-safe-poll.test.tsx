@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
 import ReportDetailPage from "@/app/(auth)/brands/[brandId]/reports/[reportId]/page";
 import ReportsListPage from "@/app/(auth)/brands/[brandId]/reports/page";
 import SampleAuditRunningPage from "@/app/(marketing)/sample-audit/running/page";
+import { REPORT_MAX_WAIT_MS } from "@/lib/communication/report-poll";
 import { pageNavigation } from "@/lib/hooks/use-safe-poll";
 
 const STILL_WORKING = "Still working · this will update when done";
@@ -348,7 +349,8 @@ describe("a report's page while its PDF generates", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("a PDF that never arrives: polling stops after 10 minutes, and the page says so", async () => {
+  // 14 Nov, part 6: 12 minutes -- past the 10 after which the server marks it failed (REPORT_PDF_STALLED_MS).
+  it("a PDF that never arrives: polling stops after 12 minutes, and the page says so", async () => {
     const s = serve({
       latencyMs: 0,
       initial: () => reportBody(null),
@@ -357,7 +359,7 @@ describe("a report's page while its PDF generates", () => {
     });
     render(<ReportDetailPage />);
     await advance(0); // the page's first load lands
-    await advance(599_000);
+    await advance(REPORT_MAX_WAIT_MS - 1_000);
     expect(screen.queryByText(TAKING_LONGER)).not.toBeInTheDocument();
     await advance(2_000);
     expect(screen.getByText(TAKING_LONGER)).toBeInTheDocument();
@@ -449,7 +451,7 @@ describe("the reports list while a report generates", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("a report that never finishes: polling stops after 10 minutes and the page says so; 'Generate report' starts again", async () => {
+  it("a report that never finishes: polling stops after 12 minutes and the page says so; 'Generate report' starts again", async () => {
     const s = serve({
       latencyMs: 0,
       initial: () => [reportRow(null)],
@@ -458,7 +460,7 @@ describe("the reports list while a report generates", () => {
     });
     render(<ReportsListPage />);
     await advance(0); // the page's first load lands
-    await advance(599_000);
+    await advance(REPORT_MAX_WAIT_MS - 1_000);
     expect(screen.queryByText(TAKING_LONGER)).not.toBeInTheDocument();
     await advance(2_000);
     expect(screen.getByText(TAKING_LONGER)).toBeInTheDocument();

@@ -87,6 +87,35 @@ describe("breadcrumbsForPath", () => {
     expect(breadcrumbsForPath(path).map((c) => c.label)).toEqual(labels);
   });
 
+  /**
+   * 14 Nov, part 6 (Sri: /brands/[id]/reports said "Brand") -- under a brand, once its layout has named it, every
+   * page's breadcrumb says the brand's name, never "Brand" or "Detail" for the brand itself.
+   */
+  const BRAND_ROUTES = ROUTES.filter((route) => route.startsWith("/brands/[brandId]"));
+  const HERO = { id: ID, name: "Hero Home Services" };
+
+  it("there are brand pages to check", () => {
+    expect(BRAND_ROUTES.length).toBeGreaterThan(30);
+  });
+
+  it.each(BRAND_ROUTES)("%s: names the brand", (route) => {
+    const crumbs = breadcrumbsForPath(sample(route), { brand: HERO });
+    const labels = crumbs.map((c) => c.label);
+    expect(labels).toContain("Hero Home Services");
+    expect(labels).not.toContain("Brand");
+    expect(labels.slice(0, 3)).toEqual(["Workspace", "Brands", "Hero Home Services"]);
+  });
+
+  it("the reports page: Workspace / Brands / Hero Home Services / Reports; another brand's name is never used", () => {
+    expect(
+      breadcrumbsForPath(`/brands/${ID}/reports`, { brand: HERO }).map((c) => c.label),
+    ).toEqual(["Workspace", "Brands", "Hero Home Services", "Reports"]);
+    const other = { id: "22222222-2222-4222-8222-222222222222", name: "Other Brand" };
+    expect(
+      breadcrumbsForPath(`/brands/${ID}/reports`, { brand: other }).map((c) => c.label),
+    ).toEqual(["Workspace", "Brands", "Brand", "Reports"]);
+  });
+
   it("a brand's sub-page links back to the brand and its section", () => {
     expect(breadcrumbsForPath(`/brands/${ID}/trust/consensus`).map((c) => c.href)).toEqual([
       "/dashboard",
@@ -107,7 +136,7 @@ describe("each /admin page: the breadcrumb names it as its heading does", () => 
   const ADMIN = ROUTES.filter((route) => route.startsWith("/admin/")).sort();
 
   it("every /admin page has a title (a new one can't fall back to another page's name)", () => {
-    expect(ADMIN).toEqual(["/admin/audits", "/admin/costs", "/admin/settings"]);
+    expect(ADMIN).toEqual(["/admin/audits", "/admin/costs", "/admin/reports", "/admin/settings"]);
     for (const route of ADMIN) {
       expect(Object.keys(ADMIN_PAGE_TITLES), route).toContain(route.split("/")[2]);
     }
@@ -118,6 +147,8 @@ describe("each /admin page: the breadcrumb names it as its heading does", () => 
     ["/admin/costs", "Provider costs", "components/domain/admin/operator-costs.tsx"],
     // 14 Nov, part 5.
     ["/admin/audits", "Trend exclusions", "components/domain/admin/trend-exclusions-admin.tsx"],
+    // 14 Nov, part 6.
+    ["/admin/reports", "PDF failures", "components/domain/admin/report-failures-admin.tsx"],
   ])('%s: the breadcrumb ends "%s", the heading in %s', (route, title, view) => {
     const segment = route.split("/")[2] as keyof typeof ADMIN_PAGE_TITLES;
     expect(ADMIN_PAGE_TITLES[segment]).toBe(title);

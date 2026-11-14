@@ -81,7 +81,8 @@ export async function POST(
     if (status !== "failed") return "not_failed" as const;
     await tx
       .update(generatedReports)
-      .set({ pdfFailureReason: null, updatedAt: new Date() })
+      // 14 Nov, part 6: and its recorded cause (migration 0149) -- a new attempt records its own.
+      .set({ pdfFailureReason: null, pdfFailureDetail: null, updatedAt: new Date() })
       .where(and(eq(generatedReports.id, reportId), isNull(generatedReports.pdfUrl)));
     return "retrying" as const;
   });

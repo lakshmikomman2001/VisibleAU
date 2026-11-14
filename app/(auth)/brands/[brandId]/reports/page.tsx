@@ -13,7 +13,7 @@ import { ActionError, LoadError } from "@/components/shared/load-error";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
-import { deriveReportStatus } from "@/lib/communication/types";
+import { deriveReportStatus, REPORT_GENERATING_NOTE } from "@/lib/communication/types";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
@@ -337,6 +337,16 @@ export default function ReportsListPage() {
                         data-pdf-failed
                       >
                         PDF couldn't be created.
+                      </div>
+                    )}
+                    {/* 14 Nov, part 6: how long it should take; the page checks again on its own. */}
+                    {status === "generating" && (
+                      <div
+                        className="text-[11px] mt-0.5"
+                        style={{ color: "var(--text-tertiary)" }}
+                        data-pdf-generating-note
+                      >
+                        {REPORT_GENERATING_NOTE}
                       </div>
                     )}
                   </div>

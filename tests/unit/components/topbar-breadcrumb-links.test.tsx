@@ -13,6 +13,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 // Imported here, not in each test: a first import under load can outlast a test's 5 s.
 import { AppTopbar } from "@/components/domain/app-topbar";
 import { BreadcrumbProvider } from "@/components/domain/breadcrumb-context";
+import { SetBreadcrumbBrand } from "@/components/domain/set-breadcrumb-brand";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { type Breadcrumbs, brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 
@@ -104,6 +105,24 @@ describe("the breadcrumb's links", () => {
       expect(el.querySelector('[aria-current="page"]')).toHaveTextContent("Brands");
       expect(within(el).queryByText("…")).toBeNull();
     }
+  });
+
+  it("14 Nov, part 6: under a brand its layout named, the brand's name links back, not 'Brand'", async () => {
+    nav.pathname = `/brands/${BRAND}/reports`;
+    render(
+      <BreadcrumbProvider>
+        <AppTopbar />
+        <SetBreadcrumbBrand brand={{ id: BRAND, name: "Hero Home Services" }} />
+      </BreadcrumbProvider>,
+    );
+    const [desktop] = screen.getAllByRole("navigation", { name: "Breadcrumb" });
+    expect(linksOf(desktop)).toEqual([
+      ["Workspace", "/dashboard"],
+      ["Brands", "/brands"],
+      ["Hero Home Services", `/brands/${BRAND}`],
+    ]);
+    expect(desktop.querySelector('[aria-current="page"]')).toHaveTextContent("Reports");
+    expect(within(desktop).queryByText("Brand")).toBeNull();
   });
 
   it("a page's own breadcrumb, with its brand's name, links the same way", async () => {

@@ -7,6 +7,8 @@ interface StoredReport {
   pdfUrl: string | null;
   emailSentAt: Date | null;
   pdfFailureReason: string | null;
+  /** Migration 0149: the failure's message, for the operator only -- never returned (see reportForPage). */
+  pdfFailureDetail?: string | null;
   updatedAt: Date;
 }
 
@@ -23,7 +25,11 @@ export async function reportForPage<T extends StoredReport>(
   report: T,
   storage: StorageAdapter | null,
 ): Promise<
-  Omit<T, "pdfUrl"> & { pdfUrl: string | null; pdfLinkUnavailable: boolean; status: ReportStatus }
+  Omit<T, "pdfUrl" | "pdfFailureDetail"> & {
+    pdfUrl: string | null;
+    pdfLinkUnavailable: boolean;
+    status: ReportStatus;
+  }
 > {
   let link: string | null = null;
   let pdfLinkUnavailable = false;
@@ -35,8 +41,11 @@ export async function reportForPage<T extends StoredReport>(
       pdfLinkUnavailable = true;
     }
   }
+  // 14 Nov, part 6: why a PDF failed, in the provider's words (a hostname, a status), is for the operator's
+  // /admin/reports; the customer sees the category's plain words (pdfFailureLabel).
+  const { pdfFailureDetail: _operatorOnly, pdfUrl: _storagePath, ...shown } = report;
   return {
-    ...report,
+    ...shown,
     pdfUrl: link,
     pdfLinkUnavailable,
     status: deriveReportStatus(report.pdfUrl, report.emailSentAt, {

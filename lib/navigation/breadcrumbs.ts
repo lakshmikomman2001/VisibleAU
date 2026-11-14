@@ -44,6 +44,8 @@ export const ADMIN_PAGE_TITLES = {
   costs: "Provider costs",
   /** 14 Nov, part 5: exclude an audit from trends and comparisons, with a reason. */
   audits: "Trend exclusions",
+  /** 14 Nov, part 6: reports whose PDF wasn't made, and why. */
+  reports: "PDF failures",
 } as const;
 
 function adminTitle(segment: string | undefined): string {
@@ -120,12 +122,22 @@ function labelFor(segment: string, fallback = "Detail"): string {
   return SEGMENT_LABELS[segment] ?? fallback;
 }
 
+/** 14 Nov, part 6: the brand whose pages are open, named by its layout (components/domain/set-breadcrumb-brand.tsx). */
+export interface BreadcrumbBrand {
+  id: string;
+  name: string;
+}
+
 /**
  * The breadcrumb for a path, until the page names itself (SetBreadcrumbs, e.g. a
  * brand's name or "Audit #36"). tests/unit/navigation/breadcrumbs.test.ts checks it
- * for every signed-in route, and that each parent's href is a page.
+ * for every signed-in route, and that each parent's href is a page. 14 Nov, part 6: under
+ * /brands/[brandId], the brand's name when its layout has given it (`brand`), "Brand" until then.
  */
-export function breadcrumbsForPath(pathname: string): Breadcrumbs {
+export function breadcrumbsForPath(
+  pathname: string,
+  { brand: openBrand = null }: { brand?: BreadcrumbBrand | null } = {},
+): Breadcrumbs {
   const [top, second, third, fourth] = pathname.split("/").filter(Boolean);
   switch (top) {
     case "dashboard":
@@ -135,8 +147,9 @@ export function breadcrumbsForPath(pathname: string): Breadcrumbs {
       if (second === "wizard" || second === "new") {
         return [CRUMB.workspace, CRUMB.brands, { label: "Add brand" }];
       }
-      if (!third) return [CRUMB.workspace, CRUMB.brands, { label: "Detail" }];
-      const brand = { label: "Brand", href: `/brands/${second}` };
+      const brandName = openBrand?.id === second ? openBrand.name : null;
+      if (!third) return [CRUMB.workspace, CRUMB.brands, { label: brandName ?? "Detail" }];
+      const brand = { label: brandName ?? "Brand", href: `/brands/${second}` };
       if (!fourth) return [CRUMB.workspace, CRUMB.brands, brand, { label: labelFor(third) }];
       return [
         CRUMB.workspace,
@@ -171,7 +184,7 @@ export function breadcrumbsForPath(pathname: string): Breadcrumbs {
       if (!second) return [{ label: CRUMB.settings.label }];
       return [CRUMB.settings, { label: labelFor(second) }];
     case "admin":
-      // The operator's own pages (/admin/settings, /admin/costs, /admin/audits), each named by its heading; /admin has no page.
+      // The operator's own pages (/admin/settings, /admin/costs, /admin/audits, /admin/reports), each named by its heading; /admin has no page.
       return [CRUMB.workspace, { label: adminTitle(second) }];
     case "organizations":
       // /organizations/[orgId]/… -- the workspace's own schedules and templates.

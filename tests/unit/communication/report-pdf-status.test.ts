@@ -42,9 +42,10 @@ describe("deriveReportStatus", () => {
     ).toBe("failed");
   });
 
-  it("no PDF, no reason: generating for 30 minutes, then failed (a report stuck before migration 0110)", () => {
-    expect(deriveReportStatus(null, null, { updatedAt: minutesAgo(29), now })).toBe("generating");
-    expect(deriveReportStatus(null, null, { updatedAt: minutesAgo(30), now })).toBe("failed");
+  // 14 Nov, part 6: 10 minutes (it was 30, while the page stopped checking at 10 and stayed at "Generating…").
+  it("no PDF, no reason: generating for 10 minutes, then failed (a report stuck before migration 0110)", () => {
+    expect(deriveReportStatus(null, null, { updatedAt: minutesAgo(9), now })).toBe("generating");
+    expect(deriveReportStatus(null, null, { updatedAt: minutesAgo(10), now })).toBe("failed");
     // The 1 Nov 16:51 report, seen at 18:00.
     expect(deriveReportStatus(null, null, { updatedAt: minutesAgo(69), now })).toBe("failed");
   });

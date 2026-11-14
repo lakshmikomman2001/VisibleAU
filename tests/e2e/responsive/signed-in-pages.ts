@@ -152,4 +152,6 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   { name: "Provider costs", route: "/admin/costs", url: () => "/admin/costs" },
   // 14 Nov, part 5: exclude an audit from trends; anyone else sees "Forbidden".
   { name: "Trend exclusions", route: "/admin/audits", url: () => "/admin/audits" },
+  // 14 Nov, part 6: why reports' PDFs failed; anyone else sees "Forbidden".
+  { name: "PDF failures", route: "/admin/reports", url: () => "/admin/reports" },
 ];

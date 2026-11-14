@@ -43,8 +43,9 @@ export function AppTopbar({
   menuButtonRef,
 }: AppTopbarProps) {
   const pathname = usePathname();
-  const { overrideCrumbs } = useOverrideBreadcrumbs();
-  const crumbs = overrideCrumbs ?? breadcrumbs ?? breadcrumbsForPath(pathname);
+  const { overrideCrumbs, brand } = useOverrideBreadcrumbs();
+  // 14 Nov, part 6: a brand's pages name the brand (its layout gives it), not "Brand".
+  const crumbs = overrideCrumbs ?? breadcrumbs ?? breadcrumbsForPath(pathname, { brand });
 
   const defaultAction =
     pathname === "/dashboard" && brandUsage ? (

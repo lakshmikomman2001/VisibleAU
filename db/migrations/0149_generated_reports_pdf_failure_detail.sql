@@ -1,0 +1,16 @@
+-- Migration 0149 (14 Nov 2026, part 6; Sri's review of audit #48): why a report's PDF failed, for the operator.
+--
+-- RUN BEFORE THE PUSH THAT CARRIES IT (prod-fix 0149 run1 -> run3; run4 only to undo). Drizzle selects every
+-- column of its schema, so the pushed code's reads of generated_reports ask for pdf_failure_detail; without the
+-- column every reports page, the PDF run and the scheduled-report emails fail.
+--
+-- pdf_failure_reason (migration 0110) holds a category only ("storage_unavailable"), which is what the customer
+-- sees ("file storage couldn't be reached"). The operator needs the cause: render-report-pdf now also records the
+-- failure's own message, secrets stripped (lib/storage/redact.ts), e.g. "Supabase Storage upload failed: fetch
+-- failed (cause: ENOTFOUND, Error: getaddrinfo ENOTFOUND <ref>.supabase.co)", and /admin/reports shows it as
+-- "Storage unavailable (Supabase project paused or unreachable)". The reports API never returns it
+-- (lib/communication/report-view.ts).
+--
+-- Nullable, no default: metadata-only on Postgres (no table rewrite). RLS is unchanged; the app role already has
+-- SELECT/UPDATE on generated_reports, and the column inherits it.
+ALTER TABLE generated_reports ADD COLUMN IF NOT EXISTS pdf_failure_detail text;

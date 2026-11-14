@@ -35,6 +35,9 @@ export const generatedReports = pgTable(
     // Migration 0110: why the PDF couldn't be made, as a plain category
     // (lib/communication/types.ts's PDF_FAILURE_REASONS); NULL otherwise.
     pdfFailureReason: text("pdf_failure_reason").$type<PdfFailureReason>(),
+    // Migration 0149 (14 Nov, part 6): the failure's own message, secrets stripped -- for the operator's
+    // /admin/reports only; the reports API never returns it (lib/communication/report-view.ts).
+    pdfFailureDetail: text("pdf_failure_detail"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

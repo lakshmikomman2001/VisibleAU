@@ -4,7 +4,11 @@ import { serviceDb } from "@/db/client";
 import { generatedReports, reportTemplates } from "@/db/schema";
 import { buildReportPdf } from "@/lib/communication/pdf-builder";
 import { sendReportPdfFailedAlert } from "@/lib/communication/report-pdf-failed-alert";
-import { isStorageFailure, pdfFailureReasonFor } from "@/lib/communication/report-pdf-failure";
+import {
+  isStorageFailure,
+  pdfFailureDetailFor,
+  pdfFailureReasonFor,
+} from "@/lib/communication/report-pdf-failure";
 import type { ReportSection } from "@/lib/communication/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -136,7 +140,12 @@ export const renderReportPdf = inngest.createFunction(
       await step.run("mark-pdf-failed", async () => {
         await serviceDb
           .update(generatedReports)
-          .set({ pdfFailureReason: reason, updatedAt: new Date() })
+          // 14 Nov, part 6: and the message itself, secrets stripped, for the operator's /admin/reports.
+          .set({
+            pdfFailureReason: reason,
+            pdfFailureDetail: pdfFailureDetailFor(message),
+            updatedAt: new Date(),
+          })
           .where(and(eq(generatedReports.id, reportId), isNull(generatedReports.pdfUrl)));
       });
       if (isStorageFailure(reason)) {
@@ -154,7 +163,12 @@ export const renderReportPdf = inngest.createFunction(
     await step.run("set-pdf-url", async () => {
       await serviceDb
         .update(generatedReports)
-        .set({ pdfUrl: pdfPath, pdfFailureReason: null, updatedAt: new Date() })
+        .set({
+          pdfUrl: pdfPath,
+          pdfFailureReason: null,
+          pdfFailureDetail: null,
+          updatedAt: new Date(),
+        })
         .where(eq(generatedReports.id, reportId));
     });
 

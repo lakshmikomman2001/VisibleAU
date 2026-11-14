@@ -9,7 +9,11 @@ import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { LoadError } from "@/components/shared/load-error";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import type { ReportStatus } from "@/lib/communication/types";
-import { deriveReportStatus, pdfFailureLabel } from "@/lib/communication/types";
+import {
+  deriveReportStatus,
+  pdfFailureLabel,
+  REPORT_GENERATING_NOTE,
+} from "@/lib/communication/types";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
 
@@ -275,6 +279,18 @@ export default function ReportDetailPage() {
             </div>
             <RetryPdfButton brandId={brandId} reportId={reportId} onRetrying={retrying} />
           </div>
+        )}
+
+        {/* 14 Nov, part 6: how long it should take and what happens if it doesn't; the page checks again
+            on its own until then. */}
+        {status === "generating" && (
+          <p
+            className="text-[12px] mb-6"
+            style={{ color: "var(--text-secondary)" }}
+            data-pdf-generating-note
+          >
+            {REPORT_GENERATING_NOTE}
+          </p>
         )}
 
         {status === "generating" && pollNote && (

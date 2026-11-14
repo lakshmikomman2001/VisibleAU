@@ -2,6 +2,8 @@ import type { CSSProperties } from "react";
 import {
   type GoogleSurfaceSummary,
   googleCheckedAnything,
+  googleOutcomeText,
+  googleSurfaceDetail,
   googleSurfaceReasons,
 } from "@/lib/audit/google-surfaces/summary";
 import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
@@ -16,28 +18,8 @@ import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
 const muted: CSSProperties = { color: "var(--text-secondary)" };
 const strong: CSSProperties = { color: "var(--text-primary)" };
 
-const OUTCOME_TEXT: Record<string, string> = {
-  pending: "Checking…",
-  shown: "Shown",
-  not_shown: "Not shown",
-  failed: "Couldn't be checked",
-  not_completed: "Not completed",
-  skipped: "Skipped",
-};
-
-function outcomeText(
-  r: { outcome: string; verified: boolean; mentioned: boolean },
-  surface: string,
-) {
-  if (r.outcome === "shown") {
-    const shown = surface === "google_ai_mode" ? "Answered" : "Shown";
-    if (r.verified) return `${shown} · mentioned`;
-    if (r.mentioned) return `${shown} · named, not verified`;
-    return `${shown} · not mentioned`;
-  }
-  if (r.outcome === "not_shown" && surface === "google_ai_mode") return "No answer";
-  return OUTCOME_TEXT[r.outcome] ?? r.outcome;
-}
+// 14 Nov, part 3: the per-question words and the surface detail are lib/audit/google-surfaces/summary.ts's, shared
+// with the report PDF.
 
 export function GoogleSearchAiSection({
   auditId,
@@ -86,13 +68,7 @@ export function GoogleSearchAiSection({
                 {row.line}
               </p>
               <p className="text-[12px] mt-0.5" style={muted}>
-                {row.domainLabel}
-                {row.brandedShown > 0
-                  ? ` · questions naming you: mentioned in ${row.brandedMentioned} of ${row.brandedShown}`
-                  : ""}
-                {row.googleLinks > 0
-                  ? ` · ${row.googleLinks} cited links were Google's own pages, not counted as directories`
-                  : ""}
+                {googleSurfaceDetail(row)}
               </p>
               {row.directories.length > 0 ? (
                 <p className="text-[12px] mt-0.5" style={muted}>
@@ -146,7 +122,7 @@ export function GoogleSearchAiSection({
                       const r = row.results.find((x) => x.promptIndex === q.promptIndex);
                       return (
                         <td key={row.surface} className="pr-3 py-1 whitespace-nowrap">
-                          {r ? outcomeText(r, row.surface) : "—"}
+                          {r ? googleOutcomeText(r, row.surface) : "—"}
                         </td>
                       );
                     })}

@@ -265,24 +265,103 @@ export function googleSurfaceReasons(summary: GoogleSurfaceSummary): string[] {
   return [...new Set(summary.rows.flatMap((r) => r.reasons))];
 }
 
+const OUTCOME_TEXT: Record<string, string> = {
+  pending: "Checking…",
+  shown: "Shown",
+  not_shown: "Not shown",
+  failed: "Couldn't be checked",
+  not_completed: "Not completed",
+  skipped: "Skipped",
+};
+
+/**
+ * One question's outcome on one surface, in the words the audit page uses ("Shown · mentioned", "No answer"). The
+ * page's table and the report PDF's (14 Nov, part 3) both read it, so they can't say different things.
+ */
+export function googleOutcomeText(
+  r: { outcome: string; verified: boolean; mentioned: boolean },
+  surface: string,
+): string {
+  if (r.outcome === "shown") {
+    const shown = surface === "google_ai_mode" ? "Answered" : "Shown";
+    if (r.verified) return `${shown} · mentioned`;
+    if (r.mentioned) return `${shown} · named, not verified`;
+    return `${shown} · not mentioned`;
+  }
+  if (r.outcome === "not_shown" && surface === "google_ai_mode") return "No answer";
+  return OUTCOME_TEXT[r.outcome] ?? r.outcome;
+}
+
+/** A surface's second line: where it was, the questions naming you, and Google's own links (the page's words). */
+export function googleSurfaceDetail(row: GoogleSurfaceRow): string {
+  return [
+    row.domainLabel,
+    row.brandedShown > 0
+      ? `questions naming you: mentioned in ${row.brandedMentioned} of ${row.brandedShown}`
+      : null,
+    row.googleLinks > 0
+      ? `${row.googleLinks} cited links were Google's own pages, not counted as directories`
+      : null,
+  ]
+    .filter((x): x is string => x !== null)
+    .join(" · ");
+}
+
 /** The block as plain lines, for the PDFs, the client portal and the email (the same words as the page). */
 export interface GoogleSurfaceBlock {
   labelLine: string;
   locationNote: string | null;
   lines: string[];
   note: string;
+  /**
+   * 14 Nov, part 3: what the audit page shows, for the report PDF's numbered Google section. `checked` is false
+   * when Google answered nothing (then `lines` is the one line saying why, and rows and questions are empty).
+   */
+  checked: boolean;
+  rows: Array<{
+    surface: GoogleSurface;
+    name: string;
+    line: string;
+    detail: string;
+    directories: string[];
+  }>;
+  reasons: string[];
+  /** Each question, with its outcome on each surface in `rows` order ("Shown · mentioned"). */
+  questions: Array<{ prompt: string; namesYou: boolean; outcomes: string[] }>;
 }
 
 export function googleSurfaceBlock(summary: GoogleSurfaceSummary): GoogleSurfaceBlock {
   // The same rule as the audit page's block: nothing checked and a reason for the whole audit -> that reason.
-  const lines =
+  const oneLine =
     summary.rows.length === 0 ||
     summary.rows.every((r) => r.questions === 0 && summary.status === "complete") ||
-    (summary.status === "complete" && summary.statusReason && !googleCheckedAnything(summary))
-      ? [
-          `Google couldn't be checked for this audit${summary.statusReason ? `: ${summary.statusReason}` : "."}`,
-        ]
-      : [...summary.rows.map((r) => r.line), ...googleSurfaceReasons(summary)];
+    (summary.status === "complete" && summary.statusReason && !googleCheckedAnything(summary));
+  const lines = oneLine
+    ? [
+        `Google couldn't be checked for this audit${summary.statusReason ? `: ${summary.statusReason}` : "."}`,
+      ]
+    : [...summary.rows.map((r) => r.line), ...googleSurfaceReasons(summary)];
+  // The page lists each question only when Google answered something (lib: the same test as the page's).
+  const checked = !oneLine && googleCheckedAnything(summary);
+  const rows = oneLine
+    ? []
+    : summary.rows.map((r) => ({
+        surface: r.surface,
+        name: r.name,
+        line: r.line,
+        detail: googleSurfaceDetail(r),
+        directories: r.directories,
+      }));
+  const questions = checked
+    ? (summary.rows[0]?.results ?? []).map((q) => ({
+        prompt: q.prompt,
+        namesYou: q.isBranded,
+        outcomes: summary.rows.map((row) => {
+          const r = row.results.find((x) => x.promptIndex === q.promptIndex);
+          return r ? googleOutcomeText(r, row.surface) : "—";
+        }),
+      }))
+    : [];
   const counted = summary.countInHeadline
     ? "Counted in the Visibility %, for the questions where Google showed an AI answer."
     : "Not counted in the Visibility %: Google is shown on its own.";
@@ -291,6 +370,10 @@ export function googleSurfaceBlock(summary: GoogleSurfaceSummary): GoogleSurface
     locationNote: summary.locationNote,
     lines,
     note: `${counted} Checked logged out, for this place and device; Google's AI answers change with time and place.`,
+    checked,
+    rows,
+    reasons: oneLine ? [] : googleSurfaceReasons(summary),
+    questions,
   };
 }
 

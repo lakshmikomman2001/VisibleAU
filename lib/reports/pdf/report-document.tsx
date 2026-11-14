@@ -376,6 +376,8 @@ function Hatch({ width, height, stripe }: { width: number; height: number; strip
 export interface ReportPlan {
   summary: string;
   engines: string;
+  /** 14 Nov, part 3: "03 · Google Search AI" when the basis audit ran with Google. */
+  google: string | null;
   directories: string;
   diagnosis: string | null;
   trend: string | null;
@@ -389,12 +391,13 @@ export function reportPlan(data: ReportData, findings: Finding[]): ReportPlan {
   const next = () => String(++n).padStart(2, "0");
   const summary = next();
   const engines = next();
+  const google = data.google ? next() : null;
   const directories = next();
   const diagnosis = data.sections.diagnosis ? next() : null;
   const trend = data.sections.trend ? next() : null;
   const recommended = data.sections.recommended_next && findings.length > 0 ? next() : null;
   const method = data.sections.method ? next() : null;
-  return { summary, engines, directories, diagnosis, trend, recommended, method };
+  return { summary, engines, google, directories, diagnosis, trend, recommended, method };
 }
 
 interface Ctx {
@@ -1392,30 +1395,112 @@ function EnginesPages({ ctx }: { ctx: Ctx }) {
           <RunningFooter left={ctx.footerLeft} />
         </Page>
       ))}
-      {/* Google AI surfaces (Phase 1, part 3): its own page, only when the basis audit ran with Google. */}
-      {data.google && (
-        <Page size="A4" style={s.page}>
-          <RunningHeader title={ctx.runningTitle} />
-          <View style={{ marginTop: px(28) }}>
-            <SectionLabel icon="grid" eyebrow="Google Search AI" provenance={ctx.basisProv} />
-            <Text style={s.h2}>Google AI Overviews and AI Mode</Text>
-            <Text style={s.lede}>{data.google.labelLine}</Text>
-          </View>
-          {data.google.locationNote && (
-            <Text style={{ ...s.cap, marginTop: px(4) }}>{data.google.locationNote}</Text>
-          )}
-          <View style={{ marginTop: px(12) }}>
-            {data.google.lines.map((line) => (
-              <Text key={line} style={{ ...s.h3, marginBottom: px(6) }}>
-                {line}
+    </>
+  );
+}
+
+// ------------------------------------------------------------ Google Search AI
+
+/**
+ * 14 Nov, part 3 (Sri's review of audit #48): page 4 was two lines on a near-empty page with no section number.
+ * Now a numbered section with what the audit page's block shows (components/domain/audit/google-search-ai-section.tsx,
+ * from the same words in lib/audit/google-surfaces/summary.ts): each surface's line and detail (the questions naming
+ * you), the directories Google cited, and each question's outcome. It starts the directories page and flows into
+ * that section, so it never leaves a page nearly empty. When Google answered nothing, the one line saying why.
+ */
+function GoogleSection({ ctx }: { ctx: Ctx }) {
+  const google = ctx.data.google;
+  if (!google || !ctx.plan.google) return null;
+  const col = { outcome: px(118) };
+  return (
+    <View style={{ marginTop: px(28) }}>
+      <SectionLabel
+        icon="grid"
+        eyebrow={`${ctx.plan.google} · Google Search AI`}
+        provenance={ctx.basisProv}
+      />
+      <Text style={s.h2}>Google AI Overviews and AI Mode</Text>
+      <Text style={s.lede}>{google.labelLine}</Text>
+      {google.locationNote && (
+        <Text style={{ ...s.cap, marginTop: px(4) }}>{google.locationNote}</Text>
+      )}
+      {google.rows.length === 0 ? (
+        google.lines.map((line) => (
+          <Text key={line} style={{ ...s.h3, marginTop: px(12) }}>
+            {line}
+          </Text>
+        ))
+      ) : (
+        <View style={{ marginTop: px(12) }}>
+          {google.rows.map((row) => (
+            <View key={row.surface} wrap={false} style={{ marginBottom: px(8) }}>
+              <Text style={s.h3}>{row.line}</Text>
+              <Text style={{ ...s.cap, marginTop: px(2) }}>{row.detail}</Text>
+              {row.directories.length > 0 && (
+                <Text style={{ ...s.cap, marginTop: px(2) }}>
+                  Directories cited: {row.directories.join(", ")}
+                </Text>
+              )}
+            </View>
+          ))}
+          {google.reasons.map((reason) => (
+            <Text key={reason} style={{ ...s.cap, marginTop: px(2) }}>
+              {reason}
+            </Text>
+          ))}
+        </View>
+      )}
+      <Text style={{ ...s.cap, marginTop: px(8) }}>{google.note}</Text>
+      {google.questions.length > 0 && (
+        <View style={{ marginTop: px(12) }}>
+          <View
+            wrap={false}
+            style={{
+              flexDirection: "row",
+              borderBottomWidth: 0.75,
+              borderBottomColor: C.line,
+              paddingBottom: px(4),
+            }}
+          >
+            <Text style={{ ...s.cap, flex: 1, fontWeight: 600, color: C.ink }}>Question</Text>
+            {google.rows.map((row) => (
+              <Text
+                key={row.surface}
+                style={{ ...s.cap, width: col.outcome, fontWeight: 600, color: C.ink }}
+              >
+                {row.name}
               </Text>
             ))}
           </View>
-          <Text style={{ ...s.cap, marginTop: px(8) }}>{data.google.note}</Text>
-          <RunningFooter left={ctx.footerLeft} />
-        </Page>
+          {google.questions.map((q) => (
+            <View
+              key={q.prompt}
+              wrap={false}
+              style={{
+                flexDirection: "row",
+                paddingVertical: px(3),
+                borderBottomWidth: 0.5,
+                borderBottomColor: C.line,
+              }}
+            >
+              <Text style={{ ...s.cap, flex: 1, paddingRight: px(8) }}>
+                {q.prompt}
+                {q.namesYou ? " (names you)" : ""}
+              </Text>
+              {q.outcomes.map((outcome, i) => (
+                <Text
+                  key={google.rows[i]?.surface ?? outcome}
+                  style={{ ...s.cap, width: col.outcome }}
+                >
+                  {outcome}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
       )}
-    </>
+      <View style={s.rule} />
+    </View>
   );
 }
 
@@ -1498,7 +1583,8 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
   return (
     <Page size="A4" style={s.page}>
       <RunningHeader title={ctx.runningTitle} />
-      <View style={{ marginTop: px(28) }}>
+      <GoogleSection ctx={ctx} />
+      <View style={{ marginTop: ctx.plan.google ? 0 : px(28) }}>
         <SectionLabel
           icon="grid"
           eyebrow={`${ctx.plan.directories} · Where AI looks`}

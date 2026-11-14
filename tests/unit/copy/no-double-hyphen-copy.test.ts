@@ -126,6 +126,7 @@ describe("no ' -- ' in what the product shows or asks", () => {
   });
 
   it("stored packs regenerate: the generator's version moved past 2", () => {
-    expect(PROMPT_GENERATOR_VERSION).toBe(3);
+    // 3 removed " -- " (13 Nov, part 4); later generators keep that.
+    expect(PROMPT_GENERATOR_VERSION).toBeGreaterThanOrEqual(3);
   });
 });

@@ -162,10 +162,17 @@ export function buildTaggedOrganicPrompts(
   total: number,
   seed: string,
 ): TaggedOrganicPrompt[] {
-  const categories = confirmedCategories.length > 0 ? confirmedCategories : [classification.category];
+  const categories =
+    confirmedCategories.length > 0 ? confirmedCategories : [classification.category];
   const buyerType = classification.buyerType as BuyerType;
   const quotas = computeCategoryQuotas(categories, total);
-  const pools = buildCandidatePoolsByCategory(classification, categories, buyerType, audience, region);
+  const pools = buildCandidatePoolsByCategory(
+    classification,
+    categories,
+    buyerType,
+    audience,
+    region,
+  );
 
   const tagged: TaggedOrganicPrompt[] = [];
   let carryDeficit = 0;
@@ -231,7 +238,13 @@ export function buildPromptPack(
   );
   const organic = taggedOrganic.map((t) => t.text);
 
-  const enriched = buildEnrichedPrompts(classification, brandName, confirmed.competitors, region, audience);
+  const enriched = buildEnrichedPrompts(
+    classification,
+    brandName,
+    confirmed.competitors,
+    region,
+    audience,
+  );
 
   // Vunnara Build 1, Part E.4: the one new branded template this build
   // adds, always extra, on top of the organic budget.
@@ -279,9 +292,11 @@ export function buildEnrichedPrompts(
 
   prompts.push(`Is ${brandName} popular in ${region}?`);
 
-  if (classification.auRelevance === "au_founded") {
-    prompts.push("What Australian tech companies are leading in their space in 2025?");
-  }
+  // 14 Nov, part 1 (Sri's review of audit #48): "What Australian tech companies are leading in their space in 2025?"
+  // was added here for every Australian-founded brand (classification.auRelevance "au_founded"), whatever its
+  // vertical -- a handyman in Yennora got it. It doesn't name the brand, so the audit counted it as an everyday
+  // question, in the score. Removed: an everyday question comes only from the brand's confirmed categories
+  // (buildTaggedOrganicPrompts); every question here names the brand (tests/unit/prompts/question-provenance.test.ts).
 
   return prompts;
 }

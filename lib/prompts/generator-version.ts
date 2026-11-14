@@ -19,6 +19,11 @@
  *     reads "… NSW — who do locals trust …"). A stored pack regenerates on
  *     its next audit (or a rename); stored audit questions are never
  *     rewritten.
+ * 4 = 14 Nov, part 1 (Sri's review of audit #48): no "What Australian tech
+ *     companies are leading in their space in 2025?" for an Australian-
+ *     founded brand of any vertical (it reached Hero Home Services, a
+ *     handyman, and counted as an everyday question). Version 3 rebuilt
+ *     packs with the same generator, so it kept it; 4 rebuilds them without.
  *
  * lib/audit/get-audit-prompts.ts checks a ready brand's stamped
  * version against this constant at audit-creation time and
@@ -26,4 +31,4 @@
  * an old generator ever gets refreshed, since there's no natural
  * re-save once a brand is already confirmed.
  */
-export const PROMPT_GENERATOR_VERSION = 3;
+export const PROMPT_GENERATOR_VERSION = 4;

@@ -108,6 +108,66 @@ export function findPdfElements(root: ReactNode, type: string): ReactElement<Pro
   return found;
 }
 
+type Style = Record<string, unknown>;
+
+function styleOf(el: ReactElement<Props>): Style {
+  const raw = el.props.style;
+  if (Array.isArray(raw)) return Object.assign({}, ...raw.filter(Boolean));
+  return (raw as Style | undefined) ?? {};
+}
+
+/** A text box in a row can narrow to its share of the row, so its lines wrap instead of running past the edge. */
+function canNarrow(style: Style): boolean {
+  const flex = style.flex;
+  const shrink = style.flexShrink;
+  return (
+    (typeof flex === "number" && flex > 0) ||
+    (typeof flex === "string" && flex.trim() !== "" && flex.trim() !== "0") ||
+    (typeof shrink === "number" && shrink > 0) ||
+    style.width !== undefined ||
+    style.maxWidth !== undefined ||
+    style.flexBasis !== undefined
+  );
+}
+
+/**
+ * 14 Nov, part 4 (Sri's review of audit #48: finding 2's action line ran off the page's right edge). react-pdf
+ * (yoga) lays a row's children out at their natural width unless a child may shrink, so a long <Text> directly in
+ * a flexDirection "row" <View> that has no flex, flexShrink, width, maxWidth or flexBasis doesn't wrap: it runs
+ * past its box and the page. Every such text longer than `minLength` characters, with its text, function
+ * components expanded. (The renderer's own layout isn't reachable from tests: @react-pdf/layout is only a
+ * transitive dependency here.)
+ */
+export function textThatCannotWrap(root: ReactNode, minLength = 30): string[] {
+  const found: string[] = [];
+  const visit = (n: unknown, parentIsRow: boolean): void => {
+    if (Array.isArray(n)) {
+      for (const c of n) visit(c, parentIsRow);
+      return;
+    }
+    if (!isValidElement(n)) return;
+    const el = n as ReactElement<Props>;
+    if (typeof el.type === "function") {
+      visit((el.type as (p: Props) => ReactNode)(el.props), parentIsRow);
+      return;
+    }
+    if (el.type === "TEXT") {
+      const text = textOf(el, DEFAULT_PAGE);
+      if (parentIsRow && text.length > minLength && !canNarrow(styleOf(el))) found.push(text);
+      return;
+    }
+    // A row that wraps (flexWrap "wrap") moves a child that doesn't fit to the next line, whole.
+    const style = el.type === "VIEW" ? styleOf(el) : {};
+    const isRow = style.flexDirection === "row" && style.flexWrap !== "wrap";
+    if (typeof el.props.render === "function") {
+      visit((el.props.render as (a: PageArgs) => ReactNode)(DEFAULT_PAGE), isRow);
+    }
+    visit(el.props.children, isRow);
+  };
+  visit(root, false);
+  return found;
+}
+
 /** Each PAGE element's text, in order, with its own page number. */
 export function collectPdfPages(root: ReactNode, options: { skipSvg?: boolean } = {}): string[][] {
   const pages: ReactElement<Props>[] = [];

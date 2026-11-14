@@ -243,8 +243,14 @@ function RunningHeader({ title }: { title: string }) {
           {PRODUCT_NAME}
         </Text>
       </View>
+      {/* 14 Nov, part 4: a long brand name narrows the title to one line, never past the page edge. */}
       <Text
         style={{
+          flexShrink: 1,
+          marginLeft: px(16),
+          maxLines: 1,
+          textOverflow: "ellipsis",
+          textAlign: "right",
           fontSize: px(9),
           letterSpacing: ls(9, 0.08),
           textTransform: "uppercase",
@@ -622,8 +628,11 @@ function Cover({ ctx, logo }: { ctx: Ctx; logo: AgencyLogo | null }) {
         style={{
           position: "absolute",
           left: PAGE.padX,
+          right: PAGE.padX,
           top: px(680),
           flexDirection: "row",
+          // 14 Nov, part 4: a chip that doesn't fit goes to the next line, never past the page edge.
+          flexWrap: "wrap",
           gap: px(8),
         }}
       >
@@ -672,7 +681,9 @@ function Cover({ ctx, logo }: { ctx: Ctx; logo: AgencyLogo | null }) {
           paddingTop: px(14),
         }}
       >
-        <Text style={{ fontSize: px(9.5), color: C.coverMuted }}>
+        <Text
+          style={{ flexShrink: 1, paddingRight: px(12), fontSize: px(9.5), color: C.coverMuted }}
+        >
           Generated {ctx.generated} · {data.agency.footerText ?? "Confidential"}
         </Text>
         {host ? <Text style={{ fontSize: px(9.5), color: C.coverMuted }}>{host}</Text> : null}
@@ -1989,7 +2000,10 @@ function FindingCard({ finding }: { finding: Finding }) {
         <Svg width={px(13)} height={px(13)} viewBox="0 0 24 24">
           <Path d="M20 6 9 17l-5-5" fill="none" stroke={C.brand} strokeWidth={2.2} />
         </Svg>
-        <Text style={{ fontSize: px(10), fontWeight: 600, color: C.ink }}>{finding.fix}</Text>
+        {/* 14 Nov, part 4: flex 1, so the action wraps beside the tick (it ran off the page edge). */}
+        <Text style={{ flex: 1, fontSize: px(10), fontWeight: 600, color: C.ink }}>
+          {finding.fix}
+        </Text>
       </View>
     </View>
   );

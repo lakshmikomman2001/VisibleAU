@@ -203,6 +203,12 @@ export function trendLines(data: ReportData): string[] {
   }
   const leftOut = trendLeftOutLine(data);
   if (leftOut) lines.push(leftOut);
+  // 14 Nov, part 5: an audit an operator excluded is named, with why, never silently missing.
+  for (const e of t.excluded ?? []) {
+    lines.push(
+      `Audit #${e.auditNumber} is left out of this chart and every comparison: ${e.reason}.`,
+    );
+  }
   const comparison = trendComparisonLine(data);
   if (comparison) lines.push(comparison);
   return lines;

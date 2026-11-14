@@ -6,6 +6,7 @@ import { everyEngineAnswered } from "@/lib/audit/engine-failure";
 import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { citedSourcesSql } from "@/lib/audit/organic-filter";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { classifyByScore } from "@/lib/confidence-labels/classify";
 import { modelSetKey } from "@/lib/llm/model-set";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -355,6 +356,8 @@ export async function periodComparableAudits(
         gte(audits.completedAt, periodStart),
         lte(audits.completedAt, periodEnd),
         everyEngineAnswered,
+        // 14 Nov, part 5: an audit an operator excluded from trends is never in a period's figures.
+        includedInTrends,
       ),
     )
     .orderBy(desc(audits.completedAt));
@@ -382,7 +385,14 @@ export async function periodModelSetKeys(
       completedAt: audits.completedAt,
     })
     .from(audits)
-    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete"), everyEngineAnswered))
+    .where(
+      and(
+        eq(audits.brandId, brandId),
+        eq(audits.status, "complete"),
+        everyEngineAnswered,
+        includedInTrends,
+      ),
+    )
     .orderBy(desc(audits.completedAt))
     .limit(RECENT_AUDITS_FOR_PERIODS);
   return Promise.all(

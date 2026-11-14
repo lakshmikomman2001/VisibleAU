@@ -1,0 +1,14 @@
+-- Migration 0148 (14 Nov 2026, part 5; Sri's review of audit #48): an operator can exclude an audit from trends.
+--
+-- RUN BEFORE THE PUSH THAT CARRIES IT (prod-fix 0148 run1 -> run3; run4 only to undo). Drizzle selects every
+-- column of its schema, so the pushed code's reads of audits ask for excluded_from_trends_reason; without the
+-- column every audit read fails.
+--
+-- Hero Home Services' PDF showed "Visibility across recent audits: 0% (#46) -> 27% -> 25%". #46's 0% came from
+-- the name-matching bug fixed in a6f75e2, so the chart drew a rise that never happened. An operator now records a
+-- reason on /admin/audits; the audit stays in history with "Excluded from trends: <reason>" and is left out of
+-- the PDF trend chart, the dashboard's averages, "Over time" and comparisons. Nothing is deleted.
+--
+-- Nullable, no default: metadata-only on Postgres (no table rewrite). RLS is unchanged; the app role already has
+-- SELECT/UPDATE on audits (prod-fix 0052), and the column inherits it.
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS excluded_from_trends_reason text;

@@ -10,6 +10,7 @@ import {
 } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
@@ -166,6 +167,8 @@ export interface ReportTrend {
   change: { fromAuditNumber: number; toAuditNumber: number; severity: DriftSeverity } | null;
   /** Earlier audits that would be on the chart but for TREND_MAX_POINTS. */
   leftOut: number;
+  /** 14 Nov, part 5: audits an operator excluded from trends, left off the chart and every comparison. */
+  excluded?: Array<{ auditNumber: number; reason: string }>;
 }
 
 export interface ReportData {
@@ -296,6 +299,8 @@ const COMPLETE_AUDIT_COLUMNS = {
   metadata: audits.metadata,
   promptPackVersion: audits.promptPackVersion,
   methodologyVersion: audits.methodologyVersion,
+  // 14 Nov, part 5: an operator's exclusion (lib/audit/trend-exclusion.ts) keeps it off the trend.
+  excludedFromTrendsReason: audits.excludedFromTrendsReason,
 };
 
 export type CompleteAudit = Awaited<ReturnType<typeof loadCompleteAudits>>[number];
@@ -686,9 +691,12 @@ export async function buildReportData(
   // 6: an earlier methodology is treated the same way -- shown, hollow,
   // labelled where it changes, never compared. The most recent
   // TREND_MAX_POINTS of them; `complete` is newest first.
-  const trendEligible = complete.filter(
-    (a) => a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && samePack(a)),
-  );
+  // 14 Nov, part 5: an audit an operator excluded from trends is never on the chart or compared (Hero's #46: 0%
+  // from the name-matching bug), the basis included; the caption names it.
+  const wouldChart = (a: Candidate) =>
+    a.id === basis.id || inPeriod(a) || (a.completedAt < basis.completedAt && samePack(a));
+  const excludedFromChart = complete.filter((a) => wouldChart(a) && isExcludedFromTrends(a));
+  const trendEligible = complete.filter((a) => wouldChart(a) && !isExcludedFromTrends(a));
   const trendAudits = trendEligible.slice(0, TREND_MAX_POINTS).reverse();
 
   const resolved = await resolveOrganicDimensions(db, [
@@ -783,6 +791,7 @@ export async function buildReportData(
   const first = comparable[0];
   const last = comparable[comparable.length - 1];
   const change =
+    !isExcludedFromTrends(basis) &&
     comparable.length >= MIN_COMPARABLE_AUDITS_FOR_TREND &&
     first?.value != null &&
     last?.value != null &&
@@ -848,6 +857,16 @@ export async function buildReportData(
       minimum: MIN_COMPARABLE_AUDITS_FOR_TREND,
       change,
       leftOut: trendEligible.length - trendAudits.length,
+      ...(excludedFromChart.length > 0
+        ? {
+            excluded: excludedFromChart
+              .map((a) => ({
+                auditNumber: a.auditNumber,
+                reason: a.excludedFromTrendsReason ?? "",
+              }))
+              .reverse(),
+          }
+        : {}),
     },
     residency: { accountData: region("database"), reportStorage: region("pdf_reports") },
     sections: reportSectionFlags(input.sections),

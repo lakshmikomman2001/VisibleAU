@@ -64,6 +64,10 @@ export const audits = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     failedAt: timestamp("failed_at", { withTimezone: true }),
     errorMessage: text("error_message"),
+    // Migration 0148 (14 Nov, part 5): set by an operator on /admin/audits when an audit's numbers are wrong
+    // (e.g. #46, measured before the mention-check fix): the audit stays in history with a label, and is left
+    // out of trends, averages and comparisons (lib/audit/trend-exclusion.ts). NULL: counted as usual.
+    excludedFromTrendsReason: text("excluded_from_trends_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     // Phase 2 Sprint 1 columns (nullable, safe migration)
     configBundleId: uuid("config_bundle_id").references(() => configBundleCache.id),

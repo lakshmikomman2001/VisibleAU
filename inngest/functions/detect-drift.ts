@@ -4,6 +4,7 @@ import { audits, driftAlerts } from "@/db/schema";
 import { fullyFailedEngines } from "@/lib/audit/engine-failure";
 import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { driftBaseline } from "@/lib/drift/baseline";
 import { detectDrift } from "@/lib/drift/detect";
 import type { CI, DriftInput } from "@/lib/drift/types";
@@ -190,7 +191,13 @@ export const detectDriftFn = inngest.createFunction(
           .select()
           .from(audits)
           .where(
-            and(eq(audits.brandId, bId), ne(audits.id, auditId), eq(audits.status, "complete")),
+            // 14 Nov, part 5: never against an audit an operator excluded from trends.
+            and(
+              eq(audits.brandId, bId),
+              ne(audits.id, auditId),
+              eq(audits.status, "complete"),
+              includedInTrends,
+            ),
           )
           .orderBy(desc(audits.createdAt))
           .limit(10);

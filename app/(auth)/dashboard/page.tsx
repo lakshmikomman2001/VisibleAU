@@ -14,6 +14,8 @@ import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { auditGoogleSurfaces } from "@/db/schema/google-surfaces";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
+import { trendExclusionLabel } from "@/lib/audit/trend-exclusion";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
 import {
@@ -97,6 +99,7 @@ export default async function DashboardPage() {
             engines: audits.engines,
             promptsCount: audits.promptsCount,
             metadata: audits.metadata,
+            excludedFromTrendsReason: audits.excludedFromTrendsReason,
           })
           .from(audits)
           .innerJoin(brands, eq(audits.brandId, brands.id))
@@ -120,7 +123,11 @@ export default async function DashboardPage() {
           })
           .from(audits)
           .innerJoin(brands, and(eq(brands.id, audits.brandId), isNull(brands.deletedAt)))
-          .where(and(eq(audits.organizationId, orgId), eq(audits.status, "complete")))
+          // 14 Nov, part 5: an audit an operator excluded from trends is never in the average: each brand's
+          // latest complete audit that counts.
+          .where(
+            and(eq(audits.organizationId, orgId), eq(audits.status, "complete"), includedInTrends),
+          )
           .orderBy(audits.brandId, sql`${audits.completedAt} DESC NULLS LAST`),
       ]);
 
@@ -500,6 +507,15 @@ export default async function DashboardPage() {
                   </div>
                   <div style={{ minWidth: 72 }}>
                     <VisibilityCell display={a.visibility} />
+                    {/* 14 Nov, part 5: still listed, with why it's left out of the trends. */}
+                    {a.excludedFromTrendsReason ? (
+                      <div
+                        data-excluded-from-trends=""
+                        style={{ fontSize: 10, color: "var(--text-tertiary)" }}
+                      >
+                        {trendExclusionLabel(a.excludedFromTrendsReason)}
+                      </div>
+                    ) : null}
                   </div>
                   <span
                     style={{

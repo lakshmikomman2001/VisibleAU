@@ -1201,6 +1201,7 @@
           "completedAt": "<iso>",
           "failedAt": null,
           "errorMessage": null,
+          "excludedFromTrendsReason": null,
           "createdAt": "<iso>",
           "configBundleId": null,
           "configDigest": null,

@@ -33,6 +33,7 @@ import {
   AUDIT_STALE_RUNNING_INACTIVITY_MS,
   failRealAuditIfStale,
 } from "@/lib/audit/stale-audit-guard";
+import { trendExclusionLabel } from "@/lib/audit/trend-exclusion";
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { customerAuditError } from "@/lib/costs/customer-safe";
@@ -1060,6 +1061,17 @@ export default async function AuditPage({
               ` · Method: ${methodologyLabel(audit.methodologyVersion)}`
             }
           </p>
+          {/* 14 Nov, part 5: an operator excluded this audit from trends and comparisons; it's shown as
+              measured, with the reason, and left out of every trend (lib/audit/trend-exclusion.ts). */}
+          {audit.excludedFromTrendsReason && (
+            <p
+              data-excluded-from-trends=""
+              style={{ fontSize: 12, color: "var(--warning)", margin: "6px 0 0" }}
+            >
+              {trendExclusionLabel(audit.excludedFromTrendsReason)}. It isn&apos;t counted in
+              trends, averages or comparisons.
+            </p>
+          )}
           {/* Sri's decision 6 (7 Nov): a provider answered with a different model than the one asked
               for (lib/llm/model-drift.ts) -- said plainly, under the header. */}
           {modelDrift.length > 0 && (

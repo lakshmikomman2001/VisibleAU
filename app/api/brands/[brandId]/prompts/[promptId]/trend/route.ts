@@ -48,6 +48,8 @@ export async function GET(
       WHERE a.brand_id = ${brandId}
         AND c.prompt = ${decodeURIComponent(promptId)}
         AND c.created_at >= NOW() - INTERVAL '12 weeks'
+        -- 14 Nov, part 5: never an audit an operator excluded from trends (lib/audit/trend-exclusion.ts).
+        AND a.excluded_from_trends_reason IS NULL
       GROUP BY DATE_TRUNC('week', c.created_at)
       ORDER BY week
     `);

@@ -8,6 +8,7 @@ import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
+import { trendExclusionLabel } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { auditVisibilityDisplay } from "@/lib/scoring/visibility-display";
@@ -38,6 +39,8 @@ export default async function AuditsPage({
         metadata: audits.metadata,
         createdAt: audits.createdAt,
         completedAt: audits.completedAt,
+        // 14 Nov, part 5: labelled when an operator excluded it from trends.
+        excludedFromTrendsReason: audits.excludedFromTrendsReason,
         driftSeverity: sql<string | null>`(
           SELECT severity FROM drift_alerts
           WHERE current_audit_id = ${audits.id} AND acknowledged = false
@@ -121,6 +124,14 @@ export default async function AuditsPage({
                       <VisibilityCell display={a.visibility} align="left" />
                       {a.driftSeverity && <DriftIndicator severity={a.driftSeverity} />}
                     </div>
+                    {a.excludedFromTrendsReason && (
+                      <div
+                        className="text-xs text-muted-foreground mt-1"
+                        data-excluded-from-trends=""
+                      >
+                        {trendExclusionLabel(a.excludedFromTrendsReason)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}

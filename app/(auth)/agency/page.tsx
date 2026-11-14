@@ -107,10 +107,12 @@ export default async function AgencyDashboardPage() {
           // looking audit; compositeFor below still renders
           // insufficient_data (too few successful answers) as null, so
           // that state is shown honestly rather than hidden either way.
+          // 14 Nov, part 5: and never one an operator excluded from trends (lib/audit/trend-exclusion.ts).
           latestAuditId: sql<string | null>`(
             SELECT a.id FROM audits a
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
+              AND a.excluded_from_trends_reason IS NULL
             ORDER BY a.completed_at DESC
             LIMIT 1
           )`,
@@ -118,6 +120,7 @@ export default async function AgencyDashboardPage() {
             SELECT a.id FROM audits a
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
+              AND a.excluded_from_trends_reason IS NULL
             ORDER BY a.completed_at DESC
             OFFSET 1
             LIMIT 1

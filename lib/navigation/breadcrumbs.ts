@@ -42,6 +42,8 @@ export const CRUMB = {
 export const ADMIN_PAGE_TITLES = {
   settings: "Operator settings",
   costs: "Provider costs",
+  /** 14 Nov, part 5: exclude an audit from trends and comparisons, with a reason. */
+  audits: "Trend exclusions",
 } as const;
 
 function adminTitle(segment: string | undefined): string {
@@ -169,7 +171,7 @@ export function breadcrumbsForPath(pathname: string): Breadcrumbs {
       if (!second) return [{ label: CRUMB.settings.label }];
       return [CRUMB.settings, { label: labelFor(second) }];
     case "admin":
-      // The operator's own pages (/admin/settings, /admin/costs), each named by its heading; /admin has no page.
+      // The operator's own pages (/admin/settings, /admin/costs, /admin/audits), each named by its heading; /admin has no page.
       return [CRUMB.workspace, { label: adminTitle(second) }];
     case "organizations":
       // /organizations/[orgId]/… -- the workspace's own schedules and templates.

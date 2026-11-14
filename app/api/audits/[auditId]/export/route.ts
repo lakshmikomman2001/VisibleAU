@@ -11,6 +11,7 @@ import {
   loadGoogleSurfaceSummary,
 } from "@/lib/audit/google-surfaces/summary";
 import { recomputeCitationPositions } from "@/lib/audit/recompute-citation-positions";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { customerAuditMetadata, withoutCostColumns } from "@/lib/costs/customer-safe";
@@ -148,6 +149,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
                   eq(audits.brandId, audit.brandId),
                   eq(audits.status, "complete"),
                   lt(audits.completedAt, audit.completedAt),
+                  // 14 Nov, part 5: never compared with an audit an operator excluded from trends.
+                  includedInTrends,
                 ),
               )
               .orderBy(desc(audits.completedAt))

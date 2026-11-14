@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { VisibilityCell } from "@/components/shared/visibility-cell";
 import { withRlsContext } from "@/db/client";
 import { audits } from "@/db/schema";
+import { isExcludedFromTrends, trendExclusionLabel } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import type { DimensionResult } from "@/lib/scoring/dimension-result";
 import {
@@ -39,11 +40,19 @@ export default async function ComparePage({
     currentUser.organizationId,
     async (tx) => {
       const [auditA] = await tx
-        .select({ id: audits.id, auditNumber: audits.auditNumber })
+        .select({
+          id: audits.id,
+          auditNumber: audits.auditNumber,
+          excludedFromTrendsReason: audits.excludedFromTrendsReason,
+        })
         .from(audits)
         .where(and(eq(audits.id, ids[0]), eq(audits.organizationId, currentUser.organizationId)));
       const [auditB] = await tx
-        .select({ id: audits.id, auditNumber: audits.auditNumber })
+        .select({
+          id: audits.id,
+          auditNumber: audits.auditNumber,
+          excludedFromTrendsReason: audits.excludedFromTrendsReason,
+        })
         .from(audits)
         .where(and(eq(audits.id, ids[1]), eq(audits.organizationId, currentUser.organizationId)));
 
@@ -119,7 +128,12 @@ export default async function ComparePage({
     );
   }
 
+  // 14 Nov, part 5: an audit an operator excluded from trends is shown, with its label, but never compared:
+  // no change figure against it (lib/audit/trend-exclusion.ts).
+  const excluded = [auditA, auditB].filter(isExcludedFromTrends);
+
   function getDelta(a: number | null, b: number | null): string {
+    if (excluded.length > 0) return "—";
     if (a == null || b == null) return "—";
     // Between the two rounded figures shown, in percentage points.
     const diff = Number(a.toFixed(0)) - Number(b.toFixed(0));
@@ -139,6 +153,12 @@ export default async function ComparePage({
           Visibility %, the other doesn&apos;t.
         </p>
       )}
+      {excluded.map((a) => (
+        <p key={a.id} className="text-sm mb-4 text-muted-foreground" data-excluded-from-trends="">
+          Audit #{a.auditNumber}: {trendExclusionLabel(a.excludedFromTrendsReason ?? "")}. It
+          isn&apos;t compared, so no change is shown.
+        </p>
+      ))}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="text-sm text-muted-foreground">Dimension</div>
         <div className="text-sm font-medium">Audit #{auditA.auditNumber}</div>

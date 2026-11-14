@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import {
   brandGoogleLocations,
@@ -9,6 +9,7 @@ import {
   orgFeatureFlags,
   users,
 } from "@/db/schema";
+import { TREND_EXCLUSION_SETTING_KEY } from "@/lib/admin/trend-exclusions";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { tierRank } from "@/lib/pricing/tiers";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -419,6 +420,8 @@ export async function loadGoogleSurfaceAdminView(
     .leftJoin(organizations, eq(organizations.id, featureSettingChanges.targetWorkspaceId))
     .leftJoin(brands, eq(brands.id, featureSettingChanges.targetBrandId))
     .leftJoin(users, eq(users.id, featureSettingChanges.changedByUserId))
+    // 14 Nov, part 5: an audit's trend exclusion is in the same history table; /admin/audits lists those.
+    .where(ne(featureSettingChanges.settingKey, TREND_EXCLUSION_SETTING_KEY))
     .orderBy(desc(featureSettingChanges.createdAt))
     .limit(50);
 

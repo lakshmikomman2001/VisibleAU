@@ -150,4 +150,6 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   { name: "Operator settings", route: "/admin/settings", url: () => "/admin/settings" },
   // Part 14 (13 Nov): the operator's provider costs; anyone else sees "Forbidden".
   { name: "Provider costs", route: "/admin/costs", url: () => "/admin/costs" },
+  // 14 Nov, part 5: exclude an audit from trends; anyone else sees "Forbidden".
+  { name: "Trend exclusions", route: "/admin/audits", url: () => "/admin/audits" },
 ];

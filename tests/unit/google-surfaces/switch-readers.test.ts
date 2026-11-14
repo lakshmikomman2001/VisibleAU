@@ -19,6 +19,8 @@ const SCANNED = [
 ];
 const RESOLVER = "lib/governance/google-surfaces.ts";
 const CREDENTIALS = "lib/serp/credentials.ts";
+/** 14 Nov, part 5: /admin/audits' trend exclusions, logged in the operator's change history. */
+const TREND_EXCLUSIONS = "lib/admin/trend-exclusions.ts";
 
 readSourcesBeforeAll(SCANNED);
 
@@ -52,9 +54,15 @@ describe("each Google switch has one reader", () => {
   });
 
   it("the global settings, their history and brand postcodes: only the resolver's module", () => {
-    expect(readersOf(/\b(featureSettings|featureSettingChanges|brandGoogleLocations)\b/)).toEqual([
-      RESOLVER,
-    ]);
+    expect(readersOf(/\b(featureSettings|brandGoogleLocations)\b/)).toEqual([RESOLVER]);
+    // 14 Nov, part 5: the change history is the operator's log, not a switch -- /admin/audits writes and lists
+    // its own rows there (an audit excluded from trends), and only those.
+    expect(readersOf(/\bfeatureSettingChanges\b/).sort()).toEqual(
+      [RESOLVER, TREND_EXCLUSIONS].sort(),
+    );
+    expect(code(TREND_EXCLUSIONS)).toContain(
+      "eq(featureSettingChanges.settingKey, TREND_EXCLUSION_SETTING_KEY)",
+    );
     // By table name: only the RLS check's list of global tables (it names them, it doesn't read them).
     expect(
       readersOf(/\b(feature_settings|feature_setting_changes|brand_google_locations)\b/),

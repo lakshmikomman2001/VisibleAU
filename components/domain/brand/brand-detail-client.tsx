@@ -37,6 +37,7 @@ import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
+import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import {
   CLASSIFICATION_TIMEOUT_MS,
@@ -156,6 +157,9 @@ interface BrandDetailClientProps {
     models?: AuditModelSet;
     /** A provider answered with another model than the one asked for (lib/llm/model-drift.ts's note). */
     modelDrift?: string | null;
+    /** 14 Nov, part 5: an operator excluded it from trends (lib/audit/trend-exclusion.ts): off the chart. */
+    auditNumber?: number;
+    excludedFromTrendsReason?: string | null;
   }>;
   latestAudit: {
     scoreComposite: string | null;
@@ -453,7 +457,11 @@ export function BrandDetailClient({
   // indistinguishable filled 0-height bar next to a genuinely
   // low-but-measured score. An audit with zero successful answers has a
   // null scoreComposite (headline insufficient_data) and is omitted.
+  // 14 Nov, part 5: an audit an operator excluded from trends isn't drawn (Hero's #46 drew a rise that never
+  // happened); the note under the chart names it.
+  const excludedFromChart = recentAudits.filter((a) => isExcludedFromTrends(a));
   const sparkPoints = recentAudits
+    .filter((a) => !isExcludedFromTrends(a))
     .filter((a): a is typeof a & { scoreComposite: string } => a.scoreComposite != null)
     .map((a) => ({
       value: Number.parseFloat(a.scoreComposite),
@@ -1231,7 +1239,10 @@ export function BrandDetailClient({
                     color: "var(--text-tertiary)",
                   }}
                 >
-                  No completed audits yet
+                  {/* 14 Nov, part 5: every audit here excluded from trends isn't "no audits". */}
+                  {excludedFromChart.length > 0
+                    ? "No audit to chart: every audit here is excluded from trends"
+                    : "No completed audits yet"}
                 </div>
               ) : (
                 <>
@@ -1275,6 +1286,7 @@ export function BrandDetailClient({
                       return (
                         <div
                           key={`spark-${i}`}
+                          data-spark-point=""
                           title={title || undefined}
                           style={{
                             flex: 1,
@@ -1367,6 +1379,16 @@ export function BrandDetailClient({
                       comparable with the others.
                     </p>
                   )}
+                  {excludedFromChart.map((a) => (
+                    <p
+                      key={`excluded-${a.auditNumber ?? a.completedAt}`}
+                      data-excluded-from-trends=""
+                      style={{ fontSize: 10, color: "var(--text-tertiary)", margin: "4px 0 0" }}
+                    >
+                      {a.auditNumber ? `Audit #${a.auditNumber}` : "An audit"} is left out of this
+                      chart: {a.excludedFromTrendsReason}.
+                    </p>
+                  ))}
                   {/* Methodology v2.2 (7 Nov), part 3: a provider answered with another model. */}
                   {sparkPoints.some((p) => p.modelDrift) && (
                     <p

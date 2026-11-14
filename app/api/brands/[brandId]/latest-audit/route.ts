@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits } from "@/db/schema";
+import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
@@ -64,11 +65,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         completedAt: audits.completedAt,
         engines: audits.engines,
         promptsCount: audits.promptsCount,
+        excludedFromTrendsReason: audits.excludedFromTrendsReason,
       })
       .from(audits)
       .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
       .orderBy(desc(audits.completedAt))
-      .limit(2);
+      .limit(10);
 
     if (completedAudits.length === 0) {
       return NextResponse.json({ audit: null, actionItems: [], priorAudit: null, engineStats: [] });
@@ -84,7 +86,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // recompute of each is cheap -- overwriting the same response field
     // names means every downstream consumer needs no changes at all.
     const rawAudit = completedAudits[0];
-    const rawPriorAudit = completedAudits.length > 1 ? completedAudits[1] : null;
+    // 14 Nov, part 5: the "vs prior" audit is the latest earlier one an operator hasn't excluded from trends,
+    // and there's none when the latest itself is excluded.
+    const rawPriorAudit = isExcludedFromTrends(rawAudit)
+      ? null
+      : (completedAudits.slice(1).find((a) => !isExcludedFromTrends(a)) ?? null);
 
     //
     // Vunnara (19 Oct, post-aa83b3a): scoreComposite now carries the

@@ -51,11 +51,14 @@ export default async function PortfolioPage() {
         // = "id"` collapsed to `audits.brand_id = audits.id`, which is
         // never true. Fixed by writing the qualified reference as a
         // literal, same as Agency's own correlated subquery.
+        // 14 Nov, part 5: the score and its movement skip an audit an operator excluded from trends (lib/audit/
+        // trend-exclusion.ts); "last audit" below still dates the newest one.
         latestAuditId: sql<string | null>`(
           SELECT id
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
+            AND audits.excluded_from_trends_reason IS NULL
           ORDER BY completed_at DESC
           LIMIT 1
         )`,
@@ -64,6 +67,7 @@ export default async function PortfolioPage() {
           FROM audits
           WHERE audits.brand_id = "brands"."id"
             AND audits.status = 'complete'
+            AND audits.excluded_from_trends_reason IS NULL
           ORDER BY completed_at DESC
           OFFSET 1
           LIMIT 1

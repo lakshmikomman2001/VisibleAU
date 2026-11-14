@@ -1,15 +1,11 @@
-import { endOfISOWeek, startOfISOWeek } from "date-fns";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { audits, brands, visibilityTrends } from "@/db/schema";
+import { audits, brands } from "@/db/schema";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
-import {
-  aggregateVisibilityTrend,
-  formatPeriodLabel,
-} from "@/lib/visibility/visibility-trend-aggregator";
 import { reportPeriodLabel } from "@/lib/reports/report-period";
+import { refreshWeeklyVisibilityTrend } from "@/lib/visibility/refresh-weekly-trend";
 
 export const aggregateVisibilityTrendFn = inngest.createFunction(
   {
@@ -52,85 +48,11 @@ export const aggregateVisibilityTrendFn = inngest.createFunction(
     if (!context) return { skipped: true, reason: "audit_not_found" };
 
     const result = await step.run("aggregate-trend", async () => {
-      return withRlsContext(context.organizationId, async (tx) => {
-        const periodType = "weekly" as const;
-        const periodStart = startOfISOWeek(context.completedAt);
-        const periodEnd = endOfISOWeek(context.completedAt);
-        const periodLabel = formatPeriodLabel(context.completedAt, periodType);
-
-        const historicalTrends = await tx
-          .select({ citationRate: visibilityTrends.citationRate })
-          .from(visibilityTrends)
-          .where(eq(visibilityTrends.brandId, context.brandId))
-          .orderBy(desc(visibilityTrends.calculatedAt))
-          .limit(12);
-
-        const historicalCitationRates = historicalTrends
-          .map((t) => (t.citationRate ? Number(t.citationRate) : null))
-          .filter((r): r is number => r !== null);
-
-        const trend = await aggregateVisibilityTrend(tx, {
-          brandId: context.brandId,
-          organizationId: context.organizationId,
-          periodLabel,
-          periodType,
-          periodStart,
-          periodEnd,
-          brandDomain: context.brandDomain,
-          historicalCitationRates,
-        });
-
-        await tx
-          .insert(visibilityTrends)
-          .values({
-            brandId: context.brandId,
-            organizationId: context.organizationId,
-            periodLabel,
-            periodType,
-            scoreCompositeAvg: trend.scoreCompositeAvg?.toString(),
-            scoreFrequencyAvg: trend.scoreFrequencyAvg?.toString(),
-            scoreSentimentAvg: trend.scoreSentimentAvg?.toString(),
-            scoreAccuracyAvg: trend.scoreAccuracyAvg?.toString(),
-            scorePositionAvg: trend.scorePositionAvg?.toString(),
-            scoreContextAvg: trend.scoreContextAvg?.toString(),
-            auditCount: trend.auditCount,
-            sampleQuality: trend.sampleQuality,
-            mentionRate: trend.mentionRate.toString(),
-            citationRate: trend.citationRate.toString(),
-            mentionSourceRatio: trend.mentionSourceRatio?.toString() ?? null,
-            brandArchetype: trend.brandArchetype,
-            marketCompetitionLabel: trend.marketCompetitionLabel,
-            citationVolatilityScore: trend.citationVolatilityScore?.toString() ?? null,
-            methodologyVersion: trend.methodologyVersion,
-          })
-          .onConflictDoUpdate({
-            target: [
-              visibilityTrends.brandId,
-              visibilityTrends.periodLabel,
-              visibilityTrends.periodType,
-            ],
-            set: {
-              scoreCompositeAvg: trend.scoreCompositeAvg?.toString(),
-              scoreFrequencyAvg: trend.scoreFrequencyAvg?.toString(),
-              scoreSentimentAvg: trend.scoreSentimentAvg?.toString(),
-              scoreAccuracyAvg: trend.scoreAccuracyAvg?.toString(),
-              scorePositionAvg: trend.scorePositionAvg?.toString(),
-              scoreContextAvg: trend.scoreContextAvg?.toString(),
-              auditCount: trend.auditCount,
-              sampleQuality: trend.sampleQuality,
-              mentionRate: trend.mentionRate.toString(),
-              citationRate: trend.citationRate.toString(),
-              mentionSourceRatio: trend.mentionSourceRatio?.toString() ?? null,
-              brandArchetype: trend.brandArchetype,
-              marketCompetitionLabel: trend.marketCompetitionLabel,
-              citationVolatilityScore: trend.citationVolatilityScore?.toString() ?? null,
-              methodologyVersion: trend.methodologyVersion,
-              updatedAt: new Date(),
-            },
-          });
-
-        return { periodLabel, periodType, auditCount: trend.auditCount };
-      });
+      // 14 Nov, part 5: the body moved to lib/visibility/refresh-weekly-trend.ts (unchanged), shared with
+      // /admin/audits' re-aggregation; this step's id is the same.
+      return withRlsContext(context.organizationId, (tx) =>
+        refreshWeeklyVisibilityTrend(tx, context),
+      );
     });
 
     await step.run("emit-trend-aggregated", async () => {

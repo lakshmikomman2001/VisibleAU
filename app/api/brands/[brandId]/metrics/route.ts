@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, brands } from "@/db/schema";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
@@ -43,7 +44,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         completedAt: audits.completedAt,
       })
       .from(audits)
-      .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
+      // 14 Nov, part 5: a trend series and its change, so never an audit an operator excluded from trends.
+      .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete"), includedInTrends))
       .orderBy(desc(audits.completedAt))
       .limit(20);
 

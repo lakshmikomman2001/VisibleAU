@@ -86,6 +86,9 @@ export default async function BrandDetailPage({
           engines: audits.engines,
           promptsCount: audits.promptsCount,
           metadata: audits.metadata,
+          // 14 Nov, part 5: left off the audit history chart when an operator excluded it from trends.
+          auditNumber: audits.auditNumber,
+          excludedFromTrendsReason: audits.excludedFromTrendsReason,
         })
         .from(audits)
         .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
@@ -145,6 +148,8 @@ export default async function BrandDetailPage({
         engines: a.engines ?? [],
         models: modelsByAuditId.get(a.id)?.models ?? {},
         modelDrift: (modelsByAuditId.get(a.id)?.drift ?? []).map(modelDriftNote).join("; ") || null,
+        auditNumber: a.auditNumber,
+        excludedFromTrendsReason: a.excludedFromTrendsReason,
       }));
       const latestAuditWithStatus = latestAudit
         ? {

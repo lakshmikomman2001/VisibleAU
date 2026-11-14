@@ -20,6 +20,7 @@ import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { driftBaseline } from "@/lib/drift/baseline";
 import { detectDrift } from "@/lib/drift/detect";
@@ -552,6 +553,8 @@ export async function runAuditInline(
               eq(audits.brandId, a.brandId),
               ne(audits.id, auditId),
               eq(audits.status, "complete"),
+              // 14 Nov, part 5: never against an audit an operator excluded from trends.
+              includedInTrends,
             ),
           )
           .orderBy(desc(audits.createdAt))

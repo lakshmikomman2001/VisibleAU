@@ -27,10 +27,12 @@ function forbidden() {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
-export async function GET() {
+export async function GET(req?: Request) {
   const { allowed } = await operator();
   if (!allowed) return forbidden();
-  return NextResponse.json(await loadTrendExclusionAdminView());
+  // 15 Nov, part 4: ?deleted=1 lists deleted brands' audits too.
+  const showDeletedBrands = req ? new URL(req.url).searchParams.get("deleted") === "1" : false;
+  return NextResponse.json(await loadTrendExclusionAdminView({ showDeletedBrands }));
 }
 
 const body = z.object({

@@ -8,7 +8,9 @@ import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
  * /admin/costs is; anyone else sees "Forbidden" and none of the audits, and the API behind it
  * (app/api/admin/audits/route.ts) answers them 403.
  */
-export default async function AdminAuditsPage() {
+export default async function AdminAuditsPage(props?: {
+  searchParams?: Promise<{ deleted?: string }>;
+}) {
   const { allowed, userId } = await checkPlatformAdmin();
   console.log(JSON.stringify({ event: "admin_access", userId, route: "/admin/audits", allowed }));
   if (!allowed) {
@@ -25,5 +27,7 @@ export default async function AdminAuditsPage() {
       </div>
     );
   }
-  return <TrendExclusionsAdmin view={await loadTrendExclusionAdminView()} />;
+  // 15 Nov, part 4: a deleted brand's audits only when asked for ("Show deleted brands' audits").
+  const showDeletedBrands = (await props?.searchParams)?.deleted === "1";
+  return <TrendExclusionsAdmin view={await loadTrendExclusionAdminView({ showDeletedBrands })} />;
 }

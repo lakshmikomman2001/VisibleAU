@@ -16,6 +16,10 @@ import { ADMIN_PAGE_TITLES } from "@/lib/navigation/breadcrumbs";
  * 14 Nov, part 5 -- /admin/audits: the operator excludes an audit from trends and comparisons, with a reason,
  * or includes it again (POST /api/admin/audits; lib/admin/trend-exclusions.ts). Each row saves on its own and
  * says so ("Saving…", "Saved", or why not), and the page reloads what the server now has.
+ *
+ * 15 Nov, part 4 (Sri): no reason is chosen for you ("Choose a reason…", Exclude disabled until one is chosen or
+ * typed: one click used to exclude); deleted brands' audits are hidden unless asked for, and labelled "brand
+ * deleted" when shown; and the list says how many of how many it shows.
  */
 
 const card: CSSProperties = {
@@ -31,6 +35,7 @@ const field: CSSProperties = {
 };
 
 const OTHER = "other";
+const NONE = "";
 
 function SydneyDate({ iso }: { iso: string | null }) {
   if (!iso) return <span>—</span>;
@@ -54,7 +59,7 @@ function SydneyDate({ iso }: { iso: string | null }) {
 
 function ExclusionControl({ audit }: { audit: TrendExclusionAudit }) {
   const s = useSave("/api/admin/audits");
-  const [choice, setChoice] = useState(EARLIER_MENTION_CHECK_REASON);
+  const [choice, setChoice] = useState(NONE);
   const [typed, setTyped] = useState("");
   const reason = normalizeTrendExclusionReason(choice === OTHER ? typed : choice);
 
@@ -89,6 +94,9 @@ function ExclusionControl({ audit }: { audit: TrendExclusionAudit }) {
         className="px-2 py-1 rounded-md text-[13px] max-w-full"
         style={field}
       >
+        <option value={NONE} disabled>
+          Choose a reason…
+        </option>
         <option value={EARLIER_MENTION_CHECK_REASON}>{EARLIER_MENTION_CHECK_REASON}</option>
         <option value={OTHER}>Another reason…</option>
       </select>
@@ -125,6 +133,18 @@ function ExclusionControl({ audit }: { audit: TrendExclusionAudit }) {
   );
 }
 
+/** "Showing the latest 50 of 73 complete audits, and 2 older ones excluded from trends." / "All 23 complete audits." */
+function listedLine(view: TrendExclusionAdminView): string {
+  const older =
+    view.olderExcluded > 0
+      ? `, and ${view.olderExcluded} older ${view.olderExcluded === 1 ? "one" : "ones"} excluded from trends`
+      : "";
+  if (view.completeAudits > view.newestListed) {
+    return `Showing the latest ${view.newestListed} of ${view.completeAudits} complete audits${older}.`;
+  }
+  return `All ${view.completeAudits} complete ${view.completeAudits === 1 ? "audit" : "audits"}${older}.`;
+}
+
 export function TrendExclusionsAdmin({ view }: { view: TrendExclusionAdminView }) {
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
@@ -148,9 +168,25 @@ export function TrendExclusionsAdmin({ view }: { view: TrendExclusionAdminView }
         </div>
 
         <section className="p-5 rounded-xl" style={card} data-admin-trend-audits="">
-          <h2 className="text-sm font-semibold mb-3" style={label}>
-            Complete audits, newest first
-          </h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <h2 className="text-sm font-semibold" style={label}>
+              Complete audits, newest first
+            </h2>
+            {view.showDeletedBrands || view.deletedBrandAudits > 0 ? (
+              <Link
+                href={view.showDeletedBrands ? "/admin/audits" : "/admin/audits?deleted=1"}
+                className="text-[13px]"
+                data-admin-show-deleted=""
+              >
+                {view.showDeletedBrands
+                  ? "Hide deleted brands' audits"
+                  : `Show deleted brands' audits (${view.deletedBrandAudits})`}
+              </Link>
+            ) : null}
+          </div>
+          <p className="text-[12px] mb-3" style={muted} data-admin-trend-count="">
+            {listedLine(view)}
+          </p>
           {view.audits.length === 0 ? (
             <p className="text-[13px]" style={muted}>
               No audit has completed yet.
@@ -181,7 +217,17 @@ export function TrendExclusionsAdmin({ view }: { view: TrendExclusionAdminView }
                         </Link>
                       </td>
                       <td className="pr-3 py-2">
-                        <span style={label}>{a.brandName}</span> · {a.workspaceName}
+                        <span style={label}>{a.brandName}</span>
+                        {a.brandDeleted ? (
+                          <span
+                            className="ml-1 px-1.5 py-0.5 rounded text-[11px]"
+                            style={{ background: "var(--bg-hover)", color: "var(--text-tertiary)" }}
+                            data-brand-deleted=""
+                          >
+                            brand deleted
+                          </span>
+                        ) : null}{" "}
+                        · {a.workspaceName}
                       </td>
                       <td className="pr-3 py-2 whitespace-nowrap">
                         <SydneyDate iso={a.completedAt} />

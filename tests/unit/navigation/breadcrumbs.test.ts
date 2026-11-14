@@ -152,7 +152,8 @@ describe("each /admin page: the breadcrumb names it as its heading does", () => 
   ])('%s: the breadcrumb ends "%s", the heading in %s', (route, title, view) => {
     const segment = route.split("/")[2] as keyof typeof ADMIN_PAGE_TITLES;
     expect(ADMIN_PAGE_TITLES[segment]).toBe(title);
-    expect(breadcrumbsForPath(route).map((c) => c.label)).toEqual(["Workspace", title]);
+    // 15 Nov, part 4: the operator's, not the workspace's.
+    expect(breadcrumbsForPath(route).map((c) => c.label)).toEqual(["Operator", title]);
     const source = readFileSync(join(__dirname, "../../..", view), "utf8");
     expect(source).toMatch(
       new RegExp(`<h1[^>]*>\\s*\\{ADMIN_PAGE_TITLES\\.${segment}\\}\\s*</h1>`),

@@ -1,5 +1,5 @@
 import { endOfISOWeek, startOfISOWeek } from "date-fns";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import {
   audits,
@@ -52,6 +52,8 @@ export interface TrendExclusionAudit {
   brandName: string;
   workspaceName: string;
   excludedFromTrendsReason: string | null;
+  /** 15 Nov, part 4: the brand was deleted; its audits are listed only when the operator asks, labelled. */
+  brandDeleted: boolean;
 }
 
 export interface TrendExclusionChange {
@@ -67,6 +69,16 @@ export interface TrendExclusionChange {
 export interface TrendExclusionAdminView {
   audits: TrendExclusionAudit[];
   changes: TrendExclusionChange[];
+  /** 15 Nov, part 4 (Sri): deleted brands' audits are hidden unless asked for (/admin/audits?deleted=1). */
+  showDeletedBrands: boolean;
+  /** How many complete audits there are, of the brands listed (deleted ones only when shown). */
+  completeAudits: number;
+  /** How many of the newest of those are listed (at most RECENT_AUDITS_LISTED). */
+  newestListed: number;
+  /** Excluded audits listed besides, older than those. */
+  olderExcluded: number;
+  /** Complete audits of deleted brands, shown or not: the toggle's count. */
+  deletedBrandAudits: number;
 }
 
 /** What the history stores for one side of a change: the audit, and its reason (null: counted). */
@@ -87,7 +99,11 @@ function storedReason(value: unknown): { auditNumber: number | null; reason: str
   return { auditNumber: null, reason: null };
 }
 
-export async function loadTrendExclusionAdminView(): Promise<TrendExclusionAdminView> {
+export async function loadTrendExclusionAdminView({
+  showDeletedBrands = false,
+}: {
+  showDeletedBrands?: boolean;
+} = {}): Promise<TrendExclusionAdminView> {
   const select = {
     id: audits.id,
     auditNumber: audits.auditNumber,
@@ -96,14 +112,18 @@ export async function loadTrendExclusionAdminView(): Promise<TrendExclusionAdmin
     brandName: brands.name,
     workspaceName: organizations.name,
     excludedFromTrendsReason: audits.excludedFromTrendsReason,
+    brandDeletedAt: brands.deletedAt,
   };
-  const [recent, excluded] = await Promise.all([
+  // 15 Nov, part 4: a deleted brand's audits only when the operator asks for them.
+  const listedBrands: SQL | undefined = showDeletedBrands ? undefined : isNull(brands.deletedAt);
+  const complete = and(eq(audits.status, "complete"), listedBrands);
+  const [recent, excluded, [totals], [deletedTotals]] = await Promise.all([
     serviceDb
       .select(select)
       .from(audits)
       .innerJoin(brands, eq(brands.id, audits.brandId))
       .innerJoin(organizations, eq(organizations.id, audits.organizationId))
-      .where(eq(audits.status, "complete"))
+      .where(complete)
       .orderBy(desc(audits.completedAt))
       .limit(RECENT_AUDITS_LISTED),
     serviceDb
@@ -111,8 +131,18 @@ export async function loadTrendExclusionAdminView(): Promise<TrendExclusionAdmin
       .from(audits)
       .innerJoin(brands, eq(brands.id, audits.brandId))
       .innerJoin(organizations, eq(organizations.id, audits.organizationId))
-      .where(isNotNull(audits.excludedFromTrendsReason))
+      .where(and(isNotNull(audits.excludedFromTrendsReason), listedBrands))
       .orderBy(desc(audits.completedAt)),
+    serviceDb
+      .select({ n: count() })
+      .from(audits)
+      .innerJoin(brands, eq(brands.id, audits.brandId))
+      .where(complete),
+    serviceDb
+      .select({ n: count() })
+      .from(audits)
+      .innerJoin(brands, eq(brands.id, audits.brandId))
+      .where(and(eq(audits.status, "complete"), isNotNull(brands.deletedAt))),
   ]);
   const byId = new Map<string, (typeof recent)[number]>();
   for (const a of [...recent, ...excluded]) byId.set(a.id, a);
@@ -146,7 +176,13 @@ export async function loadTrendExclusionAdminView(): Promise<TrendExclusionAdmin
       brandName: a.brandName,
       workspaceName: a.workspaceName,
       excludedFromTrendsReason: a.excludedFromTrendsReason,
+      brandDeleted: a.brandDeletedAt !== null,
     })),
+    showDeletedBrands,
+    completeAudits: Number(totals?.n ?? 0),
+    newestListed: recent.length,
+    olderExcluded: listed.length - recent.length,
+    deletedBrandAudits: Number(deletedTotals?.n ?? 0),
     changes: changes.map((c) => {
       const from = storedReason(c.from);
       const to = storedReason(c.to);

@@ -27,6 +27,8 @@ export type Breadcrumbs = readonly [...ParentCrumb[], CurrentCrumb];
  */
 export const CRUMB = {
   workspace: { label: "Workspace", href: "/dashboard" },
+  /** 15 Nov, part 4: the operator's pages (/admin/*); /admin has no page of its own, so its settings. */
+  operator: { label: "Operator", href: "/admin/settings" },
   brands: { label: "Brands", href: "/brands" },
   audits: { label: "Audits", href: "/audits" },
   agency: { label: "Agency", href: "/agency" },
@@ -185,7 +187,8 @@ export function breadcrumbsForPath(
       return [CRUMB.settings, { label: labelFor(second) }];
     case "admin":
       // The operator's own pages (/admin/settings, /admin/costs, /admin/audits, /admin/reports), each named by its heading; /admin has no page.
-      return [CRUMB.workspace, { label: adminTitle(second) }];
+      // 15 Nov, part 4: under "Operator", not the workspace ("Workspace > Trend exclusions" read as the customer's).
+      return [CRUMB.operator, { label: adminTitle(second) }];
     case "organizations":
       // /organizations/[orgId]/… -- the workspace's own schedules and templates.
       return [CRUMB.workspace, { label: labelFor(third ?? "", "Workspace settings") }];

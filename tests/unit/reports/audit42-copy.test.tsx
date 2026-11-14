@@ -88,14 +88,17 @@ describe("an engine that never named the brand: what was measured, and only a me
     reportFindings({ ...reportDataFixture("39"), engines }).find((f) => f.rule === "b")
       ?.recommendation;
 
-  it("the title states the measurement; with no stored search results, no reason at all", () => {
+  it("the title states the measurement; with no stored search results, the reason is what was measured, never a cause", () => {
     const action = silentAction([
       row("chatgpt", "ChatGPT", 4),
       row("claude", "Claude", 0),
       row("gemini", "Gemini", 0),
     ]);
     expect(action?.title).toBe("Claude and Gemini didn't name you in any of 20 answers");
-    expect(action?.detail).toBeUndefined();
+    // 15 Nov, part 1 (Sri, audit #50): it had no reason at all; now the counts and what we can't see.
+    expect(action?.detail).toBe(
+      "ChatGPT named you in 4 of 10 answers to the same questions. We can see the pages Claude and Gemini cited, but not what they searched, so we can't say why.",
+    );
     expect(JSON.stringify(action)).not.toMatch(/easy for AI to match|Strengthen/);
   });
 

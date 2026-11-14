@@ -1783,14 +1783,12 @@ export default async function AuditPage({
                           >
                             {f.recommendation.title}
                           </div>
-                          {f.recommendation.detail ? (
-                            <div
-                              data-action-evidence
-                              style={{ fontSize: 11, color: "var(--text-tertiary)" }}
-                            >
-                              {f.recommendation.detail}
-                            </div>
-                          ) : null}
+                          <div
+                            data-action-evidence
+                            style={{ fontSize: 11, color: "var(--text-tertiary)" }}
+                          >
+                            {f.recommendation.detail}
+                          </div>
                         </div>
                       </div>
                     );

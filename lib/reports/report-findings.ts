@@ -53,8 +53,12 @@ export interface Finding {
   evidenceLabel: string;
   evidence: EvidenceLine[];
   fix: string;
-  /** detail is absent when there's nothing measured to add (rule b without stored search results). */
-  recommendation: { title: string; detail?: string };
+  /**
+   * 15 Nov, part 1 (Sri, audit #50): every recommendation has a reason. It was absent for rule b when no silent
+   * engine kept its search results ("Gemini didn't name you in any of 10 answers", title only, on the audit page
+   * and in the PDF's "Recommended next"); now required, so no template can leave it out.
+   */
+  recommendation: { title: string; detail: string };
 }
 
 const HIGH = { label: "High impact", short: "High", tone: "high" } as const;
@@ -174,14 +178,31 @@ const GENERIC_ENGINE_FIX = {
  * 9 Nov (part 6): the action's title states what was measured, never a cause the audit didn't measure (it said
  * "Make your services easy for AI to match" / "Strengthen your Google Business Profile"). The subtitle names a
  * reason only where the stored rows show one: whether the site was among Claude's web-search results
- * (lib/reports/search-results.ts). Otherwise none.
+ * (lib/reports/search-results.ts). (15 Nov: with none, the engines that did name the brand and what we can't see.)
  *
  * 13 Nov, part 3 (Sri's live check): "Claude and Gemini didn't name you in any of 20 answers" gave only
  * Claude's reason. When any engine has a measured reason, the subtitle now covers every engine in the title:
  * each measured reason, then the engines whose stored answers keep only the pages they cited (no search
  * results), said plainly to have no measured reason.
  */
-function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recommendation"] {
+/**
+ * "ChatGPT named you in 4 of 10 answers to the same questions, and Perplexity in 2 of 10." -- the engines that did
+ * name the brand, most first: what was measured, when no silent engine's own reason was.
+ */
+function namedByOthersSentence(others: ReportEngineRow[]): string {
+  const [first, ...rest] = [...others].sort(
+    (a, b) => b.mentionedCount - a.mentionedCount || a.name.localeCompare(b.name),
+  );
+  const head = `${first.name} named you in ${first.mentionedCount} of ${first.sampleCount} ${plural(first.sampleCount, "answer")} to the same questions`;
+  if (rest.length === 0) return `${head}.`;
+  const tail = rest.map((e) => `${e.name} in ${e.mentionedCount} of ${e.sampleCount}`);
+  return `${head}, ${rest.length === 1 ? "and " : ""}${nameList(tail)}.`;
+}
+
+function silentEngineRecommendation(
+  silent: ReportEngineRow[],
+  others: ReportEngineRow[],
+): Finding["recommendation"] {
   const answers = silent.reduce((s, e) => s + e.sampleCount, 0);
   const title = `${engineNameList(silent.map((e) => e.engine))} didn't name you in any of ${answers} ${plural(answers, "answer")}`;
   const reasons: string[] = [];
@@ -199,13 +220,19 @@ function silentEngineRecommendation(silent: ReportEngineRow[]): Finding["recomme
         : `Your site was in ${possessive(e.name)} search results in ${seen.withYourSite} of ${of}, and ${e.name} still didn't name you.`,
     );
   }
-  if (reasons.length === 0) return { title };
+  const it = unmeasured.length === 1 ? "it" : "they";
+  // 15 Nov, part 1 (Sri, audit #50): with no measured reason at all, the reason is what was measured -- the
+  // engines that named the brand for the same questions -- and what we can't see. It used to be absent.
+  if (reasons.length === 0) {
+    return {
+      title,
+      detail: `${namedByOthersSentence(others)} We can see the pages ${nameList(unmeasured.map((e) => e.name))} cited, but not what ${it} searched, so we can't say why.`,
+    };
+  }
   // 13 Nov follow-up (Sri): said plainly -- "Gemini didn't name you in any of 10 answers. We can see the pages it
   // cited, but not what it searched, so we can't say why."
   if (unmeasured.length > 0) {
-    const one = unmeasured.length === 1;
     const n = unmeasured.reduce((s, e) => s + e.sampleCount, 0);
-    const it = one ? "it" : "they";
     reasons.push(
       `${nameList(unmeasured.map((e) => e.name))} didn't name you in any of ${n} ${plural(n, "answer")}. We can see the pages ${it} cited, but not what ${it} searched, so we can't say why.`,
     );
@@ -243,7 +270,7 @@ function silentEngineFinding(data: FindingsData): Finding | null {
       { text: `${r.e.mentionedCount} of ${r.e.sampleCount}`, tone: r.tone },
     ]),
     fix: advice.fix,
-    recommendation: silentEngineRecommendation(silent),
+    recommendation: silentEngineRecommendation(silent, others),
   };
 }
 

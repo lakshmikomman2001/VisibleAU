@@ -65,13 +65,17 @@ describe("silent engines: the reason covers every engine in the title", () => {
     );
   });
 
-  it("no engine with a measured reason: no reason at all (unchanged), never a partial one", () => {
+  it("no engine with a measured reason: the engines that did name you, and what we can't see (15 Nov: it had none)", () => {
     const action = findingFor("b", [
       row("chatgpt", "ChatGPT", 4),
       row("claude", "Claude", 0),
       row("gemini", "Gemini", 0),
     ])?.recommendation;
-    expect(action).toEqual({ title: "Claude and Gemini didn't name you in any of 20 answers" });
+    expect(action).toEqual({
+      title: "Claude and Gemini didn't name you in any of 20 answers",
+      detail:
+        "ChatGPT named you in 4 of 10 answers to the same questions. We can see the pages Claude and Gemini cited, but not what they searched, so we can't say why.",
+    });
   });
 
   it("Claude alone: its reason, as before", () => {
@@ -193,7 +197,6 @@ describe("the property: whatever a title names, its reason names", () => {
     expect(findings.length).toBeGreaterThan(0);
     for (const f of findings) {
       const { title, detail } = f.recommendation;
-      if (detail === undefined) continue;
       for (const name of [...ENGINES, ...DIRECTORIES]) {
         if (new RegExp(`\\b${name}\\b`).test(title)) {
           expect(detail, `${f.rule}: "${title}"`).toMatch(new RegExp(`\\b${name}\\b`));

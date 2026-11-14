@@ -2031,16 +2031,26 @@ function DiagnosisPage({ ctx }: { ctx: Ctx }) {
 // --------------------------------------------------- over time + next steps
 
 /**
- * 15 Nov, part 2: the plotted points split where the everyday questions changed (a point with questionsChange
- * starts a new run), so the chart never draws a line between two question sets (Hero's #48 at 25% and #50 at
- * 33% read as a rise). A point without a value between two others leaves the run whole, as before.
+ * The runs of plotted points the chart joins with a line.
+ *
+ * 15 Nov, part 2: split where the everyday questions changed (a point with questionsChange starts a new run), so
+ * the chart never draws a line between two question sets (Hero's #48 at 25% and #50 at 33% read as a rise).
+ *
+ * 15 Nov (rebrand), part 2: and an audit that isn't compared is never joined, on either side -- Hero's #47,
+ * captioned "used 3 of 4 engines ... shown but not compared", was joined to #48. A point joins the run before it
+ * only when it and the point before it are both comparable with the basis audit (every engine answered, the same
+ * questions, methodology, models and Google basis, no model drift, a measured headline); anything else starts its
+ * own run, and a run of one draws no line. A point without a value isn't plotted, so its neighbours stay joined.
  */
 export function trendSegments<T extends { p: ReportTrendPoint }>(plotted: T[]): T[][] {
   const segments: T[][] = [];
+  let previous: T | null = null;
   for (const point of plotted) {
-    const last = segments[segments.length - 1];
-    if (!last || point.p.questionsChange !== null) segments.push([point]);
-    else last.push(point);
+    const joins =
+      previous?.p.comparable === true && point.p.comparable && point.p.questionsChange === null;
+    if (joins) segments[segments.length - 1].push(point);
+    else segments.push([point]);
+    previous = point;
   }
   return segments;
 }
@@ -2080,7 +2090,7 @@ function TrendChart({ data }: { data: ReportData }) {
           </Text>
         </G>
       ))}
-      {/* 15 Nov, part 2: one line per run of the same everyday questions -- none across a change. */}
+      {/* One line per run of compared audits: none across a change of questions, none to an audit not compared. */}
       {trendSegments(plotted).map((segment) =>
         segment.length > 1 ? (
           <Polyline

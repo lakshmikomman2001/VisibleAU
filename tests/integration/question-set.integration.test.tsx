@@ -195,8 +195,11 @@ describe("the report PDF's Over time", () => {
 
     const { ReportDocument, trendSegments } = await import("@/lib/reports/pdf/report-document");
     const plotted = points.map((p, i) => ({ p, i })).filter(({ p }) => p.value !== null);
+    // 15 Nov (rebrand), part 2: no line at all -- #47 (other questions) and #48 (other questions) aren't compared,
+    // so neither is joined to anything, each other included (this run expected [47, 48] joined: Sri's bug).
     expect(trendSegments(plotted).map((s) => s.map(({ p }) => p.auditNumber))).toEqual([
-      [47, 48],
+      [47],
+      [48],
       [50],
     ]);
     const pdf = collectPdfText(<ReportDocument data={data} />).join("\n");

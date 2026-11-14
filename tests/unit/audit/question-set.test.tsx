@@ -144,15 +144,21 @@ describe("the report PDF's chart", () => {
     expect(points.map(trendPointHollow)).toEqual([true, true, false]);
   });
 
-  it("no line across the change: one run before it, one after", () => {
+  it("no line across the change, and none to an audit that isn't compared", () => {
+    // 15 Nov (rebrand), part 2: #37 and #38 asked other questions, so neither is compared and neither is joined --
+    // to #39 or to each other (this expected [37, 38] joined until then).
     const plotted = changedAt39().trend.points.map((p, i) => ({ p, i }));
     expect(trendSegments(plotted).map((s) => s.map(({ p }) => p.auditNumber))).toEqual([
-      [37, 38],
+      [37],
+      [38],
       [39],
     ]);
-    // The same questions throughout: one run.
+    // The same questions throughout: #38 and #39 joined; #37 (3 of 4 engines) stands alone.
     const same = reportDataFixture("39").trend.points.map((p, i) => ({ p, i }));
-    expect(trendSegments(same)).toHaveLength(1);
+    expect(trendSegments(same).map((s) => s.map(({ p }) => p.auditNumber))).toEqual([
+      [37],
+      [38, 39],
+    ]);
   });
 
   it("the caption and the trend's lines say what changed", () => {

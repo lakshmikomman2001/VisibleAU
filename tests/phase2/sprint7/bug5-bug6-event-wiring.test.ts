@@ -50,8 +50,13 @@ describe("Bug 6 — post-audit functions trigger on audit.complete (dot)", () =>
     });
   }
 
+  // Leftovers task, part 2 (17 Nov): the event is built once, in lib/audit/audit-complete.ts, for run-audit, the
+  // inline runner and the Google collector alike.
   it("run-audit.ts emits audit.complete", () => {
     const src = fn("run-audit");
-    expect(src).toContain('"audit.complete"');
+    expect(src).toContain("auditCompleteEvent(");
+    expect(readFileSync(resolve("lib/audit/audit-complete.ts"), "utf8")).toContain(
+      'export const AUDIT_COMPLETE_EVENT = "audit.complete";',
+    );
   });
 });

@@ -7,12 +7,13 @@ import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-g
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { CompetitiveBenchmarkPanel } from "@/components/domain/visibility/competitive-benchmark-panel";
 import { FanOutTree } from "@/components/domain/visibility/fan-out-tree";
-import { MentionSourceMatrix } from "@/components/domain/visibility/mention-source-matrix";
+import { MentionsAndSourcesCard } from "@/components/domain/visibility/mentions-and-sources-card";
 import { SovDonut } from "@/components/domain/visibility/sov-donut";
 import { TopicalGapList } from "@/components/domain/visibility/topical-gap-list";
 import { VolatilityIndicator } from "@/components/domain/visibility/volatility-indicator";
 import { EmptyState } from "@/components/phase2/empty-state";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import type { MentionsAndSources } from "@/lib/visibility/mentions-and-sources";
 import type { SovPayload } from "@/lib/visibility/share-of-voice-display";
 import type { BrandArchetype } from "@/lib/visibility/types";
 
@@ -27,6 +28,8 @@ interface VisibilityData {
   } | null;
   /** One Share of Voice (7 Nov): the shared counter's figures for the latest complete audit. */
   shareOfVoice: SovPayload | null;
+  /** 17 Nov, part 1: the same audit's mentions and sources, by the audit page's definitions. */
+  mentionsAndSources: MentionsAndSources | null;
   fanOut: Array<{
     originalPrompt: string;
     results: Array<{
@@ -109,6 +112,7 @@ export default function VisibilityPage() {
         setData({
           trends: vis.trends,
           shareOfVoice: vis.shareOfVoice ?? null,
+          mentionsAndSources: vis.mentionsAndSources ?? null,
           fanOut: fanOut.groups ?? [],
           fanOutPaused: fanOut.paused === true,
           gaps: gaps.gaps ?? [],
@@ -155,7 +159,11 @@ export default function VisibilityPage() {
     );
   }
 
-  const hasData = !loading && data && (data.trends || data.shareOfVoice?.measured);
+  const hasData =
+    !loading &&
+    data &&
+    ((data.mentionsAndSources && data.mentionsAndSources.state !== "no_audit") ||
+      data.shareOfVoice?.measured);
 
   return (
     <div className="p-6 space-y-6">
@@ -186,13 +194,7 @@ export default function VisibilityPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SovDonut sov={data?.shareOfVoice ?? null} loading={loading} />
-        <MentionSourceMatrix
-          mentionRate={data?.trends?.mentionRate ?? 0}
-          citationRate={data?.trends?.citationRate ?? 0}
-          mentionSourceRatio={data?.trends?.mentionSourceRatio ?? null}
-          brandArchetype={data?.trends?.brandArchetype ?? "invisible"}
-          loading={loading}
-        />
+        <MentionsAndSourcesCard data={data?.mentionsAndSources ?? null} loading={loading} />
       </div>
 
       {!loading && data?.fanOutPaused && (

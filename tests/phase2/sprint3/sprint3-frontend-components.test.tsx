@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import type { SovLine, SovPayload } from "@/lib/visibility/share-of-voice-display";
 
@@ -147,81 +147,89 @@ describe("SovDonut — ranked bars", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// 2. MentionSourceMatrix — 2×2 archetype
+// 2. MentionsAndSourcesCard (17 Nov, part 1: was MentionSourceMatrix's archetype quadrant)
 // ═══════════════════════════════════════════════════════════════
 
-describe("MentionSourceMatrix — 2×2 archetype", () => {
-  async function renderMatrix(props: Record<string, unknown>) {
-    const { MentionSourceMatrix } = await import(
-      "@/components/domain/visibility/mention-source-matrix"
+describe("MentionsAndSourcesCard -- one audit's own figures", () => {
+  async function renderCard(data: unknown, loading = false) {
+    const { MentionsAndSourcesCard } = await import(
+      "@/components/domain/visibility/mentions-and-sources-card"
     );
-    return render(React.createElement(MentionSourceMatrix, props as never));
+    const { mentionsAndSources } = await import("@/lib/visibility/mentions-and-sources");
+    return render(
+      React.createElement(MentionsAndSourcesCard, {
+        data: data === null ? null : mentionsAndSources(data as never),
+        loading,
+      }),
+    );
   }
 
-  it("renders all four quadrant labels", async () => {
-    await renderMatrix({
-      mentionRate: 25,
-      citationRate: 15,
-      mentionSourceRatio: 0.6,
-      brandArchetype: "recognised_authority",
-    });
-    expect(screen.getByText("Authority")).toBeInTheDocument();
-    expect(screen.getByText("Brand-Led")).toBeInTheDocument();
-    expect(screen.getByText("Source-Dep")).toBeInTheDocument();
-    expect(screen.getByText("Invisible")).toBeInTheDocument();
+  // The first jsdom render of a newly imported component can take several seconds here (unit limit 5 s).
+  beforeAll(async () => {
+    await renderCard(null);
+    cleanup();
+  }, 30_000);
+
+  const hero50 = {
+    auditNumber: 50,
+    headline: { status: "scored", value: 32.5 },
+    sampleCount: 40,
+    mentionedCount: 13,
+    sourcedCount: 13,
+  };
+
+  it("shows each figure with its counts and the audit, in plain words", async () => {
+    const { container } = await renderCard(hero50);
+    expect(screen.getByText("Mentions and sources")).toBeInTheDocument();
+    expect(screen.getByText("Audit #50")).toBeInTheDocument();
+    expect(screen.getByText("33%")).toBeInTheDocument();
+    expect(screen.getByText("in 13 of 40 everyday answers")).toBeInTheDocument();
+    expect(screen.getByText("13 of 13")).toBeInTheDocument();
+    expect(screen.getByText("mentions linked a source (100%)")).toBeInTheDocument();
+    for (const jargon of [
+      "Mention-Source Divide",
+      "Brand-Led",
+      "Source-Dep",
+      "Known but Untrusted",
+      "Ratio",
+      "Authority",
+    ])
+      expect(container.textContent).not.toContain(jargon);
   });
 
-  it("active quadrant gets a dot indicator; inactive do not", async () => {
-    const { container } = await renderMatrix({
-      mentionRate: 25,
-      citationRate: 15,
-      mentionSourceRatio: 0.6,
-      brandArchetype: "recognised_authority",
-    });
-    const dots = container.querySelectorAll(".w-2.h-2.rounded-full");
-    expect(dots).toHaveLength(1);
+  it("highlights the one state the figures give, and explains it", async () => {
+    const { container } = await renderCard(hero50);
+    expect(container.querySelectorAll("[data-active]")).toHaveLength(1);
+    expect(container.querySelector("[data-active]")?.getAttribute("data-state-cell")).toBe(
+      "often_with_sources",
+    );
+    const verdict = container.querySelector("[data-verdict]") as HTMLElement;
+    expect(within(verdict).getByText("Named often, with sources")).toBeInTheDocument();
   });
 
-  it("mentionSourceRatio null → shows 'N/A' (not '0' or crash)", async () => {
-    await renderMatrix({
-      mentionRate: 0,
-      citationRate: 0,
-      mentionSourceRatio: null,
-      brandArchetype: "invisible",
-    });
-    expect(screen.getByText("N/A")).toBeInTheDocument();
+  it("figures use tabular-nums", async () => {
+    const { container } = await renderCard(hero50);
+    expect(container.querySelectorAll("[style*='tabular-nums']").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("metric chips use tabular-nums", async () => {
-    const { container } = await renderMatrix({
-      mentionRate: 25,
-      citationRate: 15,
-      mentionSourceRatio: 0.6,
-      brandArchetype: "recognised_authority",
+  it("an audit with too few answers: 'Not measured for this audit', no state", async () => {
+    const { container } = await renderCard({
+      ...hero50,
+      headline: { status: "insufficient_data" },
+      sampleCount: 4,
     });
-    const tabNums = container.querySelectorAll("[style*='tabular-nums']");
-    expect(tabNums.length).toBeGreaterThanOrEqual(3);
+    expect(container.textContent).toContain("Not measured for this audit");
+    expect(container.querySelector("[data-verdict]")).toBeNull();
+    expect(container.textContent).not.toMatch(/0\.0%|N\/A/);
   });
 
-  it("archetype info box shows the correct label for the active archetype", async () => {
-    await renderMatrix({
-      mentionRate: 25,
-      citationRate: 3,
-      mentionSourceRatio: 0.12,
-      brandArchetype: "known_but_untrusted",
-    });
-    expect(screen.getByText("Known but Untrusted")).toBeInTheDocument();
-    expect(screen.getByText("High mentions but low citations")).toBeInTheDocument();
+  it("no audit yet", async () => {
+    await renderCard(null);
+    expect(screen.getByText("No audit yet")).toBeInTheDocument();
   });
 
   it("loading state shows aria-busy", async () => {
-    const { container } = await renderMatrix({
-      mentionRate: 0,
-      citationRate: 0,
-      mentionSourceRatio: null,
-      brandArchetype: "invisible",
-      loading: true,
-    });
+    const { container } = await renderCard(hero50, true);
     expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
   });
 });

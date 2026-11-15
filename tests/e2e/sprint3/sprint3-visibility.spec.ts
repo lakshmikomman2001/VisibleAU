@@ -313,22 +313,25 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
     // SoV renders as bars (div-based), not SVG pie — verified by bar text above
   });
 
-  // ── 3. Mention-source matrix quadrant ──────────────────────────────────
+  // ── 3. Mentions and sources: the latest audit's own figures ───────────
 
-  test("3. Mention-source matrix shows archetype quadrant", async ({ page }) => {
+  // 17 Nov, part 1: the card was "Mention-Source Divide", from the seeded visibility_trends row (65.0%, 22.5%,
+  // "Known but Untrusted"); it now shows the latest complete audit's own figures, by the audit page's
+  // definitions: the brand named in 4 of the 10 seeded answers, each linking a source.
+  test("3. Mentions and sources shows the audit's own figures, with counts", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    // Matrix should show the archetype label
-    await expect(page.getByText(/Known but Untrusted/i)).toBeVisible();
-
-    // Metric chips should display mention and citation rates (exact: the Share of Voice card
-    // shows "22% · 2" for a competitor too)
-    await expect(page.getByText("65.0%")).toBeVisible();
-    await expect(page.getByText("22.5%")).toBeVisible();
+    const card = page.locator("[data-mentions-card]");
+    await expect(card.getByText("Mentions and sources")).toBeVisible();
+    await expect(card.getByText(/^Audit #\d+$/)).toBeVisible();
+    await expect(card.getByText("in 4 of 10 everyday answers")).toBeVisible();
+    await expect(card.getByText("4 of 4", { exact: true })).toBeVisible();
+    await expect(card.locator("[data-verdict]")).toContainText("Named often, with sources");
+    await expect(card.getByText(/Known but Untrusted|65\.0%|22\.5%/)).toHaveCount(0);
   });
 
   // ── 4. Fan-out tree renders sub-queries ────────────────────────────────

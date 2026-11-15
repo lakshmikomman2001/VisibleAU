@@ -6,6 +6,7 @@ import { brands, visibilityTrends } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { mentionsAndSourcesForLatestAudit } from "@/lib/visibility/mentions-and-sources-for-audit";
 import {
   latestCompleteAudit,
   shareOfVoiceForAudit,
@@ -64,7 +65,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       await latestCompleteAudit(tx, brandId),
     );
 
+    // 17 Nov, part 1: the "Mentions and sources" card is the latest complete audit's own figures, by the audit
+    // page's definitions (lib/visibility/mentions-and-sources.ts) -- never the weekly trend row's.
+    const mentionsAndSources = await mentionsAndSourcesForLatestAudit(tx, brandId);
+
     return NextResponse.json({
+      mentionsAndSources,
       trends: latestTrend
         ? {
             mentionRate: Number(latestTrend.mentionRate),

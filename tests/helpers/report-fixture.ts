@@ -68,6 +68,13 @@ export interface FixtureAuditSpec {
   answeredModels?: Partial<Record<FixtureEngine, string>>;
   /** 15 Nov, part 2: the everyday questions this audit asked, instead of EVERYDAY_QUESTIONS. */
   everydayQuestions?: readonly string[];
+  /**
+   * 17 Nov, part 1: the sources each mention links, instead of the brand's own site (production's Hero: every
+   * mention linked a source, its directory profiles, never its own site). Not given: the brand's own site.
+   */
+  mentionSources?: ReadonlyArray<{ domain: string; url: string }>;
+  /** 17 Nov, part 1: audits.excluded_from_trends_reason (an operator's trend exclusion); NULL when not given. */
+  excludedFromTrendsReason?: string;
 }
 
 export interface ReportFixtureOptions {
@@ -181,10 +188,10 @@ export async function seedReportFixture(
     await sql`
       INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count,
                           runs_per_prompt, metadata, started_at, completed_at, prompt_pack_version,
-                          methodology_version)
+                          methodology_version, excluded_from_trends_reason)
       VALUES (${auditId}, ${brandId}, ${orgId}, ${spec.number}, 'complete', ${[...FIXTURE_ENGINES]},
               ${promptsCount}, 1, ${sql.json({ engineFailures })}, ${startedAt}, ${completedAt}, 1,
-              ${spec.methodologyVersion ?? 2})
+              ${spec.methodologyVersion ?? 2}, ${spec.excludedFromTrendsReason ?? null})
     `;
 
     // The everyday answers, in a fixed order: the first N cite each directory.
@@ -212,7 +219,10 @@ export async function seedReportFixture(
       for (const [i, prompt] of everyday.entries()) {
         const isMention = mentioned.has(i + 1);
         const sources: Array<{ domain: string; url: string }> = [];
-        if (isMention) sources.push({ domain, url: `https://${domain}/` });
+        if (isMention) {
+          if (spec.mentionSources) sources.push(...spec.mentionSources);
+          else sources.push({ domain, url: `https://${domain}/` });
+        }
         for (const [dirDomain, count] of Object.entries(spec.directories ?? {})) {
           if (answerIndex < count) {
             sources.push({

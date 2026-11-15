@@ -9,14 +9,9 @@ import { BusinessKindPicker } from "@/components/domain/vertical/business-kind-p
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
 import { VERTICAL_LABELS } from "@/lib/brands/business-label";
 import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
-import {
-  brandPageAfterFailedFirstAudit,
-  rememberFirstAuditFailure,
-} from "@/lib/brands/first-audit-notice";
 import { isRunTogetherDomainName, readableNameFromDomain } from "@/lib/brands/name-from-domain";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
-import { apiMessage } from "@/lib/load/fetch-json";
 import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 
@@ -154,31 +149,11 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
       const brandData = await brandRes.json();
       const brandId = brandData.brand?.id;
       if (brandId) {
-        // Before the next push (11 Nov), part 3: the brand exists from here on. A first audit that doesn't
-        // start lands on the brand page with the API's reason (lib/brands/first-audit-notice.ts); it went to
-        // /brands without a word, and a request that never answered left the wizard saying "Something went
-        // wrong" with the brand already made, so Create brand again made a second one.
-        let reason: string | null;
-        try {
-          const auditRes = await fetch("/api/audits", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ brandId }),
-          });
-          if (auditRes.ok) {
-            const auditData = await auditRes.json();
-            router.push(`/audits/${auditData.auditId}`);
-            // The shell's "New brand" counts this brand now (a layout isn't
-            // re-rendered by navigating; the refresh runs after the push).
-            router.refresh();
-            return;
-          }
-          reason = await apiMessage(auditRes);
-        } catch {
-          reason = "the request didn't get an answer. Check your connection";
-        }
-        rememberFirstAuditFailure(brandId, reason);
-        router.push(brandPageAfterFailedFirstAudit(brandId));
+        // 16 Nov, part 5: the brand page, where the owner confirms what the business does -- its first audit starts
+        // from there (ClassificationConfirmCard startFirstAudit). Started here, before confirmation, it always failed
+        // (POST /api/audits refuses a brand that still needs confirming), so every wizard ended on that error. The
+        // refresh after the push: the shell's "New brand" counts this brand now.
+        router.push(`/brands/${brandId}`);
         router.refresh();
         return;
       }

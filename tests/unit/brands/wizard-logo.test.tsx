@@ -107,7 +107,8 @@ describe("an uploaded logo is saved with the brand", () => {
     expect(container.textContent).toContain("LogoUploaded");
     await user.click(screen.getByRole("button", { name: "Create brand & run first audit" }));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/audits/audit-1"));
+    // 16 Nov, part 5: the wizard lands on the brand page; the first audit starts when it's confirmed.
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/brands/brand-1"));
     const create = fetchMock.mock.calls.find((c) => c[0] === "/api/brands") as [
       string,
       RequestInit,

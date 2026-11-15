@@ -19,6 +19,12 @@ vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(async () => currentUser.value),
 }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+// POST /api/audits schedules the inline runners with after(), which needs a request scope; this test only checks the
+// audit is created, so they're not run.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: vi.fn(),
+}));
 vi.mock("@/lib/brands/classify-brand", () => ({
   classifyBrand: vi.fn(
     async (name: string, domain: string, vertical?: string): Promise<BrandClassification> => {
@@ -78,6 +84,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  await sql`DELETE FROM audits WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM audit_trail WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM brands WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM subscriptions WHERE organization_id = ${ORG}`;
@@ -125,6 +132,20 @@ describe("a café through 'Other local business'", () => {
     expect(row.classification.category).toBe("cafe");
   });
 
+  // 16 Nov, part 5: why the wizard no longer starts the first audit -- before confirmation, POST /api/audits refuses.
+  it("before it's confirmed, an audit is refused: the wizard leaves the first one to the confirmation", async () => {
+    const { POST } = await import("@/app/api/audits/route");
+    const res = await POST(
+      new Request("http://localhost/api/audits", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ brandId }),
+      }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe("brand_needs_confirmation");
+  });
+
   it("confirmed as Café, its questions are a café's, in Parramatta, and never a restaurant's", async () => {
     const { PATCH } = await import("@/app/api/brands/[brandId]/confirm-classification/route");
     const res = await PATCH(
@@ -162,5 +183,21 @@ describe("a café through 'Other local business'", () => {
         categoryConfirmedAt: row.category_confirmed_at,
       }),
     ).toBe("Café");
+  });
+
+  // 16 Nov, part 5: what the confirmation card does next (startFirstAudit) -- the first audit starts.
+  it("once confirmed, its first audit starts", async () => {
+    const { POST } = await import("@/app/api/audits/route");
+    const res = await POST(
+      new Request("http://localhost/api/audits", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ brandId }),
+      }),
+    );
+    expect(res.status).toBe(201);
+    const { auditId } = (await res.json()) as { auditId: string };
+    const [audit] = await sql`SELECT brand_id FROM audits WHERE id = ${auditId}`;
+    expect(audit.brand_id).toBe(brandId);
   });
 });

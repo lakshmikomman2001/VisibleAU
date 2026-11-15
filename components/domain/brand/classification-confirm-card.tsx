@@ -38,6 +38,11 @@ interface ClassificationConfirmCardProps {
   vertical?: string;
   /** The brand's location, shown with "Change" (the audit uses it as much as the business type). */
   location?: ConfirmCardLocation | null;
+  /**
+   * 16 Nov, part 5: a brand with no audit yet (just added in the wizard) starts its first audit when this is
+   * confirmed. The wizard used to start it before confirmation, so the owner landed on "brand needs confirmation".
+   */
+  startFirstAudit?: boolean;
 }
 
 const AUDIENCE_OPTIONS: Array<{ value: Audience; label: string; hint: string }> = [
@@ -55,6 +60,7 @@ export function ClassificationConfirmCard({
   mode = "low_confidence",
   vertical,
   location,
+  startFirstAudit = false,
 }: ClassificationConfirmCardProps) {
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
@@ -149,6 +155,25 @@ export function ClassificationConfirmCard({
         return;
       }
       markJustConfirmed(brandId);
+      if (startFirstAudit) {
+        // 16 Nov, part 5: the first audit starts now, once the questions are right -- and its page opens.
+        const auditRes = await fetch("/api/audits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandId }),
+        });
+        if (auditRes.ok) {
+          const { auditId } = (await auditRes.json()) as { auditId: string };
+          router.push(`/audits/${auditId}`);
+          return;
+        }
+        setError(
+          `Your details are saved, but the first audit didn't start: ${await actionFailureMessage(
+            auditRes,
+            "try Run audit at the top of the page",
+          )}`,
+        );
+      }
       router.refresh();
     } finally {
       setSaving(false);
@@ -170,6 +195,14 @@ export function ClassificationConfirmCard({
       >
         Confirm your business details
       </h2>
+      {startFirstAudit && (
+        <p
+          style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
+          data-first-audit-intro=""
+        >
+          Your brand&apos;s added. Confirm what it does, and its first audit starts.
+        </p>
+      )}
       <p
         style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}
         data-confirm-mode={mode}
@@ -410,7 +443,13 @@ export function ClassificationConfirmCard({
             opacity: saving ? 0.5 : 1,
           }}
         >
-          {saving ? "Saving..." : "Confirm"}
+          {saving
+            ? startFirstAudit
+              ? "Starting your first audit…"
+              : "Saving..."
+            : startFirstAudit
+              ? "Confirm and start the first audit"
+              : "Confirm"}
         </button>
         <button
           type="button"

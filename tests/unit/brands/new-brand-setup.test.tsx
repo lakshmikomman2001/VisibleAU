@@ -55,12 +55,14 @@ const PROPS = {
 function renderBrand(
   state: ClassificationState,
   classification: typeof LOW_CONFIDENCE | null = LOW_CONFIDENCE,
+  auditCount = PROPS.auditCount,
 ) {
   const status =
     state === "running" ? "processing" : state === "could_not_classify" ? "failed" : state;
   return render(
     <BrandDetailClient
       {...PROPS}
+      auditCount={auditCount}
       classificationState={state}
       brand={{ ...HERO, classificationStatus: status, classification }}
     />,
@@ -193,9 +195,33 @@ describe("one first-audit message, true to what happens", () => {
   });
 });
 
-describe("after Confirm, Run audit works and the audit starts", () => {
+// 16 Nov, part 5: a new brand (no audit yet) starts its first audit from the confirmation itself -- the wizard no
+// longer starts it before confirmation (where it was always refused).
+describe("a new brand's first audit starts when it's confirmed", () => {
+  it("Confirm saves the details, then posts the first audit and opens it", async () => {
+    renderBrand("needs_confirmation");
+    fireEvent.click(screen.getByRole("button", { name: "Households" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and start the first audit" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/audits",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ brandId: "hero-brand" }),
+        }),
+      ),
+    );
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(urls.indexOf("/api/brands/hero-brand/confirm-classification")).toBeLessThan(
+      urls.indexOf("/api/audits"),
+    );
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/audits/a-1"));
+  });
+});
+
+describe("after Confirm, Run audit works and the audit starts (a brand that already has audits)", () => {
   it("confirms, the page comes back complete, and Run audit posts the audit", async () => {
-    const view = renderBrand("needs_confirmation");
+    const view = renderBrand("needs_confirmation", LOW_CONFIDENCE, 3);
     fireEvent.click(screen.getByRole("button", { name: "Households" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() =>
@@ -214,6 +240,7 @@ describe("after Confirm, Run audit works and the audit starts", () => {
     view.rerender(
       <BrandDetailClient
         {...PROPS}
+        auditCount={3}
         classificationState="complete"
         brand={{
           ...HERO,

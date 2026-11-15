@@ -10,10 +10,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WizardForm } from "@/app/(auth)/brands/wizard/wizard-form";
-import {
-  brandPageAfterFailedFirstAudit,
-  firstAuditFailedSentence,
-} from "@/lib/brands/first-audit-notice";
+import { firstAuditFailedSentence } from "@/lib/brands/first-audit-notice";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/brands/b1" }));
@@ -73,39 +70,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("the wizard, when the brand is created but its first audit doesn't start", () => {
-  it("lands on the brand page and keeps the API's reason for it", async () => {
-    stubFetch(async () =>
-      Response.json({ error: "plan_limit", message: REFUSAL }, { status: 402 }),
-    );
+// 16 Nov, part 5: the wizard no longer starts the first audit. Started before the owner confirmed the business type,
+// POST /api/audits always refused it ("brand needs confirmation"), so every wizard ended on that error. It lands on
+// the brand page, whose confirmation card starts the first audit on Confirm (classification-confirm-card.test.tsx).
+describe("the wizard never ends on an error", () => {
+  it("creates the brand once and lands on its page to confirm -- it starts no audit", async () => {
+    const fetchMock = stubFetch(async () => Response.json({ auditId: "audit-1" }, { status: 201 }));
     await createBrand();
-    expect(router.push).toHaveBeenCalledWith("/brands/brand-1?firstAudit=failed");
-    expect(router.push).not.toHaveBeenCalledWith("/brands");
-    expect(sessionStorage.getItem(STORED_KEY)).toBe(REFUSAL);
-  });
-
-  it("a request that never answers lands there too, and the brand is made once", async () => {
-    const fetchMock = stubFetch(async () => {
-      throw new TypeError("Failed to fetch");
-    });
-    await createBrand();
-    expect(router.push).toHaveBeenCalledWith(brandPageAfterFailedFirstAudit("brand-1"));
-    expect(sessionStorage.getItem(STORED_KEY)).toMatch(/didn't get an answer/);
-    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+    expect(router.push).toHaveBeenCalledWith("/brands/brand-1");
+    expect(fetchMock.mock.calls.filter(([url]) => url === "/api/audits")).toHaveLength(0);
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/brands")).toHaveLength(1);
-  });
-
-  it("an answer with no reason in it lands there, with nothing made up", async () => {
-    stubFetch(async () => new Response("Internal Server Error", { status: 500 }));
-    await createBrand();
-    expect(router.push).toHaveBeenCalledWith("/brands/brand-1?firstAudit=failed");
     expect(sessionStorage.getItem(STORED_KEY)).toBeNull();
-  });
-
-  it("an audit that starts still goes to the audit", async () => {
-    stubFetch(async () => Response.json({ auditId: "audit-1" }, { status: 201 }));
-    await createBrand();
-    expect(router.push).toHaveBeenCalledWith("/audits/audit-1");
+    expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
   });
 });
 

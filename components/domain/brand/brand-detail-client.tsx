@@ -590,6 +590,7 @@ export function BrandDetailClient({
         {needsConfirmation && (
           <ClassificationConfirmCard
             brandId={brand.id}
+            startFirstAudit={auditCount === 0}
             mode={classificationFailed ? "could_not_classify" : "low_confidence"}
             vertical={brand.vertical}
             location={

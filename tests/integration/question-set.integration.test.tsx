@@ -71,9 +71,17 @@ const NOTE =
 let client: ReturnType<typeof postgres>;
 let fx: ReportFixture;
 
+/**
+ * Leftovers task, part 6 (17 Nov): migration 0152's question_text_key() -- lower case, punctuation and dashes as
+ * spaces, white space collapsed -- so a punctuation-only change isn't a change of questions.
+ */
+const PUNCTUATION =
+  /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u2212\u2010\u2011\u00a0]/g;
+const questionKey = (q: string) =>
+  q.toLowerCase().replace(PUNCTUATION, " ").replace(/\s+/g, " ").trim();
 const sha256 = (questions: readonly string[]) =>
   createHash("sha256")
-    .update([...new Set(questions)].sort().join("\n"), "utf8")
+    .update([...new Set(questions.map(questionKey))].sort().join("\n"), "utf8")
     .digest("hex");
 
 async function hashes(): Promise<Record<number, string | null>> {
@@ -157,7 +165,7 @@ async function report(basisNumber: number) {
 }
 
 describe("the stored question set", () => {
-  it("the SHA-256 of the sorted everyday questions: #47 and #48 share one, #50 has another", async () => {
+  it("the SHA-256 of the sorted everyday questions' compared texts: #47 and #48 share one, #50 has another", async () => {
     const h = await hashes();
     expect(h[47]).toBe(sha256(V3));
     expect(h[48]).toBe(sha256(V3));
@@ -165,21 +173,63 @@ describe("the stored question set", () => {
     expect(h[48]).not.toBe(h[50]);
   });
 
-  it("migration 0150's backfill writes exactly what the runners write", async () => {
+  // Leftovers task, part 6: migration 0152 rehashes every audit by its questions' compared texts; it writes exactly
+  // what the runners write (0150's backfill hashed the exact texts).
+  it("migration 0152's rehash writes exactly what the runners write", async () => {
     const written = await hashes();
     await client`UPDATE audits SET question_set_hash = NULL WHERE brand_id = ${fx.brandId}`;
     const migration = readFileSync(
-      join(process.cwd(), "db/migrations/0150_audits_question_set_hash.sql"),
+      join(process.cwd(), "db/migrations/0152_question_text_key.sql"),
       "utf8",
     );
     const update = migration.slice(migration.indexOf("UPDATE audits a"));
     const scoped = update.replace(
-      "WHERE a.status = 'complete' AND a.question_set_hash IS NULL;",
-      "WHERE a.status = 'complete' AND a.question_set_hash IS NULL AND a.brand_id = $1;",
+      "WHERE a.status = 'complete';",
+      "WHERE a.status = 'complete' AND a.brand_id = $1;",
     );
     expect(scoped).not.toBe(update);
     await client.unsafe(scoped, [fx.brandId]);
     expect(await hashes()).toEqual(written);
+  });
+
+  it("a punctuation, case or spacing change isn't a change of questions; a changed word is", async () => {
+    const [same] = await client<{ dashes: boolean; quotes: boolean; word: boolean }[]>`
+      SELECT
+        question_text_key('Who is a reliable plumber -- near Bondi?')
+          = question_text_key('who is a reliable plumber ' || chr(8212) || ' near Bondi') AS dashes,
+        question_text_key('I need someone to fix a leaking gutter, who should I call?')
+          = question_text_key('I need  someone to fix a leaking gutter ' || chr(8212) || ' who should I call') AS quotes,
+        question_text_key('Best handyman in Castle Hill')
+          = question_text_key('Best handymen in Castle Hill') AS word
+    `;
+    expect(same).toEqual({ dashes: true, quotes: true, word: false });
+
+    // An audit that asked #50's questions with their punctuation and case changed has #50's hash.
+    const { serviceDb } = await import("@/db/client");
+    const { audits } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { questionSetHashSql } = await import("@/lib/audit/question-set-sql");
+    const restyled = crypto.randomUUID();
+    await client`
+      INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, completed_at)
+      VALUES (${restyled}, ${fx.brandId}, ${fx.orgId}, 9051, 'manual', 'complete', now())
+    `;
+    await client`
+      INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, is_branded_prompt)
+      SELECT ${restyled}, engine, upper(replace(prompt, '?', ' ' || chr(8212) || '!')), prompt_index, run_number,
+        brand_mentioned, is_branded_prompt
+      FROM citations WHERE audit_id = ${fx.audits[50]}
+    `;
+    await serviceDb
+      .update(audits)
+      .set({ questionSetHash: questionSetHashSql(restyled) })
+      .where(eq(audits.id, restyled));
+    const [row] = await client<{ question_set_hash: string }[]>`
+      SELECT question_set_hash FROM audits WHERE id = ${restyled}
+    `;
+    expect(row.question_set_hash).toBe((await hashes())[50]);
+    await client`DELETE FROM citations WHERE audit_id = ${restyled}`;
+    await client`DELETE FROM audits WHERE id = ${restyled}`;
   });
 });
 

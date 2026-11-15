@@ -193,57 +193,7 @@ describe("the weekly trend and the wins feed", () => {
     expect(trend.auditCount).toBe(2);
   }, 60_000);
 
-  it("no 'Mention rate up' across a model change; the same rise with the same models still is", async () => {
-    const { db } = await import("@/db/client");
-    const { getWinsFeed } = await import("@/lib/communication/wins-feed");
-    const { formatPeriodLabel } = await import("@/lib/visibility/visibility-trend-aggregator");
-    const week48 = formatPeriodLabel(new Date(WEEK_48), "weekly");
-    const week49 = formatPeriodLabel(new Date(WEEK_49), "weekly");
-    const twoWeeks = (brandId: string, organizationId: string) => client`
-      INSERT INTO visibility_trends (brand_id, organization_id, period_label, period_type, audit_count,
-        sample_quality, score_composite_avg, methodology_version, calculated_at)
-      VALUES
-        (${brandId}, ${organizationId}, ${week48}, 'weekly', 1, 'Hypothesis', 20.00, ${V4}, NOW() - INTERVAL '7 days'),
-        (${brandId}, ${organizationId}, ${week49}, 'weekly', 1, 'Hypothesis', 40.00, ${V4}, NOW())
-    `;
-    const rises = async (brandId: string) =>
-      (await db.transaction((tx) => getWinsFeed(tx, brandId))).filter(
-        (w) => w.type === "visibility_up",
-      ).length;
-
-    // This brand: #48 (Gemini 2.5 Flash) in week 48, Gemini 3.5 Flash-Lite audits in week 49.
-    await twoWeeks(fx.brandId, fx.orgId);
-    try {
-      expect(await rises(fx.brandId)).toBe(0);
-    } finally {
-      await client`DELETE FROM visibility_trends WHERE brand_id = ${fx.brandId}`;
-    }
-
-    // A brand whose audits used the same models in both weeks.
-    const same = await seedReportFixture(client, {
-      audits: [
-        {
-          number: 1,
-          completedAt: WEEK_48,
-          mentions: MENTIONS,
-          methodologyVersion: V4,
-          models: STARTER,
-        },
-        {
-          number: 2,
-          completedAt: WEEK_49,
-          mentions: MENTIONS,
-          methodologyVersion: V4,
-          models: STARTER,
-        },
-      ],
-    });
-    try {
-      await twoWeeks(same.brandId, same.orgId);
-      expect(await rises(same.brandId)).toBe(1);
-    } finally {
-      await client`DELETE FROM visibility_trends WHERE brand_id = ${same.brandId}`;
-      await same.cleanup();
-    }
-  }, 120_000);
+  // Leftovers task, part 6 (17 Nov): the wins feed no longer reads visibility_trends -- its "visibility up" compares
+  // the latest two audits as the audit pages count them, only when comparable. That rule (no win across a methodology,
+  // model or question change) is tests/integration/wins-feed-from-audits.integration.test.ts.
 });

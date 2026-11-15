@@ -24,11 +24,13 @@ export async function refreshWeeklyVisibilityTrend(
   const periodEnd = endOfISOWeek(context.completedAt);
   const periodLabel = formatPeriodLabel(context.completedAt, periodType);
 
+  // Leftovers task, part 6 (17 Nov): the latest 12 weeks by their period, not by when each was last recomputed
+  // (an exclusion recomputes an older week, which made it "newest").
   const historicalTrends = await tx
     .select({ citationRate: visibilityTrends.citationRate })
     .from(visibilityTrends)
     .where(eq(visibilityTrends.brandId, context.brandId))
-    .orderBy(desc(visibilityTrends.calculatedAt))
+    .orderBy(desc(visibilityTrends.periodLabel))
     .limit(12);
 
   const historicalCitationRates = historicalTrends
@@ -87,6 +89,10 @@ export async function refreshWeeklyVisibilityTrend(
         marketCompetitionLabel: trend.marketCompetitionLabel,
         citationVolatilityScore: trend.citationVolatilityScore?.toString() ?? null,
         methodologyVersion: trend.methodologyVersion,
+        // Leftovers task, part 6 (17 Nov): calculated_at is when the row was last computed. It was set only when
+        // the row was first made, so a week recomputed after each audit and each exclusion still read "calculated
+        // 12 Nov 10:26" in production -- as if the recompute had stopped.
+        calculatedAt: new Date(),
         updatedAt: new Date(),
       },
     });

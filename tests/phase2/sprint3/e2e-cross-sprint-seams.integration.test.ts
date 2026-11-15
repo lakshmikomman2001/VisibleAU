@@ -488,23 +488,24 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
     CLEANUP.citationIds = CLEANUP.citationIds.filter((id) => id !== cit2.id);
   });
 
-  it("visibility_up: reads S3 visibility_trends (delta > 0)", async () => {
+  // Leftovers task, part 6 (17 Nov): "visibility up" never comes from visibility_trends rows (their definitions
+  // aren't the audit page's) -- the seeded 45% -> 52% week rows make no win. It compares the audits themselves
+  // (tests/integration/wins-feed-from-audits.integration.test.ts).
+  it("visibility_up: never from visibility_trends rows", async () => {
     const wins = await getWinsFeed(db, winsBrandId);
-    const visWins = wins.filter((w) => w.type === "visibility_up");
-    expect(visWins.length).toBeGreaterThanOrEqual(1);
-    expect(visWins[0].headline).toContain("up");
-    expect(visWins[0].metricDelta).toBeGreaterThan(0);
-    // Vunnara (19 Oct, post-aa83b3a): lib/communication/wins-feed.ts's
-    // copy changed from "improved from X to Y" to "rose from X% to Y%"
-    // ("the headline is the mention rate").
-    expect(visWins[0].reason).toContain("rose from 45.0% to 52.0%");
+    expect(wins.filter((w) => w.type === "visibility_up" && /rose from/.test(w.reason))).toEqual(
+      [],
+    );
   });
 
-  it("attribution honesty: ALL win reasons prefixed 'likely linked to:'", async () => {
+  // Leftovers task, part 6: a measured change is its two audits' figures ("Audit #49 → #50: ..."), not a guess.
+  it("attribution honesty: every inferred reason is prefixed 'likely linked to:'; a measured change is its audits", async () => {
     const wins = await getWinsFeed(db, winsBrandId);
     expect(wins.length).toBeGreaterThan(0);
     for (const w of wins) {
-      expect(w.reason).toMatch(/^likely linked to:/);
+      expect(w.reason).toMatch(
+        w.type === "visibility_up" ? /^Audit #\d+ → #\d+: / : /^likely linked to:/,
+      );
     }
   });
 
@@ -530,7 +531,9 @@ describe("SEAM 3: wins-feed reads S1/P1/S2/S3 tables", () => {
     const source = fs.readFileSync(path.resolve("lib/communication/wins-feed.ts"), "utf-8");
     expect(source).toContain("citations");
     expect(source).toContain("remediationTasks");
-    expect(source).toContain("visibilityTrends");
+    // Leftovers task, part 6: and the audits' own change (audit-change), never visibility_trends.
+    expect(source).toContain("auditChanges(");
+    expect(source).not.toContain("visibilityTrends");
     // One Share of Voice (7 Nov): the shared counter, never share_of_voice_snapshots.
     expect(source).toContain("shareOfVoiceForAudit");
     expect(source).not.toContain("shareOfVoiceSnapshots");

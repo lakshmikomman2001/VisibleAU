@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { brands, driftAlerts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { OF_LIVE_BRAND } from "@/lib/drift/pending-alerts";
 
 export async function GET(req: Request) {
   const currentUser = await getCurrentUser();
@@ -11,7 +12,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const acknowledged = searchParams.get("acknowledged");
 
-  const conditions = [eq(driftAlerts.organizationId, currentUser.organizationId)];
+  // Leftovers task, part 6: a deleted brand's alerts aren't listed (as on the drift alerts page).
+  const conditions = [eq(driftAlerts.organizationId, currentUser.organizationId), OF_LIVE_BRAND];
   if (acknowledged === "false") conditions.push(eq(driftAlerts.acknowledged, false));
   if (acknowledged === "true") conditions.push(eq(driftAlerts.acknowledged, true));
 

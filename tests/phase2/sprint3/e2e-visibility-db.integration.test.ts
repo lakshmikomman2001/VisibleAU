@@ -895,11 +895,13 @@ describe("E2E: cross-sprint wiring (S1→S3)", () => {
     expect(source).toContain("verticalPackPrompts");
   });
 
-  it("wins-feed reads the one Share of Voice counter and visibility_trends (S3)", () => {
+  // Leftovers task, part 6 (17 Nov): the audits' own change (audit-change), never visibility_trends.
+  it("wins-feed reads the one Share of Voice counter and the audits' own change (S3)", () => {
     const source = fs.readFileSync(path.resolve("lib/communication/wins-feed.ts"), "utf-8");
     // One Share of Voice (7 Nov): never share_of_voice_snapshots.
     expect(source).toContain("shareOfVoiceForAudit");
     expect(source).not.toContain("shareOfVoiceSnapshots");
-    expect(source).toContain("visibilityTrends");
+    expect(source).toContain("auditChanges(");
+    expect(source).not.toContain("visibilityTrends");
   });
 });

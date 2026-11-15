@@ -111,36 +111,7 @@ describe("the weekly trend and the wins feed", () => {
     expect(trend.auditCount).toBe(1);
   }, 60_000);
 
-  it("no 'Mention rate up' across a methodology change; the same rise within one methodology still is", async () => {
-    const { db } = await import("@/db/client");
-    const { getWinsFeed } = await import("@/lib/communication/wins-feed");
-    const otherBrand = randomUUID();
-    await client`
-      INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-      VALUES (${otherBrand}, ${fx.orgId}, 'Same Method Plumbing', 'samemethod.example.com.au', 'tradies', 'au', ARRAY[]::text[])
-    `;
-    try {
-      for (const [brandId, before, after] of [
-        [fx.brandId, null, 3],
-        [otherBrand, 3, 3],
-      ] as const) {
-        await client`
-          INSERT INTO visibility_trends (brand_id, organization_id, period_label, period_type, audit_count, sample_quality,
-            score_composite_avg, methodology_version, calculated_at)
-          VALUES
-            (${brandId}, ${fx.orgId}, '2026-W44', 'weekly', 2, 'Hypothesis', 20.00, ${before}, NOW() - INTERVAL '7 days'),
-            (${brandId}, ${fx.orgId}, '2026-W45', 'weekly', 1, 'Hypothesis', 40.00, ${after}, NOW())
-        `;
-      }
-
-      const across = await db.transaction((tx) => getWinsFeed(tx, fx.brandId));
-      const within = await db.transaction((tx) => getWinsFeed(tx, otherBrand));
-
-      expect(across.filter((w) => w.type === "visibility_up")).toHaveLength(0);
-      expect(within.filter((w) => w.type === "visibility_up")).toHaveLength(1);
-    } finally {
-      await client`DELETE FROM visibility_trends WHERE brand_id = ${otherBrand}`;
-      await client`DELETE FROM brands WHERE id = ${otherBrand}`;
-    }
-  }, 60_000);
+  // Leftovers task, part 6 (17 Nov): the wins feed no longer reads visibility_trends -- its "visibility up" compares
+  // the latest two audits as the audit pages count them, only when comparable. That rule (no win across a methodology,
+  // model or question change) is tests/integration/wins-feed-from-audits.integration.test.ts.
 });

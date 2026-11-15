@@ -1,11 +1,12 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { audits, brands, citations, remediationTasks, visibilityTrends } from "@/db/schema";
+import { audits, brands, citations, remediationTasks } from "@/db/schema";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { latestCompleteAudit, shareOfVoiceForAudit } from "@/lib/visibility/share-of-voice";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import type { Win, WinType } from "@/lib/visibility/types";
-import { periodModelSetKeys } from "@/lib/visibility/visibility-trend-aggregator";
+import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
+import { auditChanges } from "@/lib/visibility/audit-change";
 import { possessive } from "@/lib/copy/possessive";
 
 const DEFAULT_LIMIT = 20;
@@ -115,64 +116,35 @@ async function findNewEngineCoverage(tx: DbClient, brandId: string, since?: Date
   }));
 }
 
+/**
+ * Leftovers task, part 6 (17 Nov): the brand's latest audit against the one before it, as the audit pages count them
+ * (lib/visibility/audit-change.ts) -- only when the two are comparable (the same method, questions and models; neither
+ * excluded from trends) and the figure went up. It compared the two newest weekly trend rows' average headline
+ * (visibility_trends), ordered by when each row was first made, under another definition than the audit page's, and
+ * said the rise was "likely linked to" a share no audit showed.
+ */
 async function findVisibilityUp(tx: DbClient, brandId: string, since?: Date): Promise<Win[]> {
-  const conditions = [eq(visibilityTrends.brandId, brandId)];
-  if (since) {
-    conditions.push(gte(visibilityTrends.calculatedAt, since));
-  }
-
-  const rows = await tx
-    .select()
-    .from(visibilityTrends)
-    .where(and(...conditions))
-    .orderBy(desc(visibilityTrends.calculatedAt))
+  const latest = await tx
+    .select({ id: audits.id, completedAt: audits.completedAt })
+    .from(audits)
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete"), includedInTrends))
+    .orderBy(sql`${audits.completedAt} DESC NULLS LAST`, desc(audits.auditNumber))
     .limit(2);
+  if (latest.length < 2) return [];
+  const [after, before] = latest;
+  if (!after.completedAt || (since && after.completedAt < since)) return [];
 
-  if (rows.length < 2) return [];
-
-  const currentAvg = rows[0].scoreCompositeAvg;
-  const previousAvg = rows[1].scoreCompositeAvg;
-
-  // Task #46 Phase 2, Part 4: scoreCompositeAvg is NULL when a period
-  // had zero audits with sufficient mention data (visibility-trend-
-  // aggregator.ts now excludes insufficient-data audits from both the
-  // numerator and denominator of that average). Defaulting a NULL to 0
-  // would read "we have no comparable data this period" as "composite
-  // visibility literally collapsed to zero" -- e.g. a real previous
-  // period's 45 vs a NULL-defaulted-to-0 current period would narrate
-  // a fabricated 45-point "drop" here, and the reverse (a real recovery
-  // AFTER a NULL period) would narrate an equally fabricated "win." Skip
-  // the comparison entirely when either side has no sufficient-data
-  // average to compare, rather than fabricate either direction.
-  if (currentAvg === null || previousAvg === null) return [];
-  // "Mention detection" (6 Nov), part 6: never across a methodology change -- a rise could be the improved
-  // detection finding mentions the earlier one missed, not the brand. Two rows from before migration 0124
-  // (both NULL) compare as they always did.
-  if (rows[0].methodologyVersion !== rows[1].methodologyVersion) return [];
-  // Methodology v2.2 (7 Nov), part 3: nor across a change of models -- a rise could be Claude Sonnet answering
-  // where Haiku did, not the brand. Each period's figures come from one model set (lib/visibility/visibility-
-  // trend-aggregator.ts); a period whose audits can't be found any more is compared on its methodology alone.
-  // 15 Nov, part 2: the key carries the period's everyday questions too, so a change of questions isn't a win.
-  const [currentModels, previousModels] = await periodModelSetKeys(tx, brandId, [rows[0], rows[1]]);
-  if (currentModels !== null && previousModels !== null && currentModels !== previousModels) {
-    return [];
-  }
-
-  const current = Number(currentAvg);
-  const previous = Number(previousAvg);
-  const delta = current - previous;
-
-  if (delta <= 0) return [];
-
+  const change = (
+    await auditChanges(tx, [{ key: "latest", beforeId: before.id, afterId: after.id }])
+  ).get("latest");
+  if (change?.kind !== "measured" || change.direction !== "up") return [];
   return [
     {
       type: "visibility_up" as WinType,
-      // Vunnara (19 Oct): scoreCompositeAvg is now the average HEADLINE
-      // (mention rate), not a weighted blend -- wording says so.
-      headline: `Mention rate up +${delta.toFixed(1)} points`,
-      metricDelta: Math.round(delta * 100) / 100,
-      reason: `likely linked to: share of AI answers mentioning your brand rose from ${previous.toFixed(1)}% to ${current.toFixed(1)}%`,
-      detectedAt: rows[0].calculatedAt,
+      headline: `Visibility up ${change.points} ${change.points === 1 ? "point" : "points"}`,
+      metricDelta: change.points,
+      reason: change.line,
+      detectedAt: after.completedAt,
     },
   ];
 }

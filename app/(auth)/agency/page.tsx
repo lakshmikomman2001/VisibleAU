@@ -2,13 +2,14 @@ import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { auditSchedules, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
+import { auditSchedules, brands, clientPortalInvites } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOverviewMonth, monthWindowLabel } from "@/lib/dashboard/overview-cards";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { auditChanges } from "@/lib/visibility/audit-change";
+import { countPendingDriftAlerts } from "@/lib/drift/pending-alerts";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -64,10 +65,8 @@ export default async function AgencyDashboardPage() {
         .select({ count: count() })
         .from(brands)
         .where(and(eq(brands.organizationId, orgId), isNull(brands.deletedAt))),
-      tx
-        .select({ count: count() })
-        .from(driftAlerts)
-        .where(and(eq(driftAlerts.organizationId, orgId), eq(driftAlerts.acknowledged, false))),
+      // Leftovers task, part 6: a deleted brand's alerts aren't pending (lib/drift/pending-alerts.ts).
+      countPendingDriftAlerts(tx, orgId).then((n) => [{ count: n }]),
       tx
         .select({ count: count() })
         .from(auditSchedules)

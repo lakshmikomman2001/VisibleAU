@@ -17,22 +17,33 @@ import {
  * (lib/reports/report-data.ts). Its hash is their SHA-256 (hex), sorted bytewise (COLLATE "C") and joined with a
  * newline.
  *
- * The same expression is migration 0150's backfill (db/migrations/0150_audits_question_set_hash.sql, with `a.id`
- * for the audit), so a backfilled hash and a newly written one agree; tests/integration/question-set.
- * integration.test.ts runs both and compares.
+ * Leftovers task, part 6 (17 Nov): each question is hashed by its compared text, question_text_key() (migration
+ * 0152: lower case, punctuation and dashes as spaces, white space collapsed), so a punctuation-only change to the
+ * generator (" -- " to " — ") no longer makes two audits that asked the same thing "not comparable"; a changed word
+ * still does. The hash is over the DISTINCT keys.
+ *
+ * The same expression is migration 0152's rehash (db/migrations/0152_question_text_key.sql, with `a.id` for the
+ * audit), so a rehashed hash and a newly written one agree; tests/integration/question-set.integration.test.tsx
+ * runs both and compares.
  */
 export function questionSetHashSql(auditId: string): SQL<string | null> {
   return sql<string | null>`(
-    SELECT encode(sha256(convert_to(string_agg(q.prompt, E'\\n' ORDER BY q.prompt COLLATE "C"), 'UTF8')), 'hex')
+    SELECT encode(sha256(convert_to(string_agg(q.question, E'\\n' ORDER BY q.question COLLATE "C"), 'UTF8')), 'hex')
     FROM (
-      SELECT c.prompt FROM citations c WHERE c.audit_id = ${auditId} AND c.is_branded_prompt IS NOT TRUE
-      UNION
-      SELECT f.prompt FROM engine_call_failures f WHERE f.audit_id = ${auditId} AND NOT f.is_branded_prompt
+      SELECT DISTINCT question_text_key(p.prompt) AS question
+      FROM (
+        SELECT c.prompt FROM citations c WHERE c.audit_id = ${auditId} AND c.is_branded_prompt IS NOT TRUE
+        UNION
+        SELECT f.prompt FROM engine_call_failures f WHERE f.audit_id = ${auditId} AND NOT f.is_branded_prompt
+      ) p
     ) q
   )`;
 }
 
-/** Each audit's distinct everyday questions (an audit with none is absent). */
+/**
+ * Each audit's distinct everyday questions, by their compared text (question_text_key, as the hash keys them), so
+ * "two questions added and one removed" never counts a punctuation-only change (an audit with none is absent).
+ */
 export async function loadEverydayQuestions(
   db: DbClient,
   auditIds: readonly string[],
@@ -42,11 +53,17 @@ export async function loadEverydayQuestions(
   const ids = [...new Set(auditIds)];
   const [answered, failed] = await Promise.all([
     db
-      .selectDistinct({ auditId: citations.auditId, prompt: citations.prompt })
+      .selectDistinct({
+        auditId: citations.auditId,
+        prompt: sql<string>`question_text_key(${citations.prompt})`,
+      })
       .from(citations)
       .where(and(inArray(citations.auditId, ids), ORGANIC_ONLY)),
     db
-      .selectDistinct({ auditId: engineCallFailures.auditId, prompt: engineCallFailures.prompt })
+      .selectDistinct({
+        auditId: engineCallFailures.auditId,
+        prompt: sql<string>`question_text_key(${engineCallFailures.prompt})`,
+      })
       .from(engineCallFailures)
       .where(
         and(

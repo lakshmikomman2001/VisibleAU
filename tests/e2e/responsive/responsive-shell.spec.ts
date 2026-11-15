@@ -27,6 +27,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
+import { isUnbuiltTrustPage } from "@/lib/trust/stub-implementation-status";
 import { e2eDatabaseUrl } from "../helpers/e2e-database";
 import { SIGNED_IN_PAGES } from "./signed-in-pages";
 
@@ -351,9 +352,10 @@ async function lastControlClickable(
 }
 
 async function open(page: Page, url: string) {
-  await page.goto(url, { waitUntil: "load" });
+  const response = await page.goto(url, { waitUntil: "load" });
   // Client components settle (the brand switcher fetches its list).
   await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
+  return response;
 }
 
 /**
@@ -442,10 +444,16 @@ const PAGES: PageCase[] = [
 for (const p of PAGES) {
   test(`${p.name}: fits 320, 375, 768 and 1280px`, async ({ page }) => {
     if (p.signedIn) await signIn(page);
+    // 17 Nov, part 2: a trust check that isn't built (Consensus, Hallucinations, LinkedIn presence) has no
+    // page: the middleware answers its URL with the app's 404 page, outside the signed-in shell.
+    const unbuilt = isUnbuiltTrustPage(new URL(p.url(), BASE).pathname);
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 800 });
-      await open(page, p.url());
-      if (p.signedIn) await expect(page.locator("[data-app-main]")).toBeVisible();
+      const response = await open(page, p.url());
+      if (unbuilt) {
+        expect(response?.status(), `${p.name} at ${width}px`).toBe(404);
+        await expect(page.getByText("Couldn't find that page.")).toBeVisible();
+      } else if (p.signedIn) await expect(page.locator("[data-app-main]")).toBeVisible();
 
       const result = await measureFit(page);
       const where = `${p.name} at ${width}px: ${JSON.stringify(result)}`;
@@ -459,7 +467,7 @@ for (const p of PAGES) {
           ok: true,
         });
 
-      if (!p.signedIn) continue;
+      if (!p.signedIn || unbuilt) continue;
       const sidebar = page.locator('aside[data-tour="sidebar"]');
       const menuButton = page.getByRole("button", { name: "Open menu" });
       if (width < LG) {
@@ -760,7 +768,8 @@ for (const theme of ["dark", "light"] as const) {
 test("breadcrumb: parents are links, the current page isn't (1280 and 375px)", async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await open(page, `/brands/${BRAND_ID}/trust/consensus`);
+  // 17 Nov, part 2: Evidence, not Consensus -- Consensus isn't built, so it has no page (a 404).
+  await open(page, `/brands/${BRAND_ID}/trust/evidence`);
   const desktop = page.getByRole("navigation", { name: "Breadcrumb" });
   const links = desktop.getByRole("link");
   const parents: [name: string, href: string][] = [
@@ -776,14 +785,14 @@ test("breadcrumb: parents are links, the current page isn't (1280 and 375px)", a
     await expect(links.nth(i)).toHaveAttribute("href", href);
   }
   const current = desktop.locator('[aria-current="page"]');
-  await expect(current).toHaveText("Consensus");
+  await expect(current).toHaveText("Evidence");
   expect(await current.evaluate((el) => el.closest("a"))).toBeNull();
 
   await page.setViewportSize({ width: 375, height: 800 });
   const phone = page.getByRole("navigation", { name: "Breadcrumb" });
   await expect(phone.getByRole("link")).toHaveCount(1);
   await expect(phone.getByRole("link")).toHaveAttribute("href", `/brands/${BRAND_ID}/trust`);
-  await expect(phone.locator('[aria-current="page"]')).toHaveText("Consensus");
+  await expect(phone.locator('[aria-current="page"]')).toHaveText("Evidence");
   await phone.getByRole("link").click();
   await page.waitForURL(`**/brands/${BRAND_ID}/trust`);
 });

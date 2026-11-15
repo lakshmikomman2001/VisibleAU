@@ -43,4 +43,24 @@ export const TRUST_CHECK_IMPLEMENTED = {
 
 export type TrustCheckKey = keyof typeof TRUST_CHECK_IMPLEMENTED;
 
+/** Each trust page that shows one check, by its folder under app/(auth)/brands/[brandId]/trust/. */
+export const TRUST_PAGE_CHECK: Readonly<Record<string, TrustCheckKey>> = {
+  consensus: "consensusScore",
+  hallucinations: "hallucinationDetection",
+  "linkedin-presence": "linkedinPresence",
+  "youtube-presence": "youtubePresence",
+};
+
+/**
+ * 17 Nov (part 2 follow-up): is this URL the page of a trust check that isn't built? The middleware answers
+ * those with the app's 404 before anything renders. The pages' layouts call notFound() too, but a notFound()
+ * under the brand layout drew the signed-in shell twice on about one load in four (Playwright, dev server).
+ */
+export function isUnbuiltTrustPage(pathname: string): boolean {
+  const match = /^\/brands\/[^/]+\/trust\/([^/]+)\/?$/.exec(pathname);
+  if (!match) return false;
+  const check = TRUST_PAGE_CHECK[match[1]];
+  return check !== undefined && !TRUST_CHECK_IMPLEMENTED[check];
+}
+
 export const NOT_YET_IMPLEMENTED_RESPONSE = { implemented: false as const };

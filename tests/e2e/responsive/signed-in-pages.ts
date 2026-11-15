@@ -110,7 +110,6 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   { name: "Vertical packs", route: "/verticals", url: () => "/verticals" },
   { name: "Vertical pack", route: "/verticals/[packId]", url: (f) => `/verticals/${f.packId}` },
   { name: "Drift alerts", route: "/drift-alerts", url: () => "/drift-alerts" },
-  { name: "Portfolio", route: "/portfolio", url: () => "/portfolio" },
   { name: "Agency", route: "/agency", url: () => "/agency" },
   { name: "Agency branding", route: "/agency/branding", url: () => "/agency/branding" },
   { name: "Agency bulk", route: "/agency/bulk", url: () => "/agency/bulk" },

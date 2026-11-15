@@ -1,6 +1,6 @@
 /**
  * 15 Nov, part 2 (Sri, Hero's #48 and #50): two audits that asked different everyday questions are never compared
- * (lib/audit/question-set.ts). The rule, the note's words, the movement label (portfolio and agency), and the report
+ * (lib/audit/question-set.ts). The rule, the note's words, and the report
  * PDF's chart: hollow, with no line across a change of questions, and the caption's note.
  */
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,6 @@ import {
 import { ReportDocument, trendSegments } from "@/lib/reports/pdf/report-document";
 import type { ReportData } from "@/lib/reports/report-data";
 import { trendLines, trendPointHollow } from "@/lib/reports/report-format";
-import { latestMovement } from "@/lib/visibility/latest-movement";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
 import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
 
@@ -79,49 +78,9 @@ describe("what changed, in words", () => {
   });
 });
 
-describe("portfolio and agency movement", () => {
-  const audit = (id: string, questionSetHash: string) => ({
-    id,
-    engines: ["chatgpt"],
-    promptsCount: 10,
-    metadata: {},
-    methodologyVersion: 4,
-    questionSetHash,
-    promptPackVersion: 1,
-  });
-  const models = new Map([
-    ["48", { models: { chatgpt: ["gpt-4.1-mini"] }, drift: [] }],
-    ["50", { models: { chatgpt: ["gpt-4.1-mini"] }, drift: [] }],
-  ]);
-
-  it("not comparable across a change of questions, and says why", () => {
-    expect(
-      latestMovement({
-        latest: audit("50", "v4"),
-        previous: audit("48", "v3"),
-        latestScore: 32.5,
-        previousScore: 25,
-        models,
-      }),
-    ).toEqual({
-      kind: "not_comparable",
-      reason: "questions_changed",
-      label: "Not comparable (questions changed)",
-    });
-  });
-
-  it("the same questions: the movement", () => {
-    expect(
-      latestMovement({
-        latest: audit("50", "v4"),
-        previous: audit("48", "v4"),
-        latestScore: 32.5,
-        previousScore: 25,
-        models,
-      }),
-    ).toEqual({ kind: "moved", previous: 25, latest: 32.5, delta: 7.5 });
-  });
-});
+// Leftovers task, part 4 (17 Nov): latestMovement() went with the portfolio page; the agency's Top Movers reads
+// auditChanges(), whose comparability rule (the drift baseline: the same questions, method and models) is held by
+// tests/integration/brand-pages-agree-with-audit.integration.test.tsx and the drift-baseline tests.
 
 describe("the report PDF's chart", () => {
   /** #37 and #38 asked other questions than the basis #39; the note sits on #39. */

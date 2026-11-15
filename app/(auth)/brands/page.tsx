@@ -11,7 +11,7 @@ import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
 import { brandAvatarBackground } from "@/lib/brands/avatar-color";
-import { brandBusinessLabel } from "@/lib/brands/business-label";
+import { brandBusinessPill } from "@/lib/brands/business-label";
 import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { tierDisplayName } from "@/lib/pricing/tiers";
@@ -310,23 +310,35 @@ export default async function BrandsPage() {
                   </div>
                 </div>
 
-                {/* Business type badge (17 Nov, part 3: was the raw vertical key, "Local_business") */}
-                <div>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      padding: "2px 8px",
-                      borderRadius: 9999,
-                      fontSize: 11,
-                      fontWeight: 500,
-                      background: "var(--accent-muted)",
-                      color: "var(--text-secondary)",
-                      border: "none",
-                    }}
-                  >
-                    {brandBusinessLabel(brand)}
-                  </span>
+                {/* Business type badge (17 Nov, part 3: was the raw vertical key, "Local_business"). Leftovers task,
+                    part 4: two types and "+N" at most, on one line, the full list in its tooltip. */}
+                <div style={{ minWidth: 0 }}>
+                  {(() => {
+                    const pill = brandBusinessPill(brand);
+                    return (
+                      <span
+                        data-business-pill=""
+                        title={pill.full ?? undefined}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          maxWidth: "100%",
+                          padding: "2px 8px",
+                          borderRadius: 9999,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          background: "var(--accent-muted)",
+                          color: "var(--text-secondary)",
+                          border: "none",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {pill.label}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Region */}

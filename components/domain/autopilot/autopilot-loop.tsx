@@ -58,7 +58,7 @@ export interface ContentDraft {
   approvedAt: string | null;
 }
 
-interface Explainability {
+export interface Explainability {
   rationale: string;
   confidenceNote: string;
   topAction: string | null;
@@ -79,6 +79,8 @@ export interface AutopilotLoopData {
   audit: AuditSummary | null;
   topGap: TopicalGap | null;
   topTask: RemediationTask | null;
+  /** Leftovers task, part 4: how many open tasks the brand has, for step 2's "Top priority of 3 open tasks". */
+  openTaskCount?: number;
   explainability: Explainability | null;
   draft: ContentDraft | null;
   brandId: string;
@@ -123,6 +125,26 @@ export function step2Status(phase: Step2Phase): Extract<StepStatus, "current" | 
 }
 
 /** Never render "priority #null" — omit the rank fragment when it's unset. */
+/**
+ * Leftovers task, part 4 (17 Nov): step 2's task is the most urgent of the brand's open tasks; it said so with the
+ * internal priority score ("Priority: 5000", remediation_tasks.priority: impact x confidence x effort x 100).
+ */
+/**
+ * Leftovers task, part 4 (17 Nov): the most urgent open task -- the highest priority score (lib/workflow/priority-
+ * scorer.ts rankTasks ranks high first). The page sorted low first, so step 2 showed the brand's least urgent task.
+ */
+export function mostUrgentTask<T extends { priority: number | null }>(
+  tasks: readonly T[],
+): T | null {
+  return tasks.length === 0
+    ? null
+    : [...tasks].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))[0];
+}
+
+export function openTaskPriority(openTaskCount: number): string {
+  return openTaskCount > 1 ? `Top priority of ${openTaskCount} open tasks` : "Your only open task";
+}
+
 export function formatGapPriority(priorityRank: number | null | undefined): string {
   return priorityRank != null ? `Priority #${priorityRank}` : "Not ranked";
 }
@@ -206,7 +228,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       time: topGap
         ? `Topic: ${topGap.topicCluster}`
         : topTask
-          ? `Priority: ${topTask.priority ?? "—"}`
+          ? openTaskPriority(data.openTaskCount ?? 1)
           : "",
     },
     {

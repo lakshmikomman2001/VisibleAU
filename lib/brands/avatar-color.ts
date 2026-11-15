@@ -1,17 +1,23 @@
 /**
- * 17 Nov, part 4 -- a brand's avatar colour, from the brand itself: a hash of its id picks one of the five brand
- * gradients (app/globals.css --avatar-gradient-1..5; 6 and 7 are the workspace's and the user's avatars). It came from
- * the brand's position in a list (GRADIENTS[i % 5]), so Omega Services went from purple to teal when other brands were
- * deleted, and the brand page always used the first gradient. White initials (--avatar-fg) are AA on every stop of all
- * five, in both themes (tests/unit/brands/avatar-color.test.ts).
+ * A brand's avatar colour, from the brand itself (17 Nov, part 4: a hash of its id, never its place in a list).
+ *
+ * Leftovers task, part 4 (17 Nov): five gradients meant two of a handful of brands often shared one (Hero Home
+ * Services and Omega Services were both orange). The hash now picks a hue anywhere on the colour wheel and one of
+ * three lightness tones, so two brands share a colour only when their hashes land within a few degrees in the same
+ * tone. Each stop is an OKLCH colour dark enough that the white initials (--avatar-fg, the same in both themes) are
+ * at least 4.5:1 on it whatever the hue (tests/unit/brands/avatar-color.test.tsx checks every hue and tone, after
+ * the browser maps a colour into sRGB). The same id gives the same colour on the server and in the browser.
  */
-export const BRAND_AVATAR_GRADIENTS = [
-  "var(--avatar-gradient-1)",
-  "var(--avatar-gradient-2)",
-  "var(--avatar-gradient-3)",
-  "var(--avatar-gradient-4)",
-  "var(--avatar-gradient-5)",
+
+/** Lightness of each gradient's two stops, and the chroma, per tone (OKLCH). */
+export const BRAND_AVATAR_TONES = [
+  { from: 0.52, to: 0.44 },
+  { from: 0.46, to: 0.38 },
+  { from: 0.4, to: 0.33 },
 ] as const;
+export const BRAND_AVATAR_CHROMA = 0.13;
+/** How far the gradient's second stop turns from the first, in degrees. */
+export const BRAND_AVATAR_HUE_TURN = 18;
 
 /** FNV-1a, 32-bit: the same id gives the same number, on the server and in the browser. */
 function hash(text: string): number {
@@ -23,6 +29,20 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
+export interface BrandAvatarColour {
+  /** 0-359.9, a tenth of a degree. */
+  hue: number;
+  tone: number;
+}
+
+export function brandAvatarColour(brandId: string): BrandAvatarColour {
+  const h = hash(brandId);
+  return { hue: (h % 3600) / 10, tone: Math.floor(h / 3600) % BRAND_AVATAR_TONES.length };
+}
+
 export function brandAvatarBackground(brandId: string): string {
-  return BRAND_AVATAR_GRADIENTS[hash(brandId) % BRAND_AVATAR_GRADIENTS.length];
+  const { hue, tone } = brandAvatarColour(brandId);
+  const { from, to } = BRAND_AVATAR_TONES[tone];
+  const turned = (hue + BRAND_AVATAR_HUE_TURN) % 360;
+  return `linear-gradient(135deg, oklch(${from} ${BRAND_AVATAR_CHROMA} ${hue}), oklch(${to} ${BRAND_AVATAR_CHROMA} ${turned}))`;
 }

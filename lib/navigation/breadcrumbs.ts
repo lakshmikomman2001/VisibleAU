@@ -170,8 +170,6 @@ export function breadcrumbsForPath(
       if (!second) return [CRUMB.workspace, { label: "Agency" }];
       // /agency/reports has no page of its own: the PDF builder sits under Agency.
       return [CRUMB.workspace, CRUMB.agency, { label: labelFor(third ?? second) }];
-    case "portfolio":
-      return [CRUMB.workspace, { label: "Portfolio" }];
     case "verticals":
       if (!second) return [CRUMB.workspace, { label: "Vertical packs" }];
       return [CRUMB.workspace, CRUMB.verticals, { label: "Detail" }];

@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import {
   AutopilotLoop,
   type AutopilotLoopData,
+  type Explainability,
+  mostUrgentTask,
+  type RemediationTask,
 } from "@/components/domain/autopilot/autopilot-loop";
 import { PromptTrendSection } from "@/components/domain/autopilot/prompt-trend-section";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
@@ -52,13 +55,11 @@ export default function AutopilotPage() {
 
         const topGap = null;
 
-        const topTask =
-          tasks.length > 0
-            ? tasks.sort(
-                (a: { priority: number }, b: { priority: number }) =>
-                  (a.priority ?? 999) - (b.priority ?? 999),
-              )[0]
-            : null;
+        // Leftovers task, part 4 (17 Nov): the most urgent open task (it sorted low first: the least urgent).
+        // The tasks API's rows: a task, and the explainability annotation a recommendation's task may carry.
+        const topTask = mostUrgentTask(
+          tasks as (RemediationTask & { explainability?: Explainability | null })[],
+        );
 
         const draft = drafts.length > 0 ? drafts[0] : null;
 
@@ -87,6 +88,7 @@ export default function AutopilotPage() {
               : null,
             topGap,
             topTask,
+            openTaskCount: tasks.length,
             explainability,
             draft,
             brandId,

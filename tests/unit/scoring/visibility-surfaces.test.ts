@@ -30,7 +30,6 @@ const SURFACES = [
   "app/(auth)/brands/[brandId]/page.tsx",
   "components/domain/brand/brand-detail-client.tsx",
   "app/(auth)/agency/page.tsx",
-  "app/(auth)/portfolio/page.tsx",
   "app/(auth)/agency/reports/pdf-builder/page.tsx",
   "app/client-portal/[inviteToken]/page.tsx",
   "app/not-found.tsx",

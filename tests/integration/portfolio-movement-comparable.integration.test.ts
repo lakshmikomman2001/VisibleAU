@@ -94,7 +94,7 @@ afterAll(async () => {
 });
 
 /** The rendered page, without React's text-joining comments. */
-async function render(page: "agency" | "portfolio"): Promise<string> {
+async function render(page: "agency"): Promise<string> {
   const Page = (await import(`@/app/(auth)/${page}/page`))
     .default as () => Promise<React.ReactElement>;
   return renderToStaticMarkup(await Page()).replace(/<!-- -->/g, "");
@@ -106,15 +106,8 @@ function rowOf(html: string, tag: "tr" | "li", brand: string): string {
 }
 
 describe("a Haiku -> Sonnet pair shows no movement; a comparable pair does", () => {
-  it("portfolio Trend", async () => {
-    const html = await render("portfolio");
-    const switched = rowOf(html, "tr", "Switched Plumbing");
-    expect(switched).toContain("Not comparable (models changed)");
-    expect(switched).not.toMatch(/[↑↓→] from/);
-
-    expect(rowOf(html, "tr", "Steady Plumbing")).toContain("↑ from 30%");
-  }, 60_000);
-
+  // Leftovers task, part 4 (17 Nov): the portfolio page is gone (linked from nowhere; the agency page shows the same
+  // brands' measured changes), so only the agency's Top Movers is checked.
   it("agency Top Movers", async () => {
     const html = await render("agency");
     expect(rowOf(html, "li", "Steady Plumbing")).toContain("30% → 60%");

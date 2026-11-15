@@ -5,6 +5,32 @@
 --
 -- Brands checked: Hero Home Services and Omega Services (the demo brands). Each query says what to expect and what
 -- each result would mean.
+--
+-- HOW TO READ THE RESULTS (paste them back as they come; this says which result is fine and which needs a fix):
+--
+--   1. Audits.            Fine: Hero #48 and #50 both in 2026-W46. Needs a fix: nothing here -- it's context for 2-3.
+--   2. Trend rows.        Fine: any values -- no page reads this table any more (leftovers task, part 6). Read
+--                         updated_at, not calculated_at, for "when was it last recomputed": calculated_at was only
+--                         ever set when the row was first made (fixed in part 6). Needs a fix: updated_at older than
+--                         a complete audit in that week (the recompute didn't run for it -- part 2's scheduled audits).
+--   3. Old counting.      Fine: 11 questions, 9 mentioned (explains the old 81.8%). Needs a fix: nothing -- it's
+--                         the explanation for the old card.
+--   4. Audit figures.     Fine: Hero #50 = 40 everyday answers, 13 mentioned, 13 with a source. Needs a fix: any
+--                         other numbers for #50 -- a page could then disagree with the audit page.
+--   5. Own-site sources.  Fine: 0 for Hero (its sources are directories). Needs a fix: nothing -- it explains the
+--                         old "Citation 0.0%".
+--   6. Bucket "lifts".    Fine: 0 rows, or rows we now ignore (no page shows lift_achieved). Needs a fix: nothing.
+--   7. Sentiment drift.   Fine: 0, or a few old alerts (not shown any more). Needs a fix: a count still growing
+--                         after the push (the inline runner would still be writing them).
+--   8. Old reports.       Fine: only reports from before 1 Nov 2026. Needs a fix: a report made after 1 Nov.
+--   9. Topical gaps.      Fine: 0 rows, or rows nothing shows. Needs a fix: nothing.
+--  10. Referral hits.     Fine: 0 (and the ratio is no longer sold: part 3). Needs a fix: any rows -- something writes
+--                         referrals we don't know of.
+--  11. Head-to-head wins. Fine: 0 "wins without the name". Needs a fix: any -- a stored win the page now re-judges.
+--
+-- Sri's run on 16 Nov, as reported: 4 fine (Hero #50 = 40 / 13 / 13, the one unverified match not counted); 6, 9, 10
+-- and 11 fine (no rows); 8 one old-method report, for the deleted Bondi Plumbing (fine); 2 showed calculated_at
+-- stopping at 12 Nov (see 2 above: re-run it for updated_at).
 
 BEGIN TRANSACTION READ ONLY;
 
@@ -24,8 +50,9 @@ LIMIT 30;
 --    Expect for Hero: 2026-W46 weekly with mention_rate 81.82, citation_rate 0.00, brand_archetype known_but_untrusted.
 --    If the newest row by calculated_at is NOT 2026-W46: an operator's trend exclusion recomputed an older week after
 --    #50, and the card showed that older week (the second cause, part 1). Either way the new card doesn't read it.
+--    Leftovers task, part 6: updated_at is when the row was last recomputed (calculated_at was set only on insert).
 SELECT b.name, t.period_type, t.period_label, t.audit_count, t.mention_rate, t.citation_rate, t.brand_archetype,
-       t.citation_volatility_score, t.methodology_version, t.calculated_at
+       t.citation_volatility_score, t.methodology_version, t.calculated_at, t.updated_at
 FROM visibility_trends t JOIN brands b ON b.id = t.brand_id
 WHERE b.name IN ('Hero Home Services', 'Omega Services') AND b.deleted_at IS NULL
 ORDER BY b.name, t.calculated_at DESC

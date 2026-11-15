@@ -43,6 +43,11 @@ interface ClassificationConfirmCardProps {
    * confirmed. The wizard used to start it before confirmation, so the owner landed on "brand needs confirmation".
    */
   startFirstAudit?: boolean;
+  /**
+   * 17 Nov, part 3: a brand made before the confirm step, with audits already -- it's asked to confirm because it
+   * has no confirmed type, and the card says why in its terms ("so its questions stay accurate"), not a new brand's.
+   */
+  hasAudits?: boolean;
 }
 
 const AUDIENCE_OPTIONS: Array<{ value: Audience; label: string; hint: string }> = [
@@ -61,6 +66,7 @@ export function ClassificationConfirmCard({
   vertical,
   location,
   startFirstAudit = false,
+  hasAudits = false,
 }: ClassificationConfirmCardProps) {
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
@@ -195,6 +201,15 @@ export function ClassificationConfirmCard({
       >
         Confirm your business details
       </h2>
+      {hasAudits && (
+        <p
+          style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
+          data-existing-brand-intro=""
+        >
+          Confirm what this business does so its questions stay accurate. Its past audits stay as
+          they are.
+        </p>
+      )}
       {startFirstAudit && (
         <p
           style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
@@ -455,7 +470,7 @@ export function ClassificationConfirmCard({
           type="button"
           onClick={handleReanalyze}
           disabled={reanalyzing}
-          title="Re-runs our automatic classifier, including a fresh look at your homepage"
+          title="Has another automatic look at your business, including your homepage"
           style={{
             height: 32,
             padding: "0 16px",

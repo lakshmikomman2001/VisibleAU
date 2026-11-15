@@ -152,8 +152,8 @@ export function LocationConfirmCard({
       </h2>
       <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}>
         {isLegacyDefaultRegion
-          ? `Currently set to ${currentSuburb || "Sydney CBD"}, ${currentState || "NSW"} — a default, not something you confirmed. Confirm it below, or tell us your real location so prompts and reports are accurate.`
-          : "We use your suburb or city to write accurate, local prompts — confirm it below."}
+          ? `Currently set to ${currentSuburb || "Sydney CBD"}, ${currentState || "NSW"} — a default, not something you confirmed. Confirm it below, or tell us your real location so its questions and reports are accurate.`
+          : "We use your suburb or city in the questions we ask AI — confirm it below."}
       </p>
 
       <label

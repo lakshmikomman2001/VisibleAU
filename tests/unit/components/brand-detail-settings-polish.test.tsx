@@ -172,7 +172,8 @@ describe("BrandDetailClient -- Brand settings fields are named by their labels",
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
   });
 
-  it("Brand name, Domain and Vertical each name their own field", () => {
+  // 17 Nov, part 3: "Kind of business", not the internal "Vertical".
+  it("Brand name, Domain and Kind of business each name their own field", () => {
     // Playwright-run follow-ups (10 Nov): the labels had no htmlFor and the fields no id, so a screen
     // reader announced three unnamed fields (and the e2e specs couldn't find them by label).
     render(
@@ -183,6 +184,6 @@ describe("BrandDetailClient -- Brand settings fields are named by their labels",
     );
     expect(screen.getByLabelText("Brand name")).toHaveValue("Omega Services");
     expect(screen.getByLabelText("Domain")).toHaveValue("omega.com.au");
-    expect(screen.getByLabelText("Vertical")).toHaveValue("tradies");
+    expect(screen.getByLabelText("Kind of business")).toHaveValue("tradies");
   });
 });

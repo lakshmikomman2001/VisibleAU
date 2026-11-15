@@ -532,8 +532,12 @@ export function BrandDetailClient({
           onCancel={() => setShowDeleteConfirm(false)}
         >
           <p>
-            This will remove the brand from your workspace. Audit history is preserved but the brand
-            will no longer appear in your list. This cannot be undone.
+            {/* 17 Nov, part 3: what deletion does (DELETE /api/brands/[id] -- a soft delete): it sets the brand's
+                deleted_at, pauses its scheduled audits and stops its report emails; nothing in the app restores it;
+                its audits aren't deleted, and the audit list and pages still show them. */}
+            The brand will be removed from your workspace, and its scheduled audits and report
+            emails stop. You can&apos;t restore it afterwards. Its past audits stay in your audit
+            history.
           </p>
           {deleteError && (
             <p role="alert" className="mt-3" style={{ color: "var(--danger)" }}>
@@ -593,6 +597,7 @@ export function BrandDetailClient({
             // 16 Nov, part 5 follow-up: only when nothing else is pending -- with the location still to confirm
             // (its own card comes next), the audit would be refused and the owner shown an error.
             startFirstAudit={auditCount === 0 && !locationNeedsConfirmation}
+            hasAudits={auditCount > 0}
             mode={classificationFailed ? "could_not_classify" : "low_confidence"}
             vertical={brand.vertical}
             location={
@@ -1660,7 +1665,7 @@ export function BrandDetailClient({
                 marginBottom: 6,
               }}
             >
-              Vertical
+              Kind of business
             </label>
             <select
               id="brand-settings-vertical"

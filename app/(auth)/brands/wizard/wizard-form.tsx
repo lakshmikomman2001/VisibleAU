@@ -486,7 +486,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 ))}
               </div>
               <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                Region determines vertical packs and prompt library.
+                We use your region to choose the questions and directories we check.
               </p>
             </div>
           </div>
@@ -541,7 +541,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 Primary suburbs (up to 3)
               </label>
               <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 10px" }}>
-                Required — this is how we write location into your prompts and reports. If you
+                Required: we use it in the questions we ask AI and in your reports. If you
                 don&apos;t have a fixed location, say so instead.
               </p>
               <label
@@ -568,7 +568,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               </label>
               {isOnlineOnly && (
                 <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "0 0 4px" }}>
-                  We&apos;ll skip location-specific prompts and won&apos;t guess a city for you.
+                  We&apos;ll skip questions about a location and won&apos;t guess a city for you.
                 </p>
               )}
               <div

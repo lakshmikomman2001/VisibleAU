@@ -10,6 +10,7 @@ import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
+import { brandBusinessLabel } from "@/lib/brands/business-label";
 import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { tierDisplayName } from "@/lib/pricing/tiers";
@@ -25,10 +26,6 @@ const GRADIENTS = [
   "var(--avatar-gradient-5)",
 ];
 
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
-}
-
 export default async function BrandsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
@@ -40,6 +37,9 @@ export default async function BrandsPage() {
         name: brands.name,
         domain: brands.domain,
         vertical: brands.vertical,
+        // 17 Nov, part 3: the badge names the confirmed business type ("Café"), else the vertical in words.
+        categories: brands.categories,
+        categoryConfirmedAt: brands.categoryConfirmedAt,
         region: brands.region,
         primaryRegions: brands.primaryRegions,
         logoUrl: brands.logoUrl,
@@ -212,7 +212,7 @@ export default async function BrandsPage() {
             }}
           >
             <div>Brand</div>
-            <div>Vertical</div>
+            <div>Business</div>
             <div>Region</div>
             <div style={{ textAlign: "right" }}>Visibility</div>
             <div style={{ textAlign: "right" }}>Last audit</div>
@@ -314,7 +314,7 @@ export default async function BrandsPage() {
                   </div>
                 </div>
 
-                {/* Vertical badge */}
+                {/* Business type badge (17 Nov, part 3: was the raw vertical key, "Local_business") */}
                 <div>
                   <span
                     style={{
@@ -329,7 +329,7 @@ export default async function BrandsPage() {
                       border: "none",
                     }}
                   >
-                    {capitalize(brand.vertical)}
+                    {brandBusinessLabel(brand)}
                   </span>
                 </div>
 

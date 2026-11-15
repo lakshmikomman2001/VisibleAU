@@ -60,7 +60,10 @@ describe("the delete-brand dialog", () => {
     );
     const { dialog } = await openDelete();
     expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(dialog).toHaveAccessibleDescription(/This cannot be undone/);
+    // 17 Nov, part 3: what deletion does, not "Audit history is preserved ... This cannot be undone."
+    expect(dialog).toHaveAccessibleDescription(
+      /can.t restore it afterwards\. Its past audits stay in your audit history/,
+    );
   });
 
   it("opens with focus on Cancel, and Tab / Shift+Tab stay inside", async () => {

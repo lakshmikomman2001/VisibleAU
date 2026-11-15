@@ -195,7 +195,12 @@ test.describe("Screen 1 — Retrieval Hub", () => {
   test("clicking Agent Readiness tile navigates to sub-route (not 404)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval`);
     await page.getByRole("link", { name: "Agent Readiness" }).click();
-    await expect(page).toHaveURL(new RegExp(`/brands/${brandId}/retrieval/agent-readiness`));
+    // Leftovers task, part 1 (17 Nov): with no root loading.tsx, a navigation commits when the new page's server
+    // render arrives -- on the e2e dev server, after it compiles the route on its first visit (more than the default
+    // 5 s). On a compiled route the URL changes in ~230 ms, with or without that boundary (measured).
+    await expect(page).toHaveURL(new RegExp(`/brands/${brandId}/retrieval/agent-readiness`), {
+      timeout: 30_000,
+    });
     // Must NOT be a 404 — the heading renders
     await expect(page.getByRole("heading", { name: "Agent Readiness", exact: true })).toBeVisible({
       timeout: 15000,

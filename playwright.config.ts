@@ -13,7 +13,7 @@ loadE2eEnv();
  */
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: /[\\/]tests[\\/]e2e[\\/]0\d-[\w-]+\.spec\.ts$/,
+  testMatch: /[\\/]tests[\\/]e2e[\\/]\d\d-[\w-]+\.spec\.ts$/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

@@ -3,10 +3,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { LEGACY_TRACKING_SNIPPET_PATH, TRACKING_SNIPPET_PATH } from "@/lib/product";
 import { detectRegion } from "@/lib/region/detect";
 import { GEO_COUNTRY_HEADER, REGION_HEADER } from "@/lib/region/header";
-import { isUnbuiltTrustPage } from "@/lib/trust/stub-implementation-status";
-
-/** A path no route matches: rewritten to, it renders app/not-found.tsx. */
-export const NO_SUCH_PAGE_PATH = "/_no-such-page";
 
 const PUBLIC_ROUTES = [
   "/",
@@ -107,12 +103,6 @@ export async function middleware(request: NextRequest) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("redirectTo", pathname);
     return withReferrerPolicy(pathname, NextResponse.redirect(signInUrl));
-  }
-
-  // 17 Nov (part 2 follow-up): a trust check that isn't built has no page -- the app's own 404, with a 404
-  // status, before the brand layout renders (a notFound() under it drew the signed-in shell twice).
-  if (isUnbuiltTrustPage(strippedPath)) {
-    return NextResponse.rewrite(new URL(NO_SUCH_PAGE_PATH, request.url));
   }
 
   return withReferrerPolicy(pathname, withRegion());

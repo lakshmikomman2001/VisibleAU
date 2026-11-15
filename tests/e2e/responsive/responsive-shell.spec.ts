@@ -27,7 +27,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
-import { isUnbuiltTrustPage } from "@/lib/trust/stub-implementation-status";
+import {
+  TRUST_CHECK_IMPLEMENTED,
+  type TrustCheckKey,
+} from "@/lib/trust/stub-implementation-status";
 import { e2eDatabaseUrl } from "../helpers/e2e-database";
 import { SIGNED_IN_PAGES } from "./signed-in-pages";
 
@@ -351,6 +354,22 @@ async function lastControlClickable(
   }
 }
 
+/**
+ * The trust pages that show one check, by folder: while that check isn't built, the page's layout answers 404
+ * (app/(auth)/brands/[brandId]/trust/<page>/layout.tsx), inside the signed-in shell.
+ */
+const TRUST_PAGE_CHECK: Record<string, TrustCheckKey> = {
+  consensus: "consensusScore",
+  hallucinations: "hallucinationDetection",
+  "linkedin-presence": "linkedinPresence",
+  "youtube-presence": "youtubePresence",
+};
+
+function isUnbuiltTrustPage(pathname: string): boolean {
+  const check = TRUST_PAGE_CHECK[/^\/brands\/[^/]+\/trust\/([^/]+)$/.exec(pathname)?.[1] ?? ""];
+  return check !== undefined && !TRUST_CHECK_IMPLEMENTED[check];
+}
+
 async function open(page: Page, url: string) {
   const response = await page.goto(url, { waitUntil: "load" });
   // Client components settle (the brand switcher fetches its list).
@@ -417,6 +436,7 @@ interface PageCase {
   name: string;
   url: () => string;
   signedIn: boolean;
+  notFound?: true;
 }
 
 // Every signed-in route (signed-in-pages.ts; a unit test keeps it complete),
@@ -436,6 +456,7 @@ const PAGES: PageCase[] = [
         packId,
       }),
     signedIn: true,
+    notFound: p.notFound,
   })),
   { name: "Client portal", url: () => `/client-portal/${PORTAL_TOKEN}`, signedIn: false },
   { name: "Sample audit", url: () => `/sample-audit/result/${SAMPLE_AUDIT}`, signedIn: false },
@@ -444,16 +465,21 @@ const PAGES: PageCase[] = [
 for (const p of PAGES) {
   test(`${p.name}: fits 320, 375, 768 and 1280px`, async ({ page }) => {
     if (p.signedIn) await signIn(page);
-    // 17 Nov, part 2: a trust check that isn't built (Consensus, Hallucinations, LinkedIn presence) has no
-    // page: the middleware answers its URL with the app's 404 page, outside the signed-in shell.
-    const unbuilt = isUnbuiltTrustPage(new URL(p.url(), BASE).pathname);
+    // A trust check that isn't built (Consensus, Hallucinations, LinkedIn presence) has no page: a 404, with the
+    // not-found page inside the one signed-in shell (leftovers task, part 1: the root loading.tsx is gone, so the
+    // status is real and no hidden second shell is left in the page).
+    const unbuilt = p.notFound === true || isUnbuiltTrustPage(new URL(p.url(), BASE).pathname);
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 800 });
       const response = await open(page, p.url());
       if (unbuilt) {
         expect(response?.status(), `${p.name} at ${width}px`).toBe(404);
         await expect(page.getByText("Couldn't find that page.")).toBeVisible();
-      } else if (p.signedIn) await expect(page.locator("[data-app-main]")).toBeVisible();
+      }
+      if (p.signedIn) {
+        await expect(page.locator("[data-app-main]")).toBeVisible();
+        await expect(page.locator("[data-app-shell]")).toHaveCount(1);
+      }
 
       const result = await measureFit(page);
       const where = `${p.name} at ${width}px: ${JSON.stringify(result)}`;
@@ -467,7 +493,7 @@ for (const p of PAGES) {
           ok: true,
         });
 
-      if (!p.signedIn || unbuilt) continue;
+      if (!p.signedIn) continue;
       const sidebar = page.locator('aside[data-tour="sidebar"]');
       const menuButton = page.getByRole("button", { name: "Open menu" });
       if (width < LG) {

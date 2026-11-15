@@ -24,6 +24,8 @@ export interface SignedInPage {
   /** The app route, as its folder names it: "/brands/[brandId]/trust". */
   route: string;
   url: (f: PageFixtures) => string;
+  /** The URL answers 404: the not-found page, inside the signed-in shell. */
+  notFound?: true;
 }
 
 /** A brand's own pages, under /brands/[brandId]/. */
@@ -82,6 +84,13 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
     name: "Brand: a report",
     route: "/brands/[brandId]/reports/[reportId]",
     url: (f) => `/brands/${f.brandId}/reports/${f.reportId}`,
+  },
+  {
+    // Leftovers task, part 1: a URL under a brand that isn't one of its pages.
+    name: "Brand: a page that doesn't exist",
+    route: "/brands/[brandId]/[...missing]",
+    url: (f) => `/brands/${f.brandId}/no-such-page`,
+    notFound: true,
   },
   { name: "Audits list", route: "/audits", url: () => "/audits" },
   { name: "Finished audit", route: "/audits/[auditId]", url: (f) => `/audits/${f.finishedAudit}` },

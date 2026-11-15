@@ -19,6 +19,9 @@ const TILE_GRID_FILE = path.resolve("components/domain/brand/brand-detail-client
 const WAIVER: Record<string, string> = {
   "ai-discovery": "Legacy route — superseded by /discovery; kept for backward compat redirect",
   "meta-tags": "Sub-feature of technical-audit; reached from within that screen",
+  // Leftovers task, part 1 (17 Nov): not a page -- the catch-all that answers 404 inside the shell for a URL under
+  // a brand that isn't one of its pages.
+  "[...missing]": "Not a page: the 404 for an unknown URL under a brand",
 };
 
 function getTopLevelRouteSegments(): string[] {

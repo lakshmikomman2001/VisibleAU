@@ -56,13 +56,18 @@ describe("GET routes refuse to read/present a stub result while not implemented"
       const gateIndex = src.indexOf(`TRUST_CHECK_IMPLEMENTED.${flagKey}`);
       const guardedIndex = src.indexOf(guardedMarker);
       expect(gateIndex, `${file} must reference the flag`).toBeGreaterThan(-1);
-      expect(guardedIndex, `${file} must still contain its real logic (dead code until flipped)`).toBeGreaterThan(-1);
+      expect(
+        guardedIndex,
+        `${file} must still contain its real logic (dead code until flipped)`,
+      ).toBeGreaterThan(-1);
       expect(gateIndex, `the gate must run BEFORE ${guardedMarker}`).toBeLessThan(guardedIndex);
     });
 
     it(`${file} returns an "implemented: false" response from the gate`, () => {
       const src = readFileSync(file, "utf8");
-      expect(src).toMatch(/if \(!TRUST_CHECK_IMPLEMENTED\.\w+\)\s*\{\s*return NextResponse\.json\(NOT_YET_IMPLEMENTED_RESPONSE\)/);
+      expect(src).toMatch(
+        /if \(!TRUST_CHECK_IMPLEMENTED\.\w+\)\s*\{\s*return NextResponse\.json\(NOT_YET_IMPLEMENTED_RESPONSE\)/,
+      );
     });
   }
 });
@@ -139,7 +144,7 @@ describe("cron jobs skip entirely (no DB write) while not implemented", () => {
   }
 });
 
-describe("Consensus Score specifically: 100/\"top tier\" can never render while not implemented", () => {
+describe('Consensus Score specifically: 100/"top tier" can never render while not implemented', () => {
   it("the GET route's gate runs before ExplainabilityService.annotate() is ever called -- the fabricated avgScore=100 path is unreachable", () => {
     const src = readFileSync("app/api/brands/[brandId]/consensus-score/route.ts", "utf8");
     const gateIndex = src.indexOf("TRUST_CHECK_IMPLEMENTED.consensusScore");
@@ -149,9 +154,12 @@ describe("Consensus Score specifically: 100/\"top tier\" can never render while 
     expect(gateIndex).toBeLessThan(annotateIndex);
   });
 
-  it("the consensus page renders NotYetMeasuredCard, not the scorecard, when implemented is false", () => {
+  // 17 Nov, part 2: no placeholder -- the page doesn't exist (404) while the check isn't built.
+  it("the consensus page doesn't exist while not implemented, and never renders the scorecard when implemented is false", () => {
+    const layout = readFileSync("app/(auth)/brands/[brandId]/trust/consensus/layout.tsx", "utf8");
+    expect(layout).toContain("if (!TRUST_CHECK_IMPLEMENTED.consensusScore) notFound();");
     const src = readFileSync("app/(auth)/brands/[brandId]/trust/consensus/page.tsx", "utf8");
-    expect(src).toContain('data.implemented === false');
-    expect(src).toContain("NotYetMeasuredCard");
+    expect(src).toMatch(/data\.implemented === false\) \{\s*\/\/[^\n]*\n\s*return null;/);
+    expect(src).not.toContain("NotYetMeasuredCard");
   });
 });

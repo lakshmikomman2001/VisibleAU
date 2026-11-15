@@ -236,7 +236,8 @@ describe("⚠️ V — formatGapPriority (never renders 'priority #null')", () =
   it("null or undefined rank → an honest fallback, never '#null'", () => {
     expect(formatGapPriority(null)).not.toContain("null");
     expect(formatGapPriority(undefined)).not.toContain("null");
-    expect(formatGapPriority(null)).toBe("Priority not yet ranked");
+    // 17 Nov, part 2: a state, not a promise ("Priority not yet ranked").
+    expect(formatGapPriority(null)).toBe("Not ranked");
   });
 });
 

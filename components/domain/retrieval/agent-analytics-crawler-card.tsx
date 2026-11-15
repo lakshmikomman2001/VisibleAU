@@ -92,8 +92,8 @@ export function AgentAnalyticsCrawlerCard({
             which counts every ingest source. Say so, instead of letting
             the two counts on one card quietly not add up. */}
         <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-          Identified by user agent; IP-verified only for hits from uploaded log files. Real-time
-          visits aren&apos;t IP-verified yet.
+          Identified by user agent; IP-verified only for hits from uploaded log files. Visits from
+          the tracking snippet can&apos;t be IP-verified.
         </p>
         <div className="mt-2 flex gap-4">
           <VerificationBadge label="Verified" count={verified} color="var(--success)" />
@@ -108,47 +108,51 @@ export function AgentAnalyticsCrawlerCard({
         )}
       </div>
 
-      {/* Ratio: its locked card on a plan without it (never fetched there) */}
-      <div
-        className="mt-5 border-t pt-4"
-        style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
-      >
-        {ratioLocked ? (
-          <PlanLockedCard feature="crawl_referral_ratio" />
-        ) : ratioFailed ? (
-          <LoadError what="the crawl-to-referral ratio" onRetry={onRetryRatio} />
-        ) : ratioData != null ? (
-          <div>
-            <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-              Crawl-to-Referral Ratio
-            </h3>
-            <div className="mt-2 space-y-1">
-              {ratioData.results.slice(0, 4).map((r) => (
-                <div key={r.vendor} className="flex items-center justify-between text-sm">
-                  <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
-                  <span className="font-mono" style={{ color: "var(--text-secondary)" }}>
-                    {r.ratioLabel}
-                    {r.benchmark != null && (
-                      <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                        (benchmark: {r.benchmark.toLocaleString()}:1)
-                      </span>
-                    )}
-                  </span>
-                </div>
-              ))}
+      {/* Ratio: its locked card on a plan without it (never fetched there). 17 Nov, part 2: shown only when a
+          referral was measured -- with none, every vendor read "0 visitors sent" beside a benchmark, and the empty
+          state offered to "connect a referral source", which nothing in the app does. */}
+      {(ratioLocked ||
+        ratioFailed ||
+        (ratioData?.results.some((r) => r.referralSessions > 0) ?? false)) && (
+        <div
+          className="mt-5 border-t pt-4"
+          style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
+        >
+          {ratioLocked ? (
+            <PlanLockedCard feature="crawl_referral_ratio" />
+          ) : ratioFailed ? (
+            <LoadError what="the crawl-to-referral ratio" onRetry={onRetryRatio} />
+          ) : ratioData?.results.some((r) => r.referralSessions > 0) ? (
+            <div>
+              <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                Crawl-to-Referral Ratio
+              </h3>
+              <div className="mt-2 space-y-1">
+                {ratioData.results.slice(0, 4).map((r) => (
+                  <div key={r.vendor} className="flex items-center justify-between text-sm">
+                    <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
+                    <span className="font-mono" style={{ color: "var(--text-secondary)" }}>
+                      {r.ratioLabel}
+                      {r.benchmark != null && (
+                        <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                          (benchmark: {r.benchmark.toLocaleString()}:1)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {/* AA-13: caveat ON the card, not buried */}
+              <p
+                className="mt-3 text-xs leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {ratioData.caveat}
+              </p>
             </div>
-            {/* AA-13: caveat ON the card, not buried */}
-            <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              {ratioData.caveat}
-            </p>
-          </div>
-        ) : (
-          <div className="py-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            No referral data available yet. Connect a referral source to see the crawl-to-referral
-            ratio.
-          </div>
-        )}
-      </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

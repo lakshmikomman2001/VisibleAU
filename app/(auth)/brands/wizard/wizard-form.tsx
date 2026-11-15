@@ -440,11 +440,9 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 Region
               </label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {[
-                  { value: "au", label: "Australia", enabled: true },
-                  { value: "nz", label: "New Zealand", enabled: false },
-                  { value: "uk", label: "United Kingdom", enabled: false },
-                ].map((r) => (
+                {/* 17 Nov, part 2: only the regions we audit -- no greyed New Zealand / United Kingdom
+                    "Coming soon". */}
+                {[{ value: "au", label: "Australia", enabled: true }].map((r) => (
                   <div
                     key={r.value}
                     style={{
@@ -475,13 +473,6 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                       }}
                     />
                     <span style={{ fontSize: 13, color: "var(--text-primary)" }}>{r.label}</span>
-                    {!r.enabled && (
-                      <span
-                        style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: "auto" }}
-                      >
-                        Coming soon
-                      </span>
-                    )}
                   </div>
                 ))}
               </div>

@@ -100,7 +100,7 @@ const asked = (route: string) =>
 const planRefusal = (plan: string) => Response.json(planRefusalBody(plan), { status: 403 });
 const lockedCard = (feature: string) => document.querySelector(`[data-plan-locked="${feature}"]`);
 // 9 Nov (regression follow-ups, part 6): a feature whose check isn't built (consensus, hallucinations,
-// LinkedIn) is part of no plan; in place of the plan lock its page says it isn't available yet.
+// LinkedIn) is part of no plan; in place of the plan lock its page says it isn't available (17 Nov: no "yet").
 const notAvailableCard = (feature: string) =>
   document.querySelector(`[data-not-available="${feature}"]`);
 const lockBadge = (feature: string) => document.querySelector(`[data-plan-lock="${feature}"]`);
@@ -138,7 +138,9 @@ interface PageCase {
   at: string;
   route: string;
   payload: unknown;
-  shows: RegExp;
+  /** What the page shows at its plan; null when it shows nothing (an unbuilt check: its route's layout
+   * answers 404, 17 Nov, part 2). */
+  shows: RegExp | null;
 }
 
 const TRUST_SUMMARY = {
@@ -176,7 +178,7 @@ const PAGES: PageCase[] = [
     at: "growth",
     route: `${API}/consensus-score`,
     payload: { implemented: false },
-    shows: /Not yet available/,
+    shows: null,
   },
   {
     name: "Trust → Entity score",
@@ -196,7 +198,7 @@ const PAGES: PageCase[] = [
     at: "growth",
     route: `${API}/hallucinations`,
     payload: { implemented: false },
-    shows: /Not yet available/,
+    shows: null,
   },
   {
     name: "LinkedIn presence",
@@ -266,7 +268,7 @@ const PAGES: PageCase[] = [
     at: "growth",
     route: `${API}/comparisons`,
     payload: [],
-    shows: /Comparisons will appear after your next audit/,
+    shows: /Head-to-head comparisons run with each audit you start/,
   },
   {
     name: "Reports",
@@ -332,7 +334,8 @@ describe.each(PAGES)("$name", (c) => {
       );
     } else {
       await waitFor(() => expect(notAvailableCard(c.feature)).not.toBeNull());
-      expect(notAvailableCard(c.feature)?.textContent).toContain("isn't available yet");
+      expect(notAvailableCard(c.feature)?.textContent).toContain("isn't available");
+      expect(notAvailableCard(c.feature)?.textContent).not.toContain("yet");
       expect(document.querySelector("[data-plan-locked]")).toBeNull();
     }
     expect(asked(c.route)).toEqual([]);
@@ -341,7 +344,14 @@ describe.each(PAGES)("$name", (c) => {
   it("at its plan: its content, from the route", async () => {
     stubFetch((url) => (url.split("?")[0] === c.route ? Response.json(c.payload) : undefined));
     withPlan(c.at, await c.element());
-    expect(await screen.findByText(c.shows)).toBeInTheDocument();
+    if (c.shows) expect(await screen.findByText(c.shows)).toBeInTheDocument();
+    else {
+      // An unbuilt check: nothing at all, never "Not yet available".
+      await waitFor(() => expect(asked(c.route).length).toBeGreaterThan(0));
+      await waitFor(() =>
+        expect(document.body.textContent).not.toMatch(/Not yet available|Loading/i),
+      );
+    }
     expect(asked(c.route).length).toBeGreaterThan(0);
     expect(document.querySelector("[data-plan-locked]")).toBeNull();
   });
@@ -353,7 +363,7 @@ describe.each(PAGES)("$name", (c) => {
     withPlan(c.at, await c.element());
     const card = brandFeatureBuilt(c.feature) ? lockedCard : notAvailableCard;
     await waitFor(() => expect(card(c.feature)).not.toBeNull());
-    expect(screen.queryByText(c.shows)).toBeNull();
+    if (c.shows) expect(screen.queryByText(c.shows)).toBeNull();
   });
 });
 

@@ -49,24 +49,21 @@ describe("entity-score/route.ts -- never presents a Knowledge Panel / Wikidata r
   });
 });
 
-describe("entity-score/page.tsx -- renders NotYetMeasuredCard in place of a fabricated result", () => {
-  const src = readFileSync(
-    "app/(auth)/brands/[brandId]/trust/entity-score/page.tsx",
-    "utf8",
-  );
+describe("entity-score/page.tsx -- shows nothing in place of a check that isn't built (17 Nov, part 2), never a fabricated result", () => {
+  const src = readFileSync("app/(auth)/brands/[brandId]/trust/entity-score/page.tsx", "utf8");
 
   it("gates KnowledgePanelCard behind knowledgePanelImplemented", () => {
-    expect(src).toContain("data.knowledgePanelImplemented ?");
+    expect(src).toContain("data.knowledgePanelImplemented &&");
     expect(src).toContain("KnowledgePanelCard");
   });
 
   it("gates WikidataStatusCard behind wikidataImplemented", () => {
-    expect(src).toContain("data.wikidataImplemented ?");
+    expect(src).toContain("data.wikidataImplemented &&");
     expect(src).toContain("WikidataStatusCard");
   });
 
-  it("imports the shared NotYetMeasuredCard for both", () => {
-    expect(src).toContain("NotYetMeasuredCard");
+  it('no placeholder card in their place (it said "hasn\'t been built yet -- this tile will populate once it ships")', () => {
+    expect(src).not.toContain("NotYetMeasuredCard");
   });
 });
 

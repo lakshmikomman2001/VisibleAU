@@ -4,7 +4,6 @@ import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
-import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { YoutubeGapCard } from "@/components/domain/trust/youtube-gap-card";
 import { YoutubePresenceScorecard } from "@/components/domain/trust/youtube-presence-scorecard";
 import { LayerBadge } from "@/components/phase2/layer-badge";
@@ -196,24 +195,8 @@ export default function YoutubePresencePage() {
   }
 
   if (data.implemented === false) {
-    return (
-      <div className="space-y-4 p-6">
-        <LayerBadge layer="trust" />
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-            YouTube Presence
-          </h1>
-          <button
-            disabled
-            className="rounded px-3 py-1.5 text-sm font-medium opacity-50"
-            style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-          >
-            Not yet available
-          </button>
-        </div>
-        <NotYetMeasuredCard metric="YouTube presence" />
-      </div>
-    );
+    // 17 Nov, part 2: unreachable -- the route's layout.tsx answers 404 while this check isn't built.
+    return null;
   }
 
   // Couldn't check at all -- must never render as a measured score.

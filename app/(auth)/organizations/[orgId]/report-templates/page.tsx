@@ -190,42 +190,34 @@ export default function ReportTemplatesPage() {
                 are always included.
               </p>
               <div className="space-y-1.5">
-                {editSections.map((s) => {
-                  const meta = ALL_SECTIONS.find((a) => a.type === s.type);
-                  return (
-                    <label
-                      key={s.type}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer"
-                      style={{
-                        backgroundColor: s.include
-                          ? "color-mix(in srgb, var(--layer-communication) 10%, transparent)"
-                          : "transparent",
-                        border: "1px solid var(--border-subtle)",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={s.include}
-                        onChange={() => toggleSection(s.type)}
-                        className="accent-[var(--layer-communication)]"
-                      />
-                      <span className="text-[13px]" style={{ color: "var(--text-primary)" }}>
-                        {meta?.label ?? s.type}
-                      </span>
-                      {meta && !meta.wired && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full"
-                          style={{
-                            backgroundColor: "var(--bg-hover)",
-                            color: "var(--text-tertiary)",
-                          }}
-                        >
-                          coming soon
+                {/* 17 Nov, part 2: a section the report doesn't draw yet isn't offered (it said "coming soon"). */}
+                {editSections
+                  .filter((s) => ALL_SECTIONS.find((a) => a.type === s.type)?.wired !== false)
+                  .map((s) => {
+                    const meta = ALL_SECTIONS.find((a) => a.type === s.type);
+                    return (
+                      <label
+                        key={s.type}
+                        className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer"
+                        style={{
+                          backgroundColor: s.include
+                            ? "color-mix(in srgb, var(--layer-communication) 10%, transparent)"
+                            : "transparent",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={s.include}
+                          onChange={() => toggleSection(s.type)}
+                          className="accent-[var(--layer-communication)]"
+                        />
+                        <span className="text-[13px]" style={{ color: "var(--text-primary)" }}>
+                          {meta?.label ?? s.type}
                         </span>
-                      )}
-                    </label>
-                  );
-                })}
+                      </label>
+                    );
+                  })}
               </div>
             </div>
 

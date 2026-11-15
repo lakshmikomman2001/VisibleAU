@@ -671,11 +671,14 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
       for (const waiting of [
         "Waiting for first audit to complete",
         "Waiting for your audit to finish before scanning for content gaps.",
-        "Explanation will appear after gap analysis",
-        "Content draft will be generated for the top gap",
+        // 17 Nov, part 2: no "Explanation will appear after gap analysis" / "Content draft will be generated".
+        "No draft yet",
         "Validation re-audit will run after draft approval",
       ]) {
         expect(content).toContain(waiting);
+      }
+      for (const promise of ["will appear after", "will be generated"]) {
+        expect(content).not.toContain(promise);
       }
       // Not the old empty state, and not a failed load (55f29e3's LoadError) passed off as one.
       expect(content).not.toContain("No autopilot loop yet");

@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { CheckCircle2, Edit3, Lightbulb } from "lucide-react";
+import { CheckCircle2, Lightbulb } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { db, withRlsContext } from "@/db/client";
@@ -105,43 +105,6 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
             {brandsCount !== 1 ? "s" : ""} using pack &middot; last updated {updatedLabel}
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          title="Prompt authoring — Coming v1.1"
-          style={{
-            height: 32,
-            padding: "0 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
-            cursor: "not-allowed",
-            opacity: 0.5,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          <Edit3 style={{ width: 14, height: 14 }} />
-          Customise prompts
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 500,
-              padding: "1px 6px",
-              borderRadius: 9999,
-              background: "var(--accent-muted)",
-              color: "var(--text-tertiary)",
-              marginLeft: 4,
-            }}
-          >
-            v1.1
-          </span>
-        </button>
       </div>
 
       {/* KPI cards: three across from 640px, stacked on a phone */}

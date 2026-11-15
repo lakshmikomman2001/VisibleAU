@@ -241,7 +241,10 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
   it("discloses that verification only covers IP-identified hits, not real-time visits", () => {
     const { container } = card(50, 30, 20);
     expect(container.textContent).toContain("IP-verified only for hits from uploaded log files");
-    expect(container.textContent).toContain("Real-time visits aren't IP-verified yet");
+    // 17 Nov, part 2: said "Real-time visits aren't IP-verified yet" -- a "not yet" with nothing planned.
+    expect(container.textContent).toContain(
+      "Visits from the tracking snippet can't be IP-verified",
+    );
   });
 });
 

@@ -136,9 +136,6 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
               {gap}
             </div>
           ))}
-          <button className="mt-2 text-sm font-medium" style={{ color: "var(--accent-primary)" }}>
-            Fix entity schema &rarr;
-          </button>
         </div>
       )}
     </div>

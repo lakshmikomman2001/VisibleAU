@@ -5,7 +5,6 @@ import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-g
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { LinkedinGapRow } from "@/components/domain/trust/linkedin-gap-row";
 import { LinkedinPresenceScorecard } from "@/components/domain/trust/linkedin-presence-scorecard";
-import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
 import { usePostAction } from "@/lib/hooks/use-action";
@@ -103,24 +102,8 @@ export default function LinkedinPresencePage() {
   }
 
   if (data.implemented === false) {
-    return (
-      <div className="space-y-4 p-6">
-        <LayerBadge layer="trust" />
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-            LinkedIn Presence
-          </h1>
-          <button
-            disabled
-            className="rounded px-3 py-1.5 text-sm font-medium opacity-50"
-            style={{ backgroundColor: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-          >
-            Not yet available
-          </button>
-        </div>
-        <NotYetMeasuredCard metric="LinkedIn presence" />
-      </div>
-    );
+    // 17 Nov, part 2: unreachable -- the route's layout.tsx answers 404 while this check isn't built.
+    return null;
   }
 
   return (

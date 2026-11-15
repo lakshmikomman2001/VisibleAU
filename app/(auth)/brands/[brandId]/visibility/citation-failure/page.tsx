@@ -15,7 +15,6 @@ export default function CitationFailurePage() {
   const [diagnoses, setDiagnoses] = useState<CitationDiagnosis[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [partial, setPartial] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -30,7 +29,6 @@ export default function CitationFailurePage() {
         }
         const data = await res.json();
         setDiagnoses(data.diagnoses ?? []);
-        setPartial(data.partial ?? false);
       } catch {
         setError("Failed to load diagnosis data");
       } finally {
@@ -92,19 +90,6 @@ export default function CitationFailurePage() {
           {diagnoses.map((d, i) => (
             <CitationFailureCard key={`${d.patternKey}-${i}`} diagnosis={d} />
           ))}
-        </div>
-      )}
-
-      {partial && (
-        <div
-          className="rounded-md px-4 py-3"
-          style={{
-            backgroundColor: `color-mix(in srgb, var(--text-secondary) 8%, transparent)`,
-          }}
-        >
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Deeper diagnosis available after trust + comparison data is collected
-          </p>
         </div>
       )}
     </div>

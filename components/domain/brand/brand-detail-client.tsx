@@ -949,7 +949,7 @@ export function BrandDetailClient({
               href: `/brands/${brand.id}/health-check`,
               label: "Health Check",
               icon: Activity,
-              desc: "Cross-layer traffic-light + #1 action",
+              desc: "AI presence, site readiness and local authority, side by side",
               lock: "health_check",
               color: "var(--layer-workflow)",
             },
@@ -1548,42 +1548,6 @@ export function BrandDetailClient({
                       </div>
                     );
                   })}
-                  {/* TikTok placeholder — Coming v1.1 */}
-                  <div style={{ opacity: 0.45 }} title="Coming v1.1">
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <span
-                        style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text-secondary)" }}
-                      >
-                        TikTok
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 500,
-                          padding: "1px 6px",
-                          borderRadius: 9999,
-                          background: "var(--accent-muted)",
-                          color: "var(--text-tertiary)",
-                        }}
-                      >
-                        Coming v1.1
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: 6,
-                        borderRadius: 9999,
-                        background: "var(--accent-muted)",
-                      }}
-                    />
-                  </div>
                 </div>
               )}
             </div>

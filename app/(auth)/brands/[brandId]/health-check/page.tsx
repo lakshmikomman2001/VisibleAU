@@ -193,8 +193,8 @@ export default function HealthCheckPage() {
             Run your first audit to see your Health Check
           </p>
           <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-            Once your first audit completes, your Health Check will appear here with a traffic-light
-            breakdown and your #1 recommended action.
+            It shows your AI presence, site readiness and local authority side by side, with your #1
+            recommended action.
           </p>
         </div>
       </div>

@@ -73,9 +73,11 @@ describe("F9/F13 — explainability renders honest placeholder, NOT fabrication"
     brandName: "Bondi Plumbing",
   };
 
-  it("step 3 shows 'Explanation will appear after gap analysis' when no explainability", () => {
+  // 17 Nov, part 2: no placeholder promising an explanation nothing supplies.
+  it("step 3 says no explanation is recorded when there's none, never 'will appear after'", () => {
     const { container } = render(<AutopilotLoop data={DATA_NO_EXPLAINABILITY} />);
-    expect(container.textContent).toContain("Explanation will appear after gap analysis");
+    expect(container.textContent).toContain("No explanation is recorded for this task.");
+    expect(container.textContent).not.toContain("Explanation will appear after gap analysis");
   });
 
   it("⚠️ does NOT fabricate a rationale", () => {

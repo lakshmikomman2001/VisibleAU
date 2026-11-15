@@ -197,26 +197,17 @@ export default function VisibilityPage() {
         <MentionsAndSourcesCard data={data?.mentionsAndSources ?? null} loading={loading} />
       </div>
 
-      {!loading && data?.fanOutPaused && (
-        <EmptyState message="Query simulation is being rebuilt and will return soon" />
-      )}
-
-      {(loading || (!data?.fanOutPaused && (data?.fanOut?.length ?? 0) > 0)) && (
+      {/* 17 Nov, part 2: query simulation is paused (QUERY_SIMULATION_ENABLED): the section isn't shown at all --
+          no "being rebuilt and will return soon" -- until it works. */}
+      {!loading && data && !data.fanOutPaused && data.fanOut.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {(data?.fanOut ?? []).slice(0, 2).map((group, i) => (
+          {data.fanOut.slice(0, 2).map((group) => (
             <FanOutTree
-              key={i}
+              key={group.originalPrompt}
               originalPrompt={group.originalPrompt}
               results={group.results}
-              loading={loading}
             />
           ))}
-          {loading && !data && (
-            <>
-              <FanOutTree originalPrompt="" results={[]} loading />
-              <FanOutTree originalPrompt="" results={[]} loading />
-            </>
-          )}
         </div>
       )}
 

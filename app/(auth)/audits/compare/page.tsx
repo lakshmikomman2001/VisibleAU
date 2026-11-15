@@ -127,7 +127,7 @@ export default async function ComparePage({
   const dims = ["Position", "Source citation"] as const;
   const dimKeys = ["position", "accuracy"] as const;
   const NOT_MEASURED_NOTE =
-    "Sentiment and Context aren't scored yet (no real classifier exists) — left out of this comparison.";
+    "Sentiment and Context aren't measured (there's no classifier behind them), so they're left out of this comparison.";
 
   function measuredCell(card: MentionDetailCard | null) {
     if (card?.kind !== "measured") return <span>{card?.line ?? "—"}</span>;

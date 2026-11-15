@@ -145,7 +145,7 @@ export default function ContentStructurePage() {
 
       {contentAudits.length === 0 ? (
         <div className="text-center py-12" style={{ color: "var(--text-secondary)" }}>
-          No content structure audits yet. Audits run weekly on Wednesdays at 10pm.
+          No content structure checks yet. They run once a week on paid plans.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

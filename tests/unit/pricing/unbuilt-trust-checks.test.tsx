@@ -39,10 +39,11 @@ describe("a brand feature whose check isn't built", () => {
 
   it.each(
     UNBUILT,
-  )("%s: its locked card says it isn't available yet, names no plan and sells none", (feature) => {
+  )('%s: its locked card says it isn\'t available (no "yet"), names no plan and sells none', (feature) => {
     const { container } = render(<PlanLockedCard feature={feature} />);
-    expect(lockedMessage(feature)).toBe(`${BRAND_FEATURES[feature].name} isn't available yet`);
-    expect(container.textContent).toContain("isn't available yet");
+    expect(lockedMessage(feature)).toBe(`${BRAND_FEATURES[feature].name} isn't available`);
+    expect(container.textContent).toContain("isn't available");
+    expect(container.textContent).not.toMatch(/\byet\b/);
     expect(container.textContent).not.toMatch(/plan\b.*(Growth|Starter|Agency)|part of the/i);
     expect(container.querySelector('a[href="/pricing"]')).toBeNull();
     expect(container.querySelector("[data-not-available]")).not.toBeNull();

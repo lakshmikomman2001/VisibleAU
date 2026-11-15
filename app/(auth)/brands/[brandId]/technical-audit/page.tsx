@@ -85,7 +85,6 @@ const CAT_META = [
   { key: "contentPct", label: "Content", desc: "Content quality + Meta tags" },
   { key: "authorityPct", label: "Authority", desc: "Brand & Entity AU presence" },
   { key: "schemaPct", label: "Schema", desc: "JSON-LD markup richness" },
-  { key: "performance", label: "Performance", desc: "Coming v1.1" },
 ];
 
 export default async function TechnicalAuditPage({
@@ -273,16 +272,11 @@ export default async function TechnicalAuditPage({
         </div>
       </div>
 
-      {/* 5-Category Rollup: five across from 1024px, fewer on a phone */}
-      <div
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
-        style={{ gap: 12, marginBottom: 32 }}
-      >
+      {/* Category rollup: four across from 1024px, two on a phone. 17 Nov, part 2: no "Performance -- Coming
+          v1.1" tile (nothing measures it). */}
+      <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12, marginBottom: 32 }}>
         {CAT_META.map((cat) => {
-          const isPerformance = cat.key === "performance";
-          const catM = isPerformance
-            ? null
-            : measured((rollup as unknown as Record<string, number | null>)[cat.key]);
+          const catM = measured((rollup as unknown as Record<string, number | null>)[cat.key]);
           const val = catM?.measured ? catM.value : null;
           return (
             <div
@@ -297,7 +291,7 @@ export default async function TechnicalAuditPage({
               <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 4 }}>
                 {cat.label}
               </div>
-              {val === null && !isPerformance ? (
+              {val === null ? (
                 <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 2 }}>
                   {NOT_MEASURED}
                 </div>
@@ -309,17 +303,11 @@ export default async function TechnicalAuditPage({
                     fontFamily: "var(--font-mono)",
                     fontVariantNumeric: "tabular-nums",
                     color:
-                      val === null
-                        ? "var(--text-disabled)"
-                        : val >= 60
-                          ? "var(--success)"
-                          : val >= 30
-                            ? "var(--warning)"
-                            : "var(--danger)",
+                      val >= 60 ? "var(--success)" : val >= 30 ? "var(--warning)" : "var(--danger)",
                     marginBottom: 2,
                   }}
                 >
-                  {val !== null ? `${val}%` : "—"}
+                  {`${val}%`}
                 </div>
               )}
               <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{cat.desc}</div>

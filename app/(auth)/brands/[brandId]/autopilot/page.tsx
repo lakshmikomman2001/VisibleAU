@@ -172,10 +172,7 @@ export default function AutopilotPage() {
         >
           <div className="text-center">
             <p className="text-[15px] font-medium mb-2">No autopilot loop yet</p>
-            <p className="text-[13px]">
-              The loop will populate after your first audit identifies gaps and generates
-              remediation tasks.
-            </p>
+            <p className="text-[13px]">Run an audit to start the loop.</p>
           </div>
         </div>
       )}

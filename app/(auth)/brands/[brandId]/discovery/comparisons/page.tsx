@@ -104,7 +104,11 @@ export default function ComparisonsPage() {
           <p className="text-lg font-medium">
             Add competitors to your brand to see head-to-head results
           </p>
-          <p className="mt-1 text-sm">Comparisons will appear after your next audit</p>
+          {/* 17 Nov, part 2: what's true -- comparisons run with an audit started from the app
+              (inngest/functions/run-comparison-prompts.ts on audit.complete), not "after your next audit". */}
+          <p className="mt-1 text-sm">
+            Head-to-head comparisons run with each audit you start, once competitors are set.
+          </p>
         </div>
       ) : (
         <>

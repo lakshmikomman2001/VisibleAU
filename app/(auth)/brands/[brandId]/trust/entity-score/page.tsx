@@ -5,7 +5,6 @@ import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-g
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EntityAuthorityGrid } from "@/components/domain/trust/entity-authority-grid";
 import { KnowledgePanelCard } from "@/components/domain/trust/knowledge-panel-card";
-import { NotYetMeasuredCard } from "@/components/domain/trust/not-yet-measured-card";
 import { WikidataStatusCard } from "@/components/domain/trust/wikidata-status-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { LoadError } from "@/components/shared/load-error";
@@ -182,19 +181,17 @@ export default function EntityScorePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <EntityAuthorityGrid data={data} />
-        {data.knowledgePanelImplemented ? (
+        {/* 17 Nov, part 2: a check that isn't built shows nothing (it said "hasn't been built yet — this tile
+            will populate once it ships"). */}
+        {data.knowledgePanelImplemented && (
           <KnowledgePanelCard
             present={data.knowledgePanelPresent}
             accurate={data.knowledgePanelAccurate}
             url={data.knowledgePanelUrl}
           />
-        ) : (
-          <NotYetMeasuredCard metric="Knowledge Panel" />
         )}
-        {data.wikidataImplemented ? (
+        {data.wikidataImplemented && (
           <WikidataStatusCard present={data.wikidataEntryPresent} url={data.wikidataEntryUrl} />
-        ) : (
-          <NotYetMeasuredCard metric="Wikidata" />
         )}
       </div>
     </div>

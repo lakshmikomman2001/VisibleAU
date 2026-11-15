@@ -511,9 +511,24 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
       expect(container.textContent).toContain("Emergency Plumbing");
     });
 
-    it("renders explainability placeholder when null (F9/F13 carried)", () => {
+    // 17 Nov, part 2: no "Explanation will appear after gap analysis" (nothing ever supplies one): the task's
+    // own description, or that none is recorded.
+    it("with no explanation: says none is recorded for the task, never a placeholder (F9/F13 carried)", () => {
       const { container } = render(<AutopilotLoop data={BONDI_DATA} />);
-      expect(container.textContent).toContain("Explanation will appear after gap analysis");
+      expect(container.textContent).toContain("No explanation is recorded for this task.");
+      expect(container.textContent).not.toContain("will appear after");
+    });
+
+    it("with the task's description: step 3 is that description", () => {
+      const data = {
+        ...BONDI_DATA,
+        topTask: {
+          ...(BONDI_DATA.topTask as object),
+          description: "Add an emergency plumbing page.",
+        },
+      } as typeof BONDI_DATA;
+      const { container } = render(<AutopilotLoop data={data} />);
+      expect(container.textContent).toContain("Add an emergency plumbing page.");
     });
   });
 });

@@ -17,6 +17,8 @@ import { type LoopStep, LoopStepCard, type StepStatus } from "./loop-step-card";
 export interface RemediationTask {
   id: string;
   title: string;
+  /** Why the task exists (remediation_tasks.description): step 3's explanation. */
+  description?: string | null;
   status: string;
   priority: number;
   scoreBefore: number | null;
@@ -113,7 +115,7 @@ export function step2Status(phase: Step2Phase): Extract<StepStatus, "current" | 
 
 /** Never render "priority #null" — omit the rank fragment when it's unset. */
 export function formatGapPriority(priorityRank: number | null | undefined): string {
-  return priorityRank != null ? `Priority #${priorityRank}` : "Priority not yet ranked";
+  return priorityRank != null ? `Priority #${priorityRank}` : "Not ranked";
 }
 
 export function deriveStepStatus(
@@ -190,7 +192,12 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       color: "var(--step-explain)",
       icon: <Lightbulb size={16} />,
       title: "Explanation shown",
-      description: explainability?.rationale ?? "Explanation will appear after gap analysis",
+      // 17 Nov, part 2: the task's own description -- never "Explanation will appear after gap analysis"
+      // (nothing supplies one).
+      description:
+        explainability?.rationale ??
+        topTask?.description ??
+        (topTask ? "No explanation is recorded for this task." : "—"),
       status: statuses[2],
       time: explainability?.confidenceNote ?? "",
     },
@@ -201,7 +208,7 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       title: "Draft approved",
       description: draft
         ? `${draft.title} · ${draft.status === "approved" ? "Approved" : draft.status}`
-        : "Content draft will be generated for the top gap",
+        : "No draft yet",
       status: statuses[3],
       time: draft?.approvedAt ? formatDate(draft.approvedAt) : "",
       detail:
@@ -245,11 +252,17 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
               }}
             />
             <div>
+              {/* 17 Nov, part 2: what is actually scheduled -- the validation re-audit runs 14 days after the task
+                  is marked done (inngest/functions/trigger-validation-reaudit.ts) -- not "will appear after". */}
               <div className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
-                Validation audit scheduled — pending
+                {topTask?.completedAt
+                  ? `Re-audit due ${formatDate(reauditDueDate(topTask.completedAt).toISOString())}`
+                  : "Not re-audited yet"}
               </div>
               <div className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-                Measured impact will appear after the re-audit completes.
+                {topTask?.completedAt
+                  ? "It measures this brand again 14 days after the task was marked done."
+                  : "A re-audit runs 14 days after the task is marked done."}
               </div>
             </div>
           </div>
@@ -458,6 +471,11 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       </div>
     </div>
   );
+}
+
+/** The validation re-audit's due date: 14 days after the task was marked done (trigger-validation-reaudit.ts). */
+export function reauditDueDate(completedAt: string | Date): Date {
+  return new Date(new Date(completedAt).getTime() + 14 * 24 * 60 * 60 * 1000);
 }
 
 export function buildMeasureDescription(task: RemediationTask | null): string {

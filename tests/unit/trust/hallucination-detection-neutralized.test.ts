@@ -50,8 +50,16 @@ describe("hallucinations/page.tsx -- renders the not-implemented state, not 'con
     expect(src).toMatch(/setImplemented\(false\)/);
   });
 
-  it("renders NotYetMeasuredCard when not implemented, before the incidents branch", () => {
-    expect(src).toContain('<NotYetMeasuredCard metric="Hallucination detection" />');
+  // 17 Nov, part 2: no placeholder -- the route's layout answers 404 while the check isn't built, and the page's
+  // not-implemented branch renders nothing.
+  it("the page doesn't exist while not implemented, and its not-implemented branch renders nothing, before the incidents branch", () => {
+    const layout = readFileSync(
+      "app/(auth)/brands/[brandId]/trust/hallucinations/layout.tsx",
+      "utf8",
+    );
+    expect(layout).toContain("if (!TRUST_CHECK_IMPLEMENTED.hallucinationDetection) notFound();");
+    expect(src).not.toContain("NotYetMeasuredCard");
+    expect(src).toMatch(/if \(!implemented\) \{\s*\/\/[^\n]*\n\s*return null;/);
     const notImplementedIndex = src.indexOf("if (!implemented)");
     const incidentsIndex = src.indexOf("incidents.length === 0");
     expect(notImplementedIndex).toBeGreaterThan(-1);

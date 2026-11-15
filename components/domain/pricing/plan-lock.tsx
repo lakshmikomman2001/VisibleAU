@@ -52,12 +52,13 @@ function lockCopy(feature: LockedFeature): { name: string; description: string; 
 
 /**
  * "Entity authority score is part of the Growth plan". A feature whose check isn't built yet is part of no
- * plan (9 Nov, part 6): "Cross-platform consensus isn't available yet" -- never sold on a locked card.
+ * plan (9 Nov, part 6): "Cross-platform consensus isn't available" -- never sold on a locked card (17 Nov, part 2:
+ * and never promised: it said "isn't available yet").
  */
 export function lockedMessage(feature: LockedFeature): string {
   if (!isBrandFeature(feature)) return planLockedMessage(feature);
   const { name, plan } = lockCopy(feature);
-  if (!brandFeatureBuilt(feature)) return `${name} isn't available yet`;
+  if (!brandFeatureBuilt(feature)) return `${name} isn't available`;
   return `${name} is part of the ${plan} plan`;
 }
 

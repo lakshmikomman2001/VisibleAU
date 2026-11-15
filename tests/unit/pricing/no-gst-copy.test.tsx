@@ -50,8 +50,6 @@ const TERMS_SENTENCE =
 const NOT_OUR_PRICES: Record<string, string> = {
   "lib/prompts/templates.ts":
     "questions the audit asks AI engines about accounting software for Australian businesses",
-  "app/(auth)/verticals/[packId]/page.tsx":
-    "what the SaaS pack checks in an audited business's own AI answers (its pricing display)",
   "scripts/test-abn-lookup.ts":
     "a developer script that prints the ABN register's GST field for a looked-up business",
 };

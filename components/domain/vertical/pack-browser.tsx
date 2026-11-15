@@ -10,44 +10,13 @@ import { fetchJson } from "@/lib/load/fetch-json";
 const VERTICAL_DESCRIPTIONS: Record<string, string> = {
   tradies: "Plumber, electrician, builder, landscaper",
   saas: "B2B software, dev tools",
-  allied_health: "Physio, psych, dietitian. AHPRA-aware framing.",
+  allied_health: "Physio, psych, dietitian and other clinics.",
 };
 
-const COMING_V1_1_PACKS = [
-  {
-    id: "professional_services",
-    name: "Professional Services",
-    desc: "Accountants, lawyers, consultants.",
-    status: "coming-v1.1" as const,
-  },
-  {
-    id: "real_estate",
-    name: "Real Estate",
-    desc: "Sales agents, property managers, buyer agents.",
-    status: "coming-v1.1" as const,
-  },
-];
-
-const COMING_SOON_PACKS = [
-  {
-    id: "hospitality",
-    name: "Hospitality",
-    desc: "Cafe, restaurant, accommodation.",
-    status: "coming-soon" as const,
-  },
-  {
-    id: "retail_ecommerce",
-    name: "Retail / E-commerce",
-    desc: "Online stores, ChatGPT Shopping surfaces.",
-    status: "coming-soon" as const,
-  },
-  {
-    id: "beauty",
-    name: "Beauty / Personal Care",
-    desc: "Salon, clinic, spa.",
-    status: "coming-soon" as const,
-  },
-];
+// 16 Nov, part 7: no "coming v1.1" (Professional Services, Real Estate) or "coming soon" (Hospitality, Retail, Beauty)
+// cards. A law firm, an agent, a café, a shop or a salon is supported now -- as the business type it confirms (the
+// wizard's "Other local business"), not a pack -- so those cards promised something that had already happened another
+// way.
 
 interface PackBrowserProps {
   mode: "wizard" | "browser";
@@ -56,8 +25,7 @@ interface PackBrowserProps {
 }
 
 type ActiveCard = VerticalPack & { status: "active"; brandsCount?: number };
-type FutureCard = { id: string; name: string; desc: string; status: "coming-v1.1" | "coming-soon" };
-type CardItem = ActiveCard | FutureCard;
+type CardItem = ActiveCard;
 
 // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch was `.catch(() => {})` (and an error body was set
 // as the pack list), so only the coming-soon packs showed, none of them selectable. It says so now.
@@ -74,11 +42,7 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
     return <LoadError what="the industry packs" detail={packs.detail} onRetry={packs.retry} />;
   }
 
-  const allCards: CardItem[] = [
-    ...activePacks.map((p) => ({ ...p, status: "active" as const })),
-    ...COMING_V1_1_PACKS,
-    ...(mode === "browser" ? COMING_SOON_PACKS : []),
-  ];
+  const allCards: CardItem[] = activePacks.map((p) => ({ ...p, status: "active" as const }));
 
   const handleCardClick = (card: CardItem) => {
     if (card.status !== "active") return;
@@ -155,22 +119,6 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
                   Active
                 </span>
               )}
-              {!isActive && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 500,
-                    padding: "2px 6px",
-                    borderRadius: 9999,
-                    background: "var(--accent-muted)",
-                    color: "var(--text-tertiary)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {card.status === "coming-v1.1" ? "v1.1" : "Soon"}
-                </span>
-              )}
             </div>
 
             <div
@@ -205,11 +153,7 @@ export function PackBrowser({ mode, onSelect, selectedPackId }: PackBrowserProps
                   </div>
                 )}
               </>
-            ) : (
-              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                {(card as FutureCard).desc}
-              </div>
-            )}
+            ) : null}
           </div>
         );
       })}

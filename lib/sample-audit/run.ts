@@ -7,6 +7,7 @@ import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { findLocation } from "@/lib/locations";
 import { SAMPLE_AUDIT_CONFIG, SAMPLE_AUDIT_DEADLINE_MS } from "./config";
 import { ensureSampleOrg } from "./synthetic-org";
+import type { SampleAuditVertical } from "./verticals";
 
 export interface SampleAuditResult {
   auditId: string;
@@ -61,7 +62,8 @@ export type SampleAuditLocation =
  */
 export async function runSampleAudit(
   domain: string,
-  vertical: string,
+  // 16 Nov, part 7: only a vertical with a question pack (./verticals.ts) -- typed, so no cast below.
+  vertical: SampleAuditVertical,
   location: SampleAuditLocation,
 ): Promise<SampleAuditResult> {
   // Vunnara (sample-audit follow-up, 20 Oct): the real shape is now 12
@@ -122,7 +124,7 @@ export async function runSampleAudit(
       // from a domain string, not a free-text name field.
       name: normalizeBrandName(domain),
       domain,
-      vertical: vertical as any,
+      vertical,
       region: "au",
       primaryRegions: [primaryRegion],
       // Audit reliability, Part C, item 4: a real, visitor-confirmed

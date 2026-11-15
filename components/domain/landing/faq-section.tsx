@@ -6,6 +6,7 @@ import {
   AUDIT_RESULTS_DELETED,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
+import { INDUSTRIES_ANSWER } from "@/lib/marketing/vertical-facts";
 import { formatAud, priceTaxSuffix } from "@/lib/pricing/gst";
 import { getTierDefinition, type TierDefinition } from "@/lib/pricing/tiers";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
@@ -67,7 +68,9 @@ const FAQ_ITEMS = [
   },
   {
     q: "What industries do you support?",
-    a: "Currently optimised for AU tradies, allied health, and professional services. More verticals added regularly.",
+    // 16 Nov, part 7: what the product really covers (lib/marketing/vertical-facts.ts), not "optimised for
+    // professional services. More verticals added regularly."
+    a: INDUSTRIES_ANSWER,
   },
   {
     q: 'What is "AI visibility" exactly?',

@@ -22,8 +22,8 @@ export default async function VerticalsPage() {
           Vertical packs
         </h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-          AU-tuned prompt libraries. 3 active (v1: Tradies, SaaS, Allied Health) &middot; 2 coming
-          v1.1 (Professional Services, Real Estate) &middot; 3 coming soon.
+          The shared question packs behind the free sample audit. A brand&apos;s own questions are
+          written for the business type it confirms.
         </p>
       </div>
 

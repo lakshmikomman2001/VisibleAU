@@ -5,6 +5,7 @@ import { AU_LOCATIONS } from "@/lib/locations";
 import { checkSampleAuditDailyCap } from "@/lib/sample-audit/daily-cap";
 import { checkSampleAuditRateLimit } from "@/lib/sample-audit/rate-limit";
 import { runSampleAudit } from "@/lib/sample-audit/run";
+import { SAMPLE_AUDIT_VERTICAL_VALUES } from "@/lib/sample-audit/verticals";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -31,7 +32,8 @@ const sampleAuditSchema = z.object({
     .min(3)
     .max(255)
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/),
-  vertical: z.string().min(1).max(100),
+  // 16 Nov, part 7: a vertical with a question pack; any other failed later with "No prompts available".
+  vertical: z.enum(SAMPLE_AUDIT_VERTICAL_VALUES),
   location: z.discriminatedUnion("type", [
     z.object({
       type: z.literal("curated"),
@@ -42,7 +44,10 @@ const sampleAuditSchema = z.object({
       suburb: z
         .string()
         .trim()
-        .regex(CUSTOM_SUBURB_REGEX, "Letters, spaces, hyphens and apostrophes only, 2-40 characters"),
+        .regex(
+          CUSTOM_SUBURB_REGEX,
+          "Letters, spaces, hyphens and apostrophes only, 2-40 characters",
+        ),
       state: z.enum(AU_STATE_CODES),
     }),
   ]),

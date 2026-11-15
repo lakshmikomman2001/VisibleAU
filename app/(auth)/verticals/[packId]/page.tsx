@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { CheckCircle2, Edit3, Lightbulb } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -7,46 +7,14 @@ import { db, withRlsContext } from "@/db/client";
 import { brands, verticalPackPrompts, verticalPacks } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { verticalFacts, verticalTypes } from "@/lib/marketing/vertical-facts";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
+import { CATEGORY_LABELS } from "@/lib/prompts/templates";
 
-const CATEGORY_SAMPLES: Record<string, string> = {
-  "service-discovery": "Who are the best plumbers in {location}?",
-  recommendation: "Can you recommend a good plumber in {location}?",
-  comparison: "{brand} vs {competitors} — which is better?",
-  "service-specific": "Plumber for hot water system installation in {location}?",
-  emergency: "24/7 emergency plumber near {location}?",
-  pricing: "How much does emergency plumbing cost in {location}?",
-  reviews: "Which plumbing companies in {location} have the best reviews?",
-  compliance: "Licensed plumbers in {location} — how do I check?",
-  "problem-driven": "I have lower back pain — who should I see in {location}?",
-};
-
-// Display-only relabel: the "Accuracy" dimension referenced below measures citation rate
-// (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal key
-// (accuracy) are unchanged — see docs/ops for the Phase 1 writeup.
-const VERTICAL_PATTERNS: Record<string, string[]> = {
-  tradies: [
-    "AU directories prioritised: hipages, Yellow Pages AU, ServiceSeeking, Word of Mouth",
-    "NSW/VIC license verification weighted higher in Source citation dimension",
-    "Suburb-specific prompts auto-generated from primary_regions",
-    "After-hours/emergency framing checked separately (high-intent)",
-    "NAP (Name/Address/Phone) consistency check vs ASIC business register",
-  ],
-  allied_health: [
-    "AHPRA registration verification weighted in Source citation dimension",
-    "Medicare/bulk-billing availability checked in pricing prompts",
-    "NDIS provider status factored into service-discovery prompts",
-    "Suburb-specific prompts auto-generated from primary_regions",
-    "HealthEngine and HotDoc directory presence checked",
-  ],
-  saas: [
-    "Australian data residency and privacy compliance weighted in Source citation",
-    "Xero/MYOB integration mentioned in comparison prompts",
-    "STP Phase 2 compliance checked for payroll/HR verticals",
-    "G2 and Capterra AU review presence factored into reviews prompts",
-    "Pricing in AUD with GST-inclusive display expected",
-  ],
-};
+// 16 Nov, part 7: each category's sample is the pack's own first prompt in it (it was a plumber question for every
+// pack: "Who are the best plumbers in {location}?" on Allied Health's and SaaS's), and "what this vertical gets" is
+// computed from the product (lib/marketing/vertical-facts.ts) -- it claimed licence and AHPRA verification, an ASIC
+// NAP check, HealthEngine and HotDoc presence, Xero/MYOB, STP, G2 and Capterra checks, none of which exist.
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
@@ -61,6 +29,17 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
     where: eq(verticalPacks.id, packId),
   });
   if (!pack || pack.retiredAt) notFound();
+
+  // The pack's own first prompt in each category, by rank: the category's sample.
+  const firstPrompts = await db
+    .selectDistinctOn([verticalPackPrompts.category], {
+      category: verticalPackPrompts.category,
+      promptTemplate: verticalPackPrompts.promptTemplate,
+    })
+    .from(verticalPackPrompts)
+    .where(and(eq(verticalPackPrompts.packId, pack.id), isNotNull(verticalPackPrompts.category)))
+    .orderBy(verticalPackPrompts.category, asc(verticalPackPrompts.rank));
+  const sampleByCategory = new Map(firstPrompts.map((r) => [r.category, r.promptTemplate]));
 
   const categoryBreakdown = await db
     .select({
@@ -93,7 +72,8 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
     : "—";
 
   const displayName = capitalize(pack.vertical);
-  const patterns = VERTICAL_PATTERNS[pack.vertical] ?? VERTICAL_PATTERNS.tradies;
+  const patterns = verticalFacts(pack.vertical);
+  const types = verticalTypes(pack.vertical);
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
@@ -173,9 +153,12 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
             desc: `Across ${categoryBreakdown.length} categories`,
           },
           {
-            label: "Sub-verticals",
-            value: "8",
-            desc: "Plumber, electrician, builder...",
+            label: "Business types",
+            value: String(types.length),
+            desc: `${types
+              .slice(0, 3)
+              .map((t) => CATEGORY_LABELS[t])
+              .join(", ")}${types.length > 3 ? "…" : ""}`,
           },
           {
             label: "Categories",
@@ -234,7 +217,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ pac
           </h3>
         </div>
         {categoryBreakdown.map((cat) => {
-          const sample = CATEGORY_SAMPLES[cat.category ?? ""] ?? null;
+          const sample = sampleByCategory.get(cat.category) ?? null;
           return (
             <div
               key={cat.category}

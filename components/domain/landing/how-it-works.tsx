@@ -1,3 +1,8 @@
+import { answersPerAudit } from "@/lib/marketing/vertical-facts";
+
+// 16 Nov, part 7: the answer counts come from each plan's engines (lib/llm/tier-engines.ts), not written in.
+const ANSWERS = answersPerAudit();
+
 export function HowItWorks() {
   const steps = [
     {
@@ -12,7 +17,7 @@ export function HowItWorks() {
       // engine now (the old "200"/"100" assumed 5 replayed runs per
       // question, never an independent sample). "Answers", never
       // "calls".
-      desc: "We send standardised questions across ChatGPT, Claude, Gemini, and Perplexity. Paid: 40+ answers across 4 engines. Free: 20+ answers across 2 engines.",
+      desc: `We send standardised questions across ChatGPT, Claude, Gemini, and Perplexity. Paid: ${ANSWERS.paidAnswers}+ answers across ${ANSWERS.paidEngines} engines. Free: ${ANSWERS.freeAnswers}+ answers across ${ANSWERS.freeEngines} engines.`,
     },
     {
       n: 3,

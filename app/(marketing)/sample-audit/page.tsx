@@ -6,14 +6,11 @@ import { useState } from "react";
 import { AU_STATES } from "@/lib/constants/au";
 import { AU_LOCATIONS } from "@/lib/locations";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
+import { SAMPLE_AUDIT_VERTICALS } from "@/lib/sample-audit/verticals";
 
-const VERTICALS = [
-  { value: "tradies", label: "Tradies" },
-  { value: "allied_health", label: "Allied Health" },
-  { value: "saas", label: "SaaS" },
-  { value: "professional_services", label: "Professional Services" },
-  { value: "real_estate", label: "Real Estate" },
-];
+// 16 Nov, part 7: only the verticals with a question pack (lib/sample-audit/verticals.ts) -- Professional Services
+// and Real Estate have none, and their samples failed.
+const VERTICALS = SAMPLE_AUDIT_VERTICALS;
 
 // Reliability follow-up, item 4 -- a sentinel the curated dropdown can
 // select to reveal the free-text "my suburb isn't listed" fields

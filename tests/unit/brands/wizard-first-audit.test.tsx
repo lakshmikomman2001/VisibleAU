@@ -10,7 +10,6 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WizardForm } from "@/app/(auth)/brands/wizard/wizard-form";
-import type { VerticalPack } from "@/db/schema";
 import {
   brandPageAfterFailedFirstAudit,
   firstAuditFailedSentence,
@@ -20,19 +19,10 @@ const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn(
 vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/brands/b1" }));
 vi.mock("@/components/domain/set-breadcrumbs", () => ({ SetBreadcrumbs: () => null }));
 vi.mock("@/components/domain/vertical/prompt-preview", () => ({ PromptPreview: () => null }));
-vi.mock("@/components/domain/vertical/pack-browser", () => ({
-  PackBrowser: ({ onSelect }: { onSelect: (pack: VerticalPack) => void }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onSelect({
-          id: "pack-1",
-          name: "Tradies AU",
-          vertical: "tradies",
-          promptsCount: 10,
-        } as VerticalPack)
-      }
-    >
+// 16 Nov, part 4: the wizard's step 2 is the business-kind picker (it was the vertical-pack cards).
+vi.mock("@/components/domain/vertical/business-kind-picker", () => ({
+  BusinessKindPicker: ({ onChange }: { onChange: (vertical: string) => void }) => (
+    <button type="button" onClick={() => onChange("tradies")}>
       select-pack
     </button>
   ),

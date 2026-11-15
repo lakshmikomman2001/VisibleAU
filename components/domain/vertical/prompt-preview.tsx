@@ -1,6 +1,10 @@
 "use client";
 
-import { previewRegion, wizardPreviewQuestions } from "@/lib/prompts/wizard-preview";
+import {
+  PREVIEW_IS_EXAMPLES,
+  previewRegion,
+  wizardPreviewQuestions,
+} from "@/lib/prompts/wizard-preview";
 
 interface PromptPreviewProps {
   vertical: string;
@@ -25,7 +29,7 @@ export function PromptPreview({ vertical, primaryRegion }: PromptPreviewProps) {
           marginBottom: 8,
         }}
       >
-        Sample questions
+        {PREVIEW_IS_EXAMPLES.includes(vertical) ? "Example questions" : "Sample questions"}
       </p>
       {questions.map((q) => (
         <p
@@ -44,7 +48,9 @@ export function PromptPreview({ vertical, primaryRegion }: PromptPreviewProps) {
         {previewRegion(primaryRegion) === "your suburb"
           ? "Your suburb goes in once you add it. "
           : ""}
-        Your own questions are written for your business type once you confirm it.
+        {vertical === "local_business"
+          ? "Examples for a café, a gym, a salon, a shop and an accountant. Yours are written for what you do once you confirm it."
+          : "Your own questions are written for your business type once you confirm it."}
       </p>
     </div>
   );

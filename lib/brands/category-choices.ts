@@ -28,6 +28,19 @@ export const CATEGORIES_FOR_VERTICAL: Record<string, readonly CategoryKey[]> = {
   ],
   professional_services: ["legal_services", "fintech_payments", "education_online"],
   real_estate: ["real_estate_agency"],
+  // 16 Nov, part 4: "Other local business" -- the local types first; the rest under "Other types".
+  local_business: [
+    "cafe",
+    "hospitality_restaurant",
+    "fitness_gym",
+    "beauty_salon",
+    "retail_shop",
+    "accounting_practice",
+    "legal_services",
+    "real_estate_agency",
+    "allied_health_general",
+    "general",
+  ],
 };
 
 /**

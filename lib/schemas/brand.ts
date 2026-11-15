@@ -9,7 +9,7 @@ export const brandFormSchema = z.object({
       message: "Enter a domain without http:// (e.g. example.com.au)",
     })
     .transform((d) => d.replace(/^www\./i, "")),
-  vertical: z.enum(["tradies", "allied_health", "saas"]),
+  vertical: z.enum(["tradies", "allied_health", "saas", "local_business"]),
   primaryRegions: z.array(z.string()).min(1, "Select at least one region").max(5),
   competitors: z.array(z.string().max(100)).max(10).default([]),
 });

@@ -15,22 +15,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WizardForm } from "@/app/(auth)/brands/wizard/wizard-form";
-import type { VerticalPack } from "@/db/schema";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
 }));
 
-const FAKE_PACK: Partial<VerticalPack> = {
-  id: "pack-1",
-  name: "Tradies AU",
-  vertical: "tradies",
-  promptsCount: 10,
-};
-
-vi.mock("@/components/domain/vertical/pack-browser", () => ({
-  PackBrowser: ({ onSelect }: { onSelect: (pack: VerticalPack) => void }) => (
-    <button type="button" onClick={() => onSelect(FAKE_PACK as VerticalPack)}>
+// 16 Nov, part 4: the wizard's step 2 is the business-kind picker (it was the vertical-pack cards).
+vi.mock("@/components/domain/vertical/business-kind-picker", () => ({
+  BusinessKindPicker: ({ onChange }: { onChange: (vertical: string) => void }) => (
+    <button type="button" onClick={() => onChange("tradies")}>
       select-pack
     </button>
   ),

@@ -25,7 +25,8 @@ const createBrandSchema = z.object({
   // must fail validation, not silently become an empty string.
   name: z.string().transform(normalizeBrandName).pipe(z.string().min(1).max(100)),
   domain: z.string().min(1).max(253),
-  vertical: z.enum(["tradies", "allied_health", "saas"]),
+  // 16 Nov, part 4: and "Other local business".
+  vertical: z.enum(["tradies", "allied_health", "saas", "local_business"]),
   abn: z
     .string()
     .regex(/^\d{2}\s?\d{3}\s?\d{3}\s?\d{3}$/, "Must be an 11-digit ABN")

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
-import { PackBrowser } from "@/components/domain/vertical/pack-browser";
+import { BusinessKindPicker } from "@/components/domain/vertical/business-kind-picker";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
-import type { VerticalPack } from "@/db/schema";
+import { VERTICAL_LABELS } from "@/lib/brands/business-label";
 import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
 import {
   brandPageAfterFailedFirstAudit,
@@ -56,9 +56,6 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
     }
   };
   const [vertical, setVertical] = useState("");
-  const [selectedPackId, setSelectedPackId] = useState("");
-  const [selectedPackName, setSelectedPackName] = useState("");
-  const [selectedPackPrompts, setSelectedPackPrompts] = useState(0);
   const [suburbs, setSuburbs] = useState<string[]>([]);
   const [suburbInput, setSuburbInput] = useState("");
   // 13 Nov (part 8): the first suburb's postcode, where Google's AI answers are checked from (optional).
@@ -77,13 +74,6 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const handlePackSelect = (pack: VerticalPack) => {
-    setSelectedPackId(pack.id);
-    setSelectedPackName(pack.name);
-    setSelectedPackPrompts(pack.promptsCount);
-    setVertical(pack.vertical);
-  };
 
   const addSuburb = () => {
     setSuburbError("");
@@ -527,7 +517,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
           </div>
         )}
 
-        {/* ═══ STEP 2: Vertical pack ═══ */}
+        {/* ═══ STEP 2: What kind of business (16 Nov, part 4) ═══ */}
         {step === 2 && (
           <div>
             <h2
@@ -538,17 +528,13 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 marginBottom: 4,
               }}
             >
-              Vertical pack
+              What kind of business?
             </h2>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
-              Pick the closest match. We&apos;ll use AU-tuned prompts and vertical-specific
-              recommendations.
+              Pick the closest match. After you add the brand, you&apos;ll confirm exactly what it
+              does, and its questions are written for that.
             </p>
-            <PackBrowser
-              mode="wizard"
-              onSelect={handlePackSelect}
-              selectedPackId={selectedPackId}
-            />
+            <BusinessKindPicker value={vertical} onChange={setVertical} />
             {vertical && <PromptPreview vertical={vertical} primaryRegion={suburbs[0] ?? ""} />}
           </div>
         )}
@@ -848,11 +834,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                 { label: "Brand", value: name },
                 { label: "Domain", value: domain },
                 { label: "Logo", value: logoUrl ? "Uploaded" : "None yet" },
-                { label: "Vertical", value: vertical.replace(/_/g, " ") },
-                {
-                  label: "Pack",
-                  value: `${selectedPackName || vertical} · ${selectedPackPrompts || "—"} prompts`,
-                },
+                { label: "Business", value: VERTICAL_LABELS[vertical] ?? vertical },
                 {
                   label: "Locations",
                   value: isOnlineOnly

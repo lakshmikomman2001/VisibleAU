@@ -1,0 +1,15 @@
+-- Migration 0151 (16 Nov 2026, part 4): the wizard's "Other local business" -- a vertical value for any local business
+-- that isn't a tradie or allied health (a café, a gym, a salon, a shop, an accountant, a law firm...).
+--
+-- RUN BEFORE THE PUSH THAT CARRIES IT (prod-fix 0151 run1 -> run3; run4 only to undo). Nothing reads the new value
+-- until someone picks it, so the pushed code doesn't fail without it -- but the wizard's "Other local business" would:
+-- POST /api/brands inserts brands.vertical = 'local_business'.
+--
+-- The vertical enum types brands.vertical and vertical_packs.vertical. Adding a value changes no existing row, and no
+-- CHECK constraint on either table names the vertical (conversation_journeys.vertical is text with its own CHECK, and
+-- journeys aren't created for this value). No vertical pack is added: confirmed brands' questions come from their
+-- business types (lib/prompts/templates.ts), never a pack.
+--
+-- ADD VALUE IF NOT EXISTS: re-running is harmless. (It can't be used in the same transaction it's added in; nothing
+-- here uses it.)
+ALTER TYPE "public"."vertical" ADD VALUE IF NOT EXISTS 'local_business';

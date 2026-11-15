@@ -11,6 +11,7 @@ export const VERTICAL_LABELS: Record<string, string> = {
   saas: "SaaS / software",
   professional_services: "Professional services",
   real_estate: "Real estate",
+  local_business: "Other local business",
 };
 
 export function brandBusinessLabel(brand: {

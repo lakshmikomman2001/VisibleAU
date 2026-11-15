@@ -17,6 +17,9 @@ export const verticalEnum = pgEnum("vertical", [
   "saas",
   "professional_services",
   "real_estate",
+  // 16 Nov, part 4 (migration 0151): the wizard's "Other local business" -- a café, a gym, a salon, a shop, an
+  // accountant, a law firm... Its questions come from the confirmed business type, like every vertical's.
+  "local_business",
 ]);
 
 export type Tier = (typeof tierEnum.enumValues)[number];

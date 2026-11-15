@@ -1671,6 +1671,7 @@ export function BrandDetailClient({
               <option value="saas">SaaS</option>
               <option value="professional_services">Professional services</option>
               <option value="real_estate">Real estate</option>
+              <option value="local_business">Other local business</option>
             </select>
           </div>
           <div>

@@ -34,10 +34,12 @@ export async function classifyAndStoreBrand(brandId: string): Promise<void> {
     .where(eq(brands.id, brandId));
 
   try {
+    // 16 Nov, part 4: "Other local business" is no hint about the type -- passed as one, it would lean the
+    // classifier toward whatever the word suggests. Only a real vertical (tradies, allied health, SaaS) is passed.
     const classification = await classifyBrand(
       brand.name,
       brand.domain,
-      brand.vertical ?? undefined,
+      brand.vertical && brand.vertical !== "local_business" ? brand.vertical : undefined,
     );
 
     // Vunnara Build 1, Part C.4: a low-confidence or fell-through-to-

@@ -21,14 +21,10 @@ const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/components/domain/set-breadcrumbs", () => ({ SetBreadcrumbs: () => null }));
 vi.mock("@/components/domain/vertical/prompt-preview", () => ({ PromptPreview: () => null }));
-vi.mock("@/components/domain/vertical/pack-browser", () => ({
-  PackBrowser: ({ onSelect }: { onSelect: (pack: Record<string, unknown>) => void }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onSelect({ id: "pack-trades", name: "Trades", promptsCount: 10, vertical: "tradies" })
-      }
-    >
+// 16 Nov, part 4: the wizard's step 2 is the business-kind picker (it was the vertical-pack cards).
+vi.mock("@/components/domain/vertical/business-kind-picker", () => ({
+  BusinessKindPicker: ({ onChange }: { onChange: (vertical: string) => void }) => (
+    <button type="button" onClick={() => onChange("tradies")}>
       Pick Trades
     </button>
   ),

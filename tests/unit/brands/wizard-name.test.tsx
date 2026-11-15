@@ -13,7 +13,10 @@ import { WizardForm } from "@/app/(auth)/brands/wizard/wizard-form";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
 }));
-vi.mock("@/components/domain/vertical/pack-browser", () => ({ PackBrowser: () => null }));
+// 16 Nov, part 4: the wizard's step 2 is the business-kind picker (it was the vertical-pack cards).
+vi.mock("@/components/domain/vertical/business-kind-picker", () => ({
+  BusinessKindPicker: () => null,
+}));
 vi.mock("@/components/domain/vertical/prompt-preview", () => ({ PromptPreview: () => null }));
 
 const AUDIT_CONFIG = {

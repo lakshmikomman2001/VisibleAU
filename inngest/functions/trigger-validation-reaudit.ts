@@ -3,7 +3,7 @@ import { serviceDb } from "@/db/client";
 import { audits, brands, remediationTasks } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
-import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { runBackgroundAudit } from "@/lib/audit/run-background-audit";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { inngest } from "@/lib/inngest/client";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
@@ -109,7 +109,7 @@ export const triggerValidationReaudit = inngest.createFunction(
     });
 
     await step.run("run-reaudit", async () => {
-      await runAuditInline(auditId);
+      await runBackgroundAudit(auditId, brandId);
     });
 
     await step.run("record-lift", async () => {

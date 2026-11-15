@@ -31,9 +31,11 @@ describe("trigger-validation-reaudit — event + quota gate", () => {
     expect(source).toContain("quota_exceeded");
   });
 
+  // Leftovers task, part 2 (17 Nov): inline as before, through runBackgroundAudit -- the audit (which now ends with
+  // audit.complete, so every follow-up runs) and the technical audit beside it, as an audit started by hand.
   it("creates an audit row and runs reaudit inline", () => {
     expect(source).toContain("create-reaudit-audit");
-    expect(source).toContain("runAuditInline");
+    expect(source).toContain("await runBackgroundAudit(auditId, brandId)");
   });
 
   it("calls recordReauditResults to write back lift", () => {

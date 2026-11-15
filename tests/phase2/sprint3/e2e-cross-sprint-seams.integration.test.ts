@@ -756,9 +756,13 @@ describe("SEAM 5: vertical_pack_prompts seam", () => {
 // ═══════════════════════════════════════════════════════════
 
 describe("SEAM 6: event seam — audit.complete + serve() array", () => {
+  // Leftovers task, part 2 (17 Nov): the event is built once (lib/audit/audit-complete.ts), for run-audit, the inline
+  // runner and the Google collector alike.
   it("run-audit.ts emits 'audit.complete' (dot notation)", () => {
     const source = fs.readFileSync(path.resolve("inngest/functions/run-audit.ts"), "utf-8");
-    expect(source).toContain('"audit.complete"');
+    expect(source).toContain("auditCompleteEvent(");
+    const event = fs.readFileSync(path.resolve("lib/audit/audit-complete.ts"), "utf-8");
+    expect(event).toContain('export const AUDIT_COMPLETE_EVENT = "audit.complete";');
   });
 
   it("all S3 functions listen on 'audit.complete' (dot) — matches emitter", () => {

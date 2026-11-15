@@ -3,7 +3,7 @@ import { serviceDb } from "@/db/client";
 import { inOpenWorkspace, ofLiveBrand } from "@/db/open-workspace";
 import { auditSchedules, audits, brands } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
-import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { runBackgroundAudit } from "@/lib/audit/run-background-audit";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { sendScheduleNeedsConfirmationAlert } from "@/lib/communication/alert-composer";
 import { appUrl } from "@/lib/email/links";
@@ -144,7 +144,7 @@ export const auditSchedulesCron = inngest.createFunction(
       if (!auditId) continue;
 
       await step.run(`run-audit-${schedule.id}`, async () => {
-        await runAuditInline(auditId);
+        await runBackgroundAudit(auditId, schedule.brandId);
       });
 
       await step.run(`update-schedule-${schedule.id}`, async () => {

@@ -10,6 +10,7 @@ import {
 import { GOOGLE_STORED_REASON } from "@/lib/audit/google-surfaces/reasons";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 
 /**
  * Google AI surfaces, Phase 1, part 2 -- one audit's Google AI Overviews and AI Mode answers, collected after
@@ -42,14 +43,14 @@ export const collectGoogleSurfacesFn = inngest.createFunction(
         finishGoogleSurfaces(data.auditId, GOOGLE_STORED_REASON.functionFailed),
       );
       if (data.sendAuditComplete) {
-        await step.sendEvent("google:audit-complete-after-failure", {
-          name: "audit.complete",
-          data: {
-            auditId: data.auditId,
+        await step.sendEvent(
+          "google:audit-complete-after-failure",
+          auditCompleteEvent({
+            id: data.auditId,
             brandId: data.brandId,
             organizationId: data.organizationId,
-          },
-        });
+          }),
+        );
       }
     },
   },

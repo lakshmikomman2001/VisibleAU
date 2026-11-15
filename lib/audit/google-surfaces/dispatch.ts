@@ -185,20 +185,25 @@ export async function finishWithoutCollecting(auditId: string, reason: string): 
  * The inline runner's hand-off (scheduled, bulk, validation and workflow audits run it inside another
  * function's step, which has no steps of its own to wait in): queue, then send the event. If it can't be
  * sent, the questions are skipped and the page says why. Never throws.
+ *
+ * Leftovers task, part 2 (17 Nov): with sendAuditComplete, as run-audit hands over, so the collector sends
+ * audit.complete when Google is done and every follow-up includes it. True when it handed over (the caller sends
+ * nothing more); false when nothing was queued or the event couldn't be sent (the caller sends audit.complete).
  */
 export async function dispatchGoogleSurfacesInline(
   audit: { id: string; brandId: string; organizationId: string },
   prompts: readonly { text: string; isBranded: boolean }[],
-): Promise<void> {
-  if (!(await queueGoogleQuestions(audit.id, prompts))) return;
+): Promise<boolean> {
+  if (!(await queueGoogleQuestions(audit.id, prompts))) return false;
   const data: GoogleCollectEventData = {
     auditId: audit.id,
     brandId: audit.brandId,
     organizationId: audit.organizationId,
-    sendAuditComplete: false,
+    sendAuditComplete: true,
   };
   try {
     await inngest.send({ name: GOOGLE_COLLECT_EVENT, data });
+    return true;
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -208,5 +213,6 @@ export async function dispatchGoogleSurfacesInline(
       }),
     );
     await finishWithoutCollecting(audit.id, GOOGLE_STORED_REASON.runnerUnreachable).catch(() => {});
+    return false;
   }
 }

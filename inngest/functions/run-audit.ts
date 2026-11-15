@@ -36,6 +36,7 @@ import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
+import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 
 // "Inngest: fit within the 5 concurrent steps of the free plan", item
 // 1 -- the largest tier's own engine count today (lib/llm/tier-
@@ -591,14 +592,15 @@ export const runAudit = inngest.createFunction(
         }
       }
 
-      await step.sendEvent("audit-complete-email", {
-        name: "audit.complete",
-        data: {
-          auditId,
+      // The same event the inline runner sends (lib/audit/audit-complete.ts); the step id is unchanged.
+      await step.sendEvent(
+        "audit-complete-email",
+        auditCompleteEvent({
+          id: auditId,
           brandId: loaded.audit.brandId,
           organizationId: loaded.audit.organizationId,
-        },
-      });
+        }),
+      );
       return { auditId, totalCost: costTally.knownUsd };
     } catch (err) {
       await serviceDb

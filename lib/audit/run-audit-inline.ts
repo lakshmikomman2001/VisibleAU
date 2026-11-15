@@ -7,6 +7,7 @@ import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine-failure";
+import { sendAuditComplete } from "@/lib/audit/audit-complete";
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
@@ -502,18 +503,26 @@ export async function runAuditInline(
       console.error("[audit-inline] quality gate evaluation failed (non-fatal):", qgErr);
     }
 
-    // Google AI surfaces (Phase 1): only when a surface was on at the start; the four engines are done.
-    // Hands the questions to inngest/functions/collect-google-surfaces.ts and never throws.
-    if (google) {
-      await dispatchGoogleSurfacesInline(
-        { id: auditId, brandId: a.brandId, organizationId: a.organizationId },
-        prompts,
-      );
-    }
+    // Leftovers task, part 2 (17 Nov): finished the way an audit started by hand finishes
+    // (inngest/functions/run-audit.ts): Google, when a surface was on, then audit.complete -- which every follow-up
+    // listens for (lib/audit/audit-complete.ts). This runner sent none, so a scheduled, bulk, workflow or validation
+    // audit got no completion email, no weekly trend (so no narrative report, PDF or scheduled report email), no
+    // topical gaps, citation sources, evidence snapshot, hallucination check, GA4 push, head-to-head comparisons or
+    // webhooks -- only the inline copies of drift, recommendations and the two alerts below. Those now run only when
+    // Inngest can't be reached (the manual route's fallback, app/api/audits/route.ts, when its own send failed).
+    //
+    // The public sample audit (a throwaway brand in the sample workspace, triggeredBy "sample") has no follow-ups:
+    // nobody receives its email or report, and nothing shows its recommendations or drift.
+    if (a.triggeredBy === "sample") return;
+    const finishedAudit = { id: auditId, brandId: a.brandId, organizationId: a.organizationId };
+    // Google AI surfaces (Phase 1): when a surface was on at the start, the questions go to
+    // inngest/functions/collect-google-surfaces.ts, which sends audit.complete when Google is done (as for an
+    // audit started by hand). Never throws.
+    if (google && (await dispatchGoogleSurfacesInline(finishedAudit, prompts))) return;
+    if (await sendAuditComplete(finishedAudit)) return;
 
-    // URGENT audit #37 (31 Oct), item 2: the same alert the Inngest path
-    // sends (inngest/functions/notify-engine-total-failure.ts) when a
-    // whole engine failed -- this fallback path sends no audit.complete.
+    // Inngest couldn't be reached: what can run here, does. URGENT audit #37 (31 Oct), item 2: the same alert the
+    // Inngest path sends (inngest/functions/notify-engine-total-failure.ts) when a whole engine failed.
     const totalFailureEngines = engines.filter(
       (engine) => (engineFailures[engine] ?? 0) >= prompts.length && prompts.length > 0,
     );

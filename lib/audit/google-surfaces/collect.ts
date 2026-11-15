@@ -22,6 +22,7 @@ import type { GoogleSurfaceProvider, SurfaceTarget, TaskPoll } from "@/lib/serp/
 import type { GoogleCollectEventData, StoredGoogleSettings } from "./dispatch";
 import { alertOperatorsOnAccountProblem } from "./operator";
 import { GOOGLE_STORED_REASON } from "./reasons";
+import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 
 /**
  * Google AI surfaces, Phase 1, part 2 -- collecting one audit's Google AI Overviews and AI Mode answers,
@@ -599,10 +600,14 @@ export async function collectGoogleSurfaces(
   const finished = await step.run("google:finish", () => finishGoogleSurfaces(auditId));
 
   if (data.sendAuditComplete) {
-    await step.sendEvent("google:audit-complete", {
-      name: "audit.complete",
-      data: { auditId, brandId: data.brandId, organizationId: data.organizationId },
-    });
+    await step.sendEvent(
+      "google:audit-complete",
+      auditCompleteEvent({
+        id: auditId,
+        brandId: data.brandId,
+        organizationId: data.organizationId,
+      }),
+    );
   }
   return { auditId, costUsd: finished.costUsd };
 }

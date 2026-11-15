@@ -491,7 +491,11 @@ describe("Google AI surfaces on: the real pipeline, the provider's recorded answ
 });
 
 describe("the inline runner hands over too", () => {
-  it("queues the questions and sends google-surfaces/collect without audit.complete; if it can't, says so", async () => {
+  // Leftovers task, part 2 (17 Nov): with sendAuditComplete, as run-audit hands over -- the collector sends
+  // audit.complete when Google is done, so a scheduled audit's follow-ups include Google like a manual one's. It
+  // sent false: no follow-up ever ran for an inline audit. If the hand-off can't be sent, the runner sends
+  // audit.complete itself (and runs what it can inline when Inngest is down altogether).
+  it("queues the questions and hands over to google-surfaces/collect, which sends audit.complete; if it can't, says so", async () => {
     switchOn();
     const { inngest } = await import("@/lib/inngest/client");
     const { runAuditInline } = await import("@/lib/audit/run-audit-inline");
@@ -509,7 +513,7 @@ describe("the inline runner hands over too", () => {
           auditId: ok.auditId,
           brandId: ok.brandId,
           organizationId: ORG,
-          sendAuditComplete: false,
+          sendAuditComplete: true,
         },
       },
     ]);

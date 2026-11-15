@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, bulkOperations } from "@/db/schema";
 import { getBrandPromptPackVersion, getNextAuditNumber } from "@/lib/audit/numbering";
-import { runAuditInline } from "@/lib/audit/run-audit-inline";
+import { runBackgroundAudit } from "@/lib/audit/run-background-audit";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
@@ -174,7 +174,7 @@ export const bulkReauditOrchestrate = inngest.createFunction(
 
       try {
         await step.run(`run-audit-${brandId}`, async () => {
-          await runAuditInline(auditId);
+          await runBackgroundAudit(auditId, brandId);
           await withRlsContext(organizationId, async (tx) => {
             await tx
               .update(bulkOperations)

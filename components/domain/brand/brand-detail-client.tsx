@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
+import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import { brandBusinessLabel } from "@/lib/brands/business-label";
 import {
@@ -825,7 +826,8 @@ export function BrandDetailClient({
             fontSize: 26,
             fontWeight: 700,
             color: "var(--avatar-fg)",
-            background: "var(--avatar-gradient-1)",
+            // 17 Nov, part 4: the brand's own colour, as in the brands list (it was always the first gradient).
+            background: brandAvatarBackground(brand.id),
           }}
         >
           {brand.name[0].toUpperCase()}

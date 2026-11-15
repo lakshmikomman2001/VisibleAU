@@ -10,6 +10,7 @@ import { audits, brands } from "@/db/schema";
 import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
+import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { brandBusinessLabel } from "@/lib/brands/business-label";
 import { brandUsage } from "@/lib/brands/limits";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -17,14 +18,6 @@ import { tierDisplayName } from "@/lib/pricing/tiers";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
-
-const GRADIENTS = [
-  "var(--avatar-gradient-1)",
-  "var(--avatar-gradient-2)",
-  "var(--avatar-gradient-3)",
-  "var(--avatar-gradient-4)",
-  "var(--avatar-gradient-5)",
-];
 
 export default async function BrandsPage() {
   const user = await getCurrentUser();
@@ -281,7 +274,8 @@ export default async function BrandsPage() {
                         fontSize: 13,
                         fontWeight: 600,
                         color: "var(--avatar-fg)",
-                        background: GRADIENTS[i % GRADIENTS.length],
+                        // 17 Nov, part 4: from the brand, not its place in the list.
+                        background: brandAvatarBackground(brand.id),
                       }}
                     >
                       {brand.name[0].toUpperCase()}

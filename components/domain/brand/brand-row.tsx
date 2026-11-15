@@ -4,15 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 import { ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { LAST_AUDIT_TONE_STYLE, lastAuditTone } from "@/lib/brands/audit-age";
+import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
-
-const GRADIENTS = [
-  "var(--avatar-gradient-1)",
-  "var(--avatar-gradient-2)",
-  "var(--avatar-gradient-3)",
-  "var(--avatar-gradient-4)",
-  "var(--avatar-gradient-5)",
-];
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ");
@@ -29,11 +22,12 @@ interface BrandRowProps {
     lastAuditAt: string | null;
     lastAuditStatus: string | null;
   };
-  index: number;
+  /** 17 Nov, part 4: no longer decides the avatar's colour (brandAvatarBackground: the brand's own). */
+  index?: number;
   isLast: boolean;
 }
 
-export function BrandRow({ brand, index, isLast }: BrandRowProps) {
+export function BrandRow({ brand, isLast }: BrandRowProps) {
   const regionLabel = formatLocation(brand.primaryRegions?.[0]);
   const timeLabel = brand.lastAuditAt
     ? formatDistanceToNow(new Date(brand.lastAuditAt), { addSuffix: true })
@@ -75,7 +69,7 @@ export function BrandRow({ brand, index, isLast }: BrandRowProps) {
             fontSize: 13,
             fontWeight: 600,
             color: "var(--avatar-fg)",
-            background: GRADIENTS[index % GRADIENTS.length],
+            background: brandAvatarBackground(brand.id),
           }}
         >
           {brand.name[0].toUpperCase()}

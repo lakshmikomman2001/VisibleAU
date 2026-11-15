@@ -1,3 +1,5 @@
+import { PRODUCT_NAME } from "@/lib/product";
+
 /**
  * 17 Nov, part 3: an agent readiness score read back from its stored parts, with the parts nothing measured
  * taken out -- so a row the old writer stored (inngest/functions/score-agent-readiness.ts hard-coded page load
@@ -73,8 +75,10 @@ const OLD = { hardCodedBefore17Nov: true } as const;
 const SITE = { needsSite: true } as const;
 
 const PARTS: PartDef[] = [
-  // Technical /20. The two llms.txt parts are VisibleAU's own generated draft, not a file on the site.
-  part("tech", "llms.txt draft generated in VisibleAU", 3, (r) => flag(r.techLlmstxtPresent, 3)),
+  // Technical /20. The two llms.txt parts are our own generated draft, not a file on the site.
+  part("tech", `llms.txt draft generated in ${PRODUCT_NAME}`, 3, (r) =>
+    flag(r.techLlmstxtPresent, 3),
+  ),
   part("tech", "llms.txt draft depth 6 or more", 3, (r) => flag(r.techLlmstxtValid, 3)),
   part(
     "tech",
@@ -215,12 +219,11 @@ export function readinessFromStoredRow(row: StoredReadinessParts): ReadinessBrea
 }
 
 /**
- * The old writer's llms.txt gap said "No llms.txt file detected", but what it checked was whether VisibleAU had
+ * The old writer's llms.txt gap said "No llms.txt file detected", but what it checked was whether we had
  * generated a draft -- not the site's own file. Stored rows keep the old wording; this is what the card shows.
  */
 export const LEGACY_LLMSTXT_GAP = "No llms.txt file detected — generate and host one.";
-export const LLMSTXT_DRAFT_GAP =
-  "No llms.txt draft generated in VisibleAU yet: generate one, then host it on your site.";
+export const LLMSTXT_DRAFT_GAP = `No llms.txt draft generated in ${PRODUCT_NAME} yet: generate one, then host it on your site.`;
 
 export function readinessGapText(gap: string): string {
   return gap === LEGACY_LLMSTXT_GAP ? LLMSTXT_DRAFT_GAP : gap;

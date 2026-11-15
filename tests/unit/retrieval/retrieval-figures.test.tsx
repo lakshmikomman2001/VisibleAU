@@ -105,7 +105,7 @@ describe("AgentReadinessCard with the stored row's parts", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No llms.txt draft generated in VisibleAU yet: generate one, then host it on your site.",
+        "No llms.txt draft generated in Vunnara yet: generate one, then host it on your site.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/No llms\.txt file detected/)).not.toBeInTheDocument();

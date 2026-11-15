@@ -201,10 +201,11 @@ describe("the writer (in-step logic only)", () => {
   });
 });
 
-describe("the llms.txt gap names what was checked: VisibleAU's draft, not the site's file", () => {
+describe("the llms.txt gap names what was checked: our draft, not the site's file", () => {
   it("an old row's 'No llms.txt file detected' reads as the draft gap", () => {
     expect(readinessGapText(LEGACY_LLMSTXT_GAP)).toBe(LLMSTXT_DRAFT_GAP);
-    expect(LLMSTXT_DRAFT_GAP).toContain("No llms.txt draft generated in VisibleAU yet");
+    // 17 Nov (part 3 follow-up): the product's name, never the old one (tests/unit/brand/no-old-brand-name.test.ts).
+    expect(LLMSTXT_DRAFT_GAP).toContain("No llms.txt draft generated in Vunnara yet");
     expect(readinessGapText("No MCP endpoint found.")).toBe("No MCP endpoint found.");
   });
 });

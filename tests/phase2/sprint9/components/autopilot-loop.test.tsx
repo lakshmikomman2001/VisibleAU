@@ -42,135 +42,82 @@ import {
 
 // ─── 4.0: FLAT/NEGATIVE LIFT — the canon clause nobody tested ──────────────
 
-describe("4.0 — buildMeasureDescription: flat + negative lift honesty", () => {
-  it("scoreAfter=NULL → 'Validation audit scheduled — pending' (no number at all)", () => {
-    const task: RemediationTask = {
-      id: "t1",
-      title: "Fix NAP",
-      status: "complete",
-      priority: 1000,
-      scoreBefore: 23,
-      scoreAfter: null,
-      liftAchieved: null,
-      completedAt: "2026-06-20",
-      updatedAt: "2026-06-20",
-    };
-    const desc = buildMeasureDescription(task);
-    expect(desc).toBe("Validation audit scheduled — pending");
-    expect(desc).not.toMatch(/\d+\.\d%/);
-    expect(desc).not.toContain("improved");
-    expect(desc).not.toContain("+");
+// 17 Nov, part 3: step 5 shows the task's measured change from its own audit to its re-audit (the tasks API's
+// `change`, lib/visibility/audit-change.ts), never lift_achieved (the re-audit minus score_before, an expected-impact
+// bucket of 80/50/20: "Citation rate improved +7.3% · verified by re-audit").
+const FIG_49 = {
+  auditId: "a49",
+  auditNumber: 49,
+  completedAt: null,
+  value: "28%",
+  counts: "11 of 40",
+  shownPercent: 28,
+};
+const FIG_50 = {
+  auditId: "a50",
+  auditNumber: 50,
+  completedAt: null,
+  value: "33%",
+  counts: "13 of 40",
+  shownPercent: 33,
+};
+const UP = {
+  kind: "measured" as const,
+  before: FIG_49,
+  after: FIG_50,
+  points: 5,
+  direction: "up" as const,
+  line: "Audit #49 → #50: 28% (11 of 40) → 33% (13 of 40), up 5 points",
+};
+const DOWN = {
+  kind: "measured" as const,
+  before: FIG_50,
+  after: FIG_49,
+  points: -5,
+  direction: "down" as const,
+  line: "Audit #50 → #49: 33% (13 of 40) → 28% (11 of 40), down 5 points",
+};
+const SAME = {
+  kind: "measured" as const,
+  before: FIG_50,
+  after: FIG_50,
+  points: 0,
+  direction: "same" as const,
+  line: "Audit #50 → #50: 33% (13 of 40) → 33% (13 of 40), no change",
+};
+
+describe("4.0 — buildMeasureDescription: the measured change, up, down or the same", () => {
+  const task = (over: Partial<RemediationTask>): RemediationTask => ({
+    id: "t1",
+    title: "X",
+    status: "complete",
+    priority: 1,
+    scoreBefore: 80,
+    scoreAfter: 30,
+    liftAchieved: -50,
+    completedAt: null,
+    updatedAt: "",
+    ...over,
   });
 
-  it("liftAchieved=+7.3 → shows improvement with +7.3", () => {
-    const task: RemediationTask = {
-      id: "t1",
-      title: "Fix NAP",
-      status: "complete",
-      priority: 1000,
-      scoreBefore: 23,
-      scoreAfter: 42.5,
-      liftAchieved: 7.3,
-      completedAt: "2026-06-20",
-      updatedAt: "2026-06-20",
-    };
-    const desc = buildMeasureDescription(task);
-    expect(desc).toContain("+7.3");
-    expect(desc).toContain("improved");
+  it("up, down and no change: each its own line, with both audits and counts", () => {
+    expect(buildMeasureDescription(task({ reauditId: "a50", change: UP }))).toBe(UP.line);
+    expect(buildMeasureDescription(task({ reauditId: "a49", change: DOWN }))).toBe(DOWN.line);
+    expect(buildMeasureDescription(task({ reauditId: "a50", change: SAME }))).toBe(SAME.line);
   });
 
-  it("liftAchieved=0 → 'No measurable change yet' — NOT 'improved 0%'", () => {
-    const task: RemediationTask = {
-      id: "t1",
-      title: "Fix NAP",
-      status: "complete",
-      priority: 1000,
-      scoreBefore: 42.5,
-      scoreAfter: 42.5,
-      liftAchieved: 0,
-      completedAt: "2026-06-20",
-      updatedAt: "2026-06-20",
-    };
-    const desc = buildMeasureDescription(task);
-    expect(desc).toContain("No measurable change yet");
-    expect(desc).not.toContain("improved");
-    expect(desc).not.toContain("+");
-    expect(desc).not.toContain("0.0%");
-  });
-
-  it("liftAchieved=-5.2 → shows real negative delta, NOT 'improved 5.2%'", () => {
-    const task: RemediationTask = {
-      id: "t1",
-      title: "Fix NAP",
-      status: "complete",
-      priority: 1000,
-      scoreBefore: 42.5,
-      scoreAfter: 37.3,
-      liftAchieved: -5.2,
-      completedAt: "2026-06-20",
-      updatedAt: "2026-06-20",
-    };
-    const desc = buildMeasureDescription(task);
-    expect(desc).toContain("-5.2");
-    expect(desc).not.toContain("improved");
-    expect(desc).not.toContain("+");
-    // Must not hide the sign or absolutize — no unsigned "5.2%" without the leading minus
-    expect(desc).not.toMatch(/[^-]5\.2%/);
-    expect(desc).toContain("-5.2%");
-  });
-
-  it("negative uses 'changed' not 'decreased' or 'improved' (current wording)", () => {
-    const task: RemediationTask = {
-      id: "t1",
-      title: "Fix NAP",
-      status: "complete",
-      priority: 1000,
-      scoreBefore: 42.5,
-      scoreAfter: 37.3,
-      liftAchieved: -5.2,
-      completedAt: "2026-06-20",
-      updatedAt: "2026-06-20",
-    };
-    const desc = buildMeasureDescription(task);
-    expect(desc).toContain("changed");
-  });
-
-  it("⚠️ ABSENCE: 'improved' / '↑' / '+' NEVER appear for zero or negative lift", () => {
-    const zero: RemediationTask = {
-      id: "t1",
-      title: "X",
-      status: "complete",
-      priority: 1,
-      scoreBefore: 30,
-      scoreAfter: 30,
-      liftAchieved: 0,
-      completedAt: null,
-      updatedAt: "",
-    };
-    const neg: RemediationTask = {
-      id: "t2",
-      title: "Y",
-      status: "complete",
-      priority: 1,
-      scoreBefore: 30,
-      scoreAfter: 25,
-      liftAchieved: -5,
-      completedAt: null,
-      updatedAt: "",
-    };
-    for (const task of [zero, neg]) {
-      const desc = buildMeasureDescription(task);
-      expect(desc).not.toContain("improved");
-      expect(desc).not.toContain("↑");
-      expect(desc).not.toMatch(/\+\d/);
+  it("⚠️ never the stored lift (score_before 80 is an expected-impact bucket)", () => {
+    for (const change of [UP, DOWN, SAME]) {
+      const desc = buildMeasureDescription(task({ reauditId: "a50", change }));
+      expect(desc).not.toMatch(/-50|80|Citation rate|improved/);
     }
+    expect(buildMeasureDescription(task({}))).toBe("Not re-audited yet");
   });
 
-  it("null task → 'Validation re-audit will run after draft approval'", () => {
-    const desc = buildMeasureDescription(null);
-    expect(desc).toBe("Validation re-audit will run after draft approval");
-    expect(desc).not.toContain("improved");
-    expect(desc).not.toContain("+");
+  it("null task → what starts a re-audit", () => {
+    expect(buildMeasureDescription(null)).toBe(
+      "Mark a task done to have it re-audited 14 days later",
+    );
   });
 });
 
@@ -368,7 +315,7 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
   });
 
   describe("measure-pending state", () => {
-    it("scoreAfter=null → step 5 renders 'Validation audit scheduled — pending', no number", () => {
+    it("done, not re-audited → step 5 says when the re-audit is due, no number", () => {
       const data: AutopilotLoopData = {
         ...BONDI_DATA,
         topTask: {
@@ -376,66 +323,48 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
           status: "complete",
           scoreAfter: null,
           liftAchieved: null,
+          completedAt: "2026-06-25T00:00:00.000Z",
         },
         draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
       };
       const { container } = render(<AutopilotLoop data={data} />);
-      expect(container.textContent).toContain("Validation audit scheduled — pending");
+      expect(container.textContent).toContain("Not re-audited yet");
+      expect(container.textContent).toContain("Re-audit due");
       expect(container.textContent).not.toMatch(/\+\d+\.\d%/);
     });
   });
 
-  describe("measure-complete state (including flat/negative — 4.0 render)", () => {
-    it("positive lift → renders improvement in step 5 description", () => {
-      const data: AutopilotLoopData = {
-        ...BONDI_DATA,
-        topTask: {
-          ...BONDI_DATA.topTask!,
-          status: "complete",
-          scoreAfter: 30.0,
-          liftAchieved: 7.3,
-          completedAt: "2026-06-25",
-        },
-        draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
-      };
-      const { container } = render(<AutopilotLoop data={data} />);
-      expect(container.textContent).toContain("+7.3%");
-      expect(container.textContent).toContain("improved");
+  describe("measure-complete state (up, down, the same)", () => {
+    const withChange = (change: typeof UP | typeof DOWN | typeof SAME): AutopilotLoopData => ({
+      ...BONDI_DATA,
+      topTask: {
+        ...BONDI_DATA.topTask!,
+        status: "complete",
+        // The stored columns, deliberately wrong: never shown.
+        scoreAfter: 30.0,
+        liftAchieved: 7.3,
+        completedAt: "2026-06-25",
+        reauditId: change.after.auditId,
+        change,
+      },
+      draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
     });
 
-    it("negative lift → renders honest 'changed -X%' NOT 'improved'", () => {
-      const data: AutopilotLoopData = {
-        ...BONDI_DATA,
-        topTask: {
-          ...BONDI_DATA.topTask!,
-          status: "complete",
-          scoreAfter: 18.5,
-          liftAchieved: -5.2,
-          completedAt: "2026-06-25",
-        },
-        draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
-      };
-      const { container } = render(<AutopilotLoop data={data} />);
-      expect(container.textContent).toContain("-5.2%");
-      expect(container.textContent).toContain("changed");
+    it("up → the change line, never the stored +7.3%", () => {
+      const { container } = render(<AutopilotLoop data={withChange(UP)} />);
+      expect(container.textContent).toContain(UP.line);
+      expect(container.textContent).not.toMatch(/\+7\.3%|improved/);
+    });
+
+    it("down → 'down 5 points', never 'improved'", () => {
+      const { container } = render(<AutopilotLoop data={withChange(DOWN)} />);
+      expect(container.textContent).toContain(DOWN.line);
       expect(container.textContent).not.toContain("improved");
     });
 
-    it("zero lift → 'No measurable change yet', NOT 'improved 0%'", () => {
-      const data: AutopilotLoopData = {
-        ...BONDI_DATA,
-        topTask: {
-          ...BONDI_DATA.topTask!,
-          status: "complete",
-          scoreAfter: 23.67,
-          liftAchieved: 0,
-          completedAt: "2026-06-25",
-        },
-        draft: { id: "d1", title: "Draft content", status: "approved", approvedAt: "2026-06-20" },
-      };
-      const { container } = render(<AutopilotLoop data={data} />);
-      expect(container.textContent).toContain("No measurable change yet");
-      expect(container.textContent).not.toContain("improved");
+    it("the same → 'no change'", () => {
+      const { container } = render(<AutopilotLoop data={withChange(SAME)} />);
+      expect(container.textContent).toContain(SAME.line);
     });
 
     it("all 5 steps 'done' → shows 'Loop complete' (not 'Step X of 5')", () => {
@@ -501,9 +430,12 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
       expect(container.textContent).not.toContain("23.7");
     });
 
-    it("renders promptsCount (15 prompts)", () => {
+    // 17 Nov, part 3: no "N prompts" (prompts_count counted the branded questions too): the audit's own
+    // "71 of 300" says how many everyday answers.
+    it("step 1 has no prompt count, only the audit's own answers", () => {
       const { container } = render(<AutopilotLoop data={BONDI_DATA} />);
-      expect(container.textContent).toContain("15 prompts");
+      expect(container.textContent).not.toContain("15 prompts");
+      expect(container.textContent).toContain("71 of 300");
     });
 
     it("renders top gap label 'Emergency Plumbing'", () => {

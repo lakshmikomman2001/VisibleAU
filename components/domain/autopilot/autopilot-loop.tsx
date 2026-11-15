@@ -11,7 +11,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import { deferredReasonWords } from "@/components/domain/workflow/task-card";
 import type { VisibilityDisplay } from "@/lib/scoring/visibility-display";
+import type { AuditChange } from "@/lib/visibility/audit-change";
 import { type LoopStep, LoopStepCard, type StepStatus } from "./loop-step-card";
 
 export interface RemediationTask {
@@ -24,6 +26,11 @@ export interface RemediationTask {
   scoreBefore: number | null;
   scoreAfter: number | null;
   liftAchieved: number | null;
+  /** The validation re-audit, once it ran (remediation_tasks.reaudit_id). */
+  reauditId?: string | null;
+  /** 17 Nov, part 3: the measured change from the task's own audit to its re-audit (the tasks API, from
+   * lib/visibility/audit-change.ts) -- step 5 shows this, never score_before (an expected-impact bucket). */
+  change?: AuditChange | null;
   completedAt: string | null;
   updatedAt: string;
   // Task #46 Phase 2: "insufficient_data" (set by lib/workflow/validation-
@@ -64,6 +71,8 @@ export interface AuditSummary {
   engineCount: number;
   promptsCount: number;
   completedAt: string | null;
+  /** 17 Nov, part 3: the audit step 1 is about. */
+  auditNumber?: number | null;
 }
 
 export interface AutopilotLoopData {
@@ -138,7 +147,12 @@ export function deriveStepStatus(
     // (scoreAfter stays null by design, never a fabricated 0). Without
     // this check it stayed stuck on "current" with a "pending" detail
     // panel forever, even though the measurement had already completed.
-    if (task.scoreAfter != null || task.reauditDeferredReason === "insufficient_data") {
+    // 17 Nov, part 3: the re-audit ran when it has an id (insufficient_data included).
+    if (
+      task.reauditId != null ||
+      task.scoreAfter != null ||
+      task.reauditDeferredReason === "insufficient_data"
+    ) {
       return ["done", "done", "done", "done", "done"];
     }
     return ["done", "done", "done", "done", "current"];
@@ -163,7 +177,15 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       title: "Audit complete",
       description: audit
         ? // The audit page's "8% (3 of 40)" -- never a made-up 0.0 when there's no value.
-          `Visibility ${audit.visibility ? `${audit.visibility.value} (${audit.visibility.detail})` : "—"} · ${audit.engineCount} engines · ${audit.promptsCount} prompts`
+          // 17 Nov, part 3: "13 of 40" is the everyday answers (prompts_count also counted the branded questions),
+          // with which audit, and "3 of 4 engines" when one failed -- not "N engines · M prompts".
+          [
+            `Visibility ${audit.visibility ? `${audit.visibility.value} (${audit.visibility.detail})` : "—"}`,
+            audit.visibility?.coverage ?? null,
+            audit.auditNumber != null ? `audit #${audit.auditNumber}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         : "Waiting for first audit to complete",
       status: statuses[0],
       time: audit?.completedAt ? formatDate(audit.completedAt) : "",
@@ -217,8 +239,10 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
             <div className="text-[12px] font-medium mb-1" style={{ color: "var(--step-draft)" }}>
               Ready for review
             </div>
+            {/* 17 Nov, part 3: approving a draft doesn't start a re-audit -- marking the task done does
+                (task/completed -> trigger-validation-reaudit, 14 days later). */}
             <div className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              Approve this draft to trigger a validation re-audit.
+              Approve this draft, then mark the task done: it's re-audited 14 days later.
             </div>
             <Link
               href={`/brands/${brandId}/workflow/drafts`}
@@ -238,10 +262,8 @@ export function AutopilotLoop({ data }: { data: AutopilotLoopData }) {
       description: buildMeasureDescription(topTask),
       status: statuses[4],
       time: buildMeasureTime(topTask),
-      scoreAfter: topTask?.scoreAfter != null ? Number(topTask.scoreAfter) : null,
-      liftAchieved: topTask?.liftAchieved != null ? Number(topTask.liftAchieved) : null,
       detail:
-        statuses[4] === "current" && topTask?.scoreAfter == null ? (
+        statuses[4] === "current" && topTask?.reauditId == null ? (
           <div className="flex items-start gap-3">
             <Clock
               size={14}
@@ -478,30 +500,24 @@ export function reauditDueDate(completedAt: string | Date): Date {
   return new Date(new Date(completedAt).getTime() + 14 * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Step 5's line. 17 Nov, part 3: the measured change from the task's own audit to its re-audit ("Audit #48 → #52: 25%
+ * (10 of 40) → 33% (13 of 40), up 8 points"), or why there isn't one -- never "Citation rate improved +X%" from
+ * lift_achieved (the re-audit minus an expected-impact bucket of 80, 50 or 20).
+ */
 export function buildMeasureDescription(task: RemediationTask | null): string {
-  if (!task) return "Validation re-audit will run after draft approval";
-  // Task #46 Phase 2: checked before the `scoreAfter == null` "pending"
-  // branch below -- an insufficient-data re-audit already ran (it's not
-  // pending), it just found zero mentions, so scoreAfter was deliberately
-  // left null rather than fabricated as 0 (lib/workflow/validation-
-  // scheduler.ts's recordReauditInsufficientData). Saying "pending" here,
-  // or computing `0 - scoreBefore` as if it were a real negative lift,
-  // would both be dishonest.
-  if (task.reauditDeferredReason === "insufficient_data") {
-    return "Re-audit ran but found no mentions yet — insufficient data to measure lift";
+  if (!task) return "Mark a task done to have it re-audited 14 days later";
+  const change = task.change;
+  if (change?.kind === "measured") return change.line;
+  if (change?.kind === "not_comparable") return change.reason;
+  if (task.reauditDeferredReason && task.reauditDeferredReason !== "insufficient_data") {
+    return `Re-audit not run: ${deferredReasonWords(task.reauditDeferredReason)}`;
   }
-  if (task.scoreAfter == null) return "Validation audit scheduled — pending";
-  const lift = Number(task.liftAchieved ?? 0);
-  if (lift > 0) return `Citation rate improved +${lift.toFixed(1)}% · verified by re-audit`;
-  if (lift < 0) return `Citation rate changed ${lift.toFixed(1)}% · verified by re-audit`;
-  return "No measurable change yet · verified by re-audit";
+  if (change?.kind === "not_measured" && task.reauditId != null) return change.reason;
+  return "Not re-audited yet";
 }
 
 function buildMeasureTime(task: RemediationTask | null): string {
-  if (!task) return "";
-  if (task.reauditDeferredReason === "insufficient_data") {
-    return task.completedAt ? formatDate(task.completedAt) : "";
-  }
-  if (task.scoreAfter == null) return "Pending re-audit";
+  if (!task || task.reauditId == null) return "";
   return task.completedAt ? formatDate(task.completedAt) : "";
 }

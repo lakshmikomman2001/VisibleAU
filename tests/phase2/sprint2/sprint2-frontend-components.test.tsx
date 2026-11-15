@@ -479,9 +479,10 @@ describe("WorkflowSubNav", () => {
 
 describe("TaskCard", () => {
   describe("deriveImpactBand (Assertion #2)", () => {
-    it("null scoreBefore → Medium Impact", () => {
+    // 17 Nov, part 3: no badge without an expected impact -- it defaulted to "Medium Impact".
+    it("null scoreBefore → no impact badge", () => {
       render(<TaskCard {...TASK_BASE} scoreBefore={null} />);
-      expect(screen.getByText("Medium Impact")).toBeInTheDocument();
+      expect(screen.queryByText(/Impact$/)).toBeNull();
     });
 
     it("scoreBefore >= 70 → High Impact", () => {
@@ -515,51 +516,92 @@ describe("TaskCard", () => {
     });
   });
 
-  describe("lift two-state inline (Assertion #3)", () => {
-    it("shows scoreBefore → scoreAfter (green) when both present", () => {
-      render(<TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter="62" />);
-      expect(screen.getByText("45")).toBeInTheDocument();
-      expect(screen.getByText("→")).toBeInTheDocument();
-      const greenSpan = screen.getByText("62");
-      expect(greenSpan.style.color).toBe("var(--success)");
+  // 17 Nov, part 3: the re-audit's measured change between the task's own audit and its re-audit (the tasks API's
+  // `change`, lib/visibility/audit-change.ts) -- it drew "45 → 62" from score_before, an expected-impact bucket, against
+  // the re-audit's Visibility.
+  describe("the re-audit's measured change (Assertion #3)", () => {
+    const FIG = (n: number, value: string, counts: string) => ({
+      auditId: `a${n}`,
+      auditNumber: n,
+      completedAt: null,
+      value,
+      counts,
+      shownPercent: Number.parseInt(value, 10),
+    });
+    const UP = {
+      kind: "measured" as const,
+      before: FIG(49, "28%", "11 of 40"),
+      after: FIG(50, "33%", "13 of 40"),
+      points: 5,
+      direction: "up" as const,
+      line: "Audit #49 → #50: 28% (11 of 40) → 33% (13 of 40), up 5 points",
+    };
+
+    it("measured: the line with both audits and counts, in green when up -- never score_before", () => {
+      render(
+        <TaskCard {...TASK_BASE} status="complete" scoreBefore="80" scoreAfter="33" change={UP} />,
+      );
+      const line = screen.getByText(UP.line);
+      expect(line.style.color).toBe("var(--success)");
+      expect(screen.queryByText("80")).toBeNull();
+      expect(screen.queryByText("→")).toBeNull();
     });
 
-    it("shows scoreBefore → — (tertiary) when scoreAfter is null", () => {
-      render(<TaskCard {...TASK_BASE} scoreBefore="45" scoreAfter={null} />);
-      expect(screen.getByText("45")).toBeInTheDocument();
-      expect(screen.getByText("→")).toBeInTheDocument();
-      const dashSpan = screen.getByText("—");
-      expect(dashSpan.style.color).toBe("var(--text-tertiary)");
+    it("not comparable: why, in tertiary", () => {
+      render(
+        <TaskCard
+          {...TASK_BASE}
+          status="complete"
+          change={{
+            kind: "not_comparable",
+            reason: "Not comparable (questions changed)",
+            before: UP.before,
+            after: UP.after,
+          }}
+        />,
+      );
+      expect(screen.getByText("Not comparable (questions changed)").style.color).toBe(
+        "var(--text-tertiary)",
+      );
     });
 
-    it("does not render lift section when scoreBefore is null", () => {
-      const { container } = render(<TaskCard {...TASK_BASE} scoreBefore={null} />);
-      expect(container.querySelector('[style*="tabular-nums"]')).toBeNull();
+    it("an open task with no re-audit: nothing (no lift line)", () => {
+      const { container } = render(
+        <TaskCard
+          {...TASK_BASE}
+          status="open"
+          change={{ kind: "not_measured", reason: "Not re-audited yet" }}
+        />,
+      );
+      expect(container.querySelector("[data-task-change]")).toBeNull();
     });
 
-    it("shows validation pending with deferred reason", () => {
+    it("a re-audit that didn't run: why, in words (every underscore replaced)", () => {
       render(
         <TaskCard
           {...TASK_BASE}
           scoreBefore="50"
           scoreAfter={null}
-          reauditDeferredReason="budget_cap"
+          reauditDeferredReason="daily_spend_cap_exceeded"
         />,
       );
-      expect(screen.getByText(/validation pending — budget cap/)).toBeInTheDocument();
+      expect(
+        screen.getByText("Re-audit not run: the daily spend limit was reached"),
+      ).toBeInTheDocument();
     });
 
-    it("Task #46 Phase 2: reauditDeferredReason='insufficient_data' shows an honest 'insufficient data' message, never 'validation pending' and never a fabricated 0", () => {
+    it("a re-audit with too few answers: says so, never a fabricated 0", () => {
       render(
         <TaskCard
           {...TASK_BASE}
+          status="complete"
           scoreBefore="80"
           scoreAfter={null}
           reauditDeferredReason="insufficient_data"
+          change={{ kind: "not_measured", reason: "Not measured: audit #50 had too few answers" }}
         />,
       );
-      expect(screen.getByText(/insufficient data/i)).toBeInTheDocument();
-      expect(screen.queryByText(/validation pending/)).not.toBeInTheDocument();
+      expect(screen.getByText("Not measured: audit #50 had too few answers")).toBeInTheDocument();
       expect(screen.queryByText("0")).not.toBeInTheDocument();
     });
   });

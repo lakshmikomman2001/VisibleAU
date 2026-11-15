@@ -66,10 +66,15 @@ function severityColor(severity: string): { bg: string; fg: string } {
 export function SignalsDetail({
   negativeSignals,
   promptInjections,
+  notCheckedReason = null,
 }: {
-  negativeSignals: NegativeSignalRow[];
-  promptInjections: PromptInjectionRow[];
+  /** null: the audit didn't scan for them (17 Nov, part 3) -- "Not checked", never "none detected". */
+  negativeSignals: NegativeSignalRow[] | null;
+  promptInjections: PromptInjectionRow[] | null;
+  /** Why a null list wasn't checked, e.g. "No page was read on this audit." */
+  notCheckedReason?: string | null;
 }) {
+  const notCheckedText = `Not checked. ${notCheckedReason ?? "This audit has no result for it."}`;
   return (
     <>
       {/* Negative Signals */}
@@ -79,12 +84,14 @@ export function SignalsDetail({
         <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
           Negative signals
         </h2>
-        <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          ({negativeSignals.length})
-        </span>
+        {negativeSignals !== null && (
+          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            ({negativeSignals.length})
+          </span>
+        )}
       </div>
 
-      {negativeSignals.length === 0 ? (
+      {negativeSignals === null || negativeSignals.length === 0 ? (
         <div
           style={{
             padding: 32,
@@ -96,7 +103,7 @@ export function SignalsDetail({
           }}
         >
           <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
-            No negative signals detected.
+            {negativeSignals === null ? notCheckedText : "No negative signals detected."}
           </p>
         </div>
       ) : (
@@ -208,9 +215,11 @@ export function SignalsDetail({
           <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
             Content integrity checks
           </h2>
-          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-            ({promptInjections.length})
-          </span>
+          {promptInjections !== null && (
+            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              ({promptInjections.length})
+            </span>
+          )}
         </div>
         <span
           style={{
@@ -231,7 +240,7 @@ export function SignalsDetail({
         Checks for content aimed at manipulating AI crawlers — not part of the Signals score above.
       </p>
 
-      {promptInjections.length === 0 ? (
+      {promptInjections === null || promptInjections.length === 0 ? (
         <div
           style={{
             padding: 32,
@@ -243,7 +252,7 @@ export function SignalsDetail({
           }}
         >
           <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
-            No prompt injection detected.
+            {promptInjections === null ? notCheckedText : "No prompt injection detected."}
           </p>
         </div>
       ) : (

@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
+import { monthWindowLabel } from "@/lib/dashboard/overview-cards";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -32,13 +33,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   }
 
   const summary = await withRlsContext(currentUser.organizationId, (tx) =>
-    getProgressSummary(brandId, tx),
+    getProgressSummary(brandId, tx, currentUser.organizationId),
   );
 
+  // 17 Nov, part 3: measured re-audit changes, never a sum of made-up lifts (lib/workflow/progress-summary.ts).
   return NextResponse.json({
     completedThisMonth: summary.completedThisMonth,
+    openTasks: summary.openTasks,
     totalTasks: summary.totalTasks,
-    measuredImpact: summary.measuredImpact,
-    validationPending: summary.validationPending,
+    reaudits: summary.reaudits,
+    awaitingReaudit: summary.awaitingReaudit,
+    monthLabel: monthWindowLabel(new Date(), currentUser.organizationId),
   });
 }

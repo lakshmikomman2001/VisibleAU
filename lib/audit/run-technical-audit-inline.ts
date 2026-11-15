@@ -4,9 +4,10 @@ import { brandEntityScores, brands, organizations, technicalAudits } from "@/db/
 import { lookupAbn } from "@/lib/brand-entity/abn-lookup";
 import { checkAuTld } from "@/lib/brand-entity/au-tld-signal";
 import { brandEntityScore } from "@/lib/brand-entity/score";
-import { checkWikipediaAu } from "@/lib/brand-entity/wikipedia-au";
+import { checkWikipediaAuStatus } from "@/lib/brand-entity/wikipedia-au";
 import { crawlSite } from "@/lib/crawler";
 import { inngest } from "@/lib/inngest/client";
+import type { SiteDependentDimension } from "@/lib/technical-audit/crawl-status";
 import { orchestrateTechnicalAudit } from "@/lib/technical-audit/orchestrate";
 
 export async function runTechnicalAuditInline(auditId: string, brandId: string): Promise<void> {
@@ -30,10 +31,20 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
     const crawl = await crawlSite(brand.domain, { maxPages: 20, timeoutMs: 15000 });
     console.log(`[tech-audit] Crawled ${crawl.pages.length} pages for ${brand.domain}`);
 
-    const [abnResult, wikiResult] = await Promise.all([
+    // 17 Nov, part 3: the Wikipedia check's own three states are kept ("found", "not_found", "unavailable"), so
+    // the Brand & Entity page can say "Couldn't check" when the lookup failed instead of "no page found".
+    const [abnResult, wikiStatus] = await Promise.all([
       lookupAbn(brand.abn),
-      checkWikipediaAu(brand.name),
+      checkWikipediaAuStatus(brand.name),
     ]);
+    const wikiResult =
+      wikiStatus.status === "found"
+        ? {
+            wikipediaAuPresent: true,
+            wikipediaAuUrl: wikiStatus.url,
+            wikipediaAuMentions: wikiStatus.mentions,
+          }
+        : { wikipediaAuPresent: false, wikipediaAuUrl: null, wikipediaAuMentions: 0 };
     const auTldResult = checkAuTld(brand.domain);
 
     // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
@@ -50,19 +61,26 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
 
     const result = await orchestrateTechnicalAudit(brand.domain, crawl, entityScoreValue);
 
+    // 17 Nov, part 3: a crawl that never reached the site stores no score for the checks that needed it, and no
+    // composite -- the scorers' numbers for an empty crawl are not measurements. The same for robots.txt or
+    // llms.txt alone when that request got no answer. Brand & Entity doesn't read the site, so it keeps its
+    // score. findings.crawl / robots.fetchStatus / llmsTxt.fetchStatus say what happened.
+    const siteScore = (key: SiteDependentDimension): string | null =>
+      result.unmeasured.includes(key) ? null : result.dimensions[key].toFixed(2);
+
     await serviceDb.insert(technicalAudits).values({
       brandId,
       organizationId: brand.organizationId,
       auditId,
-      scoreRobots: result.dimensions.scoreRobots.toFixed(2),
-      scoreLlmsTxt: result.dimensions.scoreLlmsTxt.toFixed(2),
-      scoreSchema: result.dimensions.scoreSchema.toFixed(2),
-      scoreMeta: result.dimensions.scoreMeta.toFixed(2),
-      scoreContent: result.dimensions.scoreContent.toFixed(2),
+      scoreRobots: siteScore("scoreRobots"),
+      scoreLlmsTxt: siteScore("scoreLlmsTxt"),
+      scoreSchema: siteScore("scoreSchema"),
+      scoreMeta: siteScore("scoreMeta"),
+      scoreContent: siteScore("scoreContent"),
       scoreBrandEntity: result.dimensions.scoreBrandEntity.toFixed(2),
-      scoreSignals: result.dimensions.scoreSignals.toFixed(2),
-      scoreAiDiscovery: result.dimensions.scoreAiDiscovery.toFixed(2),
-      scoreComposite: result.scoreComposite.toFixed(2),
+      scoreSignals: siteScore("scoreSignals"),
+      scoreAiDiscovery: siteScore("scoreAiDiscovery"),
+      scoreComposite: result.unmeasured.length === 0 ? result.scoreComposite.toFixed(2) : null,
       findings: Object.assign({}, result.findings, {
         brandEntity: {
           score: entityScoreValue,
@@ -70,6 +88,7 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
           abnNumber: abnResult.abnNumber,
           abnStatus: abnResult.abnStatus,
           wikipediaAuPresent: wikiResult.wikipediaAuPresent,
+          wikipediaAuStatus: wikiStatus.status,
           wikipediaAuUrl: wikiResult.wikipediaAuUrl,
           auTldPresent: auTldResult.auTldPresent,
           // Vunnara (21 Oct, Part A3): no directoryPresence field any

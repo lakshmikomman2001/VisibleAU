@@ -12,6 +12,7 @@ import {
   tierRefusal,
 } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -53,6 +54,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const [latest] = await tx
       .select({
         scoreComposite: technicalAudits.scoreComposite,
+        findings: technicalAudits.findings,
         createdAt: technicalAudits.createdAt,
       })
       .from(technicalAudits)
@@ -60,12 +62,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .orderBy(desc(technicalAudits.createdAt))
       .limit(1);
 
+    // 17 Nov, part 3: a crawl that never reached the site has no site-readiness score (an older row still
+    // stores the scorers' zeros for it); siteUnreachable says why.
+    const siteUnreachable = latest ? crawlReach(latest.findings).kind === "unreached" : false;
+
     // Health Check (7 Nov): the score on its own scale (out of TECHNICAL_AUDIT_MAX_SCORE, not 100)
     // and when it was checked, so the card can say both.
     return NextResponse.json({
-      scoreComposite: latest?.scoreComposite ?? null,
+      scoreComposite: siteUnreachable ? null : (latest?.scoreComposite ?? null),
       maxScore: TECHNICAL_AUDIT_MAX_SCORE,
       checkedAt: latest?.createdAt ?? null,
+      siteUnreachable,
     });
   });
 }

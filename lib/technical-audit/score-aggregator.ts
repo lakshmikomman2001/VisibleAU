@@ -57,6 +57,32 @@ export function rollupTo5Categories(dims: TechnicalAuditDimensions): CategoryRol
 export const TECHNICAL_AUDIT_MAX_SCORE = 98;
 
 /**
+ * 17 Nov, part 3: when the maximum dropped from 100 to 98 (b828203, 21 Oct 2026 11:37 Sydney). A row from
+ * before then could score up to 100 (Brand & Entity was out of 10), so a change between it and a later row
+ * compares two different scales.
+ */
+export const MAX_98_FROM = new Date("2026-10-21T00:37:14Z");
+
+export function compositeMaxAt(createdAt: Date | string): 98 | 100 {
+  return new Date(createdAt).getTime() < MAX_98_FROM.getTime() ? 100 : TECHNICAL_AUDIT_MAX_SCORE;
+}
+
+/**
+ * The change in the composite from the previous technical audit, only when the two can be compared: both
+ * measured, both on the same maximum, and both crawls reached the site. Otherwise null (no "vs last" at all).
+ */
+export function comparableCompositeDelta(
+  latest: { composite: number | null; createdAt: Date | string; siteReached: boolean },
+  previous: { composite: number | null; createdAt: Date | string; siteReached: boolean } | null,
+): number | null {
+  if (!previous) return null;
+  if (latest.composite === null || previous.composite === null) return null;
+  if (!latest.siteReached || !previous.siteReached) return null;
+  if (compositeMaxAt(latest.createdAt) !== compositeMaxAt(previous.createdAt)) return null;
+  return latest.composite - previous.composite;
+}
+
+/**
  * Methodology v2.2 (Sri's decision, 7 Nov), part 5 -- the checks the site-readiness score adds up, in the
  * order it always added them: robots.txt, llms.txt, schema, meta tags, content, brand entity, signals and
  * AI discovery. The Health Check says "35 of 98 points across 8 checks" from this list, so the count can't

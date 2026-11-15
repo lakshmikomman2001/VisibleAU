@@ -108,10 +108,12 @@ export async function getVolumeByVendor(
   periodStart: Date,
   periodEnd: Date,
 ): Promise<VolumeByVendor[]> {
+  // 17 Nov, part 3: aliased to crawlerTier, the field VolumeByVendor (and the Tier column) reads. It came back
+  // as crawler_tier, so the column was blank on every row.
   const rows = await serviceDb.execute(sql`
     SELECT
       r.vendor,
-      r.crawler_tier,
+      r.crawler_tier AS "crawlerTier",
       COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE cl.visit_purpose = 'retrieval')::int AS retrieval,
       COUNT(*) FILTER (WHERE cl.visit_purpose = 'indexing')::int AS indexing,
@@ -204,6 +206,47 @@ export async function getTopPagesByPurpose(
     purpose: r.purpose,
     lastVisit: r.last_visit,
   }));
+}
+
+/**
+ * Every AI crawler visit recorded for the brand in the period, from any source (17 Nov, part 3). The coverage
+ * panel needs it: with none on record, "pages AI has never seen" is every sitemap page, a conclusion from no data.
+ */
+export async function countCrawlerVisits(
+  brandId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<number> {
+  const rows = await serviceDb.execute(sql`
+    SELECT COUNT(*)::int AS total
+    FROM crawler_visit_logs
+    WHERE brand_id = ${brandId}
+      AND visited_at >= ${periodStart.toISOString()}
+      AND visited_at <= ${periodEnd.toISOString()}
+  `);
+  return (rows as unknown as Array<{ total: number }>)[0]?.total ?? 0;
+}
+
+/**
+ * The brand's crawler visits by where they came from, ever (17 Nov, part 3): "log_upload" or "visit_api" (the
+ * tracking snippet). The setup panel said "Connected" and "Live" with nothing ever received.
+ */
+export interface IngestSourceSummary {
+  source: string;
+  visits: number;
+  lastVisitAt: string | null;
+}
+
+export async function getIngestSources(brandId: string): Promise<IngestSourceSummary[]> {
+  const rows = await serviceDb.execute(sql`
+    SELECT ingest_source AS source, COUNT(*)::int AS visits, MAX(visited_at)::text AS last_visit_at
+    FROM crawler_visit_logs
+    WHERE brand_id = ${brandId}
+    GROUP BY ingest_source
+  `);
+  return (
+    rows as unknown as Array<{ source: string; visits: number; last_visit_at: string | null }>
+  ).map((r) => ({ source: r.source, visits: r.visits, lastVisitAt: r.last_visit_at }));
 }
 
 export interface CoverageGapResult {

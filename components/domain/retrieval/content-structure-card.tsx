@@ -5,6 +5,7 @@ import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
 interface ContentAudit {
   id: string;
   pageUrl: string;
+  /** 0-100 (lib/retrieval/content-auditor.ts): 20 per question heading, +20 FAQ block, +10 FAQ schema. */
   answerCapsuleScore: number | null;
   faqBlockPresent: boolean | null;
   faqSchemaPresent: boolean | null;
@@ -15,6 +16,12 @@ interface ContentAudit {
   citationProbabilityScore: string | null;
   hasAuthorAttribution: boolean | null;
   auditedAt: string;
+  /**
+   * The page's Last-Modified header, and the days since it. Both null when the page sent none: the stored
+   * freshnessRisk then defaults to "stale" (content-auditor.ts), which isn't evidence of anything.
+   */
+  lastModified?: string | null;
+  daysSincePublished?: number | null;
 }
 
 interface ContentStructureCardProps {
@@ -28,11 +35,32 @@ const FRESHNESS_COLORS: Record<string, string> = {
   stale: "var(--danger)",
 };
 
+/** The capsule score's scale: content-auditor.ts caps it at 100. It read "N/4". */
+export const ANSWER_CAPSULE_SCORE_MAX = 100;
+
+/**
+ * 17 Nov, part 3: a page with no Last-Modified date (both stored null) shows a neutral "no date" -- it showed a
+ * red "stale" badge, the default the auditor stores when there's no date to judge.
+ */
+export function freshnessBadge(
+  audit: Pick<ContentAudit, "freshnessRisk" | "lastModified" | "daysSincePublished">,
+): { label: string; color: string } | null {
+  if (audit.lastModified === null && audit.daysSincePublished === null) {
+    return { label: "no date", color: "var(--text-secondary)" };
+  }
+  if (!audit.freshnessRisk) return null;
+  return {
+    label: audit.freshnessRisk,
+    color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--text-secondary)",
+  };
+}
+
 export function ContentStructureCard({ audit }: ContentStructureCardProps) {
   // 9 Nov (part 9): an unscored page reads "Not measured yet" in muted text -- not a red 0%
   // (lib/scoring/measured.ts).
   const cit = measured(audit.citationProbabilityScore);
   const citProb = cit.measured ? cit.value : null;
+  const freshness = freshnessBadge(audit);
   const citColor =
     citProb === null
       ? "var(--text-secondary)"
@@ -56,7 +84,8 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
             {audit.pageUrl}
           </p>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-            {audit.contentFormatDetected ?? "unknown"} &middot; {audit.wordCount ?? 0} words
+            {audit.contentFormatDetected ?? "unknown"} &middot;{" "}
+            {audit.wordCount === null ? "word count not measured" : `${audit.wordCount} words`}
           </p>
         </div>
         <div className="text-right ml-3">
@@ -69,8 +98,10 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
               {(citProb * 100).toFixed(0)}%
             </div>
           )}
+          {/* 17 Nov, part 3: a weighted score from the page's structure
+              (lib/retrieval/citation-probability-scorer.ts), not a measured probability. */}
           <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Citation prob.
+            Citation estimate
           </div>
         </div>
       </div>
@@ -109,15 +140,15 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
             Author
           </span>
         )}
-        {audit.freshnessRisk && (
+        {freshness && (
           <span
             className="text-xs px-1.5 py-0.5 rounded-full"
             style={{
-              backgroundColor: `color-mix(in srgb, ${FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--text-secondary)"} 15%, transparent)`,
-              color: FRESHNESS_COLORS[audit.freshnessRisk] ?? "var(--text-secondary)",
+              backgroundColor: `color-mix(in srgb, ${freshness.color} 15%, transparent)`,
+              color: freshness.color,
             }}
           >
-            {audit.freshnessRisk}
+            {freshness.label}
           </span>
         )}
       </div>
@@ -126,8 +157,10 @@ export function ContentStructureCard({ audit }: ContentStructureCardProps) {
         className="mt-2 flex items-center gap-4 text-xs"
         style={{ color: "var(--text-secondary)" }}
       >
-        <span>Capsule: {scoreText(audit.answerCapsuleScore, 4)}</span>
-        <span>Passages: {audit.optimalPassageCount ?? 0}</span>
+        <span>Capsule: {scoreText(audit.answerCapsuleScore, ANSWER_CAPSULE_SCORE_MAX)}</span>
+        <span>
+          Passages: {audit.optimalPassageCount === null ? NOT_MEASURED : audit.optimalPassageCount}
+        </span>
       </div>
     </div>
   );

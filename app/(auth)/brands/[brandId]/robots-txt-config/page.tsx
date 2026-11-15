@@ -1,24 +1,27 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { AI_BOTS } from "@/db/seed/ai-bots/seed";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
+import type { RobotsFindings } from "@/lib/robots-txt/analyze";
+import {
+  botRow,
+  botStatusLabel,
+  matrixNotCheckedSentence,
+  NOT_CHECKED_BOT,
+  robotsMatrixState,
+  snippetAgents,
+  tierSummary,
+} from "@/lib/robots-txt/display";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 import { RobotsTxtSnippet } from "./robots-txt-snippet";
-
-interface RobotsFindings {
-  present: boolean;
-  score: number;
-  aiBotsAllowed: string[];
-  aiBotsBlocked: string[];
-  cdnBlockingDetected: boolean;
-  cdnVendor: string | null;
-  recommendations: string[];
-}
 
 export default async function RobotsTxtConfigPage({
   params,
@@ -78,13 +81,23 @@ export default async function RobotsTxtConfigPage({
   }
 
   const robots = (techAudit.findings as Record<string, unknown>)?.robots as
-    | RobotsFindings
+    | Partial<RobotsFindings>
     | undefined;
+  // 17 Nov, part 3: a crawl that never reached the site has no robots.txt score (an older row stored one,
+  // with 3 points for a home page check that had nothing to look at).
+  const reach = crawlReach(techAudit.findings);
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
   // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/18 (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreRobots);
+  const scoreM = measured(reach.kind === "unreached" ? null : techAudit.scoreRobots);
   const score = scoreM.measured ? scoreM.value : null;
-  const allowed = new Set(robots?.aiBotsAllowed ?? []);
-  const blocked = new Set(robots?.aiBotsBlocked ?? []);
+  // Every crawler's verdict comes from the audit's own evaluation (lib/robots-txt/display.ts); one it didn't
+  // evaluate is "Not checked", never a green tick.
+  const matrix = robotsMatrixState(robots);
+  const matrixNote = matrixNotCheckedSentence(matrix);
 
   const tiers = [
     { tier: 1, label: "Training" },
@@ -92,7 +105,7 @@ export default async function RobotsTxtConfigPage({
     { tier: 3, label: "User-agent" },
   ] as const;
 
-  const allowedBotAgents = AI_BOTS.filter((b) => !blocked.has(b.userAgent)).map((b) => b.userAgent);
+  const allowedBotAgents = snippetAgents(robots);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -134,12 +147,22 @@ export default async function RobotsTxtConfigPage({
               lineHeight: 1.5,
             }}
           >
-            Detect which of the 27 known AI bots can access your site. Catch CDN-level blocks
-            (Cloudflare, Akamai, Vercel) that silently break AI visibility.
+            What your robots.txt tells each of the {AI_BOTS.length} AI crawlers we track, from its
+            rules for your home page. A firewall or CDN can still turn an AI crawler away: we only
+            see what your site answers our own crawler.
           </p>
+          {crawledOn && (
+            <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+              Checked {crawledOn}
+            </p>
+          )}
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
+            {reach.kind === "unreached" || robots?.fetchStatus === "unreachable"
+              ? "Not checked"
+              : NOT_MEASURED}
+          </div>
         ) : (
           <div
             style={{
@@ -155,22 +178,33 @@ export default async function RobotsTxtConfigPage({
         )}
       </div>
 
-      {/* CDN blocking alert */}
-      {robots?.cdnBlockingDetected && (
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
+
+      {/* 17 Nov, part 3: only from a real answer -- the home page turned our crawler away with a 403 or 503
+          (lib/robots-txt/analyze.ts). It said "CDN Blocking Detected", which no check could ever set. */}
+      {robots?.cdnBlockingDetected && reach.kind !== "unreached" && (
         <div
           style={{
             padding: 16,
             borderRadius: 8,
-            background: "var(--danger-soft)",
-            border: "1px solid var(--danger)",
+            background: "var(--warning-soft)",
+            border: "1px solid var(--warning)",
             marginBottom: 24,
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--danger)", marginBottom: 4 }}>
-            CDN Blocking Detected
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--warning)", marginBottom: 4 }}>
+            Your site turned our crawler away
           </div>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {robots.cdnVendor} may be blocking AI crawlers. Check your bot management settings.
+            Your home page answered our crawler with HTTP {robots.homepageHttpStatus}
+            {robots.cdnVendor ? ` (served by ${robots.cdnVendor})` : ""}. AI crawlers may be turned
+            away too: check your firewall or bot protection settings.
           </div>
         </div>
       )}
@@ -185,7 +219,7 @@ export default async function RobotsTxtConfigPage({
         }}
       >
         <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-          27 AI bots tracked across 3 tiers
+          {AI_BOTS.length} AI bots tracked across 3 tiers
         </h2>
         <span
           style={{
@@ -201,12 +235,20 @@ export default async function RobotsTxtConfigPage({
         </span>
       </div>
 
+      {matrixNote && (
+        <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 12px" }}>
+          {matrixNote}
+        </p>
+      )}
+
       {/* 27-Bot Matrix — with FIX 2 per-tier allowed count */}
       {tiers.map(({ tier, label }) => {
         const bots = AI_BOTS.filter((b) => b.tier === tier);
-        const tierBlockedCount = bots.filter((b) => blocked.has(b.userAgent)).length;
-        const tierAllowedCount = bots.length - tierBlockedCount;
-        const allAllowed = tierBlockedCount === 0;
+        const summary = tierSummary(
+          robots,
+          bots.map((b) => b.userAgent),
+        );
+        const allAllowed = summary.checked && summary.blocked === 0;
         return (
           <div
             key={tier}
@@ -234,24 +276,31 @@ export default async function RobotsTxtConfigPage({
                   Tier {tier} — {label}
                 </h3>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
-                  {allAllowed ? "All allowed" : `${tierBlockedCount} blocked`}
+                  {!summary.checked
+                    ? NOT_CHECKED_BOT
+                    : allAllowed
+                      ? "All allowed"
+                      : `${summary.blocked} blocked`}
                 </div>
               </div>
-              <div
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  fontFamily: "var(--font-mono)",
-                  fontVariantNumeric: "tabular-nums",
-                  color: allAllowed ? "var(--success)" : "var(--danger)",
-                }}
-              >
-                {tierAllowedCount}/{bots.length}
-              </div>
+              {summary.checked ? (
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    fontFamily: "var(--font-mono)",
+                    fontVariantNumeric: "tabular-nums",
+                    color: allAllowed ? "var(--success)" : "var(--danger)",
+                  }}
+                >
+                  {summary.allowed}/{summary.total}
+                </div>
+              ) : null}
             </div>
             {bots.map((bot) => {
-              const isAllowed = allowed.has(bot.userAgent);
-              const isBlocked = blocked.has(bot.userAgent);
+              const row = botRow(robots, bot.userAgent);
+              const isBlocked = row.checked && row.verdict.verdict === "blocked";
+              const isAllowed = row.checked && row.verdict.verdict === "allowed";
               return (
                 <div
                   key={bot.userAgent}
@@ -264,12 +313,17 @@ export default async function RobotsTxtConfigPage({
                   }}
                 >
                   <span
+                    aria-hidden="true"
                     style={{
                       fontSize: 14,
-                      color: isBlocked ? "var(--danger)" : "var(--success)",
+                      color: isBlocked
+                        ? "var(--danger)"
+                        : isAllowed
+                          ? "var(--success)"
+                          : "var(--text-tertiary)",
                     }}
                   >
-                    {isBlocked ? "✗" : "✓"}
+                    {isBlocked ? "✗" : isAllowed ? "✓" : "–"}
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
@@ -280,6 +334,7 @@ export default async function RobotsTxtConfigPage({
                     </div>
                   </div>
                   <span
+                    title={row.checked && row.verdict.rule ? row.verdict.rule : undefined}
                     style={{
                       fontSize: 11,
                       padding: "2px 8px",
@@ -296,7 +351,7 @@ export default async function RobotsTxtConfigPage({
                           : "var(--text-tertiary)",
                     }}
                   >
-                    {isBlocked ? "Blocked" : isAllowed ? "Allowed" : "Default"}
+                    {botStatusLabel(row)}
                   </span>
                 </div>
               );
@@ -306,38 +361,40 @@ export default async function RobotsTxtConfigPage({
       })}
 
       {/* Recommendations */}
-      {(robots?.recommendations?.length ?? 0) > 0 && (
-        <div
-          style={{
-            borderRadius: 8,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-default)",
-            padding: 20,
-            marginBottom: 16,
-          }}
-        >
-          <h3
+      {/* On a crawl that never reached the site, "No robots.txt found" is a request that failed, not advice. */}
+      {(robots?.recommendations?.length ?? 0) > 0 &&
+        !(reach.kind === "unreached" && robots?.fetchStatus !== "found") && (
+          <div
             style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              margin: "0 0 12px",
+              borderRadius: 8,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-default)",
+              padding: 20,
+              marginBottom: 16,
             }}
           >
-            Recommendations
-          </h3>
-          <ul style={{ margin: 0, paddingLeft: 20 }}>
-            {robots?.recommendations.map((rec) => (
-              <li
-                key={rec}
-                style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}
-              >
-                {rec}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+            <h3
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                margin: "0 0 12px",
+              }}
+            >
+              Recommendations
+            </h3>
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {robots?.recommendations?.map((rec) => (
+                <li
+                  key={rec}
+                  style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}
+                >
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {/* FIX 4 — Generated robots.txt snippet */}
       <RobotsTxtSnippet domain={brand.domain} allowedBotAgents={allowedBotAgents} />

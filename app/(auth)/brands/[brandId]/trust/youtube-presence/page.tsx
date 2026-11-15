@@ -10,12 +10,37 @@ import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
 import { usePostAction } from "@/lib/hooks/use-action";
 import { useGatedJson } from "@/lib/hooks/use-load";
+import { displayDate } from "@/lib/trust/display-dates";
 
+// 17 Nov, part 3: "this will retry automatically" -- nothing retries it soon; the check runs each month
+// (inngest/functions/audit-youtube-presence.ts) or when Refresh is clicked.
 const UNAVAILABLE_REASON_TEXT: Record<string, string> = {
   missing_api_key: "The YouTube API key is not configured.",
-  quota_exceeded: "The YouTube API daily quota was exceeded — this will retry automatically.",
-  network_error: "A network or API error prevented the check — this will retry automatically.",
+  quota_exceeded:
+    "The YouTube API's daily quota was used up, so the check couldn't run. Click Refresh to try again; it also runs each month.",
+  network_error:
+    "A network or YouTube API error stopped the check. Click Refresh to try again; it also runs each month.",
 };
+
+/** 17 Nov, part 3: when the check behind what's shown ran. */
+function CheckedOn({ at }: { at: string | undefined }) {
+  if (!at) return null;
+  return (
+    <p className="text-xs" style={{ color: "var(--text-secondary)" }} data-checked-on>
+      Checked {displayDate(at)}. The check runs each month, or when you click Refresh.
+    </p>
+  );
+}
+
+/** "1,200 subscribers · 8 videos"; a count the channel doesn't show says so, never 0 (17 Nov, part 3). */
+function candidateCounts(subscribers: number | null, videos: number | null): string {
+  const subs =
+    subscribers === null
+      ? "Subscriber count not shown"
+      : `${subscribers.toLocaleString()} subscribers`;
+  const vids = videos === null ? "video count not shown" : `${videos.toLocaleString()} videos`;
+  return `${subs} · ${vids}`;
+}
 
 interface YoutubeData {
   implemented?: false;
@@ -210,6 +235,7 @@ export default function YoutubePresencePage() {
           </h1>
           <RefreshButton />
         </div>
+        <CheckedOn at={data.auditedAt} />
         <div
           className="rounded-lg border p-4"
           style={{
@@ -218,7 +244,7 @@ export default function YoutubePresencePage() {
           }}
         >
           <p className="text-sm font-medium" style={{ color: "var(--warning)" }}>
-            Measurement temporarily unavailable
+            The last check couldn&apos;t run
           </p>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             {UNAVAILABLE_REASON_TEXT[data.unavailableReason ?? ""] ??
@@ -252,6 +278,7 @@ export default function YoutubePresencePage() {
           </h1>
           <RefreshButton />
         </div>
+        <CheckedOn at={data.auditedAt} />
         <div
           className="rounded-lg border p-4"
           style={{
@@ -276,8 +303,7 @@ export default function YoutubePresencePage() {
                 {data.channelTitle} ↗
               </a>
               <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-                {(data.channelSubscriberCount ?? 0).toLocaleString()} subscribers ·{" "}
-                {data.channelTotalVideos ?? 0} videos
+                {candidateCounts(data.channelSubscriberCount, data.channelTotalVideos)}
                 {isDomainMismatch
                   ? ` — the channel links to ${conflictingDomain}${data.brandDomain ? ` (not ${data.brandDomain})` : ""}, so it's probably not yours.`
                   : " — name matched, but nothing on the channel confirms it's this brand's."}
@@ -304,9 +330,10 @@ export default function YoutubePresencePage() {
         </h1>
         <RefreshButton />
       </div>
+      <CheckedOn at={data.auditedAt} />
 
-      {/* Checked, no channel confidently matched -- a real measured
-          low/zero presence, not a stub. */}
+      {/* Checked, no channel confidently matched. 17 Nov, part 3: not a measured zero presence -- it has no
+          presence score and isn't in the Overall Trust Score (lib/trust/trust-scorer.ts); the page says so. */}
       {data.checkStatus === "not_found" ? (
         <>
           <div
@@ -314,7 +341,10 @@ export default function YoutubePresencePage() {
             style={{ color: "var(--text-secondary)" }}
           >
             <p className="text-lg font-medium">No confirmed YouTube channel found</p>
-            <p className="text-sm">We searched for a channel matching this brand but found none.</p>
+            <p className="text-sm">
+              We searched for a channel matching this brand but found none we could confirm, so
+              YouTube has no score and isn&apos;t part of the Overall Trust Score.
+            </p>
           </div>
           <div
             className="rounded-lg border p-3"

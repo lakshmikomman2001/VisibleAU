@@ -1,12 +1,16 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { AI_TXT_PATHS } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import type { CrawlSitemapOutcome } from "@/lib/crawler/types";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { type CrawlFindings, crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
@@ -21,6 +25,8 @@ interface LlmsTxtComponents {
 }
 
 interface LlmsTxtFindings {
+  /** The llms.txt request's answer (17 Nov): "unreachable" is a timeout or a 5xx. Absent on older audits. */
+  fetchStatus?: "found" | "absent" | "unreachable";
   present: boolean;
   url: string | null;
   depthScore: number;
@@ -82,6 +88,47 @@ export function buildLlmsTxtChecklist(
     { label: "Links to canonical pages", pass: components.links, pts: 3 },
     { label: "Content depth (≥1500 chars)", pass: components.depth, pts: 3 },
     { label: "llms-full.txt companion", pass: components.fullTxt, pts: 3 },
+  ];
+}
+
+export interface DiscoveryCheckRow {
+  label: string;
+  /** "yes" found, "no" checked and not found, "unchecked" not checked (with why in `text`). */
+  state: "yes" | "no" | "unchecked";
+  text: string;
+}
+
+/**
+ * The bonus discovery rows (17 Nov, part 3), each from what the audit stored. "Sitemap.xml present" read a
+ * hard-coded "Yes · bonus"; the three AI files read `?? false`, so an audit with no AI-discovery result said
+ * "Not found" for files nobody looked for.
+ */
+export function buildDiscoveryChecks(
+  sitemap: CrawlSitemapOutcome | null | undefined,
+  aiDiscovery: Partial<AiDiscoveryFindings> | undefined,
+  siteUnreached: boolean,
+): DiscoveryCheckRow[] {
+  const unchecked = siteUnreached ? "Not checked: site not reached" : "Not checked on this audit";
+  const sitemapRow: DiscoveryCheckRow = !sitemap
+    ? { label: "Sitemap.xml present", state: "unchecked", text: unchecked }
+    : sitemap.status === "found"
+      ? { label: "Sitemap.xml present", state: "yes", text: "Yes · bonus" }
+      : sitemap.status === "absent"
+        ? { label: "Sitemap.xml present", state: "no", text: "Not found" }
+        : { label: "Sitemap.xml present", state: "unchecked", text: "Couldn't check" };
+  const aiRow = (label: string, found: boolean | undefined): DiscoveryCheckRow =>
+    typeof found !== "boolean"
+      ? { label, state: "unchecked", text: unchecked }
+      : found
+        ? { label, state: "yes", text: "Yes · bonus" }
+        : { label, state: "no", text: "Not found" };
+  return [
+    sitemapRow,
+    // Task FFF: label sourced from AI_TXT_PATHS, the same list the detector checks (either location) -- a
+    // static ".well-known/ai.txt" label would mislabel a root /ai.txt file as "not found".
+    aiRow(AI_TXT_PATHS.join(" or "), aiDiscovery?.aiTxtPresent),
+    aiRow("/ai/summary.json", aiDiscovery?.aiSummaryPresent),
+    aiRow("/ai/faq.json", aiDiscovery?.aiFaqPresent),
   ];
 }
 
@@ -151,44 +198,32 @@ export default async function LlmsTxtGeneratorPage({
   const allFindings = techAudit.findings as Record<string, unknown>;
   const findings = allFindings?.llmsTxt as LlmsTxtFindings | undefined;
   const aiDiscovery = allFindings?.aiDiscovery as AiDiscoveryFindings | undefined;
+  const crawl = allFindings?.crawl as Partial<CrawlFindings> | undefined;
+  // 17 Nov, part 3: on a crawl that never reached the site, or when the llms.txt request itself got no answer,
+  // the file wasn't checked -- never "Not started" at 0 of 18.
+  const reach = crawlReach(techAudit.findings);
+  const siteUnreached = reach.kind === "unreached";
+  const llmsUnchecked = siteUnreached || findings?.fetchStatus === "unreachable";
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
   // 9 Nov (part 9): a missing depth score is "Not measured yet" -- no number and no "Not started" tier
   // badge (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreLlmsTxt);
+  const scoreM = measured(llmsUnchecked ? null : techAudit.scoreLlmsTxt);
   const score = scoreM.measured ? scoreM.value : null;
   const tier = score === null ? null : getDepthTier(score);
   const toneColors = tier === null ? null : TONE_COLORS[tier.tone];
+  const notScoredText = llmsUnchecked ? "Couldn't check" : NOT_MEASURED;
 
-  const components = buildLlmsTxtChecklist(findings?.components);
+  const components = llmsUnchecked ? null : buildLlmsTxtChecklist(findings?.components);
 
-  const discoveryChecks = [
-    {
-      label: "Sitemap.xml present",
-      present: true,
-      presentLabel: "Yes · bonus",
-      absentLabel: "Not found",
-    },
-    {
-      // Task FFF: label sourced from AI_TXT_PATHS, the same list the
-      // detector checks (either location) -- a static ".well-known/ai.txt"
-      // label would mislabel a root /ai.txt file as "not found".
-      label: AI_TXT_PATHS.join(" or "),
-      present: aiDiscovery?.aiTxtPresent ?? false,
-      presentLabel: "Yes · bonus",
-      absentLabel: "Not found",
-    },
-    {
-      label: "/ai/summary.json",
-      present: aiDiscovery?.aiSummaryPresent ?? false,
-      presentLabel: "Yes · bonus",
-      absentLabel: "Not found",
-    },
-    {
-      label: "/ai/faq.json",
-      present: aiDiscovery?.aiFaqPresent ?? false,
-      presentLabel: "Yes · bonus",
-      absentLabel: "Not found",
-    },
-  ];
+  const discoveryChecks = buildDiscoveryChecks(
+    siteUnreached ? undefined : crawl?.sitemap,
+    siteUnreached ? undefined : aiDiscovery,
+    siteUnreached,
+  );
 
   const regions = brand.primaryRegions
     .map((r: string) => formatLocation(r))
@@ -235,7 +270,7 @@ export default async function LlmsTxtGeneratorPage({
           </p>
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
         ) : (
           <div
             style={{
@@ -250,6 +285,14 @@ export default async function LlmsTxtGeneratorPage({
           </div>
         )}
       </div>
+
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
 
       {/* 2-column grid: Current state + Why this matters */}
       <div
@@ -298,7 +341,7 @@ export default async function LlmsTxtGeneratorPage({
                 }}
               >
                 {score === null ? (
-                  `depth score: ${NOT_MEASURED}`
+                  `depth score: ${notScoredText}`
                 ) : (
                   <>depth score {score}/18 · graduated</>
                 )}
@@ -348,6 +391,12 @@ export default async function LlmsTxtGeneratorPage({
                   </div>
                 );
               })
+            ) : llmsUnchecked ? (
+              <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
+                {siteUnreached
+                  ? "We couldn't reach your site on this audit, so your llms.txt wasn't checked."
+                  : `We couldn't fetch https://${brand.domain}/llms.txt on this audit (no answer, or a server error), so it wasn't checked. That isn't the same as not having one.`}
+              </p>
             ) : (
               <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
                 Per-component breakdown unavailable for this audit — re-run the audit to see it.
@@ -378,10 +427,15 @@ export default async function LlmsTxtGeneratorPage({
                 <span style={{ color: "var(--text-secondary)" }}>{d.label}</span>
                 <span
                   style={{
-                    color: d.present ? "var(--success)" : "var(--warning)",
+                    color:
+                      d.state === "yes"
+                        ? "var(--success)"
+                        : d.state === "no"
+                          ? "var(--warning)"
+                          : "var(--text-tertiary)",
                   }}
                 >
-                  {d.present ? d.presentLabel : d.absentLabel}
+                  {d.text}
                 </span>
               </div>
             ))}

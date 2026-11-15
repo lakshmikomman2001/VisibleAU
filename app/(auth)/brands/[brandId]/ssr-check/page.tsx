@@ -2,11 +2,14 @@ import { desc, eq } from "drizzle-orm";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import type { ContentSSR, SSRPageCheck, SsrContentVerdict } from "@/lib/ssr-check/per-page";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 
 const CTA_DISPLAY: Record<string, string> = {
@@ -74,6 +77,44 @@ export default async function SSRCheckPage({ params }: { params: Promise<{ brand
   const ssrPages: SSRPageCheck[] = ssrData?.pages ?? [];
   const pagesWithReview = ssrPages.filter((p) => p.status === "review").length;
   const allPagesOk = ssrPages.length > 0 && pagesWithReview === 0;
+
+  // 17 Nov, part 3: a crawl that never reached the site checked no page. It read "0 pages need review ·
+  // 0 of 0", as if a site with no pages had passed.
+  const reach = crawlReach(techAudit.findings);
+  if (reach.kind === "unreached") {
+    const crawledOn = techAudit.crawledAt
+      ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+          timeZone: getOrgTimezone(currentUser.organizationId),
+        })
+      : null;
+    return (
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 32px" }}>
+        <SetBreadcrumbs
+          crumbs={[CRUMB.workspace, CRUMB.brands, brandCrumb(brand), { label: "SSR check" }]}
+        />
+        <div style={{ marginBottom: 24 }}>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 600,
+              color: "var(--text-primary)",
+              margin: "0 0 4px",
+            }}
+          >
+            Server-side rendering check
+          </h1>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+            Not checked: no page was read on this audit.
+          </p>
+        </div>
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      </div>
+    );
+  }
 
   if (!ssrData) {
     return (

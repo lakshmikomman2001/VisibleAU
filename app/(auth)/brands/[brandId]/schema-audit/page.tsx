@@ -2,12 +2,15 @@ import { desc, eq } from "drizzle-orm";
 import { AlertCircle, ExternalLink } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
 import { measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 
 interface ValidatedBlock {
@@ -18,14 +21,44 @@ interface ValidatedBlock {
   status: "valid" | "warning" | "danger";
   issues: string[];
   detail: string;
+  /** Pages this exact block was on (17 Nov). Absent on older audits, which listed it once per page. */
+  pageCount?: number;
 }
 
 interface SchemaFindings {
-  typesFound: string[];
+  typesFound?: string[];
   richness: number;
-  gaps: string[];
+  gaps?: string[];
   realityCheck: Record<string, string>;
   blocks?: ValidatedBlock[];
+  pagesScanned?: number;
+}
+
+export interface SchemaKpis {
+  /** "Distinct schema blocks" on an audit that stored distinct blocks; older ones counted a block per page. */
+  blocksLabel: string;
+  blocks: number | null;
+  valid: number | null;
+  toReview: number | null;
+  typesFound: number | null;
+}
+
+/**
+ * 17 Nov, part 3: the schema page's counts, from what the audit stored. There is no "Hallucinated" count: it
+ * was every FAQPage with questions (lib/schema-audit/validate-blocks.ts), and nothing compares a block with the
+ * page's text. An older audit's "danger" blocks are that FAQ reminder, so they count as "to review". A count
+ * the audit didn't store is null (not measured), never 0.
+ */
+export function schemaKpis(findings: SchemaFindings | undefined): SchemaKpis {
+  const blocks = findings?.blocks;
+  const distinct = Array.isArray(blocks) && blocks.every((b) => typeof b.pageCount === "number");
+  return {
+    blocksLabel: distinct ? "Distinct schema blocks" : "Blocks found (counted per page)",
+    blocks: Array.isArray(blocks) ? blocks.length : null,
+    valid: Array.isArray(blocks) ? blocks.filter((b) => b.status === "valid").length : null,
+    toReview: Array.isArray(blocks) ? blocks.filter((b) => b.status !== "valid").length : null,
+    typesFound: Array.isArray(findings?.typesFound) ? findings.typesFound.length : null,
+  };
 }
 
 const SCORED_TYPES = ["Organization", "LocalBusiness", "FAQPage", "Article"];
@@ -38,10 +71,12 @@ const ENGINE_LABELS: Record<string, string> = {
   gemini: "Gemini",
 };
 
+// 17 Nov, part 3: "danger" on an older audit was only the FAQ "check each question" reminder, so it reads as
+// one: a warning to review, not a red finding.
 const STATUS_TONES: Record<string, { bg: string; fg: string; label: string }> = {
   valid: { bg: "var(--success-soft)", fg: "var(--success)", label: "valid" },
-  warning: { bg: "var(--warning-soft)", fg: "var(--warning)", label: "warning" },
-  danger: { bg: "var(--danger-soft)", fg: "var(--danger)", label: "danger" },
+  warning: { bg: "var(--warning-soft)", fg: "var(--warning)", label: "to review" },
+  danger: { bg: "var(--warning-soft)", fg: "var(--warning)", label: "to review" },
 };
 
 export default async function SchemaAuditPage({
@@ -99,16 +134,24 @@ export default async function SchemaAuditPage({
   const findings = (techAudit.findings as Record<string, unknown>)?.schema as
     | SchemaFindings
     | undefined;
+  // 17 Nov, part 3: a crawl that never reached the site read no pages, so it found no schema -- "Not checked",
+  // never 0 of 16 and every type "Missing".
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
   // 9 Nov (part 9): a missing sub-score is "Not measured yet" -- no number, no red 0/16
   // (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreSchema);
+  const scoreM = measured(unreached ? null : techAudit.scoreSchema);
   const score = scoreM.measured ? scoreM.value : null;
-  const blocks = findings?.blocks ?? [];
-
-  const totalSchemas = blocks.length || (findings?.typesFound?.length ?? 0);
-  const validCount = blocks.filter((b) => b.status === "valid").length;
-  const warningCount = blocks.filter((b) => b.status === "warning").length;
-  const dangerCount = blocks.filter((b) => b.status === "danger").length;
+  const blocks = unreached ? [] : (findings?.blocks ?? []);
+  const kpis = unreached ? null : schemaKpis(findings);
+  const notScoredText = unreached ? "Not checked" : NOT_MEASURED;
+  const count = (n: number | null | undefined) =>
+    n === null || n === undefined ? notScoredText : String(n);
   const maxRichness = SCORED_TYPES.length * 4;
 
   const scoreColor =
@@ -119,13 +162,16 @@ export default async function SchemaAuditPage({
         : "var(--text-primary)";
 
   const kpiCards = [
-    { label: "Total schemas", value: String(totalSchemas), tone: "neutral" as const },
-    { label: "Valid", value: String(validCount), tone: "success" as const },
-    { label: "Warnings", value: String(warningCount), tone: "warning" as const },
-    { label: "Hallucinated", value: String(dangerCount), tone: "danger" as const },
+    {
+      label: kpis?.blocksLabel ?? "Schema blocks",
+      value: count(kpis?.blocks),
+      tone: "neutral" as const,
+    },
+    { label: "Valid", value: count(kpis?.valid), tone: "success" as const },
+    { label: "To review", value: count(kpis?.toReview), tone: "warning" as const },
     {
       label: "Schema richness",
-      value: scoreText(score, maxRichness),
+      value: unreached ? notScoredText : scoreText(score, maxRichness),
       tone: (score === null
         ? "neutral"
         : score === 0
@@ -169,9 +215,14 @@ export default async function SchemaAuditPage({
           >
             Schema markup audit
           </h1>
+          {/* 17 Nov, part 3: it said "Found and validated against schema.org. Reality-checked against your
+              actual website content." Nothing validates against schema.org or reads the page's text. */}
           <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 2px" }}>
-            Found and validated against schema.org. Reality-checked against your actual website
-            content.
+            The JSON-LD on the pages we crawled
+            {typeof findings?.pagesScanned === "number" && !unreached
+              ? ` (${findings.pagesScanned} ${findings.pagesScanned === 1 ? "page" : "pages"})`
+              : ""}
+            , and how complete each block is. We don&apos;t check it against your pages&apos; text.
           </p>
           <p
             style={{
@@ -182,12 +233,15 @@ export default async function SchemaAuditPage({
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {findings?.typesFound?.length ?? 0} schema types found · Score:{" "}
-            {score === null ? NOT_MEASURED : <>{score}/16</>}
+            {kpis === null || kpis.typesFound === null
+              ? `Schema types: ${notScoredText}`
+              : `${kpis.typesFound} schema types found`}{" "}
+            · Score: {score === null ? notScoredText : <>{score}/16</>}
+            {crawledOn ? ` · Crawled ${crawledOn}` : ""}
           </p>
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
         ) : (
           <div
             style={{
@@ -203,11 +257,16 @@ export default async function SchemaAuditPage({
         )}
       </div>
 
-      {/* FIX 3 — KPI stat cards: five across from 1024px, fewer on a phone */}
-      <div
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
-        style={{ gap: 12, marginBottom: 24 }}
-      >
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
+
+      {/* FIX 3 — KPI stat cards: four across from 1024px, two on a phone */}
+      <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 12, marginBottom: 24 }}>
         {kpiCards.map((kpi) => {
           const tone = KPI_TONE_COLORS[kpi.tone];
           return (
@@ -257,7 +316,7 @@ export default async function SchemaAuditPage({
             return (
               <section
                 key={`${block.type}-${idx}`}
-                aria-label={`${block.type} schema: ${block.status}`}
+                aria-label={`${block.type} schema: ${tone.label}`}
                 style={{
                   padding: 20,
                   borderRadius: 8,
@@ -305,6 +364,9 @@ export default async function SchemaAuditPage({
                       }}
                     >
                       richness {block.richness}/4 · {block.attributeCount} attrs
+                      {typeof block.pageCount === "number"
+                        ? ` · on ${block.pageCount} ${block.pageCount === 1 ? "page" : "pages"}`
+                        : ""}
                     </span>
                   </div>
                   <a
@@ -360,7 +422,7 @@ export default async function SchemaAuditPage({
                             height: 14,
                             marginTop: 2,
                             flexShrink: 0,
-                            color: block.status === "danger" ? "var(--danger)" : "var(--warning)",
+                            color: "var(--warning)",
                           }}
                         />
                         <span>{issue}</span>
@@ -390,7 +452,28 @@ export default async function SchemaAuditPage({
           </h3>
         </div>
         {SCORED_TYPES.map((type) => {
-          const found = findings?.typesFound?.some((t) => t.includes(type)) ?? false;
+          // Not found only when the audit read the pages and stored what it found.
+          const typesFound = unreached ? undefined : findings?.typesFound;
+          const checked = Array.isArray(typesFound);
+          const found = checked && typesFound.some((t) => t.includes(type));
+          if (!checked) {
+            return (
+              <section
+                key={type}
+                aria-label={`${type} schema: not checked`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 20px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}
+              >
+                <span style={{ flex: 1, fontSize: 13, color: "var(--text-primary)" }}>{type}</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Not checked</span>
+              </section>
+            );
+          }
           return (
             <section
               key={type}
@@ -426,7 +509,7 @@ export default async function SchemaAuditPage({
       </div>
 
       {/* Gaps — Missing Schema Types */}
-      {(findings?.gaps?.length ?? 0) > 0 && (
+      {!unreached && (findings?.gaps?.length ?? 0) > 0 && (
         <div
           style={{
             borderRadius: 8,

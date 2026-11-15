@@ -415,7 +415,10 @@ describe("BE-1: recordReauditResults + lift computation", () => {
     createdIds.audits.push(reauditId);
   });
 
-  it("recordReauditResults writes scoreAfter and computes lift", async () => {
+  // 17 Nov, part 3: the lift is the measured change from the task's own audit to its re-audit
+  // (lib/visibility/audit-change.ts), never scoreAfter − score_before (an expected-impact bucket): 65 − 40 = 25
+  // was made up. Neither seeded audit has answers, so nothing is measured and the lift is null.
+  it("recordReauditResults writes scoreAfter; the lift is measured between the two audits, never 65 − 40", async () => {
     await recordReauditResults(liftTaskId, reauditId, 65);
 
     const [row] = await client`
@@ -425,7 +428,7 @@ describe("BE-1: recordReauditResults + lift computation", () => {
     expect(Number(row.score_before)).toBe(40);
     expect(Number(row.score_after)).toBe(65);
     expect(row.reaudit_id).toBe(reauditId);
-    expect(Number(row.lift_achieved)).toBe(25);
+    expect(row.lift_achieved).toBeNull();
   });
 
   it("recordReauditResults with null scoreBefore yields null lift", async () => {

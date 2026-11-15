@@ -482,7 +482,9 @@ test.describe("FE-2: Edge and empty states", () => {
     await expect(page.getByText("No citation gaps found")).toBeVisible();
   });
 
-  test("3. Volatility indicator shows stable state for low score", async ({ page }) => {
+  // 17 Nov, part 3: the volatility chip is gone (it was the spread of the weekly trend row's own-domain
+  // "citation rate" over 12 rows of any period or method); the seeded row's 8.50 never shows.
+  test("3. No volatility chip: the seeded trend row's volatility never shows", async ({ page }) => {
     await signInThroughForm(page, user1);
 
     const stableBrandId = await createBrandViaApi(page, {
@@ -525,9 +527,8 @@ test.describe("FE-2: Edge and empty states", () => {
     await page.waitForURL(`**/brands/${stableBrandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    // Volatility <= 15 → should NOT show warning icon (⚠)
-    const warningIcon = page.getByText("⚠");
-    await expect(warningIcon).not.toBeVisible();
+    await expect(page.getByText(/Volatility/)).toHaveCount(0);
+    await expect(page.getByText("⚠")).toHaveCount(0);
   });
 
   // Since f1ad3f7 (8 Nov) the Visibility page and its routes are on every plan

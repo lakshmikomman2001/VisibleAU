@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { EmptyState } from "@/components/phase2/empty-state";
+import type { AuditChange } from "@/lib/visibility/audit-change";
 import { GenerateDraftModal } from "./generate-draft-modal";
 import { TaskCard } from "./task-card";
 
@@ -21,6 +22,8 @@ interface Task {
   assignedTo: string | null;
   dueDate: string | null;
   reauditDeferredReason: string | null;
+  /** 17 Nov, part 3: the re-audit's measured change (lib/visibility/audit-change.ts). */
+  change?: AuditChange | null;
 }
 
 interface TaskKanbanProps {

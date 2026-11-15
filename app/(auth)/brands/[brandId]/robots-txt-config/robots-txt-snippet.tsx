@@ -60,6 +60,13 @@ export function RobotsTxtSnippet({ domain, allowedBotAgents }: RobotsTxtSnippetP
       >
         Generated robots.txt (AI-crawler-friendly)
       </h3>
+      {/* 17 Nov, part 3: the list is the crawlers we recommend allowing, less any your own robots.txt blocks on
+          purpose (lib/robots-txt/display.ts snippetAgents). It used to be every crawler not in a 5-crawler
+          blocked list, so "(27 bots allowed)" counted crawlers nothing had checked. */}
+      <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "0 0 12px" }}>
+        A suggested file, not your current one. It allows the AI crawlers we recommend allowing,
+        leaving out any your robots.txt blocks by name.
+      </p>
       <pre
         style={{
           fontSize: 11,

@@ -101,10 +101,14 @@ describe("Sprint 6 wiring — integration checks", () => {
     "utf-8",
   );
 
+  // 17 Nov, part 3: the sub-signal is VisibleAU's own draft's coverage score, not a depth of the site's file;
+  // it said "llms.txt depth", the same words and "/18" as the llms.txt generator page's different scorer.
   it("depth_score surfaced inside agent-readiness as Technical sub-signal (LLD 5457/2911)", () => {
     expect(agentReadinessCard).toContain("llmstxtDepthScore");
     expect(agentReadinessCard).toContain("Technical sub-signals");
-    expect(agentReadinessCard).toContain("llms.txt depth");
+    expect(agentReadinessCard).toContain(
+      "llms.txt draft coverage (ours, not your site&apos;s file)",
+    );
     expect(agentReadinessCard).toContain("MCP");
   });
 

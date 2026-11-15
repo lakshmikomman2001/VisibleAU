@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, journeyRunResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { journeyTurnChips } from "@/lib/conversational/journey-results";
 import {
   assertBrandAccess,
   assertTier,
@@ -57,10 +58,19 @@ export async function GET(
       .orderBy(desc(journeyRunResults.runAt))
       .limit(100);
 
+    // 17 Nov, part 3: turn_results is stored with the runner's `brand_mentioned` key; the page read
+    // `brandMentioned`, so every turn chip showed grey. journeyTurnChips reads the stored key. Every run is
+    // sent with its date (the page orders them: each engine's latest first).
     return NextResponse.json(
       results.map((r) => ({
-        ...r,
+        id: r.id,
+        engine: r.engine,
+        runAt: r.runAt,
         journeyScore: r.journeyScore == null ? null : Number(r.journeyScore),
+        firstMentionTurn: r.firstMentionTurn,
+        brandAppearedInNTurns: r.brandAppearedInNTurns,
+        totalTurns: r.totalTurns,
+        turnResults: journeyTurnChips(r.turnResults),
       })),
     );
   });

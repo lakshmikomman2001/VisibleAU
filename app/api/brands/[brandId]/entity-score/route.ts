@@ -2,9 +2,10 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brandEntityScores, brands } from "@/db/schema";
+import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { entityScoreBasis, recomputeEntityDisplayScore } from "@/lib/brand-entity/score";
+import { possessive } from "@/lib/copy/possessive";
 import {
   assertBrandAccess,
   assertTier,
@@ -15,7 +16,18 @@ import {
 import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
-import { possessive } from "@/lib/copy/possessive";
+
+/** How far apart a technical audit and the entity row it wrote can be (they're written seconds apart). */
+const SAME_RUN_MS = 10 * 60 * 1000;
+
+/** findings.brandEntity.wikipediaAuStatus, or null (an audit from before 17 Nov kept only true/false). */
+function wikipediaStatusOf(findings: unknown): "found" | "not_found" | "unavailable" | null {
+  if (typeof findings !== "object" || findings === null) return null;
+  const brandEntity = (findings as { brandEntity?: unknown }).brandEntity;
+  if (typeof brandEntity !== "object" || brandEntity === null) return null;
+  const status = (brandEntity as { wikipediaAuStatus?: unknown }).wikipediaAuStatus;
+  return status === "found" || status === "not_found" || status === "unavailable" ? status : null;
+}
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -57,6 +69,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     if (!latest) return NextResponse.json(null);
 
+    // 17 Nov, part 3: whether the Wikipedia lookup behind this row completed. brand_entity_scores keeps only
+    // true/false (false also covered a lookup that failed); the technical audit that wrote this row keeps the
+    // lookup's own state in its findings from 17 Nov (findings.brandEntity.wikipediaAuStatus,
+    // lib/audit/run-technical-audit-inline.ts). Both rows are written in the same run, seconds apart, so the
+    // brand's latest technical audit is this row's when it was written within SAME_RUN_MS of it.
+    const [technical] = await tx
+      .select({ findings: technicalAudits.findings, createdAt: technicalAudits.createdAt })
+      .from(technicalAudits)
+      .where(eq(technicalAudits.brandId, brandId))
+      .orderBy(desc(technicalAudits.createdAt))
+      .limit(1);
+    const wikipediaAuStatus =
+      technical &&
+      Math.abs(technical.createdAt.getTime() - latest.checkedAt.getTime()) <= SAME_RUN_MS
+        ? wikipediaStatusOf(technical.findings)
+        : null;
+
     // Sri, 21 Oct follow-up, item 5: this used to divide the STORED
     // score_of_10 by the new 8-point max -- correct for a row computed
     // under the new weights, but score_of_10 used to run up to 10 (the
@@ -79,12 +108,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
           : undefined;
 
     // 9 Nov (part 9): null when none of the score's facts was checked -- "Not measured yet", never 0/100.
-    const { basis } = entityScoreBasis(latest);
+    // 17 Nov, part 3: a Wikipedia lookup that didn't complete isn't "no article found".
+    const basis =
+      wikipediaAuStatus === "unavailable"
+        ? entityScoreBasis(latest).basis.replace(
+            "no Wikipedia AU article found",
+            "Wikipedia AU couldn't be checked",
+          )
+        : entityScoreBasis(latest).basis;
     const annotation =
       displayScore === null
         ? {
             // Part 4: the page shows "Not measured yet" above this; it said it again, and "Omega Services's".
-            rationale: `${possessive(brand.name)} ABN, .au domain and Wikipedia AU haven't been checked. Refresh the entity check to measure them.`,
+            // 17 Nov, part 3: it ended "Refresh the entity check to measure them" -- the page has no refresh
+            // control; the check runs with each audit started from the app (lib/audit/run-technical-audit-
+            // inline.ts, from app/api/audits/route.ts), as the page says beside the check's date.
+            rationale: `${possessive(brand.name)} ABN, .au domain and Wikipedia AU haven't been checked, so there's no entity score.`,
             confidence_label: null,
             confidence_note: null,
             top_action: null,
@@ -146,6 +185,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       // from the raw (and scale-ambiguous) scoreOf10 field above. Null: not measured (9 Nov, part 9).
       displayScore,
       scoreBasis: basis,
+      wikipediaAuStatus,
     });
   });
 }

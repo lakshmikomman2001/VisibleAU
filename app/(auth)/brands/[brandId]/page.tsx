@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { DirectoryListingsCard } from "@/components/domain/brand/directory-listings-card";
@@ -7,7 +7,7 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations } from "@/db/schema";
 import { engineCoverageLabel, engineNoAnswerReason } from "@/lib/audit/engine-failure";
 import { auditModels } from "@/lib/audit/model-drift";
-import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { EXCLUDE_UNVERIFIED, ORGANIC_ONLY } from "@/lib/audit/organic-filter";
 import { questionChangeNotes } from "@/lib/audit/question-set-sql";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isOnHistoryChart } from "@/lib/brands/history-chart";
@@ -18,6 +18,7 @@ import {
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { positionCard } from "@/lib/scoring/measured-display";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 import { isUuid } from "@/lib/validation/uuid";
@@ -97,7 +98,9 @@ export default async function BrandDetailPage({
         })
         .from(audits)
         .where(and(eq(audits.brandId, brand.id), eq(audits.status, "complete")))
-        .orderBy(desc(audits.completedAt))
+        // 17 Nov, part 3: newest first as latestCompleteAudit orders it (lib/visibility/share-of-voice.ts), so the
+        // tile's audit is the one the Visibility page and the brands list name.
+        .orderBy(sql`${audits.completedAt} DESC NULLS LAST`, desc(audits.auditNumber))
         .limit(12);
 
       const latestAudit = recentAudits[0] ?? null;
@@ -169,6 +172,8 @@ export default async function BrandDetailPage({
         modelDrift: (modelsByAuditId.get(a.id)?.drift ?? []).map(modelDriftNote).join("; ") || null,
         auditNumber: a.auditNumber,
         excludedFromTrendsReason: a.excludedFromTrendsReason,
+        // 17 Nov, part 3: each bar's own figure, as its audit page shows it ("33%", "13 of 40").
+        visibility: visibilityDisplay(resolvedByAuditId.get(a.id)),
       }));
       const latestAuditWithStatus = latestAudit
         ? {
@@ -179,6 +184,17 @@ export default async function BrandDetailPage({
               ...visibilityDisplay(resolvedByAuditId.get(latestAudit.id)),
               coverage: engineCoverageLabel(latestAudit),
             },
+            // 17 Nov, part 3: which audit the tiles are from, and the audit page's own position card ("#4" over "3 of
+            // 5 mentions were in a ranked list", or why there's no rank) -- the tile showed a bare "#4" or "—".
+            auditNumber: latestAudit.auditNumber,
+            position: positionCard(
+              resolvedByAuditId.get(latestAudit.id) ?? {
+                mentionedCount: 0,
+                rankedCount: 0,
+                medianPosition: null,
+                sourcedCount: 0,
+              },
+            ),
           }
         : null;
 
@@ -210,6 +226,9 @@ export default async function BrandDetailPage({
               eq(audits.brandId, brand.id),
               eq(audits.status, "complete"),
               eq(citations.brandMentioned, true),
+              // 17 Nov, part 3: verified mentions only, as each audit page counts them (an unverified name match
+              // isn't a mention) -- the total could exceed the sum of the audits' own "mentioned in k".
+              EXCLUDE_UNVERIFIED,
               ORGANIC_ONLY,
               // Vunnara Build 1, Part F.3: this spans every completed
               // audit the brand has ever had -- a historical audit from

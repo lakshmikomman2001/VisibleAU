@@ -48,7 +48,9 @@ describe("SourceGapCard -- engine name rendered through ENGINE_DISPLAY_NAMES (ta
   });
 
   it("falls back to the raw string for an unrecognised engine id", () => {
-    render(React.createElement(SourceGapCard, { source: baseSource({ engine: "some-new-engine" }) }));
+    render(
+      React.createElement(SourceGapCard, { source: baseSource({ engine: "some-new-engine" }) }),
+    );
     expect(screen.getByText("some-new-engine")).toBeInTheDocument();
   });
 });
@@ -120,17 +122,22 @@ describe("SourceGapCard -- exhaustive source-type labels (task #46 follow-up)", 
 });
 
 describe("SourceGapCard -- top cited domains (task #45)", () => {
-  it('shows the "appear after the next audit" fallback when topDomains is null', () => {
+  // 17 Nov, part 3: it said "Top domains appear after the next audit." -- a promise. The Citation Sources page
+  // computes them from the audit's answers now; only a stored row can lack them, and it says so.
+  it("says the top domains weren't recorded when topDomains is null, promising nothing", () => {
     render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: null }) }));
 
-    expect(screen.getByText("Top domains appear after the next audit.")).toBeInTheDocument();
+    expect(screen.getByText("Top domains weren't recorded for this audit.")).toBeInTheDocument();
+    expect(screen.queryByText(/appear after/)).not.toBeInTheDocument();
     expect(screen.queryByText("Top cited domains")).not.toBeInTheDocument();
   });
 
   it("renders nothing further when topDomains is a genuinely-computed empty array", () => {
     render(React.createElement(SourceGapCard, { source: baseSource({ topDomains: [] }) }));
 
-    expect(screen.queryByText("Top domains appear after the next audit.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Top domains weren't recorded for this audit."),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Top cited domains")).not.toBeInTheDocument();
   });
 
@@ -221,7 +228,9 @@ describe("SourceGapCard -- top cited domains (task #45)", () => {
     render(
       React.createElement(SourceGapCard, {
         source: baseSource({
-          topDomains: [{ domain: "bondiplumbing.com.au", count: 1, origin: "recalled", isBrand: true }],
+          topDomains: [
+            { domain: "bondiplumbing.com.au", count: 1, origin: "recalled", isBrand: true },
+          ],
         }),
       }),
     );
@@ -233,9 +242,7 @@ describe("SourceGapCard -- top cited domains (task #45)", () => {
     render(
       React.createElement(SourceGapCard, {
         source: baseSource({
-          topDomains: [
-            { domain: "javascript:alert(1)", count: 1, origin: "retrieved" },
-          ],
+          topDomains: [{ domain: "javascript:alert(1)", count: 1, origin: "retrieved" }],
         }),
       }),
     );
@@ -275,5 +282,22 @@ describe("SourceGapCard -- real categories still render their genuine severity",
     );
 
     expect(screen.getByText("Covered")).toBeInTheDocument();
+  });
+
+  // 17 Nov, part 3: an unknown severity fell back to GAP_CONFIG.covered -- a green "Covered" nobody measured.
+  it('an unknown gapSeverity is a neutral "Not rated", never "Covered"', () => {
+    render(
+      React.createElement(SourceGapCard, {
+        source: baseSource({
+          sourceType: "review_site",
+          gapSeverity: "something_new",
+          brandPresentInSource: false,
+          sourceAffinityNote: "Review sites provide social proof.",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("Not rated")).toBeInTheDocument();
+    expect(screen.queryByText("Covered")).not.toBeInTheDocument();
   });
 });

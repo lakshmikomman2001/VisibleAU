@@ -31,6 +31,8 @@ interface TrustSummary {
   // null = not enough AI coverage of this brand yet to assess risk.
   riskLevel: "Low" | "Medium" | "High" | null;
   riskRationale: string;
+  // 17 Nov, part 3: when each check behind the score ran, and why one isn't in it (lib/trust/trust-notes.ts).
+  notes?: string[];
 }
 
 // Each page's feature (lib/pricing/brand-features.ts): a tile shows the lock and the plan where the
@@ -167,6 +169,7 @@ export default function TrustHubPage() {
         rationale={data.rationale}
         confidenceLabel={null}
         insufficientData={data.overallTrustScore === null}
+        notes={data.notes ?? []}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

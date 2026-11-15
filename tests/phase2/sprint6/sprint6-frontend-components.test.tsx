@@ -109,10 +109,14 @@ describe("AgentReadinessCard", () => {
     expect(texts.filter((t) => t === "12/20")).toHaveLength(2);
   });
 
-  it("renders Technical sub-signals (llms.txt depth + MCP)", async () => {
+  // 17 Nov, part 3: the number is VisibleAU's own draft's coverage score, not the site's file; it read
+  // "llms.txt depth: 12/18", the same words and /18 as the llms.txt generator page's scorer of the site's file.
+  it("renders Technical sub-signals (llms.txt draft coverage + MCP)", async () => {
     await renderCard();
     expect(screen.getByText("Technical sub-signals")).toBeInTheDocument();
-    expect(screen.getByText("llms.txt depth: 12/18")).toBeInTheDocument();
+    expect(
+      screen.getByText("llms.txt draft coverage (ours, not your site's file): 12/18"),
+    ).toBeInTheDocument();
     expect(screen.getByText("MCP: absent")).toBeInTheDocument();
   });
 
@@ -246,10 +250,12 @@ describe("EntityHomeCard", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("ContentStructureCard", () => {
+  // 17 Nov, part 3: answerCapsuleScore is 0-100 (lib/retrieval/content-auditor.ts); this fixture's 3 with a
+  // "3/4" expectation matched the card's wrong /4 scale, not anything the auditor writes.
   const BASE_AUDIT = {
     id: "audit_1",
     pageUrl: "https://example.com/services",
-    answerCapsuleScore: 3,
+    answerCapsuleScore: 60,
     faqBlockPresent: true,
     faqSchemaPresent: false,
     wordCount: 1200,
@@ -281,7 +287,7 @@ describe("ContentStructureCard", () => {
 
   it("capsule + passages rendered", async () => {
     await renderCard();
-    expect(screen.getByText("Capsule: 3/4")).toBeInTheDocument();
+    expect(screen.getByText("Capsule: 60/100")).toBeInTheDocument();
     expect(screen.getByText("Passages: 4")).toBeInTheDocument();
   });
 
@@ -579,7 +585,9 @@ describe("LlmstxtViewer", () => {
     expect(pre).toBeTruthy();
     expect(pre!.textContent).toContain("# llms.txt");
     expect(pre!.textContent).toContain("User-agent: *");
-    expect(screen.getByText(/Depth: 14\/18/)).toBeInTheDocument();
+    // 17 Nov, part 3: "Depth: 14/18" read like the generator page's score for the site's file; it's our
+    // draft's coverage score.
+    expect(screen.getByText(/Draft coverage: 14\/18/)).toBeInTheDocument();
   });
 
   it("Generate New button present and enabled", async () => {

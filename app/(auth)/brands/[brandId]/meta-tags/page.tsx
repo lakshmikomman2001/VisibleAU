@@ -1,11 +1,14 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { META_WEIGHTS, type MetaFindings } from "@/lib/technical-audit/orchestrate";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -139,13 +142,23 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
     );
   }
 
-  const findings = (techAudit.findings as Record<string, unknown>)?.meta as
-    | Partial<MetaFindings>
-    | undefined;
+  // 17 Nov, part 3: on a crawl that never reached the site there was no home page to read, so every tag is
+  // "Not checked" -- it read 0 of 14 with every row crossed out.
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
+  const findings = unreached
+    ? undefined
+    : ((techAudit.findings as Record<string, unknown>)?.meta as Partial<MetaFindings> | undefined);
   // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/14 (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreMeta);
+  const scoreM = measured(unreached ? null : techAudit.scoreMeta);
   const score = scoreM.measured ? scoreM.value : null;
   const granular = hasGranularMetaFields(findings);
+  const notScoredText = unreached ? "Not checked" : NOT_MEASURED;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -172,13 +185,18 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
           >
             Meta Tags Audit
           </h1>
+          {/* 17 Nov, part 3: scoreMeta reads the home page alone (crawl.pages[0]); the page says so. */}
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            Title, description, OG, canonical &amp; hreflang &middot; Score:{" "}
-            {score === null ? NOT_MEASURED : <>{score}/14</>}
+            Title, description, OG, canonical &amp; hreflang on your home page &middot; Score:{" "}
+            {score === null ? notScoredText : <>{score}/14</>}
+          </p>
+          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+            Only the home page is checked, not the other pages we crawled.
+            {crawledOn ? ` Crawled ${crawledOn}.` : ""}
           </p>
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
         ) : (
           <div
             style={{
@@ -193,6 +211,14 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
         )}
       </div>
 
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
+
       <div
         style={{
           borderRadius: 8,
@@ -205,14 +231,38 @@ export default async function MetaTagsPage({ params }: { params: Promise<{ brand
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
             Tag Checks
           </h3>
-          {!granular && (
+          {!granular && !unreached && (
             <p style={{ fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
               Per-component detail unavailable for this audit — re-run the audit to see it.
             </p>
           )}
         </div>
         {SIGNALS.map((sig) => {
-          const present = findings?.[sig.key] ?? false;
+          // A tag the audit didn't record is "Not checked", never a cross and 0 (it was `?? false`).
+          const stored = findings?.[sig.key];
+          if (typeof stored !== "boolean") {
+            return (
+              <div
+                key={sig.key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 20px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                    {sig.label}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{sig.desc}</div>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Not checked</span>
+              </div>
+            );
+          }
+          const present = stored;
           const message = granular
             ? describeFailingMetaRow(sig.key, findings as MetaFindings)
             : null;

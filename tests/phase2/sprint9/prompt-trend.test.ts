@@ -9,23 +9,27 @@ const routeSource = readFileSync(
 );
 
 describe("prompt-trend route (v8.16 JOIN + tier gate + brand access)", () => {
-  it("uses audits JOIN, NOT citations.brand_id (v8.16 fix)", () => {
-    expect(routeSource).toContain("JOIN audits");
+  // 17 Nov, part 3: one point per audit, as the audit page counts answers (lib/visibility/question-trend.ts) --
+  // it grouped every citations row by calendar week, unverified mentions and every run counted.
+  const libSource = readFileSync(path.resolve("lib/visibility/question-trend.ts"), "utf-8");
+
+  it("the route takes the shared question trend (no SQL of its own; citations has no brand_id)", () => {
+    expect(routeSource).toContain("questionTrend(tx, brandId, decodeURIComponent(promptId))");
     expect(routeSource).not.toContain("citations.brand_id");
-    expect(routeSource).not.toContain("c.brand_id");
+    expect(routeSource).not.toMatch(/DATE_TRUNC/i);
   });
 
-  it("weekly buckets via DATE_TRUNC", () => {
-    expect(routeSource).toMatch(/DATE_TRUNC.*week/i);
+  it("per audit, by the audit page's rules: run 1, everyday answers, verified mentions; comparable audits only", () => {
+    expect(libSource).toContain("ORGANIC_ONLY");
+    expect(libSource).toContain("eq(citations.runNumber, 1)");
+    expect(libSource).toContain("EXCLUDE_UNVERIFIED");
+    expect(libSource).toContain("includedInTrends");
+    expect(libSource).toContain("driftBaseline(latestRow, [a], models, countsGoogle)");
   });
 
-  it("mention_rate = mentioned/total with NULLIF guard", () => {
-    expect(routeSource).toMatch(/NULLIF\s*\(\s*COUNT\s*\(\s*\*\s*\)/);
-  });
-
-  it("<2 weeks returns 'not enough history' message", () => {
-    expect(routeSource).toMatch(/rows\.length\s*<\s*2/);
-    expect(routeSource).toContain("Not enough history yet");
+  it("fewer than 2 comparable audits → 'Not enough comparable audits'", () => {
+    expect(routeSource).toMatch(/trend\.length\s*<\s*2/);
+    expect(routeSource).toContain("Not enough comparable audits");
   });
 
   it("Growth+ tier gated (isTierAtLeast growth)", () => {

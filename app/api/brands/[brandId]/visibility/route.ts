@@ -1,8 +1,8 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, visibilityTrends } from "@/db/schema";
+import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -44,13 +44,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     const tier = await effectiveTier(tx, currentUser.organizationId);
 
-    const [latestTrend] = await tx
-      .select()
-      .from(visibilityTrends)
-      .where(eq(visibilityTrends.brandId, brandId))
-      .orderBy(desc(visibilityTrends.calculatedAt))
-      .limit(1);
-
     // One Share of Voice (7 Nov): the brand's latest complete audit, counted by the one counter the
     // Overview, audit page, PDF and wins feed read -- never the retired share_of_voice_snapshots rows
     // (the brand against every cited site), and never a share computed in the browser.
@@ -66,31 +59,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     );
 
     // 17 Nov, part 1: the "Mentions and sources" card is the latest complete audit's own figures, by the audit
-    // page's definitions (lib/visibility/mentions-and-sources.ts) -- never the weekly trend row's.
+    // page's definitions (lib/visibility/mentions-and-sources.ts) -- never the weekly trend row's. Part 3: and the
+    // page reads no visibility_trends row at all (its volatility chip, the spread of that row's own-domain
+    // "citation rate" over 12 rows of any period, methodology or questions, is gone).
     const mentionsAndSources = await mentionsAndSourcesForLatestAudit(tx, brandId);
 
     return NextResponse.json({
       mentionsAndSources,
-      trends: latestTrend
-        ? {
-            mentionRate: Number(latestTrend.mentionRate),
-            citationRate: Number(latestTrend.citationRate),
-            mentionSourceRatio: latestTrend.mentionSourceRatio
-              ? Number(latestTrend.mentionSourceRatio)
-              : null,
-            brandArchetype: latestTrend.brandArchetype,
-            marketCompetitionLabel: latestTrend.marketCompetitionLabel,
-            citationVolatilityScore: latestTrend.citationVolatilityScore
-              ? Number(latestTrend.citationVolatilityScore)
-              : null,
-            scoreCompositeAvg: latestTrend.scoreCompositeAvg
-              ? Number(latestTrend.scoreCompositeAvg)
-              : null,
-            sampleQuality: latestTrend.sampleQuality,
-            periodLabel: latestTrend.periodLabel,
-            periodType: latestTrend.periodType,
-          }
-        : null,
       shareOfVoice: sovPayload(shareOfVoice, currentUser.organizationId),
       tier,
       brandDomain: brand.domain ?? "",

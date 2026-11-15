@@ -63,6 +63,8 @@ export default async function BrandsPage() {
     // Visibility comes from each brand's latest COMPLETE audit (a
     // running or failed one after it doesn't blank the column), one
     // batched query, through the same resolver as the audit page.
+    // 17 Nov, part 3: latest by completion, as latestCompleteAudit picks it (lib/visibility/share-of-voice.ts) --
+    // it was the latest STARTED, so an audit started earlier that finished later could show beside the brand page's.
     const latestCompleteRows = await tx
       .select({
         auditId: audits.id,
@@ -78,7 +80,7 @@ export default async function BrandsPage() {
           sql`${audits.id} IN (
             SELECT DISTINCT ON (brand_id) id FROM audits
             WHERE organization_id = ${user.organizationId} AND status = 'complete'
-            ORDER BY brand_id, created_at DESC
+            ORDER BY brand_id, completed_at DESC NULLS LAST, audit_number DESC
           )`,
         ),
       );

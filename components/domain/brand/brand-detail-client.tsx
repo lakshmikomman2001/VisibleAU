@@ -62,7 +62,11 @@ import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
 import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-features";
-import { engineRowDisplay, formatTypicalRank } from "@/lib/scoring/measured-display";
+import {
+  engineRowDisplay,
+  formatTypicalRank,
+  type MentionDetailCard,
+} from "@/lib/scoring/measured-display";
 import {
   type VisibilityDisplay,
   visibilityColorVar,
@@ -170,12 +174,18 @@ interface BrandDetailClientProps {
     /** 14 Nov, part 5: an operator excluded it from trends (lib/audit/trend-exclusion.ts): off the chart. */
     auditNumber?: number;
     excludedFromTrendsReason?: string | null;
+    /** 17 Nov, part 3: the audit's own figure ("33%", "13 of 40"), for its bar. */
+    visibility?: VisibilityDisplay;
   }>;
   latestAudit: {
     scoreComposite: string | null;
     insufficientData?: boolean;
     /** The audit page's headline ("8%", "3 of 40") -- lib/scoring/visibility-display.ts. */
     visibility: VisibilityDisplay;
+    /** 17 Nov, part 3: the audit the tiles are from. */
+    auditNumber?: number;
+    /** The audit page's position card (lib/scoring/measured-display.ts positionCard). */
+    position?: MentionDetailCard;
   } | null;
   avgPosition: number | null;
   totalMentions: number;
@@ -483,6 +493,8 @@ export function BrandDetailClient({
       models: a.models,
       modelDrift: a.modelDrift ?? null,
       completedAt: a.completedAt,
+      auditNumber: a.auditNumber ?? null,
+      visibility: a.visibility ?? null,
     }));
   const sparkMax = Math.max(...sparkPoints.map((p) => p.value), 80);
   // "Mention detection" (6 Nov), part 6: where the trend meets a newer methodology, what changed and when --
@@ -1145,10 +1157,18 @@ export function BrandDetailClient({
                     label: "Visibility",
                     ...(() => {
                       const v = latestAudit?.visibility ?? visibilityDisplay(null);
+                      // 17 Nov, part 3: and which audit it is ("3 of 40 · audit #50").
+                      const parts = [
+                        v.detail,
+                        v.coverage,
+                        latestAudit?.auditNumber != null
+                          ? `audit #${latestAudit.auditNumber}`
+                          : null,
+                      ].filter(Boolean);
                       return {
                         value: v.value,
                         // URGENT audit #37 (31 Oct), item 2: "· 3 of 4 engines".
-                        detail: v.coverage ? `${v.detail} · ${v.coverage}` : v.detail,
+                        detail: parts.join(" · "),
                         color: visibilityColorVar(v.band),
                       };
                     })(),
@@ -1158,12 +1178,26 @@ export function BrandDetailClient({
                     // Audit #36: the median rank, formatted like every other
                     // surface ("#4") -- it was labelled "Avg" and shown as "4.0".
                     label: "Typical position",
-                    value: avgPosition != null ? formatTypicalRank(avgPosition) : "—",
+                    // 17 Nov, part 3: the audit page's own card -- "#4" over "3 of 5 mentions were in a ranked
+                    // list", or "—" with why (not mentioned / mentioned but not ranked); it was a bare "#4" or "—".
+                    ...(latestAudit?.position
+                      ? latestAudit.position.kind === "measured"
+                        ? { value: latestAudit.position.value, detail: latestAudit.position.detail }
+                        : {
+                            value: "—",
+                            detail:
+                              latestAudit.position.kind === "not_mentioned"
+                                ? "Not mentioned"
+                                : "Mentioned but not ranked",
+                          }
+                      : { value: avgPosition != null ? formatTypicalRank(avgPosition) : "—" }),
                     key: 1,
                   },
                   {
                     label: `Total mentions (${auditCount} audit${auditCount !== 1 ? "s" : ""})`,
                     value: totalMentions != null ? totalMentions.toLocaleString() : "—",
+                    // 17 Nov, part 3: verified mentions, as each audit page counts them.
+                    detail: "In everyday answers, across your audits",
                     key: 2,
                   },
                   {
@@ -1261,7 +1295,10 @@ export function BrandDetailClient({
                   {/* 14 Nov, part 5: every audit here excluded from trends isn't "no audits". */}
                   {excludedFromChart.length > 0
                     ? "No audit to chart: every audit here is excluded from trends"
-                    : "No completed audits yet"}
+                    : recentAudits.length > 0
+                      ? // 17 Nov, part 3: there were audits, none with enough answers to chart.
+                        "No audit to chart: none had enough answers"
+                      : "No completed audits yet"}
                 </div>
               ) : (
                 <>
@@ -1286,14 +1323,24 @@ export function BrandDetailClient({
                       const modelsChanged = modelNotes[i] != null;
                       const versionChanged =
                         questionsChanged || methodologyChanged || modelsChanged;
+                      // 17 Nov, part 3: each bar names its audit and figure ("Audit #50: 33% (13 of 40)"); a
+                      // zero-mention audit is a measured 0% ("Not mentioned (0 of 40)"), never "insufficient data".
+                      const figure =
+                        p.auditNumber != null && p.visibility
+                          ? `Audit #${p.auditNumber}: ${
+                              p.insufficientData
+                                ? `Not mentioned (${p.visibility.detail})`
+                                : `${p.visibility.value} (${p.visibility.detail})`
+                            }`
+                          : null;
                       const title = [
+                        figure,
                         questionsChanged ? p.questionsChange : null,
                         methodologyChanged
                           ? (methodologyNotes[i] ??
                             "Search methodology changed since the previous audit")
                           : null,
                         modelNotes[i],
-                        p.insufficientData ? "Not mentioned — insufficient data" : null,
                         p.engineCoverage ? `${p.engineCoverage} — a whole engine failed` : null,
                         p.modelDrift,
                       ]
@@ -1444,10 +1491,18 @@ export function BrandDetailClient({
                       color: "var(--text-tertiary)",
                     }}
                   >
+                    {/* 17 Nov, part 3: the first and last audits charted -- it said "N weeks ago … Now",
+                        counting bars as weeks. */}
                     <span>
-                      {sparkPoints.length} week{sparkPoints.length === 1 ? "" : "s"} ago
+                      {sparkPoints[0]?.auditNumber != null
+                        ? `Audit #${sparkPoints[0].auditNumber}`
+                        : ""}
                     </span>
-                    <span>Now</span>
+                    <span>
+                      {sparkPoints.at(-1)?.auditNumber != null
+                        ? `Audit #${sparkPoints.at(-1)?.auditNumber}`
+                        : ""}
+                    </span>
                   </div>
                 </>
               )}

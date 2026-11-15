@@ -1,9 +1,10 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { brands, comparisonPromptResults, topicalCoverageGaps } from "@/db/schema";
+import { audits, brands, comparisonPromptResults } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { rejudgeStoredComparison } from "@/lib/conversational/comparison-verdict";
 import { assertBrandAccess, brandAccessErrorResponse, recordAction } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 
@@ -25,7 +26,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [brand] = await tx
-      .select({ id: brands.id, competitors: brands.competitors })
+      .select({
+        id: brands.id,
+        name: brands.name,
+        domain: brands.domain,
+        competitors: brands.competitors,
+      })
       .from(brands)
       .where(
         and(
@@ -73,11 +79,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     for (const r of allRows) {
       if (!configuredCompetitors.includes(r.competitorDomain)) continue;
+      // 17 Nov, part 3: judged again from the stored answer, as the comparisons page does
+      // (lib/conversational/comparison-verdict.ts) -- the stored brand_won counted a website-only match as a win.
+      const judged = rejudgeStoredComparison(r, {
+        brandName: brand.name,
+        brandDomain: brand.domain,
+        competitorDomain: r.competitorDomain,
+      });
       (byCompetitor[r.competitorDomain] ??= []).push({
         engine: r.engine,
-        brandWon: r.brandWon,
-        brandMentioned: r.brandMentioned,
-        competitorMentioned: r.competitorMentioned,
+        brandWon: judged.brandWon,
+        brandMentioned: judged.brandMentioned,
+        competitorMentioned: judged.competitorMentioned,
         verdictSnippet: r.verdictSnippet,
         runAt: r.runAt,
       });
@@ -91,27 +104,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       inconclusive: verdicts.filter((v) => v.brandWon === null).length,
     }));
 
-    const gapsOwned = await tx
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(topicalCoverageGaps)
-      .where(
-        and(
-          eq(topicalCoverageGaps.brandId, brandId),
-          eq(topicalCoverageGaps.brandHasContent, false),
-        ),
-      );
-
-    const topGap = await tx
-      .select({ topicLabel: topicalCoverageGaps.topicLabel })
-      .from(topicalCoverageGaps)
-      .where(
-        and(
-          eq(topicalCoverageGaps.brandId, brandId),
-          eq(topicalCoverageGaps.brandHasContent, false),
-        ),
-      )
-      .orderBy(sql`${topicalCoverageGaps.crossPromptImpact} DESC NULLS LAST`)
-      .limit(1);
+    // 17 Nov, part 3: which audit's head-to-head questions these are (the page said nothing).
+    const [comparisonAudit] = latestAudit?.auditId
+      ? await tx
+          .select({ number: audits.auditNumber, completedAt: audits.completedAt })
+          .from(audits)
+          .where(eq(audits.id, latestAudit.auditId))
+      : [];
 
     recordAction({
       organizationId: currentUser.organizationId,
@@ -127,9 +126,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         totalWins: competitors.reduce((s, c) => s + c.wins, 0),
         totalLosses: competitors.reduce((s, c) => s + c.losses, 0),
         totalInconclusive: competitors.reduce((s, c) => s + c.inconclusive, 0),
-        topicalGapsOwned: Number(gapsOwned[0]?.count ?? 0),
-        fastestPath: topGap[0]?.topicLabel ? `Create content for "${topGap[0].topicLabel}"` : null,
+        // 17 Nov, part 3: no "Topics they own" / "Fastest path" -- both came from topical_coverage_gaps, which isn't a
+        // measurement (and "they own" counted topics with no competitor in them).
       },
+      audit: comparisonAudit
+        ? {
+            number: comparisonAudit.number,
+            completedAt: comparisonAudit.completedAt?.toISOString() ?? null,
+          }
+        : null,
       tier,
     });
   });

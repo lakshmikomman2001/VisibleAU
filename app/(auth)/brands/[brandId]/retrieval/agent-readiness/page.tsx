@@ -6,8 +6,14 @@ import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-g
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { AgentReadinessCard } from "@/components/domain/retrieval/agent-readiness-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
+import {
+  readinessFromStoredRow,
+  type StoredReadinessParts,
+} from "@/lib/retrieval/agent-readiness-breakdown";
 
-interface AgentReadinessScore {
+// 17 Nov, part 3: the stored row's parts too (the API sends the whole row), so the card scores only what was
+// measured (lib/retrieval/agent-readiness-breakdown.ts).
+interface AgentReadinessScore extends StoredReadinessParts {
   id: string;
   totalScore: number | null;
   techScore: number | null;
@@ -109,8 +115,15 @@ export default function AgentReadinessPage() {
         </button>
       </div>
 
+      {latest && (
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Scored {new Date(latest.scoredAt).toLocaleDateString("en-AU")}
+        </p>
+      )}
+
       {latest ? (
         <AgentReadinessCard
+          breakdown={readinessFromStoredRow(latest)}
           totalScore={latest.totalScore}
           techScore={latest.techScore}
           entityClarityScore={latest.entityClarityScore}

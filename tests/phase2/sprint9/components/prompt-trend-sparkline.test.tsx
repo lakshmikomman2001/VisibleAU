@@ -29,7 +29,14 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetchTrend(trend: { week: string; mentionRate: number }[], message?: string) {
+// 17 Nov, part 3: one point per audit, with its counts (lib/visibility/question-trend.ts).
+type Point = {
+  auditNumber: number;
+  completedAt: string | null;
+  mentioned: number;
+  answers: number;
+};
+function mockFetchTrend(trend: Point[], message?: string) {
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({ trend, message }),
@@ -67,7 +74,7 @@ describe("4.5 — PromptTrendSparkline: declared states", () => {
     });
 
     it("1 data point → also shows message (need >=2 for trend)", async () => {
-      mockFetchTrend([{ week: "2026-06-01", mentionRate: 0.08 }]);
+      mockFetchTrend([{ auditNumber: 1, completedAt: null, mentioned: 1, answers: 4 }]);
       const { container } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
       await waitFor(() => {
         expect(container.textContent).toContain("Not enough history yet");
@@ -105,11 +112,11 @@ describe("4.5 — PromptTrendSparkline: declared states", () => {
   });
 
   describe("data state (trend renders)", () => {
-    const TREND_DATA = [
-      { week: "2026-04-07", mentionRate: 0.08 },
-      { week: "2026-04-14", mentionRate: 0.12 },
-      { week: "2026-04-21", mentionRate: 0.22 },
-      { week: "2026-04-28", mentionRate: 0.34 },
+    const TREND_DATA: Point[] = [
+      { auditNumber: 47, completedAt: null, mentioned: 0, answers: 4 },
+      { auditNumber: 48, completedAt: null, mentioned: 1, answers: 4 },
+      { auditNumber: 49, completedAt: null, mentioned: 2, answers: 4 },
+      { auditNumber: 50, completedAt: null, mentioned: 3, answers: 4 },
     ];
 
     it("renders a LineChart when >=2 data points", async () => {
@@ -121,27 +128,18 @@ describe("4.5 — PromptTrendSparkline: declared states", () => {
       });
     });
 
-    it("improving trend (latest >= first) → success stroke color", async () => {
-      mockFetchTrend(TREND_DATA); // 8% → 34%, improving
-      const { container } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
-      await waitFor(() => {
-        const line = container.querySelector("[data-testid='line']");
-        expect(line?.getAttribute("data-stroke")).toContain("success");
-      });
-    });
-
-    it("declining trend (latest < first) → danger stroke color", async () => {
-      const declining = [
-        { week: "2026-04-07", mentionRate: 0.34 },
-        { week: "2026-04-14", mentionRate: 0.22 },
-        { week: "2026-04-21", mentionRate: 0.12 },
-      ];
-      mockFetchTrend(declining);
-      const { container } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
-      await waitFor(() => {
-        const line = container.querySelector("[data-testid='line']");
-        expect(line?.getAttribute("data-stroke")).toContain("danger");
-      });
+    // 17 Nov, part 3: a neutral line -- it was green or red from the first and last points alone, a verdict from
+    // a few answers.
+    it("the line is neutral whichever way it goes: no green/red verdict", async () => {
+      for (const trend of [TREND_DATA, [...TREND_DATA].reverse()]) {
+        mockFetchTrend(trend);
+        const { container, unmount } = render(<PromptTrendSparkline brandId="b1" promptId="p1" />);
+        await waitFor(() => {
+          const line = container.querySelector("[data-testid='line']");
+          expect(line?.getAttribute("data-stroke")).toBe("var(--accent-blue)");
+        });
+        unmount();
+      }
     });
   });
 

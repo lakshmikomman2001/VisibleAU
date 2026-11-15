@@ -26,10 +26,12 @@ describe("citation-sources/page.tsx -- states what the screen measures", () => {
 
   it("clarifies what 'Covered' describes -- matches brandPresent's actual definition, not 'the brand appears within'", () => {
     expect(src).toMatch(
-      /Covered&quot;\s+means the\s+engine mentioned this\s+brand in an answer that cites this kind of\s+source/,
+      /Covered&quot;\s+means the\s+engine mentioned\s+this\s+brand in an answer that cites this kind of\s+source/,
     );
     // Whitespace aside: the formatter re-wraps the paragraph's lines (8 Nov).
     expect(src).toMatch(/or cited the\s+brand&apos;s own site/);
+    // 17 Nov, part 3: a mention the audit confirmed (a name match it couldn't confirm doesn't count).
+    expect(src).toMatch(/a mention the audit confirmed as\s+this business/);
     // The old, inaccurate wording must be gone, not just supplemented.
     expect(src).not.toMatch(/means the brand appears within/);
   });

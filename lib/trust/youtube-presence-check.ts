@@ -12,9 +12,12 @@
  * presenceScore stays null -- never scored, never fed into the Overall
  * Trust Score (lib/trust/trust-scorer.ts already excludes a null
  * youtubePresenceScore from the average, same as "unavailable").
+ * "not_found" is never scored either (17 Nov, part 3): only a confirmed
+ * channel has a presence score.
  */
-import { checkYoutubePresence } from "./youtube-channel-lookup";
+
 import { scoreYoutubePresenceFromChannel } from "./youtube-auditor";
+import { checkYoutubePresence } from "./youtube-channel-lookup";
 
 export interface YoutubePresenceAuditValues {
   channelUrl: string | null;
@@ -60,10 +63,14 @@ export async function buildYoutubePresenceAuditRow(
   }
 
   if (outcome.status === "not_found") {
-    const { presenceScore, gaps } = scoreYoutubePresenceFromChannel({
+    // 17 Nov, part 3: no presence score. "not_found" means no channel matched confidently (by name, then the
+    // brand's own website on the channel) -- not that the brand has no YouTube presence -- and it was stored
+    // as presence 0, which the Overall Trust Score averaged in as a measured 0 (lib/trust/trust-scorer.ts now
+    // counts only a confirmed channel's score as well). The gap still says what to do.
+    const { gaps } = scoreYoutubePresenceFromChannel({
       channelExists: false,
-      subscriberCount: 0,
-      videoCount: 0,
+      subscriberCount: null,
+      videoCount: null,
       daysSinceLastUpload: null,
     });
     return {
@@ -77,7 +84,7 @@ export async function buildYoutubePresenceAuditRow(
       matchConfidence: "0.000",
       checkStatus: "not_found",
       unavailableReason: null,
-      presenceScore,
+      presenceScore: null,
       gaps,
     };
   }

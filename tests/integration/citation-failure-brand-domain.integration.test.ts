@@ -102,7 +102,8 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
     expect(d?.evidence).toContain(
-      "AI engines cited 2 sources across 2 engines, and none was your website.",
+      // 17 Nov, part 3: answers, as the audit page counts them, and which audit (it counted links).
+      "In audit #90001, 2 of 2 everyday answers linked a source (2 links in all, across 2 engines), and none was your website.",
     );
   });
 
@@ -227,7 +228,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
     expect(d?.evidence).toContain(
-      "AI engines cited 1 source across 1 engine, and none was your website.",
+      "In audit #90007, 1 of 1 everyday answers linked a source (1 link in all, across 1 engine), and none was your website.",
     );
   });
 
@@ -259,7 +260,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
     expect(d?.evidence).toContain(
-      "AI engines cited 1 source across 1 engine, and none was your website.",
+      "In audit #90008, 1 of 1 everyday answers linked a source (1 link in all, across 1 engine), and none was your website.",
     );
   });
 
@@ -288,13 +289,17 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
     const d = diagnoses.find((x) => x.patternKey === "brand_domain_not_cited");
     expect(d).toBeDefined();
     expect(d?.evidence).toContain(
-      "AI engines cited 1 source across 1 engine, and none was your website.",
+      "In audit #90010, 1 of 1 everyday answers linked a source (1 link in all, across 1 engine), and none was your website.",
     );
   });
 });
 
-describe("competitor_cited_instead via diagnose() -- real competitor_mentioned column, no history mixing", () => {
-  it("only counts the latest completed audit's competitor_mentioned rows", async () => {
+// 17 Nov, part 3: "X is cited N times in prompts where your brand is absent" was COUNT(comparison_prompt_results where
+// competitor_mentioned) -- head-to-head prompts that named the competitor: no citation, and nothing about the brand
+// being absent. The diagnosis now comes only from the audit's own everyday answers (a competitor's website linked in
+// answers that didn't name the brand); comparison rows never make one.
+describe("competitor_cited_instead via diagnose() -- never from head-to-head comparison rows", () => {
+  it("comparison rows naming a competitor make no 'cited instead' claim", async () => {
     const { db } = await import("@/db/client");
     const brandId = await makeBrand("CFBD Competitor", "bondiplumbing.com.au");
     const olderAuditId = await makeCompletedAudit(brandId, 90011, new Date("2026-01-01"));
@@ -326,10 +331,9 @@ describe("competitor_cited_instead via diagnose() -- real competitor_mentioned c
     `;
 
     const diagnoses = await diagnose(db, { brandId });
-    const d = diagnoses.find((x) => x.patternKey === "competitor_cited_instead");
-    expect(d).toBeDefined();
-    expect(d?.competitorCited).toBe("rivalplumbing.com.au");
-    expect(d?.evidence).toContain("rivalplumbing.com.au is cited 2 times");
-    expect(diagnoses.some((x) => x.competitorCited === "stale-competitor.com.au")).toBe(false);
+    expect(diagnoses.filter((x) => x.patternKey === "competitor_cited_instead")).toEqual([]);
+    expect(JSON.stringify(diagnoses)).not.toMatch(
+      /is cited \d+ times|prompts where your brand is absent/,
+    );
   });
 });

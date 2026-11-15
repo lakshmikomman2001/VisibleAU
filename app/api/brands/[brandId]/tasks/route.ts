@@ -14,6 +14,7 @@ import {
   tierRefusal,
 } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { auditChanges } from "@/lib/visibility/audit-change";
 import {
   createTask,
   createTaskFromRecommendation,
@@ -77,7 +78,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     }
 
     const tasks = await getTasksByBrand(brandId, status, tx);
-    return NextResponse.json(tasks);
+    // 17 Nov, part 3: each task's re-audit as a measured change between two audits (the task's own audit and its
+    // re-audit, lib/visibility/audit-change.ts) -- never score_before (an expected-impact bucket) against a %.
+    const changes = await auditChanges(
+      tx,
+      tasks.map((t) => ({ key: t.id, beforeId: t.auditId, afterId: t.reauditId })),
+    );
+    return NextResponse.json(tasks.map((t) => ({ ...t, change: changes.get(t.id) ?? null })));
   });
 }
 

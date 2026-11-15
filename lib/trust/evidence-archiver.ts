@@ -1,19 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { citations, evidenceSnapshots } from "@/db/schema";
-import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 
 /**
- * DEMO-BLOCKER (1 Nov), part 5 point 8 -- what the evidence archive really
- * keeps, as the report PDF's method page states it. It used to say
- * "immutable evidence snapshots ... for compliance and audit purposes";
- * nothing makes them immutable (the table has UPDATE and DELETE policies,
- * no trigger or hash, and prod-fix 0040 deleted rows -- diag-0111). True
- * because captureEvidenceSnapshots below copies every run-1 answer's
- * engine, question and response_snippet (its first RESPONSE_SNIPPET_CHARS
- * characters) with a capture time.
+ * The sentence now lives in lib/trust/evidence-archive-copy.ts (17 Nov, part 3), so the Evidence Archive page
+ * (a client component) can show it without this file's database imports. Re-exported here for the report PDF
+ * and the tests that already import it from this module.
  */
-export const EVIDENCE_ARCHIVE_SENTENCE = `For each audit we keep the first ${RESPONSE_SNIPPET_CHARS} characters of every first-run answer, with its engine, question and capture time.`;
+export { EVIDENCE_ARCHIVE_SENTENCE, evidenceAnswerKey } from "./evidence-archive-copy";
 
 export interface ArchiveResult {
   snapshotCount: number;
@@ -33,6 +27,14 @@ export interface ArchiveResult {
  * lib/audit/run-audit-inline.ts's runOneCall). Filtering to it here
  * means future audits store exactly one snapshot per (engine, prompt),
  * not five. See docs/ops/post-launch-db-hardening.md section 40.
+ *
+ * 17 Nov, part 3: score_at_capture is no longer copied. It came from
+ * citations.sentiment_score, which no code writes (sentiment isn't
+ * measured), and the page showed it as "Sentiment: +N%". The column stays
+ * (no migration); new rows leave it null. Answers to questions that named
+ * the business are kept too (the archive is every first-run answer, as
+ * EVIDENCE_ARCHIVE_SENTENCE says); the Evidence Archive marks them by
+ * matching each snapshot back to its citations row (evidenceAnswerKey).
  */
 export async function captureEvidenceSnapshots(
   tx: DbClient,
@@ -55,7 +57,6 @@ export async function captureEvidenceSnapshots(
       engine: cit.engine,
       prompt: cit.prompt,
       rawResponse: cit.responseSnippet ?? "",
-      scoreAtCapture: cit.sentimentScore,
     });
     snapshotCount++;
   }

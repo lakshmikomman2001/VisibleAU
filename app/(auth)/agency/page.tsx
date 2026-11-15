@@ -1,15 +1,14 @@
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { PlanGatedLink } from "@/components/domain/pricing/plan-lock";
 import { serviceDb, withRlsContext } from "@/db/client";
-import { auditSchedules, audits, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
-import { auditModels } from "@/lib/audit/model-drift";
+import { auditSchedules, brands, clientPortalInvites, driftAlerts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOverviewMonth, monthWindowLabel } from "@/lib/dashboard/overview-cards";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
-import { latestMovement } from "@/lib/visibility/latest-movement";
+import { auditChanges } from "@/lib/visibility/audit-change";
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -45,6 +44,7 @@ export default async function AgencyDashboardPage() {
   const {
     brandCount,
     avgScore,
+    averagedBrands,
     pendingDrifts,
     upcomingSchedules,
     auditsThisMonth,
@@ -113,7 +113,7 @@ export default async function AgencyDashboardPage() {
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
               AND a.excluded_from_trends_reason IS NULL
-            ORDER BY a.completed_at DESC
+            ORDER BY a.completed_at DESC NULLS LAST, a.audit_number DESC
             LIMIT 1
           )`,
           previousAuditId: sql<string | null>`(
@@ -121,7 +121,7 @@ export default async function AgencyDashboardPage() {
             WHERE a.brand_id = "brands"."id"
               AND a.status = 'complete'
               AND a.excluded_from_trends_reason IS NULL
-            ORDER BY a.completed_at DESC
+            ORDER BY a.completed_at DESC NULLS LAST, a.audit_number DESC
             OFFSET 1
             LIMIT 1
           )`,
@@ -136,27 +136,18 @@ export default async function AgencyDashboardPage() {
       .flatMap((b) => [b.latestAuditId, b.previousAuditId])
       .filter((id): id is string => id !== null);
     const resolvedByAuditId = await resolveOrganicDimensions(tx, auditIds);
-    // 9 Nov (retention follow-ups, part 5): a brand moves only between comparable audits -- the drift
-    // baseline's rule (lib/visibility/latest-movement.ts) -- one query for the audits, one for their models.
-    const [movementAudits, models] = await Promise.all([
-      auditIds.length > 0
-        ? tx
-            .select({
-              id: audits.id,
-              engines: audits.engines,
-              promptsCount: audits.promptsCount,
-              metadata: audits.metadata,
-              methodologyVersion: audits.methodologyVersion,
-              // 15 Nov, part 2: never compared across a change of everyday questions.
-              questionSetHash: audits.questionSetHash,
-              promptPackVersion: audits.promptPackVersion,
-            })
-            .from(audits)
-            .where(inArray(audits.id, auditIds))
-        : Promise.resolve([]),
-      auditModels(tx, auditIds),
-    ]);
-    const auditById = new Map(movementAudits.map((a) => [a.id, a]));
+    // 17 Nov, part 3: each brand's move between its two latest audits, as their audit pages show them ("Audit #49 →
+    // #50: 25% (10 of 40) → 27% (11 of 40), up 2 points"), only when the two are comparable (the drift baseline's rule)
+    // -- lib/visibility/audit-change.ts, the one function every "before → after" uses. It showed "25% → 27%" with no
+    // audits or counts, coloured by the raw difference (so "25% → 25%" could be green).
+    const changes = await auditChanges(
+      tx,
+      brandAuditIdsResult.map((b) => ({
+        key: b.brandId,
+        beforeId: b.previousAuditId,
+        afterId: b.latestAuditId,
+      })),
+    );
 
     function compositeFor(auditId: string | null): number | null {
       if (!auditId) return null;
@@ -173,13 +164,7 @@ export default async function AgencyDashboardPage() {
       brandId: b.brandId,
       brandName: b.brandName,
       latestComposite: compositeFor(b.latestAuditId),
-      movement: latestMovement({
-        latest: (b.latestAuditId && auditById.get(b.latestAuditId)) || null,
-        previous: (b.previousAuditId && auditById.get(b.previousAuditId)) || null,
-        latestScore: compositeFor(b.latestAuditId),
-        previousScore: compositeFor(b.previousAuditId),
-        models,
-      }),
+      change: changes.get(b.brandId) ?? null,
     }));
 
     const latestComposites = perBrand
@@ -196,30 +181,23 @@ export default async function AgencyDashboardPage() {
 
     const topMovers = perBrand
       .flatMap((b) =>
-        b.movement.kind === "moved"
-          ? [
-              {
-                brandId: b.brandId,
-                brandName: b.brandName,
-                previous: b.movement.previous,
-                latest: b.movement.latest,
-                scoreDelta: b.movement.delta,
-              },
-            ]
+        b.change?.kind === "measured"
+          ? [{ brandId: b.brandId, brandName: b.brandName, change: b.change }]
           : [],
       )
-      .sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta))
+      .sort((a, b) => Math.abs(b.change.points) - Math.abs(a.change.points))
       .slice(0, 5);
     // Named with the reason, never a movement figure.
     const notComparable = perBrand.flatMap((b) =>
-      b.movement.kind === "not_comparable"
-        ? [{ brandId: b.brandId, brandName: b.brandName, label: b.movement.label }]
+      b.change?.kind === "not_comparable"
+        ? [{ brandId: b.brandId, brandName: b.brandName, label: b.change.reason }]
         : [],
     );
 
     return {
       brandCount: brandCountResult[0].count,
       avgScore,
+      averagedBrands: latestComposites.length,
       pendingDrifts: pendingDriftResult[0].count,
       upcomingSchedules: upcomingSchedulesResult[0].count,
       auditsThisMonth: month.auditCount,
@@ -242,6 +220,12 @@ export default async function AgencyDashboardPage() {
         <div className="rounded-lg border bg-card p-6">
           <p className="text-sm text-muted-foreground">Avg Visibility</p>
           <p className="text-3xl font-bold mt-1">{avgScore}</p>
+          {/* 17 Nov, part 3: what it averages (as the dashboard's card says). */}
+          <p className="text-xs text-muted-foreground mt-1">
+            {averagedBrands === 0
+              ? "No brand has a measured audit"
+              : `Each latest audit of ${averagedBrands} brand${averagedBrands === 1 ? "" : "s"}, not counting audits excluded from trends`}
+          </p>
         </div>
         <div className="rounded-lg border bg-card p-6">
           <p className="text-sm text-muted-foreground">Pending Drift Alerts</p>
@@ -267,31 +251,32 @@ export default async function AgencyDashboardPage() {
             </p>
           ) : (
             <ul className="space-y-3">
-              {topMovers.map((m) => {
-                const delta = m.scoreDelta;
-                return (
-                  <li key={m.brandId} className="flex items-center justify-between">
-                    <a
-                      href={`/brands/${m.brandId}`}
-                      className="text-sm font-medium hover:underline"
-                    >
-                      {m.brandName}
-                    </a>
-                    <span
-                      className={`text-sm font-mono font-semibold ${
-                        delta > 0
-                          ? "text-green-600"
-                          : delta < 0
-                            ? "text-red-600"
-                            : "text-muted-foreground"
-                      }`}
-                    >
-                      {/* Both audits' Visibility, as each audit page shows it. */}
-                      {formatVisibilityPercent(m.previous)} → {formatVisibilityPercent(m.latest)}
+              {topMovers.map((m) => (
+                <li key={m.brandId} className="flex items-start justify-between gap-3">
+                  <a href={`/brands/${m.brandId}`} className="text-sm font-medium hover:underline">
+                    {m.brandName}
+                  </a>
+                  <span
+                    className={`text-right text-sm font-mono ${
+                      m.change.direction === "up"
+                        ? "text-green-600"
+                        : m.change.direction === "down"
+                          ? "text-red-600"
+                          : "text-muted-foreground"
+                    }`}
+                    data-mover-line=""
+                  >
+                    {/* Both audits' Visibility, as each audit page shows it, with their numbers and counts. */}
+                    <span className="font-semibold">
+                      {m.change.before.value} → {m.change.after.value}
                     </span>
-                  </li>
-                );
-              })}
+                    <span className="block text-xs text-muted-foreground font-sans">
+                      #{m.change.before.auditNumber} ({m.change.before.counts}) → #
+                      {m.change.after.auditNumber} ({m.change.after.counts})
+                    </span>
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
           {notComparable.length > 0 && (

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  type ReadinessBreakdown,
+  type ReadinessDimension,
+  readinessGapText,
+} from "@/lib/retrieval/agent-readiness-breakdown";
 import { checkText, measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
 
 interface AgentReadinessCardProps {
@@ -11,19 +16,31 @@ interface AgentReadinessCardProps {
   taskScore: number | null;
   localAiTrustScore: number | null;
   gaps: string[];
+  /** The depth of VisibleAU's own current llms.txt draft (llmstxt_versions), not the site's file. */
   llmstxtDepthScore?: number | null;
   mcpEndpointPresent?: boolean | null;
-  /** Whether the score run found an llms.txt on the site: false = checked, none; null = not checked. */
+  /** Whether VisibleAU has a current llms.txt draft: false = none generated; null = not checked. */
   llmstxtPresent?: boolean | null;
+  /**
+   * 17 Nov, part 3: the score read back from its stored parts (lib/retrieval/agent-readiness-breakdown.ts),
+   * without the parts nothing measured. When given, it replaces the stored totals above, which carry 6 free
+   * points and 22 points of unmeasured zeros on every row the old writer stored.
+   */
+  breakdown?: ReadinessBreakdown;
 }
 
 const DIMENSIONS = [
-  { key: "techScore", label: "Technical", max: 20 },
-  { key: "entityClarityScore", label: "Entity Clarity", max: 20 },
-  { key: "verifyScore", label: "Verifiability", max: 20 },
-  { key: "authorityScore", label: "Authority", max: 20 },
-  { key: "taskScore", label: "Task-Fit", max: 20 },
-] as const;
+  { key: "techScore", dim: "tech", label: "Technical", max: 20 },
+  { key: "entityClarityScore", dim: "entity", label: "Entity Clarity", max: 20 },
+  { key: "verifyScore", dim: "verify", label: "Verifiability", max: 20 },
+  { key: "authorityScore", dim: "authority", label: "Authority", max: 20 },
+  { key: "taskScore", dim: "task", label: "Task-Fit", max: 20 },
+] as const satisfies ReadonlyArray<{
+  key: string;
+  dim: ReadinessDimension;
+  label: string;
+  max: number;
+}>;
 
 function bandColor(pct: number): string {
   return pct >= 0.7 ? "var(--success)" : pct >= 0.4 ? "var(--warning)" : "var(--danger)";
@@ -32,9 +49,14 @@ function bandColor(pct: number): string {
 export function AgentReadinessCard(props: AgentReadinessCardProps) {
   // 9 Nov (part 9): an unscored total or dimension reads "Not measured yet" -- no number, no bar, no
   // red band (lib/scoring/measured.ts). A measured 0 is still 0/100.
-  const totalM = measured(props.totalScore);
-  const pct = totalM.measured ? totalM.value / 100 : null;
+  const b = props.breakdown;
+  const totalM = b
+    ? measured(b.total.measuredMax > 0 ? b.total.points : null)
+    : measured(props.totalScore);
+  const totalMax = b ? b.total.measuredMax : 100;
+  const pct = totalM.measured && totalMax > 0 ? totalM.value / totalMax : null;
   const color = pct === null ? "var(--text-secondary)" : bandColor(pct);
+  const notMeasuredPoints = b ? b.notMeasured.reduce((sum, p) => sum + p.points, 0) : 0;
 
   return (
     <div
@@ -50,7 +72,7 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
         </h3>
         {totalM.measured ? (
           <span className="text-2xl font-bold" style={{ color }}>
-            {totalM.value}/100
+            {totalM.value}/{totalMax}
           </span>
         ) : (
           <span className="text-sm font-medium" style={{ color }}>
@@ -58,6 +80,12 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
           </span>
         )}
       </div>
+      {b && notMeasuredPoints > 0 && (
+        <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+          Out of the {totalMax} points we could measure. {notMeasuredPoints} of the 100 points
+          weren&apos;t measured, so they aren&apos;t counted either way.
+        </p>
+      )}
 
       {pct !== null && (
         <div
@@ -73,20 +101,35 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
 
       <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2">
         {DIMENSIONS.map((dim) => {
-          const m = measured(props[dim.key]);
-          const dimColor = m.measured ? bandColor(m.value / dim.max) : "var(--text-secondary)";
+          const fromParts = b?.dimensions[dim.dim];
+          const value = fromParts
+            ? fromParts.measuredMax > 0
+              ? fromParts.points
+              : null
+            : props[dim.key];
+          const max = fromParts ? fromParts.measuredMax : dim.max;
+          const m = measured(value);
+          const dimColor =
+            m.measured && max > 0 ? bandColor(m.value / max) : "var(--text-secondary)";
           return (
             <div key={dim.key} className="text-center">
               <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                 {dim.label}
               </div>
               <div className="text-sm font-semibold" style={{ color: dimColor }}>
-                {scoreText(props[dim.key], dim.max)}
+                {scoreText(value, max)}
               </div>
             </div>
           );
         })}
       </div>
+
+      {b && b.notMeasured.length > 0 && (
+        <div className="mt-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+          <span className="font-medium">Not measured: </span>
+          {b.notMeasured.map((p) => `${p.label} (${p.points})`).join(", ")}.
+        </div>
+      )}
 
       {(props.llmstxtDepthScore !== undefined || props.mcpEndpointPresent !== undefined) && (
         <div
@@ -97,12 +140,15 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
             Technical sub-signals
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: "var(--foreground)" }}>
-            {/* 9 Nov, part 6: "absent" only when the check ran and found nothing (lib/scoring/measured.ts). */}
+            {/* 9 Nov, part 6: "absent" only when the check ran and found nothing (lib/scoring/measured.ts).
+                17 Nov, part 3: this is llmstxtDepthScore, the coverage score of VisibleAU's own generated
+                draft (the llms.txt page's "Draft coverage"), not the site's file, and it says so; the llms.txt
+                generator page's "/18" scores the file on the site. */}
             <span>
-              llms.txt depth:{" "}
+              llms.txt draft coverage (ours, not your site&apos;s file):{" "}
               {props.llmstxtDepthScore != null
                 ? `${props.llmstxtDepthScore}/18`
-                : checkText(props.llmstxtPresent, "present, depth not scored")}
+                : checkText(props.llmstxtPresent, "draft made, depth not scored")}
             </span>
             <span>MCP: {checkText(props.mcpEndpointPresent)}</span>
           </div>
@@ -132,7 +178,7 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
                 color: "var(--foreground)",
               }}
             >
-              {gap}
+              {readinessGapText(gap)}
             </div>
           ))}
         </div>

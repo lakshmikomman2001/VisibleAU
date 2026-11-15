@@ -2,11 +2,15 @@ import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { CapsuleQuestionList } from "@/components/domain/technical/capsule-question-list";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { ANSWER_CAPSULE_WORDS } from "@/lib/answer-capsules/find-questions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task NNN: the word range comes from the detector (ANSWER_CAPSULE_WORDS) --
@@ -93,15 +97,21 @@ export default async function AnswerCapsulesPage({
   // a re-run, since there's genuinely nothing computed to show).
   const hasQuestionsField = content?.questions !== undefined;
   const questions: QuestionRow[] = content?.questions ?? [];
-  const total =
-    questions.length > 0
-      ? questions.length
-      : (content?.answerCapsulesFound ?? 0) + (content?.answerCapsulesSuggested ?? 0);
-  const found =
-    questions.length > 0
-      ? questions.filter((q) => q.hasCapsule).length
-      : (content?.answerCapsulesFound ?? 0);
+  // 17 Nov, part 3: the three counts only when the audit computed them. An audit from before per-question data
+  // (no `questions`), or one whose crawl never reached the site, read 0 / 0 / 0 with a green "Need 0".
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const counted = hasQuestionsField && !unreached;
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
+  const total = questions.length;
+  const found = questions.filter((q) => q.hasCapsule).length;
   const suggested = total - found;
+  const notCountedText = unreached ? "Not checked" : NOT_MEASURED;
+  const tile = (n: number) => (counted ? String(n) : notCountedText);
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -147,13 +157,13 @@ export default async function AnswerCapsulesPage({
           </div>
           <div
             style={{
-              fontSize: 28,
+              fontSize: counted ? 28 : 13,
               fontWeight: 600,
               fontFamily: "var(--font-mono)",
-              color: "var(--text-primary)",
+              color: counted ? "var(--text-primary)" : "var(--text-tertiary)",
             }}
           >
-            {total}
+            {tile(total)}
           </div>
         </div>
         <div
@@ -169,13 +179,13 @@ export default async function AnswerCapsulesPage({
           </div>
           <div
             style={{
-              fontSize: 28,
+              fontSize: counted ? 28 : 13,
               fontWeight: 600,
               fontFamily: "var(--font-mono)",
-              color: "var(--success)",
+              color: counted && found > 0 ? "var(--success)" : "var(--text-tertiary)",
             }}
           >
-            {found}
+            {tile(found)}
           </div>
         </div>
         <div
@@ -191,16 +201,31 @@ export default async function AnswerCapsulesPage({
           </div>
           <div
             style={{
-              fontSize: 28,
+              fontSize: counted ? 28 : 13,
               fontWeight: 600,
               fontFamily: "var(--font-mono)",
-              color: suggested > 0 ? "var(--warning)" : "var(--success)",
+              // Green only for questions that all have capsules -- not for "no questions at all".
+              color: !counted
+                ? "var(--text-tertiary)"
+                : suggested > 0
+                  ? "var(--warning)"
+                  : total > 0
+                    ? "var(--success)"
+                    : "var(--text-primary)",
             }}
           >
-            {suggested}
+            {tile(suggested)}
           </div>
         </div>
       </div>
+
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
 
       {questions.length > 0 ? (
         <div style={{ marginBottom: 24 }}>
@@ -218,10 +243,12 @@ export default async function AnswerCapsulesPage({
           }}
         >
           <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0 }}>
-            {hasQuestionsField
-              ? (content?.capsuleFinding ??
-                "We checked your H2/H3 headings and found no question-style headings.")
-              : "Re-run the technical audit to see per-question capsule data."}
+            {unreached
+              ? "No page was read on this audit, so no heading was checked."
+              : hasQuestionsField
+                ? (content?.capsuleFinding ??
+                  "We checked your H2/H3 headings and found no question-style headings.")
+                : "Re-run the technical audit to see per-question capsule data."}
           </p>
         </div>
       )}

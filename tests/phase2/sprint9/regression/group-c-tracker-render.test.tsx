@@ -3,14 +3,15 @@
  * GROUP C — THE TRACKER (F1 · F2 · F3 · F4 · F21)
  * Sections 1+2 cover the query. This section covers the RENDER.
  *
- * F6: "0 / 1 gaps closed this month" is CORRECT for real fixture.
+ * F6: an honest zero for the real fixture (no task done this month).
  * F7: exactly ONE work-completed surface on the dashboard.
  *
- * The ActionProgressTracker component fetches from /api/brands/{id}/action-progress
- * and renders the tracker. We test it by rendering with mocked fetch.
+ * 17 Nov, part 3: "N / M gaps closed this month" (M was every task ever) is "N tasks done this month · M still
+ * open"; "Measured Impact +8.5%" (a sum of re-audit scores minus expected-impact buckets) is the count of measured
+ * re-audits and the latest one in full (lib/workflow/progress-summary.ts, lib/visibility/audit-change.ts).
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -37,32 +38,29 @@ vi.mock("next/navigation", () => ({
 
 import { ActionProgressTracker } from "@/components/domain/autopilot/action-progress-tracker";
 
-// Bondi real answer key: 1 open task, 0 complete this month, score_after=NULL everywhere
+const NO_REAUDITS = { measured: 0, up: 0, down: 0, same: 0, notComparable: 0, latest: null };
 const BONDI_PROGRESS = {
   completedThisMonth: 0,
+  openTasks: 1,
   totalTasks: 1,
-  measuredImpact: null,
-  gapsClosed: 0,
-  validationPending: false,
+  reaudits: NO_REAUDITS,
+  awaitingReaudit: 0,
+  monthLabel: "Since 1 Nov, Sydney time",
 };
-
-// SYNTHETIC: exercises the "measured impact rendered" path
-// (score_after is NULL on every task system-wide — this state hasn't occurred yet)
-const WITH_MEASURED_IMPACT = {
+const WITH_REAUDITS = {
+  ...BONDI_PROGRESS,
   completedThisMonth: 2,
+  openTasks: 3,
   totalTasks: 5,
-  measuredImpact: 8.5,
-  gapsClosed: 3,
-  validationPending: false,
-};
-
-// SYNTHETIC: exercises the "pending validation" render path
-const PENDING_VALIDATION = {
-  completedThisMonth: 1,
-  totalTasks: 3,
-  measuredImpact: null,
-  gapsClosed: 1,
-  validationPending: true,
+  reaudits: {
+    measured: 1,
+    up: 1,
+    down: 0,
+    same: 0,
+    notComparable: 0,
+    latest: "Audit #49 → #50: 28% (11 of 40) → 33% (13 of 40), up 5 points",
+  },
+  awaitingReaudit: 1,
 };
 
 function mockFetch(data: unknown) {
@@ -80,104 +78,52 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("F6 — honest zero: '0 / 1 gaps closed this month' is correct", () => {
-  it("Bondi real state: renders '0 / 1 gaps closed this month', not a fabricated number", async () => {
+describe("F6 — an honest zero for the real fixture", () => {
+  it("Bondi: 0 tasks done this month, 1 still open -- never a ratio against every task ever", async () => {
     mockFetch(BONDI_PROGRESS);
     const { container } = render(<ActionProgressTracker brandId="bondi-brand-id" />);
-
     await waitFor(() => {
-      const text = container.textContent!;
-      expect(text).toContain("0");
-      expect(text).toContain("/ 1");
-      expect(text).toContain("gaps closed this month");
+      expect(container.textContent).toContain("tasks done this month · 1 task still open");
     });
+    expect(container.textContent).not.toContain("/ 1");
   });
 
-  it("⚠️ BREAK-PROOF: never fabricates a non-zero completed count when data says 0", async () => {
+  it("⚠️ BREAK-PROOF: never a made-up impact when nothing was re-audited", async () => {
     mockFetch(BONDI_PROGRESS);
     const { container } = render(<ActionProgressTracker brandId="b1" />);
-
     await waitFor(() => {
-      const text = container.textContent!;
-      // completedThisMonth=0: the number shown must be 0, not 1 or higher
-      expect(text).toContain("0");
-      // Should NOT show "1 / 1" or any positive as completedThisMonth
-      expect(text).not.toMatch(/[1-9]\d*\s*\/ 1\s*gaps/);
+      expect(container.textContent).toContain("No measured re-audit this month");
     });
+    expect(container.textContent).not.toMatch(/[+-]?\d+\.\d%/);
   });
 });
 
 describe("F7 — exactly ONE work-completed surface on the dashboard", () => {
   it("renders exactly 1 'Work Completed' card", async () => {
-    mockFetch(WITH_MEASURED_IMPACT);
+    mockFetch(WITH_REAUDITS);
     const { container } = render(<ActionProgressTracker brandId="b1" />);
-
     await waitFor(() => {
-      const matches = container.querySelectorAll("*");
-      const workCompletedElements = Array.from(matches).filter(
-        (el) => el.textContent?.includes("Work Completed") && el.closest("[class*='rounded-xl']"),
-      );
-      // The text "Work Completed" should appear exactly once as a card heading
-      const text = container.textContent!;
-      const occurrences = text.split("Work Completed").length - 1;
-      expect(occurrences).toBe(1);
+      expect(container.textContent?.split("Work Completed").length).toBe(2);
     });
   });
 });
 
-describe("Tracker render — Measured Impact pending state", () => {
-  it("measuredImpact=null → shows 'Validation audit scheduled', NOT a zero, NOT blank", async () => {
-    mockFetch(PENDING_VALIDATION);
+describe("Tracker render — with re-audits", () => {
+  it("2 done, 3 still open; 1 re-audit measured, with the latest change in full", async () => {
+    mockFetch(WITH_REAUDITS);
     const { container } = render(<ActionProgressTracker brandId="b1" />);
-
     await waitFor(() => {
-      const text = container.textContent!;
-      expect(text).toContain("Validation audit scheduled");
-      // Must NOT show "0.0%" or "+0.0%"
-      expect(text).not.toContain("0.0%");
-      expect(text).not.toContain("+0.0%");
+      expect(container.textContent).toContain("tasks done this month · 3 tasks still open");
     });
+    expect(container.textContent).toContain("task re-audited this month: up in 1");
+    expect(container.textContent).toContain(`Latest: ${WITH_REAUDITS.reaudits.latest}`);
+    expect(container.textContent).not.toMatch(/Citation rate|\+\d+\.\d%/);
   });
 
-  it("measuredImpact=8.5 → renders '+8.5%'", async () => {
-    mockFetch(WITH_MEASURED_IMPACT);
-    const { container } = render(<ActionProgressTracker brandId="b1" />);
-
-    await waitFor(() => {
-      const text = container.textContent!;
-      expect(text).toContain("+8.5%");
-    });
-  });
-
-  it("⚠️ BREAK-PROOF: null impact must NEVER show as '0' or '+0'", async () => {
-    mockFetch({ ...PENDING_VALIDATION, measuredImpact: null });
-    const { container } = render(<ActionProgressTracker brandId="b1" />);
-
-    await waitFor(() => {
-      const text = container.textContent!;
-      // The absence assertions
-      expect(text).not.toMatch(/\+0[^.]/);
-      expect(text).not.toMatch(/\b0\.0%/);
-    });
-  });
-});
-
-describe("Tracker render — with real data", () => {
-  it("completedThisMonth=2, totalTasks=5 → renders '2 / 5'", async () => {
-    mockFetch(WITH_MEASURED_IMPACT);
-    const { container } = render(<ActionProgressTracker brandId="b1" />);
-
-    await waitFor(() => {
-      const text = container.textContent!;
-      expect(text).toContain("2");
-      expect(text).toContain("/ 5");
-      expect(text).toContain("gaps closed this month");
-    });
-  });
-
-  it("REFERENCE: F1-F4, F21 — canonical tracker query guards are in §1.5 + §2.4", () => {
-    // The actual query correctness (completedAt vs updatedAt, status='complete',
-    // liftAchieved, UTC month boundaries) is covered by the unit + integration tests.
+  it("REFERENCE: F1-F4, F21 — the summary's own guards are in §1.5 and the real-DB consistency test", () => {
+    // The query's correctness (completedAt, status 'complete', the workspace's month, measured changes, never
+    // lift_achieved) is covered by tests/phase2/sprint9/unit/progress-summary.test.ts and
+    // tests/integration/brand-pages-agree-with-audit.integration.test.tsx.
     expect(true).toBe(true);
   });
 });

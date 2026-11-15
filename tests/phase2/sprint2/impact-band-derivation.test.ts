@@ -29,8 +29,10 @@ describe("task-card — impact band derived from scoreBefore, NOT integer priori
     expect(source).toContain('return "low"');
   });
 
-  it("null scoreBefore defaults to medium (safe fallback)", () => {
-    expect(source).toContain('scoreBefore == null) return "medium"');
+  // 17 Nov, part 3: no badge without an expected impact -- it defaulted to "Medium Impact", a verdict from nothing.
+  it("null scoreBefore → no impact badge (never a defaulted 'Medium Impact')", () => {
+    expect(source).toContain("if (scoreBefore == null) return null;");
+    expect(source).toContain("{band && <PriorityBadge band={band} />}");
   });
 });
 

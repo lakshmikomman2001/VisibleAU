@@ -1,17 +1,27 @@
 "use client";
 
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 
-interface Snapshot {
+export interface EvidenceSnapshot {
   id: string;
   engine: string;
   prompt: string;
   rawResponse: string;
-  scoreAtCapture: string | null;
   capturedAt: string;
+  /**
+   * 17 Nov, part 3: true when the question named the business (citations.is_branded_prompt), which the audit
+   * page doesn't count as an everyday answer; null when the snapshot's audit is gone and it can't be matched.
+   */
+  askedByName: boolean | null;
 }
 
-export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
+/**
+ * One archived answer. 17 Nov, part 3: no "Sentiment: +N%" any more -- it came from
+ * citations.sentiment_score, which nothing writes (sentiment isn't measured). An answer to a question that
+ * named the business says so, so it isn't read as an everyday answer.
+ */
+export function EvidenceSnapshotRow({ snapshot }: { snapshot: EvidenceSnapshot }) {
   return (
     <div
       className="rounded-lg border p-4"
@@ -20,24 +30,27 @@ export function EvidenceSnapshotRow({ snapshot }: { snapshot: Snapshot }) {
         backgroundColor: "var(--background)",
       }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {ENGINE_DISPLAY_NAMES[snapshot.engine as keyof typeof ENGINE_DISPLAY_NAMES] ??
               snapshot.engine}
           </span>
-          {snapshot.scoreAtCapture != null && (
+          {snapshot.askedByName === true && (
             <span
-              className="text-xs"
-              style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
+              className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--text-secondary) 15%, transparent)",
+                color: "var(--text-secondary)",
+              }}
+              title="The question named the business, so the audit doesn't count this answer as an everyday one."
             >
-              Sentiment: {Number(snapshot.scoreAtCapture) >= 0 ? "+" : ""}
-              {(Number(snapshot.scoreAtCapture) * 100).toFixed(0)}%
+              Question named the business
             </span>
           )}
         </div>
         <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          {new Date(snapshot.capturedAt).toLocaleDateString()}
+          {formatInOrgTimezone(new Date(snapshot.capturedAt), undefined, "d MMM yyyy")}
         </span>
       </div>
       <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>

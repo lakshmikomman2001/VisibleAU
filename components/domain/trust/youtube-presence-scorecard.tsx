@@ -14,6 +14,14 @@ interface YoutubeData {
   top_action: string | null;
 }
 
+/**
+ * 17 Nov, part 3: a count the channel doesn't show (or YouTube didn't report) is "Not shown", never 0. They
+ * read `?? 0`, so a hidden subscriber count showed as "0".
+ */
+export function youtubeCountText(count: number | null): string {
+  return count === null ? "Not shown" : count.toLocaleString();
+}
+
 function daysAgo(iso: string | null): string {
   if (!iso) return "Unknown";
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
@@ -77,7 +85,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
             className="text-sm font-medium"
             style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
           >
-            {(data.channelSubscriberCount ?? 0).toLocaleString()}
+            {youtubeCountText(data.channelSubscriberCount)}
           </p>
         </div>
         <div>
@@ -88,7 +96,7 @@ export function YoutubePresenceScorecard({ data }: { data: YoutubeData }) {
             className="text-sm font-medium"
             style={{ color: "var(--foreground)", fontVariantNumeric: "tabular-nums" }}
           >
-            {data.channelTotalVideos ?? 0}
+            {youtubeCountText(data.channelTotalVideos)}
           </p>
         </div>
         <div>

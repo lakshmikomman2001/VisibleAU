@@ -260,6 +260,21 @@ export default function ReportDetailPage() {
 
         <ReportBrandingHint brandId={brandId} />
 
+        {/* 17 Nov, part 3: a report made before the narrative was rebuilt on the audit's own counts (8eff2f9, 1 Nov)
+            carries "Key Wins" / "Areas to Improve" -- figures from the weekly trend rows and an AI-written summary,
+            which don't match the audit pages (a negative change even showed as "+-3.0"). Those sections are gone; such
+            a report says what it is. Every report made since writes neither. */}
+        {((report.keyWins?.length ?? 0) > 0 || (report.keyGaps?.length ?? 0) > 0) && (
+          <div
+            className="rounded-md px-4 py-3 mb-4 text-[12px]"
+            style={{ backgroundColor: "var(--bg-hover)", color: "var(--text-secondary)" }}
+            data-legacy-report=""
+          >
+            This report was made with an earlier report method, so its figures may not match your
+            audit pages. Generate a new report for this period to get one built from the audits.
+          </div>
+        )}
+
         {status === "failed" && (
           <div
             className="rounded-xl p-4 mb-6 flex items-start justify-between gap-4"
@@ -319,57 +334,6 @@ export default function ReportDetailPage() {
             {report.narrativeText}
           </div>
         </div>
-
-        {/* Key Wins */}
-        {report.keyWins && report.keyWins.length > 0 && (
-          <div
-            className="rounded-xl p-5 mb-4"
-            style={{
-              backgroundColor: "var(--bg-elevated)",
-              borderLeft: "3px solid var(--success)",
-            }}
-          >
-            <p className="text-xs font-medium mb-2" style={{ color: "var(--success)" }}>
-              Key Wins
-            </p>
-            {report.keyWins.map((w) => (
-              <div
-                key={`${w.dimension}:${w.description}`}
-                className="text-[12px] mb-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                  +{w.scoreDelta.toFixed(1)}
-                </span>{" "}
-                {w.description}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Key Gaps */}
-        {report.keyGaps && report.keyGaps.length > 0 && (
-          <div
-            className="rounded-xl p-5 mb-4"
-            style={{
-              backgroundColor: "var(--bg-elevated)",
-              borderLeft: "3px solid var(--danger)",
-            }}
-          >
-            <p className="text-xs font-medium mb-2" style={{ color: "var(--danger)" }}>
-              Areas to Improve
-            </p>
-            {report.keyGaps.map((g) => (
-              <div
-                key={`${g.dimension}:${g.description}`}
-                className="text-[12px] mb-1"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {g.description}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Confidence Notes */}
         {report.confidenceNotes && report.confidenceNotes.length > 0 && (

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands, youtubePresenceAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { possessive } from "@/lib/copy/possessive";
 import {
   assertBrandAccess,
   assertTier,
@@ -101,16 +102,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         matchConfidence: latest.matchConfidence,
         gaps: latest.gaps,
         brandDomain: brand.domain,
+        // 17 Nov, part 3: when this check ran; the page shows it on every state.
+        auditedAt: latest.auditedAt,
       });
     }
 
     // 9 Nov (part 9): a row without a presence score is "not measured" -- presenceScore stays null and
     // nothing is annotated from a made-up 0 (lib/scoring/measured.ts).
-    if (latest.presenceScore === null) {
+    // 17 Nov, part 3: a "not_found" check has no score either, even an older row that stored 0 for it (the
+    // writer stores null now): not finding a channel we can confirm isn't a measured 0.
+    if (latest.presenceScore === null || latest.checkStatus === "not_found") {
       return NextResponse.json({
         ...latest,
         presenceScore: null,
-        rationale: `${NOT_MEASURED}: the last YouTube check for ${brand.name} didn't produce a presence score.`,
+        rationale:
+          latest.checkStatus === "not_found"
+            ? `${NOT_MEASURED}: the last YouTube check found no channel it could confirm as ${possessive(brand.name)}.`
+            : `${NOT_MEASURED}: the last YouTube check for ${brand.name} didn't produce a presence score.`,
         confidence_label: null,
         confidence_note: null,
         top_action: null,

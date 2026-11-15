@@ -10,6 +10,10 @@ import { LayerBadge } from "@/components/phase2/layer-badge";
 import { LoadError } from "@/components/shared/load-error";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { NOT_MEASURED } from "@/lib/scoring/measured";
+import { displayDate } from "@/lib/trust/display-dates";
+
+/** Where the entity check runs from (17 Nov, part 3): the same words here, on the route and the Trust page. */
+const ENTITY_CHECK_RUNS = "The entity check runs with each audit you start.";
 
 interface EntityData {
   scoreOf10: string | null;
@@ -23,8 +27,13 @@ interface EntityData {
   abnVerified: boolean;
   abnNumber: string | null;
   abnEntityName: string | null;
+  abnStatus?: string | null;
   wikipediaAuPresent: boolean;
   wikipediaAuUrl: string | null;
+  /** 17 Nov, part 3: the Wikipedia lookup's own state when recorded (entity-score/route.ts). */
+  wikipediaAuStatus?: "found" | "not_found" | "unavailable" | null;
+  /** When the technical audit checked these facts. */
+  checkedAt?: string;
   knowledgePanelPresent: boolean | null;
   knowledgePanelAccurate: boolean | null;
   knowledgePanelUrl: string | null;
@@ -101,11 +110,14 @@ export default function EntityScorePage() {
         <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
           Entity Authority Score
         </h1>
+        {/* 17 Nov, part 3: it said "Run an entity check" with nothing to run it from. What's true: it runs with
+            each audit started from the app (lib/audit/run-technical-audit-inline.ts). */}
         <div
           className="flex flex-col items-center gap-2 py-12 text-center"
           style={{ color: "var(--text-secondary)" }}
         >
-          <p className="text-lg font-medium">Run an entity check</p>
+          <p className="text-lg font-medium">Not checked yet</p>
+          <p className="text-sm">{ENTITY_CHECK_RUNS}</p>
         </div>
       </div>
     );
@@ -124,9 +136,17 @@ export default function EntityScorePage() {
             full technical audit (lib/audit/run-technical-audit-inline.ts)
             -- there is no isolated re-check that changes it, so no button
             here may claim to "refresh" it. See
-            docs/ops/post-launch-db-hardening.md section 34. */}
-        <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Updates with each full audit
+            docs/ops/post-launch-db-hardening.md section 34.
+            17 Nov, part 3: "Updates with each full audit" -- the technical audit runs only with an audit
+            started from the app (app/api/audits/route.ts), not a scheduled one; and the page now says when
+            these facts were checked. */}
+        <span
+          className="text-right text-xs"
+          style={{ color: "var(--text-secondary)" }}
+          data-checked-on
+        >
+          {data.checkedAt ? `Checked ${displayDate(data.checkedAt)}. ` : ""}
+          {ENTITY_CHECK_RUNS}
         </span>
       </div>
 

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { remediationTasks } from "@/db/schema";
 import { checkQuota } from "@/lib/scheduling/quota-check";
+import { auditChanges } from "@/lib/visibility/audit-change";
 import { markReauditDeferred } from "./task-manager";
 
 export const REAUDIT_DELAY_DAYS = 14;
@@ -52,7 +53,7 @@ export async function recordReauditResults(
   fanOutAfter?: number,
   similarityAfter?: number,
 ) {
-  const liftAchieved = await computeLift(taskId, scoreAfter);
+  const liftAchieved = await computeLift(taskId, reauditId);
 
   await serviceDb
     .update(remediationTasks)
@@ -67,12 +68,19 @@ export async function recordReauditResults(
     .where(eq(remediationTasks.id, taskId));
 }
 
-async function computeLift(taskId: string, scoreAfter: number): Promise<number | null> {
+/**
+ * 17 Nov, part 3: the change from the task's own audit to its re-audit, in the shown percentage points, when the two
+ * are comparable (lib/visibility/audit-change.ts) -- else null. It was scoreAfter − score_before, and score_before is
+ * a recommendation's expected-impact bucket (80, 50 or 20), not a measurement: "+12.3%" was made up.
+ */
+async function computeLift(taskId: string, reauditId: string): Promise<number | null> {
   const [task] = await serviceDb
-    .select({ scoreBefore: remediationTasks.scoreBefore })
+    .select({ auditId: remediationTasks.auditId })
     .from(remediationTasks)
     .where(eq(remediationTasks.id, taskId));
-
-  if (!task?.scoreBefore) return null;
-  return scoreAfter - Number(task.scoreBefore);
+  if (!task?.auditId) return null;
+  const change = (
+    await auditChanges(serviceDb, [{ key: taskId, beforeId: task.auditId, afterId: reauditId }])
+  ).get(taskId);
+  return change?.kind === "measured" ? change.points : null;
 }

@@ -621,9 +621,8 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
       totalWins: 2,
       totalLosses: 5,
       totalInconclusive: 1,
-      topicalGapsOwned: 7,
-      fastestPath: 'Create content for "emergency repairs"',
     },
+    audit: { number: 50, completedAt: "2026-11-15T01:00:00.000Z" },
   };
 
   it("comparison data present → renders the head-to-head layout, one card per competitor", async () => {
@@ -634,7 +633,8 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
     expect(screen.getByText("2W")).toBeInTheDocument();
     expect(screen.getByText("1D")).toBeInTheDocument();
     expect(screen.getByText("4L")).toBeInTheDocument();
-    expect(screen.getByText("7")).toBeInTheDocument();
+    // 17 Nov, part 3: which audit's head-to-head questions these are.
+    expect(screen.getByText("Head-to-head questions, audit #50")).toBeInTheDocument();
   });
 
   it("CPR-01: no comparison data yet → a placeholder (NOT an error)", async () => {
@@ -673,16 +673,12 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
     expect(screen.getByText(/to see head-to-head results/)).toBeInTheDocument();
   });
 
-  it("fastestPath renders when present, and not when there's none", async () => {
+  // 17 Nov, part 3: no "Topics they own" or "Fastest path" -- both came from topical_coverage_gaps, which isn't a
+  // measurement.
+  it("no topical figures: no 'Topics they own', no 'Fastest path'", async () => {
     await renderPanel({ data: FULL_DATA, tier: "growth" });
-    expect(screen.getByText("Fastest path:")).toBeInTheDocument();
-    expect(screen.getByText(FULL_DATA.summary.fastestPath)).toBeInTheDocument();
-    cleanup();
-    await renderPanel({
-      data: { ...FULL_DATA, summary: { ...FULL_DATA.summary, fastestPath: null } },
-      tier: "growth",
-    });
-    expect(screen.queryByText("Fastest path:")).toBeNull();
+    expect(screen.queryByText(/Topics they own/)).toBeNull();
+    expect(screen.queryByText(/Fastest path/)).toBeNull();
   });
 
   it("the win, loss and draw totals use tabular-nums", async () => {
@@ -713,63 +709,6 @@ describe("CompetitiveBenchmarkPanel — CPR-01 + tiering", () => {
   it("responsive grid classes present", async () => {
     const { container } = await renderPanel({ data: FULL_DATA, tier: "growth" });
     expect(container.querySelector(".sm\\:grid-cols-2")).toBeInTheDocument();
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// 7. VolatilityIndicator — boundary at 15.0
-// ═══════════════════════════════════════════════════════════════
-
-describe("VolatilityIndicator — boundary at 15.0", () => {
-  async function renderVol(props: Record<string, unknown>) {
-    const { VolatilityIndicator } = await import(
-      "@/components/domain/visibility/volatility-indicator"
-    );
-    return render(React.createElement(VolatilityIndicator, props as never));
-  }
-
-  it("score > 15.0 → alert state (danger styling + ⚠)", async () => {
-    await renderVol({ score: 15.1 });
-    const indicator = screen.getByRole("status");
-    expect(indicator.style.color).toBe("var(--danger)");
-    expect(indicator.style.backgroundColor).toBe("var(--danger-soft)");
-    expect(indicator).toHaveTextContent("⚠");
-    expect(indicator).toHaveAttribute("aria-label", "Citation volatility: 15.1 — volatile");
-  });
-
-  it("score = 15.0 exactly → NOT alert (success styling)", async () => {
-    await renderVol({ score: 15.0 });
-    const indicator = screen.getByRole("status");
-    expect(indicator.style.color).toBe("var(--success)");
-    expect(indicator.style.backgroundColor).toBe("var(--success-soft)");
-    expect(indicator).not.toHaveTextContent("⚠");
-    expect(indicator).toHaveAttribute("aria-label", "Citation volatility: 15.0 — stable");
-  });
-
-  it("score <= 15.0 → stable state", async () => {
-    await renderVol({ score: 10.0 });
-    const indicator = screen.getByRole("status");
-    expect(indicator.style.color).toBe("var(--success)");
-  });
-
-  it("score null → 'Volatility: N/A'", async () => {
-    await renderVol({ score: null });
-    expect(screen.getByText("Volatility: N/A")).toBeInTheDocument();
-  });
-
-  it("loading → aria-busy", async () => {
-    const { container } = await renderVol({ score: null, loading: true });
-    expect(container.querySelector("[aria-busy='true']")).toBeInTheDocument();
-  });
-
-  it("volatile dot pulses, stable dot does not", async () => {
-    const { container: volContainer } = await renderVol({ score: 20 });
-    const volDot = volContainer.querySelector(".animate-pulse");
-    expect(volDot).toBeInTheDocument();
-
-    const { container: stableContainer } = await renderVol({ score: 10 });
-    const stableDot = stableContainer.querySelector(".animate-pulse");
-    expect(stableDot).toBeNull();
   });
 });
 

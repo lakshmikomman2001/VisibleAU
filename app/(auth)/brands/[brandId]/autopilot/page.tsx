@@ -30,35 +30,27 @@ export default function AutopilotPage() {
 
     async function load() {
       try {
-        const [auditRes, gapsRes, tasksRes, draftsRes] = await Promise.all([
+        // 17 Nov, part 3: no topical gaps (not a measurement: see the Visibility page) -- step 2 is the top task.
+        const [auditRes, tasksRes, draftsRes] = await Promise.all([
           fetch(`/api/brands/${brandId}/latest-audit`),
-          fetch(`/api/brands/${brandId}/topical-gaps`),
           fetch(`/api/brands/${brandId}/tasks?status=open&limit=1`),
           fetch(`/api/brands/${brandId}/drafts?limit=1`),
         ]);
-        for (const res of [auditRes, gapsRes, tasksRes, draftsRes]) {
+        for (const res of [auditRes, tasksRes, draftsRes]) {
           if (await planRefused(res)) return;
         }
 
         // Each answer must be a 2xx one; any other throws, and the page says it couldn't load.
-        for (const res of [auditRes, gapsRes, tasksRes, draftsRes]) await failUnlessOk(res);
+        for (const res of [auditRes, tasksRes, draftsRes]) await failUnlessOk(res);
         const audit = (await auditRes.json())?.audit ?? null;
 
-        const gapsRaw = await gapsRes.json();
         const tasksRaw = await tasksRes.json();
         const draftsRaw = await draftsRes.json();
 
-        const gaps = gapsRaw?.gaps ?? (Array.isArray(gapsRaw) ? gapsRaw : []);
         const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw?.tasks ?? []);
         const drafts = Array.isArray(draftsRaw) ? draftsRaw : (draftsRaw?.drafts ?? []);
 
-        const topGap =
-          gaps.length > 0
-            ? gaps.sort(
-                (a: { priorityRank: number | null }, b: { priorityRank: number | null }) =>
-                  (a.priorityRank ?? 999) - (b.priorityRank ?? 999),
-              )[0]
-            : null;
+        const topGap = null;
 
         const topTask =
           tasks.length > 0
@@ -89,6 +81,7 @@ export default function AutopilotPage() {
                   visibility: audit.visibility ?? null,
                   engineCount: audit.engineCount ?? audit.engines?.length ?? 0,
                   promptsCount: audit.promptsCount ?? 0,
+                  auditNumber: audit.auditNumber ?? null,
                   completedAt: audit.completedAt ?? null,
                 }
               : null,

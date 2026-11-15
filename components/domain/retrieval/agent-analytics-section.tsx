@@ -218,13 +218,13 @@ export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandI
                   <td className="py-2 text-right tabular-nums" style={{ color: "var(--danger)" }}>
                     {r.spoofed.toLocaleString()}
                   </td>
+                  {/* 17 Nov, part 3: no red or warning sign for a high unverified share -- it includes
+                      every hit from a crawler we have no way to verify, which isn't impersonation. */}
                   <td
                     className="py-2 text-right tabular-nums font-medium"
-                    style={{
-                      color: r.unverifiedRate > 25 ? "var(--danger)" : "var(--text-secondary)",
-                    }}
+                    style={{ color: "var(--text-secondary)" }}
                   >
-                    {r.unverifiedRate}%{r.unverifiedRate > 25 && " ⚠"}
+                    {r.unverifiedRate}%
                   </td>
                 </tr>
               ))}

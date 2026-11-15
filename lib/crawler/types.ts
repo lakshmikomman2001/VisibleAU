@@ -10,6 +10,39 @@ export interface CrawlPage {
   headers: Record<string, string>;
 }
 
+/**
+ * What happened when the crawl asked for the home page (17 Nov, part 3). A site that's down, or that answers our
+ * bot with a 403 or 503, gives no pages at all -- and every check that reads the pages then has nothing to read.
+ * That is "couldn't reach the site", never a set of measured zeros. Absent when the crawl didn't ask (maxPages 0).
+ */
+export interface CrawlHomepageOutcome {
+  url: string;
+  reached: boolean;
+  /** The HTTP status it answered with, or null when there was no answer (timeout, DNS, TLS). */
+  httpStatus: number | null;
+}
+
+/**
+ * Whether the sitemap the crawl looked for was there (17 Nov, part 3): "found" only for a 2xx answer that is an
+ * XML sitemap (a urlset or sitemapindex), "absent" for a 4xx or a page that isn't one (a soft 404), and
+ * "unreachable" for a 5xx or no answer, where nothing can be said either way.
+ */
+export interface CrawlSitemapOutcome {
+  url: string;
+  status: "found" | "absent" | "unreachable";
+  httpStatus: number | null;
+}
+
+/**
+ * The robots.txt request's own answer (17 Nov, part 3; RFC 9309, as fetchRobotsTxt reads it): "found", "absent"
+ * for a 4xx (no file: nothing is restricted), "unreachable" for a 5xx or no answer (nothing can be said).
+ * `robotsTxt` null alone can't tell the last two apart.
+ */
+export interface CrawlRobotsOutcome {
+  status: "found" | "absent" | "unreachable";
+  httpStatus: number | null;
+}
+
 export interface CrawlResult {
   domain: string;
   pages: CrawlPage[];
@@ -17,6 +50,9 @@ export interface CrawlResult {
   sitemapXml: string | null;
   crawledAt: Date;
   errors: string[];
+  homepage?: CrawlHomepageOutcome;
+  sitemap?: CrawlSitemapOutcome;
+  robotsTxtFetch?: CrawlRobotsOutcome;
 }
 
 // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: no `userAgent` option. Every request the crawler makes

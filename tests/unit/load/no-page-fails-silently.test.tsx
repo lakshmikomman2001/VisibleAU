@@ -276,7 +276,8 @@ describe("the sweep: the same shape elsewhere", () => {
       "Entity score",
       () => import("@/app/(auth)/brands/[brandId]/trust/entity-score/page"),
       /Couldn't load the entity authority score/,
-      /Run an entity check/,
+      // 17 Nov, part 3: the never-checked state's words (it said "Run an entity check").
+      /Not checked yet/,
     ],
     [
       "YouTube",

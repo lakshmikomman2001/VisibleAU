@@ -188,7 +188,9 @@ const PAGES: PageCase[] = [
     at: "growth",
     route: `${API}/entity-score`,
     payload: null,
-    shows: /Run an entity check/,
+    // 17 Nov, part 3: it said "Run an entity check" with nothing on the page to run it; it says it's not checked
+    // yet and that the check runs with each audit you start.
+    shows: /Not checked yet/,
   },
   {
     name: "Trust → Hallucinations",
@@ -452,7 +454,8 @@ describe("Health check and Autopilot (Growth: four routes each)", () => {
       name: "Autopilot",
       feature: "autopilot",
       load: () => import("@/app/(auth)/brands/[brandId]/autopilot/page"),
-      routes: ["latest-audit", "topical-gaps", "tasks", "drafts"],
+      // 17 Nov, part 3: no topical gaps (not a measurement).
+      routes: ["latest-audit", "tasks", "drafts"],
       shows: null,
     },
   ] as const;
@@ -502,10 +505,17 @@ describe("Health check and Autopilot (Growth: four routes each)", () => {
   });
 });
 
-describe("Visibility (every plan; its Topical gaps panel Growth)", () => {
+// 17 Nov, part 3: the Topical gaps panel is gone from the Visibility page (topical_coverage_gaps isn't a
+// measurement), so no plan locks it and the page never asks for it.
+describe("Visibility (every plan; no Topical gaps panel)", () => {
   const answer: Answer = (url) => {
     if (url === `${API}/visibility`)
-      return Response.json({ trends: null, shareOfVoice: null, tier: "starter", brandDomain: "" });
+      return Response.json({
+        mentionsAndSources: { state: "no_audit", reason: "No audit yet" },
+        shareOfVoice: null,
+        tier: "starter",
+        brandDomain: "",
+      });
     if (url === `${API}/fan-out`) return Response.json({ groups: [], paused: true });
     if (url === `${API}/topical-gaps`) return Response.json({ gaps: [] });
     return undefined;
@@ -517,25 +527,15 @@ describe("Visibility (every plan; its Topical gaps panel Growth)", () => {
     withPlan(tier, createElement(Visibility));
   }
 
-  it("Starter: the page loads, the panel is locked, topical gaps never fetched", async () => {
-    await visibility("starter");
-    await waitFor(() => expect(lockedCard("topical_gaps")).not.toBeNull());
+  it.each([
+    "starter",
+    "growth",
+  ])("%s: the page loads, never asks for topical gaps, locks nothing", async (tier) => {
+    await visibility(tier);
     await waitFor(() => expect(asked(`${API}/fan-out`)).toHaveLength(1));
+    await waitFor(() => expect(document.querySelector("[data-mentions-card]")).not.toBeNull());
     expect(asked(`${API}/topical-gaps`)).toEqual([]);
-    expect(screen.queryByText("Failed to load visibility data")).toBeNull();
-  });
-
-  it("Growth: topical gaps fetched, no lock", async () => {
-    await visibility("growth");
-    await waitFor(() => expect(asked(`${API}/topical-gaps`)).toHaveLength(1));
     expect(document.querySelector("[data-plan-locked]")).toBeNull();
-  });
-
-  it("a plan refusal for the panel locks the panel, not the page", async () => {
-    await visibility("growth", (url, init) =>
-      url === `${API}/topical-gaps` ? planRefusal("growth") : answer(url, init),
-    );
-    await waitFor(() => expect(lockedCard("topical_gaps")).not.toBeNull());
     expect(screen.queryByText("Failed to load visibility data")).toBeNull();
   });
 });

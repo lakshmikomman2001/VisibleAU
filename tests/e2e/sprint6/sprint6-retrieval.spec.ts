@@ -53,16 +53,46 @@ test.beforeAll(async () => {
     .returning();
   brandId = brand.id;
 
-  // Seed agent_readiness_scores
+  // Seed agent_readiness_scores. 17 Nov, part 3: the card reads the score back from its stored parts
+  // (lib/retrieval/agent-readiness-breakdown.ts), out of the points that were measured -- a row with totals and no
+  // parts is "Not measured yet". These parts, as the writer stores them since 17 Nov (an unmeasured part is null):
+  // tech 3+3+3+3+2 of 18 measured (page load null, MCP 0+0) = 14/18; entity 5+4+0+3 = 12/16 (name consistent
+  // null); verify ABN 5 = 5/5 (Wikipedia, directories, reviews, quotes null); authority 50% coverage = 4/8
+  // (citations null); task 5+0+5+3 = 13/20. Total 48 of 67.
   await db.insert(agentReadinessScores).values({
     brandId,
     organizationId: orgId,
     techScore: 14,
-    entityClarityScore: 16,
-    verifyScore: 8,
-    authorityScore: 5,
+    entityClarityScore: 12,
+    verifyScore: 5,
+    authorityScore: 4,
     taskScore: 13,
-    totalScore: 56,
+    totalScore: 48,
+    techLlmstxtPresent: true,
+    techLlmstxtValid: true,
+    techRobotsAllowsCrawlers: true,
+    techSsrPasses: true,
+    techAiDiscoveryEndpoints: true,
+    techPageLoadFast: null,
+    techMcpEndpointPresent: false,
+    techMcpEndpointValid: false,
+    entityOrgSchemaPresent: true,
+    entityLocalBusinessSchema: true,
+    entityLocalRegInSchema: false,
+    entityNameConsistent: null,
+    entityServiceReadable: true,
+    verifyAbnConfirmed: true,
+    verifyWikipediaAu: null,
+    verifyAuDirectories: null,
+    verifyReviewCitations: null,
+    verifyExpertQuotes: null,
+    authorityTopicalCoverage: 50,
+    authorityPromptAppearance: null,
+    authorityCitationDiversity: null,
+    taskBookingAccessible: true,
+    taskPricingVisible: false,
+    taskServiceAreaDefined: true,
+    taskFaqDirectAnswers: 3,
     gaps: JSON.stringify(["Improve llms.txt depth", "Add FAQ schema"]),
   });
 
@@ -131,7 +161,7 @@ test.describe("Screen 1 — Retrieval Hub", () => {
     });
     await expect(page.getByText("Avg Citation Prob.")).toBeVisible();
     await expect(page.getByText("Crawler Visits")).toBeVisible();
-    await expect(page.getByText("56/100")).toBeVisible();
+    await expect(page.getByText("48/67")).toBeVisible();
   });
 
   test("NO standalone llms.txt Depth /18 stat card (depth-card fix)", async ({ page }) => {
@@ -178,9 +208,9 @@ test.describe("Screen 1 — Retrieval Hub", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 2 — Agent Readiness", () => {
-  test("renders total score 56/100", async ({ page }) => {
+  test("renders the total score, out of the points measured: 48/67", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/agent-readiness`);
-    await expect(page.getByText("56/100")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("48/67")).toBeVisible({ timeout: 15000 });
   });
 
   test("renders 5 dimension labels", async ({ page }) => {
@@ -195,7 +225,9 @@ test.describe("Screen 2 — Agent Readiness", () => {
   test("Technical sub-signals section renders (llms.txt depth + MCP)", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/agent-readiness`);
     await expect(page.getByText("Technical sub-signals")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/llms\.txt depth: 12\/18/)).toBeVisible();
+    await expect(
+      page.getByText(/llms\.txt draft coverage \(ours, not your site's file\): 12\/18/),
+    ).toBeVisible();
     await expect(page.getByText(/MCP:/)).toBeVisible();
   });
 

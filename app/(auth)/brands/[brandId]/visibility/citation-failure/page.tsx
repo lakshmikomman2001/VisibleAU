@@ -82,7 +82,7 @@ export default function CitationFailurePage() {
       )}
 
       {!loading && diagnoses.length === 0 && (
-        <EmptyState message="No citation gaps found for this prompt set" />
+        <EmptyState message="No citation gaps found in your latest audit" />
       )}
 
       {!loading && diagnoses.length > 0 && (

@@ -1,11 +1,18 @@
 "use client";
 
-interface EntityData {
+export interface EntityGridData {
   abnVerified: boolean;
   abnNumber: string | null;
   abnEntityName: string | null;
+  /** "check_skipped" when the ABR lookup didn't run; null when no lookup result was recorded. */
+  abnStatus?: string | null;
   wikipediaAuPresent: boolean;
   wikipediaAuUrl: string | null;
+  /**
+   * 17 Nov, part 3: the Wikipedia lookup's own state, from the technical audit that wrote this row; null when
+   * it wasn't recorded (an audit from before then kept only true/false, and false covered a failed lookup).
+   */
+  wikipediaAuStatus?: "found" | "not_found" | "unavailable" | null;
 }
 
 // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
@@ -22,22 +29,64 @@ type AuthorityItem = {
   ok: boolean | null;
 };
 
-export function EntityAuthorityGrid({ data }: { data: EntityData }) {
-  const items: AuthorityItem[] = [
-    {
+/**
+ * 17 Nov, part 3: an ABN counts as checked the way the score counts it (lib/brand-entity/score.ts's
+ * entityScoreBasis): verified, or a lookup status other than "check_skipped". Otherwise it's "Not checked",
+ * neutral; it showed a red "Not verified" when the lookup was skipped.
+ */
+function abnItem(data: EntityGridData): AuthorityItem {
+  const detail = data.abnNumber
+    ? `${data.abnNumber}${data.abnEntityName ? ` — ${data.abnEntityName}` : ""}`
+    : null;
+  if (data.abnVerified) return { label: "ABN Registry", status: "Verified", detail, ok: true };
+  const status = data.abnStatus ?? null;
+  if (status === null || status === "check_skipped") {
+    return {
       label: "ABN Registry",
-      status: data.abnVerified ? "Verified" : "Not verified",
-      detail: data.abnNumber
-        ? `${data.abnNumber}${data.abnEntityName ? ` — ${data.abnEntityName}` : ""}`
-        : null,
-      ok: data.abnVerified,
-    },
-    {
+      status: "Not checked",
+      detail: detail ?? "No ABN lookup result was recorded.",
+      ok: null,
+    };
+  }
+  return {
+    label: "ABN Registry",
+    status: "Not verified",
+    detail: `${detail ?? "ABN"} (registry status: ${status})`,
+    ok: false,
+  };
+}
+
+/**
+ * 17 Nov, part 3: "Not found" only when the lookup completed and found nothing; "Couldn't check" when it
+ * didn't complete; and, when the state wasn't recorded, "None found" (neutral) saying it can't tell which.
+ */
+function wikipediaItem(data: EntityGridData): AuthorityItem {
+  if (data.wikipediaAuPresent) {
+    return { label: "Wikipedia (AU)", status: "Present", detail: data.wikipediaAuUrl, ok: true };
+  }
+  if (data.wikipediaAuStatus === "unavailable") {
+    return {
       label: "Wikipedia (AU)",
-      status: data.wikipediaAuPresent ? "Present" : "Not found",
-      detail: data.wikipediaAuUrl,
-      ok: data.wikipediaAuPresent,
-    },
+      status: "Couldn't check",
+      detail: "The Wikipedia lookup didn't complete on this check.",
+      ok: null,
+    };
+  }
+  if (data.wikipediaAuStatus === "not_found") {
+    return { label: "Wikipedia (AU)", status: "Not found", detail: null, ok: false };
+  }
+  return {
+    label: "Wikipedia (AU)",
+    status: "None found",
+    detail: "This check didn't record whether the Wikipedia lookup completed.",
+    ok: null,
+  };
+}
+
+export function EntityAuthorityGrid({ data }: { data: EntityGridData }) {
+  const items: AuthorityItem[] = [
+    abnItem(data),
+    wikipediaItem(data),
     {
       label: "Directory Presence",
       status: "Not measured",
@@ -72,6 +121,7 @@ export function EntityAuthorityGrid({ data }: { data: EntityData }) {
             </div>
             <span
               className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+              data-signal-ok={item.ok === null ? "neutral" : String(item.ok)}
               style={{
                 backgroundColor:
                   item.ok === null

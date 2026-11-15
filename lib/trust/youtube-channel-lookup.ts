@@ -34,8 +34,9 @@ export interface YoutubeChannelMatch {
   channelTitle: string;
   channelUrl: string;
   matchConfidence: number;
-  subscriberCount: number;
-  videoCount: number;
+  /** null when the channel hides it or YouTube didn't send it (17 Nov, part 3): never read as 0. */
+  subscriberCount: number | null;
+  videoCount: number | null;
   lastUploadAt: string | null;
 }
 
@@ -43,8 +44,8 @@ export interface YoutubeChannelCandidate {
   channelId: string;
   channelTitle: string;
   channelUrl: string;
-  subscriberCount: number;
-  videoCount: number;
+  subscriberCount: number | null;
+  videoCount: number | null;
 }
 
 export type YoutubeCheckOutcome =
@@ -75,8 +76,8 @@ interface ChannelDetails {
   title: string;
   description: string;
   customUrl: string | null;
-  subscriberCount: number;
-  videoCount: number;
+  subscriberCount: number | null;
+  videoCount: number | null;
   uploadsPlaylistId: string | null;
 }
 
@@ -114,7 +115,10 @@ function domainRoot(domain: string): string {
 }
 
 function normalizeDomain(domain: string): string {
-  return domain.toLowerCase().replace(/^www\./, "").trim();
+  return domain
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .trim();
 }
 
 /** Pure, testable name-similarity scorer (0-1), using only the two
@@ -180,8 +184,8 @@ function domainsMatch(a: string, b: string): boolean {
 }
 
 function classifyFetchFailure(status: number, body: unknown): YoutubeUnavailableReason {
-  const reason = (body as { error?: { errors?: { reason?: string }[] } } | null)?.error
-    ?.errors?.[0]?.reason;
+  const reason = (body as { error?: { errors?: { reason?: string }[] } } | null)?.error?.errors?.[0]
+    ?.reason;
   if (status === 403 && reason === "quotaExceeded") return "quota_exceeded";
   return "network_error";
 }
@@ -217,6 +221,17 @@ async function searchChannelCandidates(
   }
 }
 
+/**
+ * A statistics count as YouTube sent it (a numeric string), or null when it didn't send one. 17 Nov, part 3:
+ * a missing count was read as 0 (`Number(x ?? 0)`), so a channel that hides its subscribers scored +0 and was
+ * told "Only 0 subscribers".
+ */
+export function parseYoutubeCount(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
+  if (typeof value !== "string" || !/^\d+$/.test(value.trim())) return null;
+  return Number(value.trim());
+}
+
 function parseChannelItem(item: Record<string, unknown> | undefined): ChannelDetails | null {
   if (!item) return null;
   const snippet = item.snippet as Record<string, unknown> | undefined;
@@ -227,9 +242,14 @@ function parseChannelItem(item: Record<string, unknown> | undefined): ChannelDet
     title: typeof snippet?.title === "string" ? snippet.title : "",
     description: typeof snippet?.description === "string" ? snippet.description : "",
     customUrl: typeof snippet?.customUrl === "string" ? snippet.customUrl : null,
-    subscriberCount: Number(statistics?.subscriberCount ?? 0),
-    videoCount: Number(statistics?.videoCount ?? 0),
-    uploadsPlaylistId: typeof relatedPlaylists?.uploads === "string" ? relatedPlaylists.uploads : null,
+    // A channel can hide its subscriber count (statistics.hiddenSubscriberCount): not shown, never 0.
+    subscriberCount:
+      statistics?.hiddenSubscriberCount === true
+        ? null
+        : parseYoutubeCount(statistics?.subscriberCount),
+    videoCount: parseYoutubeCount(statistics?.videoCount),
+    uploadsPlaylistId:
+      typeof relatedPlaylists?.uploads === "string" ? relatedPlaylists.uploads : null,
   };
 }
 
@@ -260,7 +280,9 @@ async function getChannelDetailsById(
 export async function resolveChannelByUrlOrHandle(
   input: string,
   apiKey: string,
-): Promise<(ChannelDetails & { channelId: string }) | null | { unavailable: YoutubeUnavailableReason }> {
+): Promise<
+  (ChannelDetails & { channelId: string }) | null | { unavailable: YoutubeUnavailableReason }
+> {
   const trimmed = input.trim();
   let param: string | null = null;
 
@@ -312,9 +334,13 @@ async function getRecentVideoDescriptions(
     const data = await res.json();
     const items = Array.isArray(data?.items) ? data.items : [];
     const descriptions = items
-      .map((i: Record<string, unknown>) => (i.snippet as Record<string, unknown> | undefined)?.description)
+      .map(
+        (i: Record<string, unknown>) =>
+          (i.snippet as Record<string, unknown> | undefined)?.description,
+      )
       .filter((d: unknown): d is string => typeof d === "string");
-    const firstPublishedAt = (items[0]?.snippet as Record<string, unknown> | undefined)?.publishedAt;
+    const firstPublishedAt = (items[0]?.snippet as Record<string, unknown> | undefined)
+      ?.publishedAt;
     return {
       descriptions,
       lastUploadAt: typeof firstPublishedAt === "string" ? firstPublishedAt : null,
@@ -339,7 +365,8 @@ export async function checkYoutubePresence(
   // domain-corroboration guesswork needed.
   if (confirmedChannelUrl) {
     const resolved = await resolveChannelByUrlOrHandle(confirmedChannelUrl, apiKey);
-    if (resolved && "unavailable" in resolved) return { status: "unavailable", reason: resolved.unavailable };
+    if (resolved && "unavailable" in resolved)
+      return { status: "unavailable", reason: resolved.unavailable };
     if (!resolved) return { status: "not_found" };
 
     const videos = resolved.uploadsPlaylistId

@@ -1,5 +1,5 @@
-import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { possessive } from "@/lib/copy/possessive";
+import { NOT_MEASURED } from "@/lib/scoring/measured";
 
 export interface ExplainabilityAnnotation {
   rationale: string;
@@ -49,7 +49,9 @@ export class ExplainabilityService {
     if (input.context.sampleSize === 0) {
       rationale = `${NOT_MEASURED} for ${brand}: there was nothing to check ${dim} against.`;
     } else if (pct >= 80) {
-      rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} indicates strong performance. This places the brand in the top tier for this metric.`;
+      // 17 Nov, part 3: it went on "This places the brand in the top tier for this metric." -- a comparison
+      // with other brands that nothing measures (there's no benchmark behind any score this annotates).
+      rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} is strong on the signals it measures.`;
     } else if (pct >= 50) {
       rationale = `${possessive(brand)} ${dim} score of ${input.score}/${input.maxScore} shows moderate performance with room for improvement in key areas.`;
     } else if (pct > 0) {

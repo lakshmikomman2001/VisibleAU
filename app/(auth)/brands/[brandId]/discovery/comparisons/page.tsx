@@ -1,13 +1,15 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { ComparisonVerdictCard } from "@/components/domain/discovery/comparison-verdict-card";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
-import { ComparisonVerdictCard } from "@/components/domain/discovery/comparison-verdict-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { LoadError } from "@/components/shared/load-error";
 import { useGatedJson } from "@/lib/hooks/use-load";
 
+// 17 Nov, part 3: the route judges each row again from its stored answer (lib/conversational/comparison-verdict.ts)
+// and says when only the start of the answer was kept.
 interface ComparisonResult {
   id: string;
   competitorDomain: string;
@@ -15,7 +17,7 @@ interface ComparisonResult {
   brandWon: boolean | null;
   brandMentioned: boolean;
   competitorMentioned: boolean;
-  rawResponse: string | null;
+  answerCutOff?: boolean;
   runAt: string;
 }
 
@@ -112,6 +114,15 @@ export default function ComparisonsPage() {
         </div>
       ) : (
         <>
+          {/* 17 Nov, part 3: what a card is. "Brand mentioned" read as the audit's verified mention; it's a
+              text match in a separate head-to-head question. */}
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Each card is one engine&apos;s answer to a separate head-to-head question (&quot;Compare
+            your site vs the competitor&apos;s. Which is better?&quot;), asked after an audit. Its
+            badge is the verdict that answer gives, when it gives one we can read. &quot;Named in
+            this answer&quot; means its text contains your business name or website: it isn&apos;t
+            the audit&apos;s count of mentions.
+          </p>
           <div className="flex gap-4">
             {[
               { label: "Wins", value: summary.wins, color: "var(--success)" },
@@ -150,6 +161,8 @@ export default function ComparisonsPage() {
                     brandWon={r.brandWon}
                     brandMentioned={r.brandMentioned}
                     competitorMentioned={r.competitorMentioned}
+                    runAt={r.runAt}
+                    answerCutOff={r.answerCutOff === true}
                   />
                 ))}
               </div>

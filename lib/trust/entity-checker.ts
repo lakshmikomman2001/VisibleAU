@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores } from "@/db/schema";
 import { isMockMode } from "@/lib/mock-mode";
@@ -23,10 +23,17 @@ export async function refreshEntityScore(
   organizationId: string,
   marketCode: string = "AU_EN",
 ): Promise<EntityCheckResult> {
+  // 17 Nov, part 3: the brand's LATEST row -- the one the technical audit just wrote (its
+  // technical-audit/complete event is what runs this, inngest/functions/refresh-entity-score.ts). It took
+  // `.limit(1)` with no order, an arbitrary row (often the first ever), and stamped it checked_at = now: the
+  // Entity Score page (latest row by checked_at) then showed that old row's facts as checked today. This
+  // update is also what sets the row's organization_id (the technical audit's insert leaves it null, and the
+  // page reads under RLS), so it must land on the new row.
   const existing = await tx
     .select()
     .from(brandEntityScores)
     .where(eq(brandEntityScores.brandId, brandId))
+    .orderBy(desc(brandEntityScores.checkedAt))
     .limit(1);
 
   const current = existing[0];
@@ -66,7 +73,9 @@ export async function refreshEntityScore(
       : {}),
     ...(wdResult ? { wikidataEntryPresent: wdResult.present, wikidataEntryUrl: wdResult.url } : {}),
     ...dirResult,
-    checkedAt: new Date(),
+    // 17 Nov, part 3: no checked_at. This re-checks nothing the Entity Score page shows (the ABN result here
+    // goes to local_reg_*, the directory and Knowledge Panel/Wikidata checks are stubs); the ABN, .au and
+    // Wikipedia facts were checked when the technical audit wrote the row, and checked_at says when.
   };
 
   if (current) {

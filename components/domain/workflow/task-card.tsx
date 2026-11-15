@@ -4,6 +4,7 @@ import { ArrowRight, FileText } from "lucide-react";
 import { ConfidenceBadge } from "@/components/phase2/confidence-badge";
 import { PriorityBadge } from "@/components/phase2/priority-badge";
 import { StatusBadge } from "@/components/phase2/status-badge";
+import type { AuditChange } from "@/lib/visibility/audit-change";
 
 interface TaskCardProps {
   id: string;
@@ -18,6 +19,8 @@ interface TaskCardProps {
   assignedTo: string | null;
   dueDate: string | null;
   reauditDeferredReason: string | null;
+  /** 17 Nov, part 3: the re-audit's measured change (the tasks API's `change`). */
+  change?: AuditChange | null;
   allowedMoves?: Array<{ key: string; label: string }>;
   onMove?: (taskId: string, newStatus: string) => void;
   onDragStart?: (e: React.DragEvent) => void;
@@ -26,12 +29,28 @@ interface TaskCardProps {
   onGenerateDraft?: (taskId: string, title: string) => void;
 }
 
-function deriveImpactBand(scoreBefore: string | null): "high" | "medium" | "low" {
-  if (scoreBefore == null) return "medium";
+/**
+ * The recommendation's expected impact (task-manager.ts stores it in score_before as 80/50/20). 17 Nov, part 3: no
+ * badge without one -- it defaulted to "Medium Impact".
+ */
+function deriveImpactBand(scoreBefore: string | null): "high" | "medium" | "low" | null {
+  if (scoreBefore == null) return null;
   const score = Number(scoreBefore);
   if (score >= 70) return "high";
   if (score >= 40) return "medium";
   return "low";
+}
+
+const DEFERRED_REASON_WORDS: Record<string, string> = {
+  quota_exceeded: "the monthly audit limit was reached",
+  needs_confirmation: "the business details need confirming",
+  budget_cap: "the daily spend limit was reached",
+  daily_spend_cap_exceeded: "the daily spend limit was reached",
+  spend_cap_exceeded: "the daily spend limit was reached",
+};
+
+export function deferredReasonWords(reason: string): string {
+  return DEFERRED_REASON_WORDS[reason] ?? reason.replaceAll("_", " ");
 }
 
 export function TaskCard({
@@ -43,8 +62,8 @@ export function TaskCard({
   confidenceLabel,
   dimension,
   scoreBefore,
-  scoreAfter,
   reauditDeferredReason,
+  change,
   allowedMoves,
   onMove,
   onDragStart,
@@ -90,7 +109,7 @@ export function TaskCard({
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <PriorityBadge band={band} />
+        {band && <PriorityBadge band={band} />}
         {confidenceLabel && <ConfidenceBadge level={confidenceLabel as "High"} />}
         {dimension && (
           <span
@@ -105,38 +124,43 @@ export function TaskCard({
         )}
       </div>
 
-      {scoreBefore != null && (
+      {/* 17 Nov, part 3: the re-audit's measured change, from the two audits' own figures (lib/visibility/
+          audit-change.ts) -- it drew "80 → 33": an expected-impact bucket (score_before = 80/50/20) against a
+          visibility %. */}
+      {(change && change.kind !== "not_measured") ||
+      reauditDeferredReason ||
+      status === "complete" ? (
         <div
-          className="mt-2 text-xs flex items-center gap-1"
-          style={{
-            fontVariantNumeric: "tabular-nums",
-            color: "var(--text-secondary)",
-          }}
+          className="mt-2 text-xs"
+          data-task-change={change?.kind ?? "none"}
+          style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}
         >
-          <span>{Number(scoreBefore).toFixed(0)}</span>
-          <span>→</span>
-          {scoreAfter != null ? (
-            <span style={{ color: "var(--success)" }}>{Number(scoreAfter).toFixed(0)}</span>
-          ) : reauditDeferredReason === "insufficient_data" ? (
-            // Task #46 Phase 2: distinct from the genuinely-pending
-            // reasons below (quota_exceeded, budget_cap -- a re-audit that
-            // hasn't run yet) -- this re-audit DID run and found zero
-            // mentions (lib/workflow/validation-scheduler.ts's
-            // recordReauditInsufficientData), so it's a resolved, honest
-            // result, never "validation pending" and never a fabricated
-            // scoreAfter of 0.
-            <span style={{ color: "var(--text-tertiary)" }}>
-              insufficient data — not re-mentioned
+          {change?.kind === "measured" ? (
+            <span
+              style={{
+                color:
+                  change.direction === "up"
+                    ? "var(--success)"
+                    : change.direction === "down"
+                      ? "var(--danger)"
+                      : "var(--text-secondary)",
+              }}
+            >
+              {change.line}
             </span>
-          ) : reauditDeferredReason ? (
+          ) : change?.kind === "not_comparable" ? (
+            <span style={{ color: "var(--text-tertiary)" }}>{change.reason}</span>
+          ) : reauditDeferredReason && reauditDeferredReason !== "insufficient_data" ? (
             <span style={{ color: "var(--warning)" }}>
-              validation pending — {reauditDeferredReason.replace("_", " ")}
+              Re-audit not run: {deferredReasonWords(reauditDeferredReason)}
             </span>
           ) : (
-            <span style={{ color: "var(--text-tertiary)" }}>—</span>
+            <span style={{ color: "var(--text-tertiary)" }}>
+              {change?.reason ?? "Not re-audited yet"}
+            </span>
           )}
         </div>
-      )}
+      ) : null}
 
       {!pending && (allowedMoves?.length || onGenerateDraft) && (
         <div

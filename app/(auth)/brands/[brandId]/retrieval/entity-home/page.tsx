@@ -11,6 +11,7 @@ interface EntityHomeStatus {
   idFieldPresent: boolean;
   sameAsCount: number;
   pageUrl: string | null;
+  checkedAt?: string | null;
 }
 
 interface EntityHomeData {

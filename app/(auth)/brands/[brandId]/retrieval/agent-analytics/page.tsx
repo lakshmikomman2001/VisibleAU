@@ -31,6 +31,8 @@ interface OverviewData {
       unverifiedRate: number;
       spoofedRate: number;
     }>;
+    /** Every visit ever received, by source (17 Nov, part 3). */
+    ingestSources?: Array<{ source: string; visits: number; lastVisitAt: string | null }>;
     periodStart: string;
     periodEnd: string;
   };
@@ -182,6 +184,7 @@ export default function AgentAnalyticsPage() {
       <AgentAnalyticsSetupPanel
         brandId={brandId}
         totalHits={totalHits}
+        ingestSources={overview.overview.ingestSources}
         onUploadComplete={handleUploadComplete}
       />
 

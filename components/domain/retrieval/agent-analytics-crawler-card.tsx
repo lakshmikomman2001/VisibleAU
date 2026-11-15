@@ -40,8 +40,9 @@ export function AgentAnalyticsCrawlerCard({
   ratioFailed = false,
   onRetryRatio = () => {},
 }: Props) {
-  const hasHighUnverified =
-    verified + unverified + spoofed > 0 && unverified / (verified + unverified + spoofed) > 0.25;
+  // 17 Nov, part 3: "unverified" includes every hit from a crawler we have no way to verify ("No verification
+  // paths configured", lib/agent-analytics/verify-crawler-hits.ts), so a high unverified share is missing
+  // data, not impersonation. Only "spoofed" -- a hit that failed verification -- is evidence of that.
 
   return (
     <div
@@ -55,27 +56,33 @@ export function AgentAnalyticsCrawlerCard({
         AI Crawler Activity
       </h2>
 
-      {/* Purpose breakdown — COUNT card (AA-P7: no score bar) */}
+      {/* Purpose breakdown — COUNT card (AA-P7: no score bar). 17 Nov, part 3: a visit's purpose is the one
+          our crawler list gives that bot (ai_bot_registry default_purpose), not something seen in the visit;
+          "Retrieval" said "AI recommended you in live conversations", which a crawler visit can't show. */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <PurposeCount
           label="Retrieval"
           count={retrievalHits}
           color="var(--success)"
-          description="AI recommended you in live conversations"
+          description="Visits by bots that fetch pages for live AI answers"
         />
         <PurposeCount
           label="Indexing"
           count={indexingHits}
           color="var(--info)"
-          description="Indexed for AI search results"
+          description="Visits by bots that index pages for AI search"
         />
         <PurposeCount
           label="Training"
           count={trainingHits}
           color="color-mix(in srgb, var(--foreground) 50%, transparent)"
-          description="Used for model training data"
+          description="Visits by bots that collect model training data"
         />
       </div>
+      <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+        Each bot&apos;s purpose comes from our list of AI crawlers, not from the visit itself. A
+        visit shows a crawler read the page, not that an AI answer used it.
+      </p>
 
       {/* Verification split — all 3 states shown separately (AA-05) */}
       <div className="mt-4">
@@ -100,10 +107,16 @@ export function AgentAnalyticsCrawlerCard({
           <VerificationBadge label="Unverified" count={unverified} color="var(--warning)" />
           <VerificationBadge label="Spoofed" count={spoofed} color="var(--danger)" />
         </div>
-        {hasHighUnverified && (
+        {unverified > 0 && (
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+            Unverified means we couldn&apos;t confirm the visit came from the company named; for
+            some crawlers there&apos;s no way to check. It isn&apos;t evidence of impersonation.
+          </p>
+        )}
+        {spoofed > 0 && (
           <p className="mt-2 text-sm" style={{ color: "var(--warning)" }}>
-            ⚠ Unverified rate exceeds 25% — possible bot impersonation. Review the verification
-            details.
+            {spoofed.toLocaleString()} {spoofed === 1 ? "visit" : "visits"} claimed to be an AI
+            crawler but failed verification. Review the verification details.
           </p>
         )}
       </div>

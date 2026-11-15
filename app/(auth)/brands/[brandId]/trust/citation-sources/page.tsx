@@ -1,78 +1,83 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { SourceGapCard } from "@/components/domain/trust/source-gap-card";
 import { LayerBadge } from "@/components/phase2/layer-badge";
-import { type Engine, ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { LoadError } from "@/components/shared/load-error";
+import { useGatedJson } from "@/lib/hooks/use-load";
+import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
 import type { NoCitationsRow, TopDomainEntry } from "@/lib/trust/citation-intelligence";
+import { auditSourceLine } from "@/lib/trust/display-dates";
 
-// Task #46 (4th follow-up): deliberately NOT importing RealCategoryRow
-// here -- that type describes the server-side row (citationShare as
-// the DB's raw `string | null`), but the API route converts
-// citationShare to a number before it goes over the wire (unchanged,
-// pre-existing behaviour). This mirrors the actual JSON shape instead
-// of the pre-serialization one.
+// Task #46 (4th follow-up): deliberately NOT importing LiveCategoryRow
+// here -- that type describes the server-side row; this mirrors the
+// actual JSON shape instead of the pre-serialization one.
 interface CategoryCardRow {
   id: string;
   engine: string;
   sourceType: string;
   citationCount: number;
-  citationShare: string;
+  citationShare: number;
   brandPresentInSource: boolean;
   gapSeverity: string;
   sourceAffinityNote: string | null;
   topDomains: TopDomainEntry[] | null;
 }
 
+interface CitationSourcesData {
+  /** 17 Nov, part 3: the audit the figures come from; null when the brand has no complete audit. */
+  audit?: { auditNumber: number; completedAt: string | null } | null;
+  categories: CategoryCardRow[];
+  enginesWithoutCitations: NoCitationsRow[];
+  citationCount: number;
+}
+
+function Heading() {
+  return (
+    <>
+      <LayerBadge layer="trust" />
+      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
+        Citation Source Intelligence
+      </h1>
+    </>
+  );
+}
+
 export default function CitationSourcesPage() {
   const { brandId } = useParams<{ brandId: string }>();
-  // Task #46 (4th follow-up): the API now pre-splits real categories
-  // from "cited nothing" engines (getCurrentCitationSources's own
-  // return shape) -- no more NO_CITATIONS_SOURCE_TYPE string compare
-  // here, the server already did it.
-  const [categoryCards, setCategoryCards] = useState<CategoryCardRow[]>([]);
-  const [noCitationRows, setNoCitationRows] = useState<NoCitationsRow[]>([]);
-  const [citationCount, setCitationCount] = useState(0);
-  const [loading, setLoading] = useState(true);
   const { locked, planRefused } = useBrandFeatureGate("citation_sources");
-
-  useEffect(() => {
-    if (locked) return;
-    fetch(`/api/brands/${brandId}/citation-sources`)
-      .then(async (res) => {
-        if (await planRefused(res)) return;
-        if (res.ok) {
-          const data = await res.json();
-          setCategoryCards(data.categories);
-          setNoCitationRows(data.enginesWithoutCitations);
-          setCitationCount(data.citationCount);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [brandId, locked, planRefused]);
+  // 17 Nov, part 3: a failed fetch fell through to "Not enough AI coverage to assess ... No AI responses have
+  // been recorded for this brand yet", as if there were none. It says it couldn't load now, with Try again.
+  const loaded = useGatedJson<CitationSourcesData>(
+    `/api/brands/${brandId}/citation-sources`,
+    planRefused,
+    { enabled: !locked },
+  );
 
   if (locked) {
     return (
       <div className="space-y-4 p-6">
-        <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-          Citation Source Intelligence
-        </h1>
+        <Heading />
         <PlanLockedCard feature="citation_sources" />
       </div>
     );
   }
 
-  if (loading) {
+  if (loaded.status === "error") {
     return (
       <div className="space-y-4 p-6">
-        <LayerBadge layer="trust" />
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-          Citation Source Intelligence
-        </h1>
+        <Heading />
+        <LoadError what="your citation sources" detail={loaded.detail} onRetry={loaded.retry} />
+      </div>
+    );
+  }
+
+  if (loaded.status === "loading" || !loaded.data) {
+    return (
+      <div className="space-y-4 p-6">
+        <Heading />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
@@ -86,27 +91,35 @@ export default function CitationSourcesPage() {
     );
   }
 
+  const { categories: categoryCards, enginesWithoutCitations: noCitationRows } = loaded.data;
+  const citationCount = loaded.data.citationCount;
+  const audit = loaded.data.audit ?? null;
+
   return (
     <div className="space-y-4 p-6">
-      <LayerBadge layer="trust" />
-      <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-        Citation Source Intelligence
-      </h1>
+      <Heading />
       {/* Task #41: this was never stated anywhere -- "Covered"/"gap"
           describes the brand's presence WITHIN a source category, not
           the brand's overall AI visibility. Task #44: corrected to match
-          what brandPresent actually checks (buildCitationSourceIntelligence,
+          what brandPresent actually checks (computeCitationSourceGroups,
           lib/trust/citation-intelligence.ts) -- the engine mentioned the
           brand in an answer that cites this kind of source, or cited the
-          brand's own site -- not "the brand is listed on these sources". */}
+          brand's own site -- not "the brand is listed on these sources".
+          17 Nov, part 3: a mention is the audit page's (a name match it
+          couldn't confirm as this business doesn't count). */}
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        Shows the sources AI engines cite when answering category-level questions in this
-        brand&apos;s space — not the brand&apos;s own visibility. &quot;Covered&quot; means the
-        engine mentioned this brand in an answer that cites this kind of source (or cited the
-        brand&apos;s own site); a gap means it didn&apos;t, weighted by how much of this
-        engine&apos;s citations come from that category. &quot;Unclassified&quot; sources
-        haven&apos;t been matched to a category yet — not a gap, just not sorted.
+        Shows the sources AI engines cite when answering everyday questions in this brand&apos;s
+        space — not the brand&apos;s own visibility. &quot;Covered&quot; means the engine mentioned
+        this brand in an answer that cites this kind of source (a mention the audit confirmed as
+        this business), or cited the brand&apos;s own site; a gap means it didn&apos;t, weighted by
+        how much of this engine&apos;s citations come from that category. &quot;Unclassified&quot;
+        sources haven&apos;t been matched to a category — not a gap, just not sorted.
       </p>
+      {audit && (
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }} data-citation-audit>
+          {auditSourceLine(audit)}
+        </p>
+      )}
 
       {categoryCards.length === 0 && noCitationRows.length === 0 ? (
         <div
@@ -120,10 +133,18 @@ export default function CitationSourcesPage() {
                 No AI responses have been recorded for this brand yet — run an audit first.
               </p>
             </>
+          ) : audit ? (
+            <>
+              <p className="text-lg font-medium">No everyday answers in this audit</p>
+              <p className="text-sm">
+                Audit #{audit.auditNumber} recorded no answers to everyday questions, so there are
+                no sources to show.
+              </p>
+            </>
           ) : (
             <>
-              <p className="text-lg font-medium">No citation source data yet</p>
-              <p className="text-sm">Run an audit to analyse citation sources.</p>
+              <p className="text-lg font-medium">No finished audit yet</p>
+              <p className="text-sm">Citation sources come from a finished audit&apos;s answers.</p>
             </>
           )}
         </div>

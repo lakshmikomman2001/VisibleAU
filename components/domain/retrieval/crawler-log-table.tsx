@@ -21,6 +21,14 @@ const TIER_COLORS: Record<string, string> = {
   data: "var(--text-secondary)",
 };
 
+/** 2xx green, 4xx/5xx red, anything else (a redirect, or no status recorded) neutral. */
+export function statusColor(statusCode: number | null): string {
+  if (statusCode === null) return "var(--text-secondary)";
+  if (statusCode >= 200 && statusCode < 300) return "var(--success)";
+  if (statusCode >= 400) return "var(--danger)";
+  return "var(--text-secondary)";
+}
+
 export function CrawlerLogTable({ logs }: CrawlerLogTableProps) {
   if (logs.length === 0) {
     return (
@@ -108,10 +116,9 @@ export function CrawlerLogTable({ logs }: CrawlerLogTableProps) {
               >
                 {log.visitedUrl}
               </td>
-              <td
-                className="px-3 py-2"
-                style={{ color: log.statusCode === 200 ? "var(--success)" : "var(--danger)" }}
-              >
+              {/* 17 Nov, part 3: a visit with no status recorded (the tracking snippet sends none) is
+                  neutral, not a red error; and a redirect isn't an error either. */}
+              <td className="px-3 py-2" style={{ color: statusColor(log.statusCode) }}>
                 {log.statusCode ?? "—"}
               </td>
               <td className="px-3 py-2 text-xs" style={{ color: "var(--text-secondary)" }}>

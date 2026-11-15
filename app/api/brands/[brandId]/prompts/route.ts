@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -8,6 +7,7 @@ import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { planRefusalBody } from "@/lib/pricing/plan-refusal";
+import { latestEverydayQuestions } from "@/lib/visibility/question-trend";
 
 const uuidSchema = z.string().uuid();
 
@@ -33,18 +33,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     throw e;
   }
 
-  return withRlsContext(currentUser.organizationId, async (tx) => {
-    const rows = await tx.execute(sql`
-      SELECT DISTINCT c.prompt
-      FROM citations c
-      JOIN audits a ON c.audit_id = a.id
-      WHERE a.brand_id = ${brandId}
-      ORDER BY c.prompt
-      LIMIT 50
-    `);
-
-    return NextResponse.json({
-      prompts: rows.map((r: Record<string, unknown>) => String(r.prompt)),
-    });
-  });
+  // 17 Nov, part 3: the latest audit's everyday questions -- it listed every distinct question ever asked, branded
+  // questions and old question sets included.
+  return withRlsContext(currentUser.organizationId, async (tx) =>
+    NextResponse.json({ prompts: await latestEverydayQuestions(tx, brandId) }),
+  );
 }

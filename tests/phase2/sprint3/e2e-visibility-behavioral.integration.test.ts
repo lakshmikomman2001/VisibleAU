@@ -286,25 +286,26 @@ describe("TRACK 1a: visibility route — behavioral", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toHaveProperty("trends");
+    // 17 Nov, parts 1 and 3: the latest audit's own mentions and sources, and no weekly trend row.
+    expect(body).toHaveProperty("mentionsAndSources");
+    expect(body).not.toHaveProperty("trends");
     expect(body).toHaveProperty("shareOfVoice");
     expect(body).toHaveProperty("tier");
     expect(body).toHaveProperty("brandDomain");
     expect(body.brandDomain).toBe("be2-behavioral.example.com");
   });
 
-  it("returns trend data matching seeded values", async () => {
+  // 17 Nov, parts 1 and 3 (Sri: Hero's "Mention 81.8%, Citation 0.0%"): the seeded trend row (45.5%, 22.3%,
+  // "recognised_authority") is never what the page shows -- it isn't returned at all.
+  it("never returns the seeded weekly trend row's rates or archetype", async () => {
     setAuthAs(TEST_ORG_A);
     const res = await getVisibility(
       makeReq("/api/brands/" + orgABrandId + "/visibility"),
       makeParams(orgABrandId),
     );
     const body = await res.json();
-    expect(body.trends).not.toBeNull();
-    expect(body.trends.mentionRate).toBe(45.5);
-    expect(body.trends.citationRate).toBe(22.3);
-    expect(body.trends.brandArchetype).toBe("recognised_authority");
-    expect(body.trends.mentionSourceRatio).toBe(0.85);
+    expect(body.trends).toBeUndefined();
+    expect(JSON.stringify(body)).not.toMatch(/45\.5|22\.3|recognised_authority/);
   });
 
   it("Share of Voice comes from the shared counter, never the seeded snapshot rows", async () => {
@@ -506,12 +507,18 @@ describe("TRACK 1a: citation-failure route — behavioral", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    const competitorDiagnosis = body.diagnoses.find(
-      (d: { patternKey: string }) => d.patternKey === "competitor_cited_instead",
+    // 17 Nov, part 3: a head-to-head prompt that named the competitor isn't a citation of it, and says nothing about
+    // the brand being absent -- "rivalplumbing.com.au is cited 1 times in prompts where your brand is absent" was
+    // drawn from this row. The diagnosis now comes only from the audit's own everyday answers (a competitor's
+    // website linked in answers that didn't name the brand), and this brand has no competitor website set.
+    expect(JSON.stringify(body.diagnoses)).not.toMatch(
+      /is cited \d+ times|prompts where your brand is absent/,
     );
-    expect(competitorDiagnosis).toBeDefined();
-    expect(competitorDiagnosis.competitorCited).toBe("rivalplumbing.com.au");
-    expect(competitorDiagnosis.evidence).toContain("rivalplumbing.com.au is cited 1 times");
+    expect(
+      body.diagnoses.filter(
+        (d: { patternKey: string }) => d.patternKey === "competitor_cited_instead",
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -1197,8 +1204,9 @@ describe("BE-2 additional: route with soft-deleted brand", () => {
   });
 });
 
-describe("BE-2 additional: visibility route — trends null when no trend data", () => {
-  it("returns trends: null when brand has no visibility_trends rows", async () => {
+// 17 Nov, parts 1 and 3: the route reads no visibility_trends row at all, so it returns no `trends`.
+describe("BE-2 additional: visibility route -- no trend data, no trends", () => {
+  it("returns no trends key for a brand with no visibility_trends rows", async () => {
     setAuthAs(TEST_ORG_B);
     const res = await getVisibility(
       makeReq("/api/brands/" + orgBBrandId + "/visibility"),
@@ -1206,7 +1214,7 @@ describe("BE-2 additional: visibility route — trends null when no trend data",
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.trends).toBeNull();
+    expect(body).not.toHaveProperty("trends");
     expect(body.shareOfVoice.measured).toBe(false);
   });
 });

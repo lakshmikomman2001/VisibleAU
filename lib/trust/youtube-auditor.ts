@@ -29,8 +29,13 @@
  */
 export interface YoutubeChannelScoreInput {
   channelExists: boolean;
-  subscriberCount: number;
-  videoCount: number;
+  /**
+   * null when the channel doesn't show it (YouTube's hiddenSubscriberCount) -- 17 Nov, part 3: it was read as
+   * 0, scored +0 and reported as "Only 0 subscribers". Not shown is left out of the score, never 0.
+   */
+  subscriberCount: number | null;
+  /** null when YouTube didn't report it; left out of the score the same way. */
+  videoCount: number | null;
   /** null when recency is unknown (the enrich step degraded gracefully) -- scored as stale, not penalised further than that. */
   daysSinceLastUpload: number | null;
 }
@@ -40,35 +45,59 @@ export interface YoutubeChannelScoreResult {
   gaps: string[];
 }
 
+const EXISTS_POINTS = 10;
+const PART_POINTS = 30;
+
 export function scoreYoutubePresenceFromChannel(
   input: YoutubeChannelScoreInput,
 ): YoutubeChannelScoreResult {
   if (!input.channelExists) {
     return {
       presenceScore: 0,
-      gaps: ["No YouTube channel found — create one and add your channel URL to your brand profile."],
+      gaps: [
+        "No YouTube channel found — create one and add your channel URL to your brand profile.",
+      ],
     };
   }
 
   const gaps: string[] = [];
-  let score = 10;
+  let score = EXISTS_POINTS;
+  // 17 Nov, part 3: the points the measured parts could have earned. With every part measured it's 100 and
+  // the score is exactly as before; a part the channel doesn't show is left out, and the score is out of what
+  // was measured (scaled to 100), with a line saying what's missing.
+  let possible = EXISTS_POINTS;
 
-  if (input.subscriberCount >= 1000) {
-    score += 30;
-  } else if (input.subscriberCount >= 100) {
-    score += 15;
+  if (input.subscriberCount === null) {
+    gaps.push("The channel hides its subscriber count, so audience size isn't part of this score.");
   } else {
-    gaps.push(`Only ${input.subscriberCount} subscribers — grow the audience for stronger authority signals.`);
+    possible += PART_POINTS;
+    if (input.subscriberCount >= 1000) {
+      score += 30;
+    } else if (input.subscriberCount >= 100) {
+      score += 15;
+    } else {
+      gaps.push(
+        `Only ${input.subscriberCount} subscribers — grow the audience for stronger authority signals.`,
+      );
+    }
   }
 
-  if (input.videoCount >= 20) {
-    score += 30;
-  } else if (input.videoCount >= 5) {
-    score += 15;
+  if (input.videoCount === null) {
+    gaps.push("YouTube didn't report the channel's video count, so it isn't part of this score.");
   } else {
-    gaps.push(`Only ${input.videoCount} videos published — more content gives AI engines more to cite.`);
+    possible += PART_POINTS;
+    if (input.videoCount >= 20) {
+      score += 30;
+    } else if (input.videoCount >= 5) {
+      score += 15;
+    } else {
+      gaps.push(
+        `Only ${input.videoCount} videos published — more content gives AI engines more to cite.`,
+      );
+    }
   }
 
+  possible += PART_POINTS;
   if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 90) {
     score += 30;
   } else if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 365) {
@@ -77,7 +106,7 @@ export function scoreYoutubePresenceFromChannel(
     gaps.push("No recent uploads — an active channel signals current relevance to AI crawlers.");
   }
 
-  return { presenceScore: score, gaps };
+  return { presenceScore: Math.round((score / possible) * 100), gaps };
 }
 
 export interface YoutubePresenceInput {

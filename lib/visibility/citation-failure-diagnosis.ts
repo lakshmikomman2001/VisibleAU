@@ -1,6 +1,6 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { AUDIT_STATUS_COMPLETE, audits, brands, citations, topicalCoverageGaps } from "@/db/schema";
+import { brands, citations } from "@/db/schema";
 import {
   type CitationOrigin,
   citedSourcesOf,
@@ -9,24 +9,15 @@ import {
   toRegistrableDomain,
 } from "@/lib/audit/extract-citations";
 import { ORGANIC_ONLY } from "@/lib/audit/organic-filter";
+import { possessive } from "@/lib/copy/possessive";
 import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
+import { latestCompleteAudit } from "@/lib/visibility/share-of-voice";
 import type { CitationDiagnosis } from "./types";
 
 interface DiagnoseInput {
   brandId: string;
   auditId?: string;
   promptId?: string;
-}
-
-async function tableExists(tx: DbClient, tableName: string): Promise<boolean> {
-  const result = await tx.execute(
-    sql`SELECT EXISTS (
-      SELECT 1 FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = ${tableName}
-    ) AS exists`,
-  );
-  const row = (result as unknown as Array<{ exists?: boolean }>)?.[0];
-  return row?.exists === true;
 }
 
 interface EngineCitationBreakdown {
@@ -68,6 +59,7 @@ async function checkBrandDomainNotCited(
   tx: DbClient,
   brandId: string,
   latestAuditId: string,
+  auditNumber: number,
 ): Promise<CitationDiagnosis | null> {
   const [brand] = await tx
     .select({ domain: brands.domain })
@@ -86,8 +78,11 @@ async function checkBrandDomainNotCited(
   const engineBreakdown = new Map<string, EngineCitationBreakdown>();
   let totalValidSources = 0;
   let brandCitedCount = 0;
+  // 17 Nov, part 3: answers, as the audit page counts them -- "N sources" counted every link in every answer.
+  let answersWithSource = 0;
 
   for (const cit of auditCitations) {
+    let answerHasSource = false;
     const engine = cit.engine as Engine;
     // Decision 1 (6 Nov): the sources the answer cited, never a search result it didn't.
     const citedSources = citedSourcesOf<{ url: string; domain?: string; origin?: CitationOrigin }>(
@@ -108,6 +103,7 @@ async function checkBrandDomainNotCited(
       if (registrableDomain === null) continue;
 
       totalValidSources++;
+      answerHasSource = true;
       const bucket = engineBreakdown.get(engine) ?? {
         engine,
         count: 0,
@@ -129,6 +125,7 @@ async function checkBrandDomainNotCited(
       // written to replace).
       if (isBrandDomain(rawDomain, brand?.domain)) brandCitedCount++;
     }
+    if (answerHasSource) answersWithSource++;
   }
 
   // Engines cited nothing at all -- the Citation Sources "cited no
@@ -156,9 +153,11 @@ async function checkBrandDomainNotCited(
   return {
     patternKey: "brand_domain_not_cited",
     severity: "high",
+    // 17 Nov, part 3: in answers, and which audit -- "AI engines cited N sources" counted links.
     evidence:
-      `AI engines cited ${totalValidSources} source${totalValidSources === 1 ? "" : "s"} across ` +
-      `${engines.length} engine${engines.length === 1 ? "" : "s"}, and none was your website.\n${perEngineLines}`,
+      `In audit #${auditNumber}, ${answersWithSource} of ${auditCitations.length} everyday answers linked a source ` +
+      `(${totalValidSources} link${totalValidSources === 1 ? "" : "s"} in all, across ${engines.length} ` +
+      `engine${engines.length === 1 ? "" : "s"}), and none was your website.\n${perEngineLines}`,
     remediation: buildBrandDomainNotCitedRemediation(engines),
   };
 }
@@ -184,96 +183,83 @@ function buildBrandDomainNotCitedRemediation(engines: EngineCitationBreakdown[])
     .join(" ");
 }
 
+/**
+ * 17 Nov, part 3 -- a competitor's website linked in the latest audit's everyday answers that didn't name the brand:
+ * "In audit #50, Alpha Plumbing's website was linked in 3 of the 27 everyday answers that didn't name you." It said
+ * "{domain} is cited N times in prompts where your brand is absent" from COUNT(comparison_prompt_results where
+ * competitor_mentioned) -- head-to-head prompts that named the competitor, one per engine: no citation, and nothing
+ * about the brand being absent.
+ */
+async function checkCompetitorLinkedInstead(
+  tx: DbClient,
+  brandId: string,
+  latestAuditId: string,
+  auditNumber: number,
+): Promise<CitationDiagnosis[]> {
+  const [brand] = await tx
+    .select({ competitorWebsites: brands.competitorWebsites })
+    .from(brands)
+    .where(eq(brands.id, brandId));
+  const websites = Object.entries(
+    (brand?.competitorWebsites ?? {}) as Readonly<Record<string, string>>,
+  ).filter(([, site]) => !!site);
+  if (websites.length === 0) return [];
+
+  const rows = await tx
+    .select({
+      brandMentioned: citations.brandMentioned,
+      mentionVerification: citations.mentionVerification,
+      citedSources: citations.citedSources,
+    })
+    .from(citations)
+    .where(and(eq(citations.auditId, latestAuditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+  // Not named = no verified mention (EXCLUDE_UNVERIFIED: an unverified match isn't a mention).
+  const notNamed = rows.filter((r) => !r.brandMentioned || r.mentionVerification === "unverified");
+  if (notNamed.length === 0) return [];
+
+  const found: Array<{ name: string; site: string; count: number }> = [];
+  for (const [name, site] of websites) {
+    const count = notNamed.filter((r) =>
+      citedSourcesOf<{ url: string; domain?: string }>(r.citedSources).some((entry) =>
+        isBrandDomain(entry.domain ?? entry.url, site),
+      ),
+    ).length;
+    if (count > 0) found.push({ name, site, count });
+  }
+  return found
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 3)
+    .map((c) => ({
+      patternKey: "competitor_cited_instead",
+      severity: "medium" as const,
+      evidence: `In audit #${auditNumber}, ${possessive(c.name)} website was linked in ${c.count} of the ${notNamed.length} everyday answers that didn't name you.`,
+      competitorCited: c.site,
+      remediation: `Look at what ${possessive(c.name)} pages cover that AI links to, then make sure your site covers the same questions.`,
+    }));
+}
+
 export async function diagnose(tx: DbClient, input: DiagnoseInput): Promise<CitationDiagnosis[]> {
   const { brandId } = input;
   const diagnoses: CitationDiagnosis[] = [];
 
-  const gaps = await tx
-    .select()
-    .from(topicalCoverageGaps)
-    .where(
-      and(eq(topicalCoverageGaps.brandId, brandId), eq(topicalCoverageGaps.brandHasContent, false)),
-    )
-    .orderBy(sql`${topicalCoverageGaps.crossPromptImpact} DESC NULLS LAST`)
-    .limit(10);
+  // 17 Nov, part 3: no "Missing Topic Coverage" -- topical_coverage_gaps isn't a measurement. Its rows come from every
+  // vertical's library prompts, matched to the audit's answers by the unexpanded template (so "{region}" questions
+  // never match and brand_has_content defaults to false: "No content found for topic ..."), and "Fixing this could
+  // improve N prompts" counted library prompts across all verticals.
 
-  for (const gap of gaps) {
-    const topCompetitor = Array.isArray(gap.competitorCoverage)
-      ? (gap.competitorCoverage as Array<{ domain: string; depth: number }>).sort(
-          (a, b) => b.depth - a.depth,
-        )[0]
-      : undefined;
-
-    diagnoses.push({
-      patternKey: "missing_topic_coverage",
-      severity:
-        gap.crossPromptImpact && gap.crossPromptImpact >= 3
-          ? "high"
-          : gap.crossPromptImpact && gap.crossPromptImpact >= 2
-            ? "medium"
-            : "low",
-      evidence: `No content found for topic "${gap.topicLabel}" in ${gap.vertical}. ${
-        gap.crossPromptImpact ? `Fixing this could improve ${gap.crossPromptImpact} prompts.` : ""
-      }`,
-      competitorCited: topCompetitor?.domain,
-      topicCluster: gap.topicCluster,
-      remediation: `Create authoritative content covering "${gap.topicLabel}" to increase citation likelihood.`,
-    });
-  }
-
-  // Task #46 (5th follow-up): one latest-completed-audit lookup,
-  // shared by both of the audit-scoped diagnoses below (was two
-  // separate round trips before this -- see the docstring above
-  // checkBrandDomainNotCited for the index situation).
-  const [latestAudit] = await tx
-    .select({ id: audits.id })
-    .from(audits)
-    .where(and(eq(audits.brandId, brandId), eq(audits.status, AUDIT_STATUS_COMPLETE)))
-    .orderBy(desc(audits.completedAt))
-    .limit(1);
-
+  // The latest complete audit, as every page picks it (lib/visibility/share-of-voice.ts).
+  const latestAudit = await latestCompleteAudit(tx, brandId);
   if (latestAudit) {
-    const brandDomainDiagnosis = await checkBrandDomainNotCited(tx, brandId, latestAudit.id);
-    if (brandDomainDiagnosis) diagnoses.push(brandDomainDiagnosis);
-  }
-
-  // CPR-01: comparison_prompt_results (Sprint 7) — degrade gracefully when absent.
-  //
-  // Task #46 (5th follow-up): two bugs fixed here. (1) The column was
-  // "competitor_cited", which has never existed on this table (the
-  // real column is "competitor_mentioned") -- confirmed against both
-  // every migration and the real local DB's information_schema; this
-  // threw 42703 the moment any brand with comparison data hit this
-  // page, breaking the WHOLE diagnose() call (no try/catch wraps this
-  // block), not just this one diagnosis. (2) No audit_id filter at
-  // all -- mixed every historical audit's rows together. Scoped to
-  // the same latestAudit as the brand-domain check above; served by
-  // the real comparison_audit_idx (audit_id) index. This table has no
-  // run_number/replay concept to filter -- run-comparison-prompts.ts
-  // inserts exactly one row per (competitorDomain, engine) per audit,
-  // never a 5x-replay loop, so there's nothing to de-duplicate.
-  const hasComparison = await tableExists(tx, "comparison_prompt_results");
-  if (hasComparison && latestAudit) {
-    const compRows = await tx.execute(
-      sql`SELECT competitor_domain, COUNT(*) as cited_count
-          FROM comparison_prompt_results
-          WHERE brand_id = ${brandId} AND audit_id = ${latestAudit.id} AND competitor_mentioned = true
-          GROUP BY competitor_domain
-          ORDER BY cited_count DESC
-          LIMIT 3`,
+    const brandDomainDiagnosis = await checkBrandDomainNotCited(
+      tx,
+      brandId,
+      latestAudit.id,
+      latestAudit.auditNumber,
     );
-    for (const row of compRows as unknown as Array<{
-      competitor_domain: string;
-      cited_count: string;
-    }>) {
-      diagnoses.push({
-        patternKey: "competitor_cited_instead",
-        severity: "medium",
-        evidence: `${row.competitor_domain} is cited ${row.cited_count} times in prompts where your brand is absent.`,
-        competitorCited: row.competitor_domain,
-        remediation: `Analyze what content ${row.competitor_domain} has that earns citations, then create competing content.`,
-      });
-    }
+    if (brandDomainDiagnosis) diagnoses.push(brandDomainDiagnosis);
+    diagnoses.push(
+      ...(await checkCompetitorLinkedInstead(tx, brandId, latestAudit.id, latestAudit.auditNumber)),
+    );
   }
 
   diagnoses.sort((a, b) => {

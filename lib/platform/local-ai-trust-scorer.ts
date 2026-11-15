@@ -90,11 +90,13 @@ export async function computeLocalAiTrustScore(
   // NAP figure, no entity check and no AU-directory citations each counted as 0, so the score fell). Each part
   // is 0-100 when measured (lib/scoring/measured.ts); the score is over the measured parts' weights alone, and
   // says which they were.
+  //
+  // 17 Nov, part 3: directory presence is never measured. It read `localDirectoryCount ?? 0`, so a missing count
+  // was a measured 0 -- and the column's only writer (lib/trust/entity-checker.ts checkDirectories) is a stub
+  // that writes 0 for every brand. Neither is a count anyone made.
   const parts: Record<LocalTrustPart, ReturnType<typeof measured>> = {
     gmb: measured(lsr.gmb_completeness),
-    directory: entity
-      ? { measured: true, value: Math.min(((entity.localDirectoryCount ?? 0) / 4) * 100, 100) }
-      : { measured: false },
+    directory: { measured: false },
     abn: entity
       ? { measured: true, value: entity.abnVerified === true ? 100 : 0 }
       : { measured: false },

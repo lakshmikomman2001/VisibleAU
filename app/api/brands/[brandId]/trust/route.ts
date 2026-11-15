@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { possessive } from "@/lib/copy/possessive";
 import {
   assertBrandAccess,
   assertTier,
@@ -15,7 +16,7 @@ import { ExplainabilityService } from "@/lib/platform/explainability";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { NOT_MEASURED } from "@/lib/scoring/measured";
 import { computeTrustSummary, TRUST_CHECK_IMPLEMENTED } from "@/lib/trust";
-import { possessive } from "@/lib/copy/possessive";
+import { trustScoreNotes } from "@/lib/trust/trust-notes";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -63,7 +64,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             // (stub-implementation-status.ts). Audits alone don't produce it.
             // Follow-ups from af8de42..d1eb5a1, part 4: it began "Not measured yet.", under the card's own "Not
             // measured yet"; and "Omega Services's" (lib/copy/possessive.ts).
-            rationale: `${possessive(brand.name)} Trust Score comes from the Entity check (ABN, .au domain and Wikipedia AU) and the YouTube check, and neither has a result yet: run them from the Entity Score and YouTube Presence pages below.`,
+            // 17 Nov, part 3: it ended "run them from the Entity Score and YouTube Presence pages below" -- the
+            // Entity Score page has no run control (the check runs with each audit started from the app). When
+            // and how each check runs is in `notes` (lib/trust/trust-notes.ts), shown under this.
+            rationale: `${possessive(brand.name)} Trust Score comes from the Entity check (ABN, .au domain and Wikipedia AU) and the YouTube check, and neither has given it a score yet.`,
             confidence_label: null,
             confidence_note: null,
             top_action: null,
@@ -73,11 +77,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             scoreLabel: "Trust Score",
             maxScore: 100,
             context: { brandName: brand.name, dimension: "trust" },
+            // 17 Nov, part 3: it said "Run an entity score refresh" -- there's no such control; the Entity
+            // Score page shows which facts are missing.
             topAction:
               summary.hallucinationRisk > 50
                 ? "Review hallucination incidents — high risk detected."
-                : summary.entityScore === null || summary.entityScore < 30
-                  ? "Run an entity score refresh to establish authority signals."
+                : summary.entityScore !== null && summary.entityScore < 30
+                  ? "See the Entity Score page for the facts that are missing."
                   : undefined,
           });
 
@@ -144,6 +150,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       ...annotation,
       overallBasis:
         summary.overallTrustScore === null ? null : `Based on: ${measuredParts.join(", ")}`,
+      // 17 Nov, part 3: when each check last ran, and why one that ran isn't in the score (a YouTube check
+      // that found no channel it could confirm isn't a measured 0).
+      notes: trustScoreNotes(summary),
       riskLevel,
       riskRationale,
     });

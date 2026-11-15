@@ -386,10 +386,15 @@ test.describe("4D — Report detail", () => {
     await expect(page.getByRole("link", { name: /download pdf/i }).first()).toBeVisible();
   });
 
-  test("detail page shows key wins section", async ({ page }) => {
+  // 17 Nov, part 3: "Key Wins" exist only on reports made with the earlier method (the weekly trend rows and an
+  // AI-written summary, before 8eff2f9); the seeded report has them, so it says what it is and shows none.
+  test("a report made with the earlier method says so, and shows no Key Wins", async ({ page }) => {
     await page.goto(`/brands/${brandId}/reports/${readyReportId}`);
-    await expect(page.getByText("Key Wins")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/FAQ schema improved/i)).toBeVisible();
+    await expect(page.getByText(/made with an earlier report method/i)).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByText("Key Wins")).toHaveCount(0);
+    await expect(page.getByText(/FAQ schema improved/i)).toHaveCount(0);
   });
 
   test("generating report detail shows generating state", async ({ page }) => {

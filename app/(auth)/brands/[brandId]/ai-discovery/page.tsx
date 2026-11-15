@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import {
@@ -10,7 +11,9 @@ import {
 } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
@@ -111,12 +114,25 @@ export default async function AiDiscoveryPage({
     );
   }
 
-  const findings = (techAudit.findings as Record<string, unknown>)?.aiDiscovery as
-    | AiDiscoveryFindings
-    | undefined;
+  // 17 Nov, part 3: on a crawl that never reached the site these files' "not found" were requests that failed;
+  // an audit with no AI-discovery result read every row ✗ 0 while the header said "Not measured yet". Both are
+  // "not checked" row by row now.
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
+  const findings = unreached
+    ? undefined
+    : ((techAudit.findings as Record<string, unknown>)?.aiDiscovery as
+        | Partial<AiDiscoveryFindings>
+        | undefined);
   // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/6 (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreAiDiscovery);
+  const scoreM = measured(unreached ? null : techAudit.scoreAiDiscovery);
   const score = scoreM.measured ? scoreM.value : null;
+  const notScoredText = unreached ? "Not checked" : NOT_MEASURED;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -145,11 +161,16 @@ export default async function AiDiscoveryPage({
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
             AI endpoint presence &amp; discoverability &middot; Score:{" "}
-            {score === null ? NOT_MEASURED : <>{score}/6</>}
+            {score === null ? notScoredText : <>{score}/6</>}
           </p>
+          {crawledOn && (
+            <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+              Checked {crawledOn}
+            </p>
+          )}
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{NOT_MEASURED}</div>
+          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
         ) : (
           <div
             style={{
@@ -179,6 +200,14 @@ export default async function AiDiscoveryPage({
         yet. Adding them is a forward-looking best practice, not a fix for a standards violation.
       </p>
 
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
+
       <div
         style={{
           borderRadius: 8,
@@ -193,7 +222,10 @@ export default async function AiDiscoveryPage({
           </h3>
         </div>
         {ENDPOINTS.map((ep) => {
-          const present = findings?.[ep.key] ?? false;
+          // A file the audit didn't look for is "Not checked": no cross and no 0 (it was `?? false`).
+          const stored = findings?.[ep.key];
+          const checked = typeof stored === "boolean";
+          const present = stored === true;
           return (
             <div
               key={ep.key}
@@ -206,12 +238,13 @@ export default async function AiDiscoveryPage({
               }}
             >
               <span
+                aria-hidden="true"
                 style={{
                   fontSize: 16,
                   color: present ? "var(--success)" : "var(--text-tertiary)",
                 }}
               >
-                {present ? "✓" : "✗"}
+                {!checked ? "–" : present ? "✓" : "✗"}
               </span>
               <div style={{ flex: 1 }}>
                 <div
@@ -240,15 +273,19 @@ export default async function AiDiscoveryPage({
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{ep.desc}</div>
               </div>
-              <span
-                style={{
-                  fontSize: 13,
-                  fontFamily: "var(--font-mono)",
-                  color: present ? "var(--success)" : "var(--text-tertiary)",
-                }}
-              >
-                {present ? ep.weight : 0}/{ep.weight}
-              </span>
+              {checked ? (
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontFamily: "var(--font-mono)",
+                    color: present ? "var(--success)" : "var(--text-tertiary)",
+                  }}
+                >
+                  {present ? ep.weight : 0}/{ep.weight}
+                </span>
+              ) : (
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Not checked</span>
+              )}
             </div>
           );
         })}

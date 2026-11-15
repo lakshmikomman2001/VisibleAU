@@ -20,6 +20,9 @@ interface ContentAudit {
   hasAuthorAttribution: boolean | null;
   isEntityHomeCandidate: boolean | null;
   auditedAt: string;
+  /** The page's Last-Modified (null when it sent none), so a page with no date isn't badged "stale". */
+  lastModified: string | null;
+  daysSincePublished: number | null;
 }
 
 function citationBandColor(prob: number): string {
@@ -114,6 +117,12 @@ export default function ContentStructurePage() {
             <div>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 How likely is this page to be cited by AI?
+              </p>
+              {/* 17 Nov, part 3: the percentage is lib/retrieval/citation-probability-scorer.ts, hand-set
+                  weights for the page's format, answer capsules, freshness, passages, outbound links and
+                  author line -- our estimate, not a measured probability. */}
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                Our estimate from the page&apos;s structure, not a measured rate.
               </p>
               <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                 {primaryPage.pageUrl}

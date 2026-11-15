@@ -6,9 +6,12 @@ import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { loadFailedMessage } from "@/lib/load/fetch-json";
 
+/** lib/visibility/question-trend.ts: one audit's answers to this question, and how many named the brand. */
 interface TrendPoint {
-  week: string;
-  mentionRate: number;
+  auditNumber: number;
+  completedAt: string | null;
+  mentioned: number;
+  answers: number;
 }
 
 interface TrendAnswer {
@@ -66,14 +69,13 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
     );
   }
 
+  // 17 Nov, part 3: each point an audit, with its counts; a neutral line -- it was green or red from the first and
+  // last points alone, a verdict from a few answers.
   const data = trend.map((t) => ({
     ...t,
-    rate: Math.round(t.mentionRate * 1000) / 10,
+    label: `Audit #${t.auditNumber}`,
+    rate: t.answers > 0 ? Math.round((t.mentioned / t.answers) * 100) : 0,
   }));
-
-  const latest = data[data.length - 1].rate;
-  const first = data[0].rate;
-  const improving = latest >= first;
 
   return (
     <div className="w-full sm:w-24 h-8 sm:inline-block block sm:align-middle mt-1 sm:mt-0">
@@ -82,7 +84,7 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
           <Line
             type="monotone"
             dataKey="rate"
-            stroke={improving ? "var(--success)" : "var(--danger)"}
+            stroke="var(--accent-blue)"
             strokeWidth={1.5}
             dot={false}
           />
@@ -94,14 +96,11 @@ export function PromptTrendSparkline({ brandId, promptId }: { brandId: string; p
               fontSize: 11,
               padding: "4px 8px",
             }}
-            formatter={(value) => [`${value}%`, "Mention rate"]}
-            labelFormatter={(label) => {
-              const d = new Date(String(label));
-              return d.toLocaleDateString("en-AU", {
-                day: "numeric",
-                month: "short",
-              });
+            formatter={(_value, _name, item) => {
+              const p = item.payload as (typeof data)[number];
+              return [`${p.mentioned} of ${p.answers} answers named you`, p.label];
             }}
+            labelFormatter={() => ""}
           />
         </LineChart>
       </ResponsiveContainer>

@@ -138,6 +138,28 @@ test.beforeAll(async () => {
     },
   ];
 
+  // 17 Nov, part 3: the verdict is judged again from the stored answer (lib/conversational/comparison-verdict.ts),
+  // so each seeded answer carries the verdict its row records: "I recommend A over B" for a win or a loss, the
+  // parties named with no verdict for an inconclusive one.
+  const BRAND_SITE = "e2e-s7-discovery.com.au";
+  const answerFor = (row: (typeof comparisonRows)[number]) => {
+    const named = [
+      row.brandMentioned ? BRAND_SITE : null,
+      row.competitorMentioned ? row.competitorDomain : null,
+    ].filter((n): n is string => n !== null);
+    if (row.brandWon === true)
+      return row.competitorMentioned
+        ? `I recommend ${BRAND_SITE} over ${row.competitorDomain}.`
+        : `I recommend ${BRAND_SITE}.`;
+    if (row.brandWon === false)
+      return row.brandMentioned
+        ? `I recommend ${row.competitorDomain} over ${BRAND_SITE}.`
+        : `I recommend ${row.competitorDomain}.`;
+    return named.length > 0
+      ? `${named.join(" and ")} both serve the area.`
+      : "Both serve the area.";
+  };
+
   for (const row of comparisonRows) {
     await db.insert(comparisonPromptResults).values({
       brandId,
@@ -149,7 +171,7 @@ test.beforeAll(async () => {
       brandWon: row.brandWon,
       brandMentioned: row.brandMentioned,
       competitorMentioned: row.competitorMentioned,
-      verdictSnippet: `E2E test verdict for ${row.competitorDomain} on ${row.engine}`,
+      verdictSnippet: answerFor(row),
     });
   }
 });

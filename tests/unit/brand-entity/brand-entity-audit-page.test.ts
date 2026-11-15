@@ -85,8 +85,24 @@ describe("⚠️ RRR — the real sources are surfaced via the shared VerifiedSo
     expect(src).toMatch(/label: "Australian TLD \(\.com\.au\)"[\s\S]{0,300}source: null/);
   });
 
-  it("the agency framing line is present under the header", () => {
-    expect(src).toMatch(/Every signal is checked against a public source/);
+  // 17 Nov, part 3: this asserted "Every signal is checked against a public source", which was untrue -- the
+  // .au signal is read from the domain name, not a public source. The line says which signals are which now.
+  it("the framing line under the header says which signals are checked against a public source", () => {
+    expect(src).toMatch(/ABN and Wikipedia are checked against public sources/);
+    expect(src).toMatch(/signal is read from your domain name/);
+    expect(stripComments(src)).not.toMatch(/Every signal is checked against a public source/);
+  });
+
+  it("Wikipedia: a lookup that didn't complete reads 'Couldn't check', never 'no Australian page found'", () => {
+    expect(src).toMatch(
+      /const wikipediaUnavailable = findings\?\.wikipediaAuStatus === "unavailable"/,
+    );
+    expect(src).toMatch(/Couldn't check Wikipedia on this audit/);
+    // the "no page" wording only for the lookup's own not_found
+    expect(src).toMatch(
+      /findings\?\.wikipediaAuStatus === "not_found"\s*\?\s*"Checked Wikipedia — no Australian page found"/,
+    );
+    expect(src).toMatch(/skipped: wikipediaUnavailable/);
   });
 
   it("no scoring field (present/earned/max) changed for the 3 remaining signals -- only detail text and the source field were added", () => {
@@ -94,6 +110,8 @@ describe("⚠️ RRR — the real sources are surfaced via the shared VerifiedSo
     expect(src).toMatch(
       /earned: findings\?\.wikipediaAuPresent \? BRAND_ENTITY_WEIGHTS\.wikipediaAuPresent : 0/,
     );
-    expect(src).toMatch(/earned: findings\?\.auTldPresent \? BRAND_ENTITY_WEIGHTS\.auTldPresent : 0/);
+    expect(src).toMatch(
+      /earned: findings\?\.auTldPresent \? BRAND_ENTITY_WEIGHTS\.auTldPresent : 0/,
+    );
   });
 });

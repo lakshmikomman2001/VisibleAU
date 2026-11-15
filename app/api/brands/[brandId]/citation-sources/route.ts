@@ -12,7 +12,8 @@ import {
   tierRefusal,
 } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
-import { getBrandDistinctCitationCount, getCurrentCitationSources } from "@/lib/trust";
+import { getBrandDistinctCitationCount } from "@/lib/trust";
+import { getLatestAuditCitationSources } from "@/lib/trust/citation-intelligence";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -45,17 +46,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       );
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [{ categories, enginesWithoutCitations }, totalCitationCount] = await Promise.all([
-      // Task #41: one card per (engine, sourceType) -- see
-      // getCurrentCitationSources's doc comment for the aggregate /
-      // latest-audit-fallback read strategy. Replaces the old
-      // unfiltered-by-audit read that showed every historical audit's
-      // row set as separate, undeduped cards.
+    const [{ audit, categories, enginesWithoutCitations }, totalCitationCount] = await Promise.all([
+      // 17 Nov, part 3: the brand's latest complete audit, grouped from that audit's own everyday answers
+      // when the page asks (getLatestAuditCitationSources), so the page names its audit, "Covered" uses the
+      // audit page's mention rule, and no older audit's stored rows stand in for it. It read the stored
+      // aggregate (getCurrentCitationSources), which named no audit, kept a "Covered" from before the mention
+      // rule, and fell back to an older audit's per-audit rows (replay-inflated before the run_number filter).
       //
       // Task #46 (4th follow-up): the result is pre-split into real
       // categories and "cited nothing" engines -- the page no longer
       // needs its own ad-hoc NO_CITATIONS_SOURCE_TYPE string compare.
-      getCurrentCitationSources(tx, brandId),
+      getLatestAuditCitationSources(tx, brandId),
       // Task #38: the raw getBrandCitationCount counts every replay (~5x
       // inflation) and every call regardless of brand mention -- it was
       // built as an audit-progress-bar denominator, not a coverage
@@ -67,10 +68,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     ]);
 
     return NextResponse.json({
-      categories: categories.map((s) => ({
-        ...s,
-        citationShare: s.citationShare == null ? null : Number(s.citationShare),
-      })),
+      audit: audit && { auditNumber: audit.auditNumber, completedAt: audit.completedAt },
+      categories,
       enginesWithoutCitations,
       citationCount: totalCitationCount,
     });

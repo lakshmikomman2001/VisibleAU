@@ -1,4 +1,3 @@
-import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -8,6 +7,7 @@ import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { planRefusalBody } from "@/lib/pricing/plan-refusal";
+import { questionTrend } from "@/lib/visibility/question-trend";
 
 const uuidSchema = z.string().uuid();
 
@@ -36,31 +36,12 @@ export async function GET(
     throw e;
   }
 
+  // 17 Nov, part 3: audit by audit, as the audit page counts answers (lib/visibility/question-trend.ts) -- it grouped
+  // every row by calendar week, counting unverified mentions and every run.
   return withRlsContext(currentUser.organizationId, async (tx) => {
-    // v8.16 JOIN: citations has NO brand_id — filter via audits.brand_id
-    const rows = await tx.execute(sql`
-      SELECT
-        DATE_TRUNC('week', c.created_at) AS week,
-        COUNT(CASE WHEN c.brand_mentioned THEN 1 END)::float
-          / NULLIF(COUNT(*), 0) AS mention_rate
-      FROM citations c
-      JOIN audits a ON c.audit_id = a.id
-      WHERE a.brand_id = ${brandId}
-        AND c.prompt = ${decodeURIComponent(promptId)}
-        AND c.created_at >= NOW() - INTERVAL '12 weeks'
-        -- 14 Nov, part 5: never an audit an operator excluded from trends (lib/audit/trend-exclusion.ts).
-        AND a.excluded_from_trends_reason IS NULL
-      GROUP BY DATE_TRUNC('week', c.created_at)
-      ORDER BY week
-    `);
-
-    if (rows.length < 2) return NextResponse.json({ trend: [], message: "Not enough history yet" });
-
-    return NextResponse.json({
-      trend: rows.map((r: Record<string, unknown>) => ({
-        week: r.week,
-        mentionRate: Number(r.mention_rate) || 0,
-      })),
-    });
+    const trend = await questionTrend(tx, brandId, decodeURIComponent(promptId));
+    if (trend.length < 2)
+      return NextResponse.json({ trend: [], message: "Not enough comparable audits" });
+    return NextResponse.json({ trend });
   });
 }

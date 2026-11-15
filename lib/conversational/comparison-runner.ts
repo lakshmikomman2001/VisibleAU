@@ -1,6 +1,15 @@
 import { getLLMService } from "@/lib/llm";
 import type { Engine } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
+import { judgeComparison } from "./comparison-verdict";
+
+export {
+  type ComparisonParties,
+  type ComparisonVerdict,
+  judgeComparison,
+  LEGACY_VERDICT_SNIPPET_CHARS,
+  rejudgeStoredComparison,
+} from "./comparison-verdict";
 
 export interface ComparisonInput {
   brandName: string;
@@ -14,6 +23,12 @@ export interface ComparisonResult {
   brandWon: boolean | null;
   brandMentioned: boolean;
   competitorMentioned: boolean;
+  /**
+   * The engine's whole answer (17 Nov, part 3). It was its first LEGACY_VERDICT_SNIPPET_CHARS characters,
+   * which is all a row written before then keeps; the comparisons page judges each row again from this text
+   * (rejudgeStoredComparison, lib/conversational/comparison-verdict.ts), so a verdict is always the current
+   * rule's, read from the answer itself.
+   */
   verdictSnippet: string;
   prompt: string;
   /** "Inngest: fit within the 5 concurrent steps of the free plan",
@@ -45,32 +60,14 @@ export async function runComparison(input: ComparisonInput): Promise<ComparisonR
   });
 
   const response = output.response;
-  const responseLower = response.toLowerCase();
-  const brandMentioned =
-    responseLower.includes(brandName.toLowerCase()) ||
-    responseLower.includes(brandDomain.toLowerCase());
-  const competitorMentioned = responseLower.includes(competitorDomain.toLowerCase());
-
-  let brandWon: boolean | null = null;
-  if (brandMentioned && competitorMentioned) {
-    const brandIdx = responseLower.indexOf(brandName.toLowerCase());
-    const compIdx = responseLower.indexOf(competitorDomain.toLowerCase());
-    if (/recommend|better|prefer|winner|superior/i.test(response)) {
-      brandWon = brandIdx < compIdx;
-    }
-  } else if (brandMentioned && !competitorMentioned) {
-    brandWon = true;
-  } else if (!brandMentioned && competitorMentioned) {
-    brandWon = false;
-  }
-
-  const verdictSnippet = response.slice(0, 300);
+  // 17 Nov, part 3: the verdict rule is judgeComparison's (the brand found by its name or website; the verdict
+  // read from the answer's verdict sentences). A brand named only by its website was a win by default.
+  const verdict = judgeComparison(response, { brandName, brandDomain, competitorDomain });
 
   return {
-    brandWon,
-    brandMentioned,
-    competitorMentioned,
-    verdictSnippet,
+    ...verdict,
+    // The whole answer, so the page can judge it again (rejudgeStoredComparison).
+    verdictSnippet: response,
     prompt,
     costEstimateUsd: output.costEstimateUsd,
     capReserveUsd: output.capReserveUsd ?? 0,

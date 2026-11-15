@@ -12,9 +12,13 @@ import { type BrandFeature, brandFeatureLockedFor } from "@/lib/pricing/brand-fe
 import { measured } from "@/lib/scoring/measured";
 
 interface RetrievalData {
-  agentReadiness: { totalScore: number | null } | null;
-  contentPages: Array<{ citationProbabilityScore: string | null }>;
-  recentVisits: Array<Record<string, unknown>>;
+  agentReadiness: { totalScore: number | null; scoredAt?: string } | null;
+  /** The readiness score from its measured parts (17 Nov, part 3), out of the points measured. */
+  agentReadinessMeasured?: { points: number; measuredMax: number } | null;
+  /** One row per page: each page's latest content structure check. */
+  contentPages: Array<{ citationProbabilityScore: string | null; auditedAt?: string }>;
+  /** Crawler visits recorded in the last `days` days. */
+  crawlerVisits?: { count: number; days: number };
 }
 
 // A tile whose page needs a plan (lib/pricing/brand-features.ts) shows the lock and the plan's name where
@@ -99,6 +103,10 @@ export default function RetrievalHubPage() {
   });
   const avgCitProb =
     scoredProbs.length > 0 ? scoredProbs.reduce((s, v) => s + v, 0) / scoredProbs.length : null;
+  // 17 Nov, part 3: the readiness score out of the points that were measured, never the stored total with its
+  // free points and unmeasured zeros.
+  const readiness = data.agentReadinessMeasured;
+  const readinessPoints = readiness && readiness.measuredMax > 0 ? readiness.points : null;
 
   return (
     <div className="space-y-6 p-6">
@@ -108,9 +116,12 @@ export default function RetrievalHubPage() {
       </h1>
 
       <RetrievalScoreSummary
-        agentReadiness={data.agentReadiness?.totalScore ?? null}
+        agentReadiness={readinessPoints}
+        agentReadinessMax={readiness?.measuredMax}
         avgCitationProbability={avgCitProb}
-        crawlerVisitCount={data.recentVisits.length}
+        citationPagesScored={scoredProbs.length}
+        crawlerVisitCount={data.crawlerVisits?.count ?? null}
+        crawlerVisitDays={data.crawlerVisits?.days}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

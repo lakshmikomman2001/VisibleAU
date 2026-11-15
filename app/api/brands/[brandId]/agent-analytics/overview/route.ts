@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { getVerificationRates, getVolumeByPurpose, getVolumeByVendor } from "@/lib/agent-analytics";
+import {
+  getIngestSources,
+  getVerificationRates,
+  getVolumeByPurpose,
+  getVolumeByVendor,
+} from "@/lib/agent-analytics";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
@@ -37,10 +42,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
   const periodEnd = new Date();
   const periodStart = new Date(periodEnd.getTime() - days * 24 * 60 * 60 * 1000);
 
-  const [volumeByVendor, volumeByPurpose, verificationRates] = await Promise.all([
+  const [volumeByVendor, volumeByPurpose, verificationRates, ingestSources] = await Promise.all([
     getVolumeByVendor(brandId, periodStart, periodEnd),
     getVolumeByPurpose(brandId, periodStart, periodEnd),
     getVerificationRates(brandId, periodStart, periodEnd),
+    // 17 Nov, part 3: which sources have ever sent a visit, so the setup panel says "Connected" only then.
+    getIngestSources(brandId),
   ]);
 
   return NextResponse.json({
@@ -48,6 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
       volumeByVendor,
       volumeByPurpose,
       verificationRates,
+      ingestSources,
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
     },

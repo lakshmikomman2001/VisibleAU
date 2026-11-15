@@ -344,10 +344,8 @@ export const PLAN_GATE_ENTRY_POINTS: Record<
     },
   },
   "app/api/brands/[brandId]/topical-gaps/route.ts": {
-    callers: {
-      "app/(auth)/brands/[brandId]/autopilot/page.tsx": "autopilot",
-      "app/(auth)/brands/[brandId]/visibility/page.tsx": "topical_gaps",
-    },
+    apiOnly:
+      "17 Nov, part 3: no page shows topical gaps -- topical_coverage_gaps isn't a measurement (its 'No content' is a default and its 'improves N prompts' counts every vertical's library), so the Visibility page and Autopilot no longer call this route.",
   },
   "app/api/brands/[brandId]/trust/route.ts": {
     callers: {

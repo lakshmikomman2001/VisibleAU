@@ -5,6 +5,8 @@ interface EntityHomeStatus {
   idFieldPresent: boolean;
   sameAsCount: number;
   pageUrl: string | null;
+  /** When the page's row was last written (17 Nov, part 3). */
+  checkedAt?: string | null;
 }
 
 interface EntityHomeCardProps {
@@ -85,6 +87,13 @@ export function EntityHomeCard({ entityHomeStatus }: EntityHomeCardProps) {
         Page found: {entityHomeStatus.pageUrl ?? "unknown"} &mdash;{" "}
         {isComplete ? "Entity Home fully configured." : "Entity Home needs attention."}
       </p>
+      {/* 17 Nov, part 3: the date this verdict is from. A later check that finds no candidate page stores
+          nothing, so the verdict shown can be older than the last check. */}
+      {entityHomeStatus.checkedAt && (
+        <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+          Page last checked {new Date(entityHomeStatus.checkedAt).toLocaleDateString("en-AU")}
+        </p>
+      )}
 
       <div className="mt-3 flex flex-wrap gap-4 text-sm">
         <span style={{ color: "var(--foreground)" }}>

@@ -2,13 +2,16 @@ import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach, isSiteDependentDimension } from "@/lib/technical-audit/crawl-status";
 import {
+  comparableCompositeDelta,
   rollupTo5Categories,
   TECHNICAL_AUDIT_MAX_SCORE,
 } from "@/lib/technical-audit/score-aggregator";
@@ -64,7 +67,9 @@ const DIM_META = [
     key: "scoreSignals",
     label: "Signals",
     max: 6,
-    desc: "Negative signals + prompt injection",
+    // 17 Nov, part 3: the score is lib/negative-signals aggregateNegativeScore alone; prompt injection is listed
+    // on the Signals page but never changes it. It said "Negative signals + prompt injection".
+    desc: "Negative signals (prompt injection is listed, not scored)",
     route: "signals",
   },
   {
@@ -147,28 +152,64 @@ export default async function TechnicalAuditPage({
     );
   }
 
+  // 17 Nov, part 3: a crawl that never reached the site (lib/technical-audit/crawl-status.ts) has no score for
+  // the checks that needed it, even on a row stored before the writer stopped saving its zeros.
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const timeZone = getOrgTimezone(currentUser.organizationId);
+  const dayOf = (d: Date | string) =>
+    new Date(d).toLocaleDateString("en-AU", { timeZone, day: "numeric", month: "short" });
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", { timeZone })
+    : null;
+  const findingStatus = (section: "robots" | "llmsTxt"): unknown => {
+    const all = techAudit.findings as Record<string, unknown> | null;
+    const part = all?.[section] as Record<string, unknown> | undefined;
+    return part?.fetchStatus;
+  };
+  const storedDim = (key: string): string | null => {
+    if (unreached && isSiteDependentDimension(key)) return null;
+    return (techAudit as Record<string, unknown>)[key] as string | null;
+  };
+
   // 9 Nov (part 9): a sub-score that wasn't measured is "Not measured yet", never 0 (lib/scoring/measured.ts).
   // It enters the rollup as NaN, so a category it feeds comes out not measured too -- never a percentage
   // built from a 0 nobody scored.
-  const dimOrNaN = (value: string | null): number => {
-    const m = measured(value);
+  const dimOrNaN = (key: string): number => {
+    const m = measured(storedDim(key));
     return m.measured ? m.value : Number.NaN;
   };
   const rollup = rollupTo5Categories({
-    scoreRobots: dimOrNaN(techAudit.scoreRobots),
-    scoreLlmsTxt: dimOrNaN(techAudit.scoreLlmsTxt),
-    scoreSchema: dimOrNaN(techAudit.scoreSchema),
-    scoreMeta: dimOrNaN(techAudit.scoreMeta),
-    scoreContent: dimOrNaN(techAudit.scoreContent),
-    scoreBrandEntity: dimOrNaN(techAudit.scoreBrandEntity),
-    scoreSignals: dimOrNaN(techAudit.scoreSignals),
-    scoreAiDiscovery: dimOrNaN(techAudit.scoreAiDiscovery),
+    scoreRobots: dimOrNaN("scoreRobots"),
+    scoreLlmsTxt: dimOrNaN("scoreLlmsTxt"),
+    scoreSchema: dimOrNaN("scoreSchema"),
+    scoreMeta: dimOrNaN("scoreMeta"),
+    scoreContent: dimOrNaN("scoreContent"),
+    scoreBrandEntity: dimOrNaN("scoreBrandEntity"),
+    scoreSignals: dimOrNaN("scoreSignals"),
+    scoreAiDiscovery: dimOrNaN("scoreAiDiscovery"),
   });
 
-  // A missing composite (this audit's or the previous one's) gives no comparison, never a change from 0.
-  const latest = measured(techAudit.scoreComposite);
+  // A missing composite (this audit's or the previous one's) gives no comparison, never a change from 0. 17 Nov,
+  // part 3: nor does a crawl that never reached the site, or a previous audit on the old /100 scale; the change
+  // says the date of the audit it compares with ("+3.0 vs 2 Nov").
+  const latest = unreached ? measured(null) : measured(techAudit.scoreComposite);
   const prev = prevAudit ? measured(prevAudit.scoreComposite) : null;
-  const delta = latest.measured && prev?.measured ? latest.value - prev.value : null;
+  const delta =
+    prevAudit && latest.measured && prev?.measured
+      ? comparableCompositeDelta(
+          {
+            composite: latest.value,
+            createdAt: techAudit.createdAt,
+            siteReached: !unreached,
+          },
+          {
+            composite: prev.value,
+            createdAt: prevAudit.createdAt,
+            siteReached: crawlReach(prevAudit.findings).kind !== "unreached",
+          },
+        )
+      : null;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -199,9 +240,9 @@ export default async function TechnicalAuditPage({
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
             {brand.name} &middot; 8 dimensions &middot;{" "}
-            {techAudit.crawledAt
+            {crawledOn
               ? // "Dates show in Sydney time" (23 Oct), item 3
-                `Crawled ${new Date(techAudit.crawledAt).toLocaleDateString("en-AU", { timeZone: getOrgTimezone(currentUser.organizationId) })}`
+                `Crawled ${crawledOn}`
               : ""}
           </p>
         </div>
@@ -236,7 +277,7 @@ export default async function TechnicalAuditPage({
             </>
           ) : (
             <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4 }}>
-              {NOT_MEASURED}
+              {unreached ? "Not checked" : NOT_MEASURED}
             </div>
           )}
           {delta !== null && (
@@ -266,11 +307,22 @@ export default async function TechnicalAuditPage({
                       : "var(--danger)",
               }}
             >
-              {delta === 0 ? "No change" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} vs last`}
+              {prevAudit &&
+                (delta === 0
+                  ? `No change since ${dayOf(prevAudit.createdAt)}`
+                  : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} vs ${dayOf(prevAudit.createdAt)}`)}
             </div>
           )}
         </div>
       </div>
+
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
 
       {/* Category rollup: four across from 1024px, two on a phone. 17 Nov, part 2: no "Performance -- Coming
           v1.1" tile (nothing measures it). */}
@@ -331,7 +383,12 @@ export default async function TechnicalAuditPage({
           </h3>
         </div>
         {DIM_META.map((dim) => {
-          const m = measured((techAudit as Record<string, unknown>)[dim.key] as string | null);
+          // A check whose own request got no answer (robots.txt or llms.txt, from 17 Nov) has no score either.
+          const requestFailed =
+            (dim.key === "scoreRobots" && findingStatus("robots") === "unreachable") ||
+            (dim.key === "scoreLlmsTxt" && findingStatus("llmsTxt") === "unreachable");
+          const notChecked = (unreached && isSiteDependentDimension(dim.key)) || requestFailed;
+          const m = measured(storedDim(dim.key));
           const raw = m.measured ? m.value : null;
           const pct = raw === null ? null : dim.max > 0 ? Math.round((raw / dim.max) * 100) : 0;
           const bandColor =
@@ -343,10 +400,15 @@ export default async function TechnicalAuditPage({
                   ? "var(--warning)"
                   : "var(--danger)";
           const isCritical = pct !== null && pct < 30;
+          const notScoredText = requestFailed
+            ? "Couldn't check"
+            : notChecked
+              ? "Not checked"
+              : NOT_MEASURED;
           const severityLabel = isCritical
             ? "critical"
             : pct === null
-              ? NOT_MEASURED.toLowerCase()
+              ? notScoredText.toLowerCase()
               : pct < 30
                 ? "low"
                 : pct < 60
@@ -411,7 +473,7 @@ export default async function TechnicalAuditPage({
                     color: bandColor,
                   }}
                 >
-                  {NOT_MEASURED}
+                  {notScoredText}
                 </div>
               ) : (
                 <>

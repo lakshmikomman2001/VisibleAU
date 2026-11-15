@@ -155,9 +155,12 @@ describe("F15 — autopilot renders brand name and promptsCount", () => {
     expect(container.textContent).toContain("Bondi Plumbing");
   });
 
-  it("renders promptsCount (15), not 0", () => {
+  // 17 Nov, part 3: no "N prompts" in step 1 (prompts_count counted the branded questions too); the audit's own
+  // "71 of 300" counts the everyday answers -- never a 0 either.
+  it("step 1 counts the audit's everyday answers, never '0 prompts' or a prompt count", () => {
     const { container } = render(<AutopilotLoop data={BONDI_AUTOPILOT} />);
-    expect(container.textContent).toContain("15 prompts");
+    expect(container.textContent).toContain("71 of 300");
+    expect(container.textContent).not.toMatch(/\d+ prompts/);
   });
 
   it("renders the Visibility as the audit page shows it (23.67 → 24%, with its counts)", () => {
@@ -300,7 +303,8 @@ describe("⚠️ NEGATIVE ENVELOPE — wrong shape must not silently render 0", 
     const desc = buildMeasureDescription(null);
     expect(desc).not.toContain("0.0%");
     expect(desc).not.toContain("+0");
-    expect(desc).toContain("Validation re-audit");
+    // 17 Nov, part 3: what starts a re-audit (approving a draft doesn't).
+    expect(desc).toBe("Mark a task done to have it re-audited 14 days later");
   });
 
   it("F11: a check with no result never carries a band", () => {

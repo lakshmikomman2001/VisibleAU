@@ -10,6 +10,12 @@ interface SetupPanelProps {
   brandId: string;
   totalHits: number;
   onUploadComplete?: () => void;
+  /**
+   * Every visit ever received for the brand, by source (lib/agent-analytics/metrics.ts getIngestSources). 17 Nov,
+   * part 3: "Connected" and the snippet's "Live" badge only when a source has sent something; absent or empty
+   * means nothing has been received.
+   */
+  ingestSources?: Array<{ source: string; visits: number; lastVisitAt: string | null }>;
 }
 
 interface IngestPath {
@@ -39,8 +45,9 @@ const INGEST_PATHS: IngestPath[] = [
     title: "Live snippet",
     tier: "Free",
     desc: `A one-line middleware snippet (${SITE_URL}${TRACKING_SNIPPET_PATH}) streams AI-bot visits to ${PRODUCT_NAME} in real time.`,
-    detail: "Already active on this brand · POST /api/visit",
-    active: true,
+    // 17 Nov, part 3: it said "Already active on this brand" with a "Live" badge for every brand. Whether it
+    // has sent anything comes from the visits on record (SetupPanelProps.ingestSources).
+    detail: "POST /api/visit",
   },
   {
     id: "logpush",
@@ -54,11 +61,33 @@ const INGEST_PATHS: IngestPath[] = [
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
+/** Whether any source has ever sent a visit for the brand, and the latest one's time. */
+export function connectionState(ingestSources: SetupPanelProps["ingestSources"]): {
+  connected: boolean;
+  snippetReceiving: boolean;
+  lastVisitAt: string | null;
+} {
+  const sources = (ingestSources ?? []).filter((s) => s.visits > 0);
+  const lastVisitAt =
+    sources
+      .map((s) => s.lastVisitAt)
+      .filter((t): t is string => t !== null)
+      .sort()
+      .at(-1) ?? null;
+  return {
+    connected: sources.length > 0,
+    snippetReceiving: sources.some((s) => s.source === "visit_api"),
+    lastVisitAt,
+  };
+}
+
 export function AgentAnalyticsSetupPanel({
   brandId,
   totalHits,
   onUploadComplete,
+  ingestSources,
 }: SetupPanelProps) {
+  const connection = connectionState(ingestSources);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadMessage, setUploadMessage] = useState("");
@@ -172,7 +201,7 @@ export function AgentAnalyticsSetupPanel({
                 >
                   <Icon style={{ width: 18, height: 18, color: "var(--layer-retrieval)" }} />
                 </div>
-                {p.active && (
+                {p.id === "snippet" && connection.snippetReceiving && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
                     style={{ background: "var(--success-soft)", color: "var(--success)" }}
@@ -304,7 +333,9 @@ export function AgentAnalyticsSetupPanel({
             are never logged.
           </div>
         </div>
-      ) : (
+      ) : connection.connected ? (
+        // 17 Nov, part 3: "zero is a finding" only when a source is connected -- it said "Connected" with
+        // nothing ever received.
         <div
           className="flex items-center gap-3 rounded-xl p-4"
           style={{
@@ -315,8 +346,29 @@ export function AgentAnalyticsSetupPanel({
           <AlertCircle style={{ width: 16, height: 16, color: "var(--warning)", flexShrink: 0 }} />
           <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
             <strong style={{ color: "var(--text-primary)" }}>Connected</strong> — no AI crawler has
-            visited yet. This is itself a finding: it may mean AI engines can&apos;t discover you.
-            Check Retrieval and CDN Shield.
+            visited in the last 30 days
+            {connection.lastVisitAt
+              ? ` (the last visit on record was ${new Date(connection.lastVisitAt).toLocaleDateString("en-AU")})`
+              : ""}
+            . This is itself a finding: it may mean AI engines can&apos;t discover you. Check
+            Retrieval and CDN Shield.
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex items-center gap-3 rounded-xl p-4"
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          <AlertCircle
+            style={{ width: 16, height: 16, color: "var(--text-tertiary)", flexShrink: 0 }}
+          />
+          <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+            <strong style={{ color: "var(--text-primary)" }}>Nothing connected</strong> — we
+            haven&apos;t received a single visit for this brand from a log file or the snippet, so
+            there&apos;s nothing to measure. Upload a log file or install the snippet to start.
           </div>
         </div>
       )}

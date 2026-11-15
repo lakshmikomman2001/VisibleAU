@@ -2,11 +2,14 @@ import { desc, eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SignalsDetail } from "@/components/domain/technical/signals-detail";
+import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
+import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
 
 interface NegativeSignalRow {
@@ -74,12 +77,28 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
   const content = (techAudit.findings as Record<string, unknown>)?.content as
     | Record<string, unknown>
     | undefined;
-  const negativeSignals = (content?.negativeSignals ?? []) as NegativeSignalRow[];
-  const promptInjections = (content?.promptInjections ?? []) as PromptInjectionRow[];
+  // 17 Nov, part 3: a crawl that never reached the site scanned no page -- it read a clean 6 of 6, "No negative
+  // signals detected". And an audit that stored no list didn't scan either: null is "not checked", never [].
+  const reach = crawlReach(techAudit.findings);
+  const unreached = reach.kind === "unreached";
+  const crawledOn = techAudit.crawledAt
+    ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
+        timeZone: getOrgTimezone(currentUser.organizationId),
+      })
+    : null;
+  const storedSignals = content?.negativeSignals;
+  const storedInjections = content?.promptInjections;
+  const negativeSignals =
+    !unreached && Array.isArray(storedSignals) ? (storedSignals as NegativeSignalRow[]) : null;
+  const promptInjections =
+    !unreached && Array.isArray(storedInjections)
+      ? (storedInjections as PromptInjectionRow[])
+      : null;
   // 9 Nov (part 9): a missing sub-score is "Not measured yet" -- no number, no "Needs attention" band
   // (lib/scoring/measured.ts).
-  const scoreM = measured(techAudit.scoreSignals);
+  const scoreM = measured(unreached || negativeSignals === null ? null : techAudit.scoreSignals);
   const score = scoreM.measured ? scoreM.value : null;
+  const pagesScanned = reach.kind === "reached" ? reach.pagesCrawled : null;
 
   const scoreColor =
     score === null
@@ -117,11 +136,30 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
         >
           Negative signals &amp; prompt injection
         </h1>
+        {/* 17 Nov, part 3: it said "Lower is better", but the score starts at 6 and loses points for each
+            negative signal: higher is better. Prompt injection is listed but never changes it. */}
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-          Spam, manipulation, and injected content that erode AI trust in your site. Lower is better
-          — these reduce how often LLMs cite you.
+          Spam, manipulation and injected content that can erode AI trust in your site. The score
+          starts at 6 and loses points for each negative signal found, so higher is better. Prompt
+          injection is listed below but doesn&apos;t change the score.
         </p>
+        {crawledOn && (
+          <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
+            Crawled {crawledOn}
+            {pagesScanned !== null
+              ? ` · ${pagesScanned} ${pagesScanned === 1 ? "page" : "pages"} scanned`
+              : ""}
+          </p>
+        )}
       </div>
+
+      {reach.kind === "unreached" && (
+        <SiteUnreachableNotice
+          domain={brand.domain}
+          checkedOn={crawledOn}
+          httpStatus={reach.httpStatus}
+        />
+      )}
 
       {/* Score card */}
       <div
@@ -154,7 +192,9 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
               Signals Score
             </div>
             {score === null ? (
-              <div style={{ fontSize: 14, color: scoreColor }}>{NOT_MEASURED}</div>
+              <div style={{ fontSize: 14, color: scoreColor }}>
+                {unreached ? "Not checked" : NOT_MEASURED}
+              </div>
             ) : (
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                 <span
@@ -194,7 +234,7 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
             </span>
           )}
         </div>
-        {score !== null && (
+        {score !== null && negativeSignals !== null && (
           <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
             Based on {negativeSignals.length} negative signal
             {negativeSignals.length !== 1 ? "s" : ""} detected
@@ -202,8 +242,12 @@ export default async function SignalsPage({ params }: { params: Promise<{ brandI
         )}
       </div>
 
-      {/* Detail sections */}
-      <SignalsDetail negativeSignals={negativeSignals} promptInjections={promptInjections} />
+      {/* Detail sections: null lists read "Not checked" (components/domain/technical/signals-detail.tsx). */}
+      <SignalsDetail
+        negativeSignals={negativeSignals}
+        promptInjections={promptInjections}
+        notCheckedReason={unreached ? "No page was read on this audit." : null}
+      />
     </div>
   );
 }

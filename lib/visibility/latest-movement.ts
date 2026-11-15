@@ -61,6 +61,11 @@ export function latestMovement(input: {
   };
 }
 
+/** "Not comparable (questions changed)": the label for a reason (17 Nov, part 3: shared with lib/visibility/audit-change.ts). */
+export function notComparableLabel(reason: NotComparableReason): string {
+  return NOT_COMPARABLE_LABEL[reason];
+}
+
 function notComparable(reason: NotComparableReason): LatestMovement {
   return { kind: "not_comparable", reason, label: NOT_COMPARABLE_LABEL[reason] };
 }

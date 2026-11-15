@@ -32,6 +32,8 @@ interface BrandEntityFindings {
   abnNumber: string | null;
   abnStatus?: string | null;
   wikipediaAuPresent: boolean;
+  /** The lookup's own state (lib/brand-entity/wikipedia-au.ts), from 17 Nov. Absent on older audits. */
+  wikipediaAuStatus?: "found" | "not_found" | "unavailable";
   wikipediaAuUrl?: string | null;
   auTldPresent: boolean;
   // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
@@ -156,9 +158,16 @@ export default async function BrandEntityAuditPage({
   }
 
   const wikipediaFound = findings?.wikipediaAuPresent ?? false;
+  // 17 Nov, part 3: a lookup that failed (timeout, HTTP error) was stored as "not found". An audit from 17 Nov on
+  // keeps the lookup's own state; an older one can't say, and the page says that rather than "no page".
+  const wikipediaUnavailable = findings?.wikipediaAuStatus === "unavailable";
   const wikipediaDetail = wikipediaFound
     ? "Found on Wikipedia"
-    : "Checked Wikipedia — no Australian page found";
+    : wikipediaUnavailable
+      ? "Couldn't check Wikipedia on this audit: the lookup didn't complete"
+      : findings?.wikipediaAuStatus === "not_found"
+        ? "Checked Wikipedia — no Australian page found"
+        : "No Australian Wikipedia page recorded. This audit didn't record whether the lookup completed.";
   const wikipediaSourceUrl = wikipediaFound
     ? (findings?.wikipediaAuUrl ?? null)
     : wikipediaSearchUrl(brand.name);
@@ -185,7 +194,7 @@ export default async function BrandEntityAuditPage({
     {
       label: "Wikipedia AU Presence",
       present: findings?.wikipediaAuPresent ?? false,
-      skipped: false,
+      skipped: wikipediaUnavailable,
       detail: wikipediaDetail,
       earned: findings?.wikipediaAuPresent ? BRAND_ENTITY_WEIGHTS.wikipediaAuPresent : 0,
       max: BRAND_ENTITY_WEIGHTS.wikipediaAuPresent,
@@ -237,8 +246,14 @@ export default async function BrandEntityAuditPage({
               </>
             )}
           </p>
+          {/* 17 Nov, part 3: it claimed every signal was checked against a public source, but the .au signal
+              is read from the domain name itself. */}
           <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: 0 }}>
-            Every signal is checked against a public source — click through to verify.
+            ABN and Wikipedia are checked against public sources: click through to verify. The .au
+            signal is read from your domain name.
+            {wikipediaUnavailable
+              ? " The score has no Wikipedia points because the lookup didn't complete."
+              : ""}
           </p>
         </div>
         {score === null ? (

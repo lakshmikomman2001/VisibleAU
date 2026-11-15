@@ -3,29 +3,16 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
-import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { CompetitiveBenchmarkPanel } from "@/components/domain/visibility/competitive-benchmark-panel";
 import { FanOutTree } from "@/components/domain/visibility/fan-out-tree";
 import { MentionsAndSourcesCard } from "@/components/domain/visibility/mentions-and-sources-card";
 import { SovDonut } from "@/components/domain/visibility/sov-donut";
-import { TopicalGapList } from "@/components/domain/visibility/topical-gap-list";
-import { VolatilityIndicator } from "@/components/domain/visibility/volatility-indicator";
 import { EmptyState } from "@/components/phase2/empty-state";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import type { MentionsAndSources } from "@/lib/visibility/mentions-and-sources";
 import type { SovPayload } from "@/lib/visibility/share-of-voice-display";
-import type { BrandArchetype } from "@/lib/visibility/types";
 
 interface VisibilityData {
-  trends: {
-    mentionRate: number;
-    citationRate: number;
-    mentionSourceRatio: number | null;
-    brandArchetype: BrandArchetype;
-    citationVolatilityScore: number | null;
-    scoreCompositeAvg: number | null;
-  } | null;
   /** One Share of Voice (7 Nov): the shared counter's figures for the latest complete audit. */
   shareOfVoice: SovPayload | null;
   /** 17 Nov, part 1: the same audit's mentions and sources, by the audit page's definitions. */
@@ -46,15 +33,6 @@ interface VisibilityData {
   // state (the route never reads stale, wrong-vertical rows), but
   // "paused" vs. "genuinely no fan-out data yet" need different copy.
   fanOutPaused: boolean;
-  gaps: Array<{
-    id: string;
-    topicCluster: string;
-    topicLabel: string;
-    brandHasContent: boolean;
-    crossPromptImpact: number | null;
-    estimatedCitationImpact: string | null;
-    competitorCoverage: Array<{ domain: string; has_content: boolean; depth: number }>;
-  }>;
   tier: string;
   brandDomain: string;
 }
@@ -76,9 +54,9 @@ interface BenchmarkData {
     totalWins: number;
     totalLosses: number;
     totalInconclusive: number;
-    topicalGapsOwned: number;
-    fastestPath: string | null;
   };
+  /** The audit whose head-to-head questions these are. */
+  audit: { number: number; completedAt: string | null } | null;
 }
 
 export default function VisibilityPage() {
@@ -88,34 +66,31 @@ export default function VisibilityPage() {
   const [benchmarkLoading, setBenchmarkLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const gapsGate = useBrandFeatureGate("topical_gaps");
 
   useEffect(() => {
     async function load() {
       try {
-        const [visRes, fanOutRes, gapsRes] = await Promise.all([
+        // 17 Nov, part 3: no topical gaps -- topical_coverage_gaps isn't a measurement ("No content" was a default
+        // for every question the calculator couldn't match, and "improves N prompts" counted library prompts of
+        // every vertical: inngest/functions/calculate-topical-gaps.ts).
+        const [visRes, fanOutRes] = await Promise.all([
           fetch(`/api/brands/${brandId}/visibility`),
           fetch(`/api/brands/${brandId}/fan-out`),
-          gapsGate.locked ? null : fetch(`/api/brands/${brandId}/topical-gaps`),
         ]);
-        const gapsRefused = gapsRes !== null && (await gapsGate.planRefused(gapsRes));
 
-        if (!visRes.ok || !fanOutRes.ok || (gapsRes && !gapsRefused && !gapsRes.ok)) {
+        if (!visRes.ok || !fanOutRes.ok) {
           setError("Failed to load visibility data");
           return;
         }
 
         const vis = await visRes.json();
         const fanOut = await fanOutRes.json();
-        const gaps = gapsRes && !gapsRefused ? await gapsRes.json() : { gaps: [] };
 
         setData({
-          trends: vis.trends,
           shareOfVoice: vis.shareOfVoice ?? null,
           mentionsAndSources: vis.mentionsAndSources ?? null,
           fanOut: fanOut.groups ?? [],
           fanOutPaused: fanOut.paused === true,
-          gaps: gaps.gaps ?? [],
           tier: vis.tier ?? "starter",
           brandDomain: vis.brandDomain ?? "",
         });
@@ -126,7 +101,7 @@ export default function VisibilityPage() {
       }
     }
     load();
-  }, [brandId, gapsGate.locked, gapsGate.planRefused]);
+  }, [brandId]);
 
   useEffect(() => {
     if (!data) return;
@@ -134,16 +109,13 @@ export default function VisibilityPage() {
       .then(async (res) => {
         if (res.ok) {
           const bm = await res.json();
-          setBenchmarkData({
-            competitors: bm.competitors ?? [],
-            summary: bm.summary ?? {
-              totalWins: 0,
-              totalLosses: 0,
-              totalInconclusive: 0,
-              topicalGapsOwned: 0,
-              fastestPath: null,
-            },
-          });
+          // 17 Nov, part 3: no zeros made up for a missing summary.
+          if (bm.summary)
+            setBenchmarkData({
+              competitors: bm.competitors ?? [],
+              summary: bm.summary,
+              audit: bm.audit ?? null,
+            });
         }
       })
       .finally(() => setBenchmarkLoading(false));
@@ -173,9 +145,6 @@ export default function VisibilityPage() {
           <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
             Visibility Intelligence
           </h1>
-          {data?.trends?.citationVolatilityScore != null && (
-            <VolatilityIndicator score={data.trends.citationVolatilityScore} loading={loading} />
-          )}
         </div>
         <Link
           href={`/brands/${brandId}/visibility/citation-failure`}
@@ -209,12 +178,6 @@ export default function VisibilityPage() {
             />
           ))}
         </div>
-      )}
-
-      {gapsGate.locked ? (
-        <PlanLockedCard feature="topical_gaps" />
-      ) : (
-        <TopicalGapList gaps={data?.gaps ?? []} loading={loading} />
       )}
 
       <CompetitiveBenchmarkPanel

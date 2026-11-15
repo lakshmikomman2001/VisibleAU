@@ -1,6 +1,13 @@
 import * as cheerio from "cheerio";
 import { CRAWLER_USER_AGENT } from "@/lib/product";
-import type { CrawlOptions, CrawlPage, CrawlResult } from "./types";
+import type {
+  CrawlHomepageOutcome,
+  CrawlOptions,
+  CrawlPage,
+  CrawlResult,
+  CrawlRobotsOutcome,
+  CrawlSitemapOutcome,
+} from "./types";
 
 // "Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)" (lib/product.ts). The "+URL" is where a site owner
 // who sees this bot in their logs reads what it is and how to reach us: the About page says (9 Nov; it named
@@ -9,7 +16,11 @@ export const DEFAULT_UA = CRAWLER_USER_AGENT;
 const DEFAULT_MAX_PAGES = 20;
 const DEFAULT_TIMEOUT = 15000;
 
-async function fetchPage(url: string, ua: string, timeout: number): Promise<CrawlPage | null> {
+// 17 Nov, part 3: a page that couldn't be fetched says why -- the status it answered with, or null for no
+// answer -- so a crawl that never reached the site is recorded as that, not as a site with nothing on it.
+type FetchPageResult = { page: CrawlPage } | { page: null; httpStatus: number | null };
+
+async function fetchPage(url: string, ua: string, timeout: number): Promise<FetchPageResult> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -19,7 +30,7 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
       redirect: "follow",
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
+    if (!res.ok) return { page: null, httpStatus: res.status };
 
     const html = await res.text();
     const $ = cheerio.load(html);
@@ -46,19 +57,26 @@ async function fetchPage(url: string, ua: string, timeout: number): Promise<Craw
     });
 
     return {
-      url,
-      statusCode: res.status,
-      title,
-      textContent,
-      wordCount,
-      excerpt,
-      byline,
-      html,
-      headers,
+      page: {
+        url,
+        statusCode: res.status,
+        title,
+        textContent,
+        wordCount,
+        excerpt,
+        byline,
+        html,
+        headers,
+      },
     };
   } catch {
-    return null;
+    return { page: null, httpStatus: null };
   }
+}
+
+/** A 2xx body that is an XML sitemap: a `<urlset>` or a `<sitemapindex>`, not a site's own HTML page. */
+function looksLikeSitemap(body: string): boolean {
+  return /<(urlset|sitemapindex)[\s>]/i.test(body);
 }
 
 export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<CrawlResult> {
@@ -76,23 +94,46 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   const errors: string[] = [];
 
   let robotsTxt: string | null = null;
+  let robotsTxtFetch: CrawlRobotsOutcome = { status: "unreachable", httpStatus: null };
   try {
     const r = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": ua } });
-    if (r.ok) robotsTxt = await r.text();
+    if (r.ok) {
+      robotsTxt = await r.text();
+      robotsTxtFetch = { status: "found", httpStatus: r.status };
+    } else {
+      robotsTxtFetch = {
+        status: r.status >= 400 && r.status < 500 ? "absent" : "unreachable",
+        httpStatus: r.status,
+      };
+    }
   } catch {
-    /* ignore */
+    /* no answer: stays "unreachable" */
   }
 
   let sitemapXml: string | null = null;
+  const sitemapUrl = robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
+  let sitemap: CrawlSitemapOutcome = { url: sitemapUrl, status: "unreachable", httpStatus: null };
   try {
-    const sitemapUrl =
-      robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
     const s = await fetch(sitemapUrl, { headers: { "User-Agent": ua } });
-    if (s.ok) sitemapXml = await s.text();
+    if (s.ok) {
+      sitemapXml = await s.text();
+      sitemap = {
+        url: sitemapUrl,
+        status: looksLikeSitemap(sitemapXml) ? "found" : "absent",
+        httpStatus: s.status,
+      };
+    } else {
+      sitemap = {
+        url: sitemapUrl,
+        status: s.status >= 400 && s.status < 500 ? "absent" : "unreachable",
+        httpStatus: s.status,
+      };
+    }
   } catch {
-    /* ignore */
+    /* no answer: sitemap stays "unreachable" */
   }
 
+  let homepage: CrawlHomepageOutcome | undefined;
   const queue = [baseUrl];
   while (queue.length > 0 && pages.length < maxPages) {
     const url = queue.shift()!;
@@ -100,11 +141,22 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
     if (visited.has(normalized)) continue;
     visited.add(normalized);
 
-    const page = await fetchPage(url, ua, timeout);
-    if (!page) {
-      errors.push(`Failed to fetch ${url}`);
+    const fetched = await fetchPage(url, ua, timeout);
+    // The first request is the home page: the crawl reaches nothing else without it.
+    if (!homepage) {
+      homepage = {
+        url,
+        reached: fetched.page !== null,
+        httpStatus: fetched.page === null ? fetched.httpStatus : fetched.page.statusCode,
+      };
+    }
+    if (fetched.page === null) {
+      errors.push(
+        `Failed to fetch ${url}${fetched.httpStatus === null ? " (no answer)" : ` (HTTP ${fetched.httpStatus})`}`,
+      );
       continue;
     }
+    const page = fetched.page;
     pages.push(page);
 
     if (pages.length < maxPages) {
@@ -124,7 +176,17 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
     }
   }
 
-  return { domain, pages, robotsTxt, sitemapXml, crawledAt: new Date(), errors };
+  return {
+    domain,
+    pages,
+    robotsTxt,
+    sitemapXml,
+    crawledAt: new Date(),
+    errors,
+    ...(homepage ? { homepage } : {}),
+    sitemap,
+    robotsTxtFetch,
+  };
 }
 
 /**

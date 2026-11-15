@@ -34,30 +34,25 @@ describe("Autopilot Loop (5-step + honesty rule + presentational states)", () =>
     expect(stepCardSource).not.toContain("wont_fix");
   });
 
+  // 17 Nov, part 3: step 5 shows the task's measured change from its own audit to its re-audit (the tasks API's
+  // `change`, lib/visibility/audit-change.ts), never lift_achieved (the re-audit minus an expected-impact bucket):
+  // "Citation rate improved +X%" was made up.
   describe("S9b-01: Measure step honesty rule", () => {
-    it("gates lift display on scoreAfter not-null", () => {
-      expect(loopSource).toContain("scoreAfter");
-      expect(loopSource).toMatch(/scoreAfter\s*==\s*null|scoreAfter\s*!=\s*null/);
+    it("step 5 is the measured change, or why there isn't one -- never liftAchieved", () => {
+      const fn = loopSource.slice(loopSource.indexOf("export function buildMeasureDescription"));
+      const body = fn.slice(0, fn.indexOf("\n}\n"));
+      expect(body).toContain('change?.kind === "measured"');
+      expect(body).toContain("return change.line");
+      expect(body).toContain("return change.reason");
+      expect(body).not.toMatch(/liftAchieved|Citation rate/);
     });
 
-    it("shows 'validation audit scheduled — pending' when scoreAfter is null", () => {
-      expect(loopSource).toContain("Validation audit scheduled — pending");
-    });
-
-    it("uses lift_achieved for per-fix delta, not overall visibility_trends", () => {
-      expect(loopSource).toContain("liftAchieved");
-    });
-
-    it("shows flat/negative honestly — not coerced to positive", () => {
-      expect(loopSource).toMatch(/lift\s*<\s*0/);
-      expect(loopSource).toContain("No measurable change yet");
-    });
-
-    it("buildMeasureDescription handles all cases: null, positive, negative, flat", () => {
-      expect(loopSource).toContain("Validation audit scheduled — pending");
-      expect(loopSource).toContain("Citation rate improved");
-      expect(loopSource).toContain("Citation rate changed");
-      expect(loopSource).toContain("No measurable change yet");
+    it("not re-audited → 'Not re-audited yet'; a re-audit that didn't run → why, in words", () => {
+      expect(loopSource).toContain('return "Not re-audited yet"');
+      expect(loopSource).toContain(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the component's source contains this template literal
+        "Re-audit not run: ${deferredReasonWords(task.reauditDeferredReason)}",
+      );
     });
   });
 

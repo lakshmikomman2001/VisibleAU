@@ -17,11 +17,26 @@ import { LoadError } from "@/components/shared/load-error";
 import { useLoad } from "@/lib/hooks/use-load";
 import { fetchOrFail, readJson } from "@/lib/load/fetch-json";
 
+/** lib/workflow/progress-summary.ts, by /api/brands/[brandId]/action-progress (17 Nov, part 3). */
 interface ProgressData {
   completedThisMonth: number;
+  openTasks: number;
   totalTasks: number;
-  measuredImpact: number | null;
-  validationPending: boolean;
+  reaudits: {
+    measured: number;
+    up: number;
+    down: number;
+    same: number;
+    notComparable: number;
+    latest: string | null;
+  };
+  awaitingReaudit: number;
+  /** "Since 1 Nov, Sydney time" */
+  monthLabel: string;
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 export function ActionProgressTracker({ brandId }: { brandId: string }) {
@@ -142,7 +157,7 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
                 Work Completed
               </div>
               <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                This month
+                {data.monthLabel}
               </div>
             </div>
           </div>
@@ -153,13 +168,12 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
               fontFamily: "var(--font-mono)",
             }}
           >
-            {data.completedThisMonth}{" "}
-            <span className="text-xl" style={{ color: "var(--text-tertiary)" }}>
-              / {data.totalTasks}
-            </span>
+            {data.completedThisMonth}
           </div>
+          {/* 17 Nov, part 3: it was "N / M gaps closed this month" -- M was every task ever. */}
           <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-            gaps closed this month
+            {data.completedThisMonth === 1 ? "task done" : "tasks done"} this month ·{" "}
+            {plural(data.openTasks, "task")} still open
           </div>
         </div>
 
@@ -188,43 +202,39 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
             </div>
           </div>
 
-          {data.measuredImpact != null ? (
-            <>
+          {/* 17 Nov, part 3: each re-audited task's change between its own audit and its re-audit
+              (lib/visibility/audit-change.ts). It was "+12.3% · Citation rate improved · verified by re-audit":
+              a sum of re-audit scores minus expected-impact buckets (80/50/20). */}
+          {data.reaudits.measured > 0 ? (
+            <div data-measured-impact="">
               <div
                 className="text-4xl font-semibold tracking-tight mb-1 tabular-nums"
-                style={{
-                  color:
-                    data.measuredImpact > 0
-                      ? "var(--success)"
-                      : data.measuredImpact < 0
-                        ? "var(--danger)"
-                        : "var(--text-secondary)",
-                  fontFamily: "var(--font-mono)",
-                }}
+                style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
               >
-                {data.measuredImpact > 0 ? "+" : ""}
-                {data.measuredImpact.toFixed(1)}%
+                {data.reaudits.measured}
               </div>
               <div
-                className="flex items-center gap-1.5 text-[12px]"
+                className="flex items-center gap-1.5 text-[12px] flex-wrap"
                 style={{ color: "var(--text-secondary)" }}
               >
-                {data.measuredImpact > 0 ? (
+                <span>
+                  {data.reaudits.measured === 1 ? "task" : "tasks"} re-audited this month: up in{" "}
+                  {data.reaudits.up}, down in {data.reaudits.down}, the same in {data.reaudits.same}
+                </span>
+                {data.reaudits.up > data.reaudits.down ? (
                   <TrendingUp size={12} style={{ color: "var(--success)" }} />
-                ) : data.measuredImpact < 0 ? (
+                ) : data.reaudits.down > data.reaudits.up ? (
                   <TrendingDown size={12} style={{ color: "var(--danger)" }} />
                 ) : (
                   <Minus size={12} style={{ color: "var(--text-tertiary)" }} />
                 )}
-                <span>
-                  {data.measuredImpact > 0
-                    ? "Citation rate improved · verified by re-audit"
-                    : data.measuredImpact < 0
-                      ? "Citation rate decreased · verified by re-audit"
-                      : "No measurable change yet · verified by re-audit"}
-                </span>
               </div>
-            </>
+              {data.reaudits.latest && (
+                <div className="text-[11px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+                  Latest: {data.reaudits.latest}
+                </div>
+              )}
+            </div>
           ) : (
             <div
               className="flex items-start gap-3 py-2 px-3 rounded-lg"
@@ -234,16 +244,20 @@ export function ActionProgressTracker({ brandId }: { brandId: string }) {
                 size={14}
                 style={{
                   marginTop: 2,
-                  color: "var(--warning)",
+                  color: "var(--text-tertiary)",
                   flexShrink: 0,
                 }}
               />
               <div>
                 <div className="text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
-                  Validation audit scheduled
+                  No measured re-audit this month
                 </div>
                 <div className="text-[11px] mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-                  Measured impact pending — re-audit needed
+                  {data.awaitingReaudit > 0
+                    ? `${plural(data.awaitingReaudit, "task")} done this month: each is re-audited 14 days after it was marked done.`
+                    : data.reaudits.notComparable > 0
+                      ? `${plural(data.reaudits.notComparable, "re-audit")} couldn't be compared with the task's own audit.`
+                      : "A task is re-audited 14 days after it's marked done."}
                 </div>
               </div>
             </div>

@@ -17,6 +17,23 @@ interface TrustScoreCardProps {
   // instead of a numeric score + bar, so absence is never mistaken for a
   // measured result. See docs/ops/post-launch-db-hardening.md section 34.
   insufficientData?: boolean;
+  /** 17 Nov, part 3: when each check behind the score ran, and why one isn't in it; shown in both states. */
+  notes?: readonly string[];
+}
+
+function Notes({ notes }: { notes: readonly string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <ul
+      className="mt-2 space-y-0.5 text-xs"
+      style={{ color: "var(--text-secondary)" }}
+      data-score-notes
+    >
+      {notes.map((note) => (
+        <li key={note}>{note}</li>
+      ))}
+    </ul>
+  );
 }
 
 export function TrustScoreCard({
@@ -28,6 +45,7 @@ export function TrustScoreCard({
   rationale,
   confidenceLabel,
   insufficientData = false,
+  notes = [],
 }: TrustScoreCardProps) {
   const m = measured(score);
   if (insufficientData || !m.measured) {
@@ -48,6 +66,7 @@ export function TrustScoreCard({
         <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
           {rationale}
         </p>
+        <Notes notes={notes} />
       </div>
     );
   }
@@ -114,6 +133,7 @@ export function TrustScoreCard({
       <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
         {rationale}
       </p>
+      <Notes notes={notes} />
     </div>
   );
 }

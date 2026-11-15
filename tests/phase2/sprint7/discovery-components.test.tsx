@@ -2,7 +2,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 // ═══════════════════════════════════════════════════════════════
@@ -88,6 +88,19 @@ describe("JourneyResultCard", () => {
     const { JourneyResultCard } = await import("@/components/domain/discovery/journey-result-card");
     return render(React.createElement(JourneyResultCard, props));
   }
+
+  // The first jsdom render of a newly imported component can take over 5 s here under load (17 Nov: timed out
+  // three times in a full run, passed alone each time).
+  beforeAll(async () => {
+    const { unmount } = await renderCard({
+      journeyName: "warm-up",
+      engine: "chatgpt",
+      journeyScore: null,
+      firstMentionTurn: null,
+      turnResults: [],
+    });
+    unmount();
+  }, 30_000);
 
   it("renders the score as integer (70.0 → '70', not '0.70' or '7')", async () => {
     await renderCard({
@@ -253,6 +266,8 @@ describe("ComparisonVerdictCard", () => {
     expect(screen.getByText("Perplexity")).toBeInTheDocument();
   });
 
+  // 17 Nov, part 3: "Brand mentioned: Yes/No" read as the audit's verified mention; it's a text match in this
+  // separate head-to-head answer, so the labels say that ("Named in this answer", "Competitor named").
   it("renders brand_mentioned and competitor_mentioned flags", async () => {
     await renderVerdict({
       competitorDomain: "other.com",
@@ -262,8 +277,9 @@ describe("ComparisonVerdictCard", () => {
       competitorMentioned: false,
     });
 
-    expect(screen.getByText("Brand mentioned: Yes")).toBeInTheDocument();
-    expect(screen.getByText("Competitor mentioned: No")).toBeInTheDocument();
+    expect(screen.getByText("Named in this answer: Yes")).toBeInTheDocument();
+    expect(screen.getByText("Competitor named: No")).toBeInTheDocument();
+    expect(screen.queryByText(/Brand mentioned/)).not.toBeInTheDocument();
   });
 
   it("shows mention flags as No/No when neither mentioned", async () => {
@@ -275,7 +291,7 @@ describe("ComparisonVerdictCard", () => {
       competitorMentioned: false,
     });
 
-    expect(screen.getByText("Brand mentioned: No")).toBeInTheDocument();
-    expect(screen.getByText("Competitor mentioned: No")).toBeInTheDocument();
+    expect(screen.getByText("Named in this answer: No")).toBeInTheDocument();
+    expect(screen.getByText("Competitor named: No")).toBeInTheDocument();
   });
 });

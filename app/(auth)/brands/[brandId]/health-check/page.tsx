@@ -115,7 +115,8 @@ export default function HealthCheckPage() {
                   title: topTask.title ?? "Review top recommendation",
                   rationale: topTask.description ?? "",
                   expectedImpact: null,
-                  confidenceLabel: topTask.confidenceLabel ?? "likely",
+                  // 17 Nov, part 3: no chip without a label -- it showed "likely" for a task with none.
+                  confidenceLabel: topTask.confidenceLabel ?? null,
                   brandId,
                 }
               : null,
@@ -128,6 +129,7 @@ export default function HealthCheckPage() {
                 })
               : "Recent",
             engineCount: audit.engineCount ?? audit.engines?.length ?? 0,
+            auditNumber: audit.auditNumber ?? null,
             isSaas,
           });
         }

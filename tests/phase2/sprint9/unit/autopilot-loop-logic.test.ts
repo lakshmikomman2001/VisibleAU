@@ -245,138 +245,98 @@ describe("⚠️ V — formatGapPriority (never renders 'priority #null')", () =
  * §1.4 — buildMeasureDescription (HONESTY RULE)
  * Canon v8.19/v8.27/v8.32: lift shown ONLY when score_after IS NOT NULL
  */
-describe("§1.4 — buildMeasureDescription (honesty rule)", () => {
-  it("no task → pending description", () => {
-    const result = buildMeasureDescription(null);
-    expect(result).toContain("re-audit");
-  });
+/**
+ * §1.4 -- step 5's line. 17 Nov, part 3: it was built from lift_achieved (the re-audit's Visibility minus
+ * score_before, an expected-impact bucket of 80/50/20: "Citation rate improved +7.3% · verified by re-audit"). Now it's
+ * the task's measured change from its own audit to its re-audit (the tasks API's `change`, lib/visibility/
+ * audit-change.ts), or why there isn't one -- never a stored lift.
+ */
+describe("§1.4 — buildMeasureDescription (the measured change, never a stored lift)", () => {
+  const MEASURED = {
+    kind: "measured" as const,
+    before: {
+      auditId: "a49",
+      auditNumber: 49,
+      completedAt: null,
+      value: "28%",
+      counts: "11 of 40",
+      shownPercent: 28,
+    },
+    after: {
+      auditId: "a50",
+      auditNumber: 50,
+      completedAt: null,
+      value: "33%",
+      counts: "13 of 40",
+      shownPercent: 33,
+    },
+    points: 5,
+    direction: "up" as const,
+    line: "Audit #49 → #50: 28% (11 of 40) → 33% (13 of 40), up 5 points",
+  };
 
-  it("⚠️ score_after NULL → pending string, NEVER a zero or blank", () => {
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: null,
-      liftAchieved: null,
-    };
-    const result = buildMeasureDescription(task);
-    expect(result).toContain("pending");
-    expect(result).not.toContain("0.0");
-    expect(result).not.toContain("+0");
-    expect(result).not.toBe("");
-    expect(result).not.toMatch(/\b0\b/);
-  });
-
-  it("score_after=42.5, lift_achieved=7.3 → shows 7.3 (lift_achieved)", () => {
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: 42.5,
-      liftAchieved: 7.3,
-    };
-    const result = buildMeasureDescription(task);
-    expect(result).toContain("7.3");
-    expect(result).toContain("+");
-  });
-
-  it("score_after present but lift_achieved NULL → uses 0 fallback", () => {
-    // Canon says pending, but implementation falls through to lift=0 branch.
-    // Documenting actual behavior — this may be a finding.
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: 42.5,
-      liftAchieved: null,
-    };
-    const result = buildMeasureDescription(task);
-    // lift = Number(null ?? 0) = 0 → "No measurable change yet"
-    expect(result).toContain("No measurable change");
-  });
-
-  it("lift_achieved=0 with score_after non-NULL → honest measured zero", () => {
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: 42.5,
-      liftAchieved: 0,
-    };
-    const result = buildMeasureDescription(task);
-    expect(result).toContain("No measurable change");
-  });
-
-  it("measured zero vs unmeasured pending render DIFFERENTLY", () => {
-    const measuredZero: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: 42.5,
-      liftAchieved: 0,
-    };
-    const unmeasured: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: null,
-      liftAchieved: null,
-    };
-    const resultMeasured = buildMeasureDescription(measuredZero);
-    const resultUnmeasured = buildMeasureDescription(unmeasured);
-    expect(resultMeasured).not.toBe(resultUnmeasured);
-  });
-
-  it("negative lift renders correctly", () => {
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: 38.0,
-      liftAchieved: -2.5,
-    };
-    const result = buildMeasureDescription(task);
-    expect(result).toContain("-2.5");
-  });
-
-  it("Task #46 Phase 2: reauditDeferredReason='insufficient_data' → honest 'no mentions yet' message, never 'pending' and never a fabricated lift number", () => {
-    const task: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: null,
-      liftAchieved: null,
-      reauditDeferredReason: "insufficient_data",
-    };
-    const result = buildMeasureDescription(task);
-    expect(result.toLowerCase()).toContain("insufficient data");
-    expect(result).not.toContain("pending");
-    expect(result).not.toMatch(/\b0\b/);
-    expect(result).not.toContain("−80");
-    expect(result).not.toContain("-80");
-  });
-
-  it("Task #46 Phase 2: insufficient_data renders DIFFERENTLY from the genuinely-pending (scoreAfter null, no reason) case", () => {
-    const insufficientData: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: null,
-      liftAchieved: null,
-      reauditDeferredReason: "insufficient_data",
-    };
-    const genuinelyPending: RemediationTask = {
-      ...BONDI_TASK,
-      status: "complete",
-      scoreAfter: null,
-      liftAchieved: null,
-    };
-    expect(buildMeasureDescription(insufficientData)).not.toBe(
-      buildMeasureDescription(genuinelyPending),
+  it("no task → what starts a re-audit", () => {
+    expect(buildMeasureDescription(null)).toBe(
+      "Mark a task done to have it re-audited 14 days later",
     );
   });
 
-  it("system-wide truth: all real tasks have score_after=NULL → pending path fires", () => {
-    // Every remediation_task currently has score_after = NULL
-    // This documents that the pending path is what actually renders
+  it("a measured change → its line, with both audits and counts", () => {
+    const task: RemediationTask = { ...BONDI_TASK, reauditId: "a50", change: MEASURED };
+    expect(buildMeasureDescription(task)).toBe(MEASURED.line);
+  });
+
+  it("⚠️ never the stored lift: lift_achieved and score_after are ignored", () => {
     const task: RemediationTask = {
       ...BONDI_TASK,
-      status: "open",
-      scoreAfter: null,
-      liftAchieved: null,
+      scoreAfter: 42.5,
+      liftAchieved: 7.3,
+      reauditId: "a50",
+      change: MEASURED,
     };
     const result = buildMeasureDescription(task);
-    expect(result).toContain("pending");
+    expect(result).not.toMatch(/7\.3|42\.5|Citation rate/);
+    const unmeasured: RemediationTask = { ...BONDI_TASK, scoreAfter: 42.5, liftAchieved: 7.3 };
+    expect(buildMeasureDescription(unmeasured)).toBe("Not re-audited yet");
+  });
+
+  it("not comparable → why", () => {
+    const task: RemediationTask = {
+      ...BONDI_TASK,
+      reauditId: "a50",
+      change: {
+        kind: "not_comparable",
+        reason: "Not comparable (questions changed)",
+        before: MEASURED.before,
+        after: MEASURED.after,
+      },
+    };
+    expect(buildMeasureDescription(task)).toBe("Not comparable (questions changed)");
+  });
+
+  it("a re-audit with too few answers → says so, never a number", () => {
+    const task: RemediationTask = {
+      ...BONDI_TASK,
+      reauditId: "a50",
+      reauditDeferredReason: "insufficient_data",
+      change: { kind: "not_measured", reason: "Not measured: audit #50 had too few answers" },
+    };
+    expect(buildMeasureDescription(task)).toBe("Not measured: audit #50 had too few answers");
+  });
+
+  it("a re-audit that didn't run → why, in words", () => {
+    const task: RemediationTask = {
+      ...BONDI_TASK,
+      reauditDeferredReason: "daily_spend_cap_exceeded",
+    };
+    expect(buildMeasureDescription(task)).toBe(
+      "Re-audit not run: the daily spend limit was reached",
+    );
+  });
+
+  it("no re-audit yet → 'Not re-audited yet', never 'pending' or a zero", () => {
+    const result = buildMeasureDescription({ ...BONDI_TASK, scoreAfter: null, liftAchieved: null });
+    expect(result).toBe("Not re-audited yet");
+    expect(result).not.toMatch(/\d|pending/);
   });
 });

@@ -87,7 +87,11 @@ function withDisplayCitations(n: number): QueryResult {
 // (abn 3, wikipedia 3, auTld 2, max 8) mean only 6 distinct display
 // percentages exist: 0, 25, 38, 63, 75, 100 -- not an arbitrary 0-100
 // value the way a continuous scoreOf10 used to allow.
-function entityRow(abnVerified: boolean, wikipediaAuPresent: boolean, auTldPresent: boolean): QueryResult {
+function entityRow(
+  abnVerified: boolean,
+  wikipediaAuPresent: boolean,
+  auTldPresent: boolean,
+): QueryResult {
   return [{ abnVerified, wikipediaAuPresent, auTldPresent }];
 }
 
@@ -112,7 +116,8 @@ describe("computeTrustSummary — aggregation logic", () => {
       1: entityRow(true, true, false), // abn + wikipedia, no auTld -> 6/8 = 75
       2: [{ presenceScore: 80 }], // stale LinkedIn stub row
       3: [{ consistencyScore: 90 }, { consistencyScore: 80 }], // stale Consensus stub rows
-      4: [{ presenceScore: 70 }], // real, flag-implemented YouTube row
+      // 17 Nov, part 3: only a confirmed channel's score counts now, so the row says it's confirmed.
+      4: [{ presenceScore: 70, checkStatus: "confirmed" }], // real, flag-implemented YouTube row
       5: withCitations(50),
     });
 
@@ -510,7 +515,8 @@ describe("computeTrustSummary — task #39: stub-backed scores never leak a stal
       1: [],
       2: [],
       3: [],
-      4: [{ presenceScore: 65 }], // a real, confirmed YouTube row
+      // 17 Nov, part 3: only a confirmed channel's score counts now, so the row says it's confirmed.
+      4: [{ presenceScore: 65, checkStatus: "confirmed" }], // a real, confirmed YouTube row
       5: withCitations(0),
     });
 
@@ -518,6 +524,50 @@ describe("computeTrustSummary — task #39: stub-backed scores never leak a stal
 
     expect(result.youtubePresenceScore).toBe(65);
     expect(result.overallTrustScore).toBe(65);
+    expect(result.youtubeCheckStatus).toBe("confirmed");
+  });
+
+  // 17 Nov, part 3: a "not_found" check (no channel matched confidently) was stored as presence 0 and averaged
+  // in as a measured 0 -- entity 25 + YouTube 0 made the overall 13. Not finding a channel we can confirm isn't
+  // a measured 0: it stays out of the average, and the summary says what the check found.
+  it("a not_found YouTube row stored with presence 0 stays out of the average", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const auditedAt = new Date("2026-11-03T03:00:00Z");
+    const tx = createMockTx({
+      0: [],
+      1: entityRow(false, false, true), // auTld only -> 2/8 = 25
+      2: [],
+      3: [],
+      4: [{ presenceScore: 0, checkStatus: "not_found", auditedAt }],
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as never, "brand-youtube-not-found");
+
+    expect(result.youtubePresenceScore).toBeNull();
+    expect(result.youtubeCheckStatus).toBe("not_found");
+    expect(result.youtubeCheckedAt).toBe(auditedAt);
+    expect(result.overallTrustScore).toBe(25); // entity alone, not avg([25, 0]) = 13
+  });
+
+  it("a YouTube row from before the real check (no check_status) is the old stub's 0 and stays out too", async () => {
+    const { computeTrustSummary } = await import("@/lib/trust/trust-scorer");
+
+    const tx = createMockTx({
+      0: [],
+      1: entityRow(false, false, true), // auTld only -> 2/8 = 25
+      2: [],
+      3: [],
+      4: [{ presenceScore: 0, checkStatus: null }],
+      5: withCitations(0),
+    });
+
+    const result = await computeTrustSummary(tx as never, "brand-youtube-legacy");
+
+    expect(result.youtubePresenceScore).toBeNull();
+    expect(result.youtubeCheckStatus).toBeNull();
+    expect(result.overallTrustScore).toBe(25);
   });
 
   it("an unconfirmed YouTube row (presenceScore already null at the source, #37) stays null through the gate", async () => {

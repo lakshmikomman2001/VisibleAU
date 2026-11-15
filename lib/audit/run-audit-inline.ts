@@ -24,8 +24,8 @@ import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
 import { buildEngineLocation } from "@/lib/brands/region-label";
 import { driftBaseline } from "@/lib/drift/baseline";
+import { buildDriftInput } from "@/lib/drift/build-input";
 import { detectDrift } from "@/lib/drift/detect";
-import type { CompositeBasis } from "@/lib/drift/types";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
@@ -597,52 +597,16 @@ export async function runAuditInline(
           return;
         }
 
-        // Audit #36 follow-up: no Position or Source citation -- they have
-        // no 0-100 value to compare (detect-drift.ts leaves them out the
-        // same way, through resolveOrganicDimensions).
-        const currentScores: Record<string, number> = {
-          frequency: freqScore,
-          sentiment: sentScore,
-          context: ctxScore,
-        };
-        const previousScores: Record<string, number> = {
-          frequency: Number(previous.scoreFrequency ?? 50),
-          sentiment: Number(previous.scoreSentimentNumeric ?? 50),
-          context: Number(previous.scoreContextNumeric ?? 25),
-        };
-        const previousCIs =
-          (previous.confidenceIntervals as Record<string, { lower: number; upper: number }>) ?? {};
-
-        // Vunnara (19 Oct, post-aa83b3a): the composite basis
-        // ("frequency_only" vs "weighted") was only ever about whether
-        // the OLD blend had extra dimensions to mix in -- with the
-        // headline now always equal to Frequency alone, there is only
-        // ever one basis, so the mismatch-gating in lib/drift/detect.ts
-        // is permanently inert (never true) rather than removed outright
-        // (lower-risk than reworking that gate, and harmless either way).
-        const currentCompositeBasis: CompositeBasis = "frequency_only";
-        const previousCompositeBasis: CompositeBasis = "frequency_only";
-        const WIDE_CI = { lower: 0, upper: 100 };
-        // previousCIs.headline is the current field name; previousCIs.composite
-        // is the pre-fix name a previous audit's confidenceIntervals jsonb may
-        // still carry (written before this change) -- read either.
-        const previousHeadlineCI = previousCIs.headline ?? previousCIs.composite ?? WIDE_CI;
-
-        const driftResult = detectDrift({
-          currentScores,
-          previousScores,
-          currentCIs: cis as unknown as Record<string, { lower: number; upper: number }>,
-          previousCIs,
-          currentComposite: headline,
-          previousComposite: Number(previous.scoreComposite ?? 0),
-          currentCompositeBasis,
-          previousCompositeBasis,
-          currentCompositeCI: cis.headline,
-          previousCompositeCI: previousHeadlineCI,
-        });
+        // 17 Nov, part 3: the same comparison as inngest/functions/detect-drift.ts -- both audits resolved from their
+        // answers (buildDriftInput -> resolveAuditForDrift). It compared this run's own scores with the previous
+        // audit's STORED columns, filling a missing one with a default (frequency ?? 50, headline ?? 0) and adding
+        // sentiment and context, which have no classifier behind them: an alert could rest on made-up numbers.
+        const driftResult = detectDrift(
+          await buildDriftInput(tx, { ...a, questionSetHash: finalized.questionSetHash }, previous),
+        );
 
         console.log(
-          `[audit-inline] drift check: current=${headline.toFixed(1)} previous=${Number(previous.scoreComposite ?? 0).toFixed(1)} delta=${driftResult.scoreDelta.toFixed(1)} severity=${driftResult.compositeSeverity} significant=${driftResult.hasSignificant}`,
+          `[audit-inline] drift check: delta=${driftResult.scoreDelta.toFixed(1)} severity=${driftResult.compositeSeverity} significant=${driftResult.hasSignificant}`,
         );
 
         if (driftResult.hasSignificant) {
@@ -652,7 +616,11 @@ export async function runAuditInline(
             currentAuditId: auditId,
             previousAuditId: previous.id,
             severity: driftResult.compositeSeverity,
-            scoreDelta: String(driftResult.scoreDelta),
+            // As detect-drift.ts stores it: no numeric delta across a basis or question-set mismatch.
+            scoreDelta:
+              driftResult.compositeBasisMismatch || driftResult.promptPackVersionMismatch
+                ? null
+                : String(driftResult.scoreDelta),
             dimensionDeltas: driftResult.dimensionDeltas,
           });
         }

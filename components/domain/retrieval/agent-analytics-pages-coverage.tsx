@@ -26,7 +26,23 @@ interface CoverageData {
     topIndexing: TopPage[];
     periodStart: string;
     periodEnd: string;
+    /** Every AI crawler visit recorded for the brand in the period (17 Nov, part 3). */
+    visitsInPeriod?: number;
   };
+}
+
+/**
+ * 17 Nov, part 3: whether any crawler visit was recorded in the period. With none (no log uploaded, no snippet
+ * installed), "Pages AI has never seen" listed every sitemap page -- a conclusion drawn from no data at all.
+ */
+export function crawlerVisitsRecorded(coverage: CoverageData["coverage"] | undefined): boolean {
+  if (!coverage) return false;
+  if (typeof coverage.visitsInPeriod === "number") return coverage.visitsInPeriod > 0;
+  return (
+    coverage.gap.crawledUrls.length > 0 ||
+    coverage.topRetrieval.length > 0 ||
+    coverage.topIndexing.length > 0
+  );
 }
 
 interface PagesCoverageProps {
@@ -116,7 +132,9 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
   const merged = mergeTopPages(topRetrieval, topIndexing);
   const hasTopPages = merged.length > 0;
   const hasSitemap = gap.sitemapUrls.length > 0;
-  const hasGaps = gap.gaps.length > 0;
+  const visitsRecorded = crawlerVisitsRecorded(data?.coverage);
+  // Only with visits on record can a sitemap page be one no crawler fetched.
+  const hasGaps = visitsRecorded && gap.gaps.length > 0;
 
   async function handleCreateTask() {
     setTaskState("creating");
@@ -130,15 +148,14 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          title: isWideGap
-            ? `${gapCount} sitemap pages never crawled by AI — discoverability problem`
-            : hasSitemap
-              ? `${gapCount} pages never crawled — possible thin content`
-              : "Add a sitemap so AI crawlers can discover your pages",
+          // 17 Nov, part 3: the logs cover the period asked for (30 days), so "never" was more than they show.
+          title: hasSitemap
+            ? `${gapCount} sitemap ${gapCount === 1 ? "page" : "pages"} with no AI crawler visit in this period`
+            : "Add a sitemap so AI crawlers can discover your pages",
           description: isWideGap
-            ? `Only ${gap.coveragePercent}% of your sitemap has been visited by any AI crawler. Pages with no crawl activity are invisible to AI engines.`
+            ? `Only ${gap.coveragePercent}% of your sitemap had a visit from any AI crawler in this period, in the visits we have on record.`
             : hasSitemap
-              ? `These sitemap pages have never been visited by an AI crawler: ${gap.gaps.slice(0, 5).map(extractPath).join(", ")}${gapCount > 5 ? ` (+${gapCount - 5} more)` : ""}.`
+              ? `These sitemap pages had no AI crawler visit in this period, in the visits we have on record: ${gap.gaps.slice(0, 5).map(extractPath).join(", ")}${gapCount > 5 ? ` (+${gapCount - 5} more)` : ""}.`
               : "No sitemap detected — AI crawlers rely on sitemaps for discovery. Add one and submit it.",
           dimension: "retrieval",
           recommendationKey: hasSitemap ? "thin_content_never_crawled" : "add_sitemap_for_ai",
@@ -166,8 +183,11 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
           <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
             Which pages is AI actually reading?
           </h3>
+          {/* 17 Nov, part 3: it said "Retrieval hits mean a human asked an AI a question". The purpose is
+              our crawler list's label for the bot, not something seen in the visit. */}
           <p className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-            Retrieval hits mean a human asked an AI a question and it fetched this page to answer
+            The pages AI crawlers fetched most, from your logs. Each bot&apos;s purpose comes from
+            our list of AI crawlers.
           </p>
         </div>
 
@@ -186,13 +206,14 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
                   >
                     {extractPath(p.url)}
                   </span>
+                  {/* 17 Nov, part 3: this said "Cited in AI answers" -- but a crawler fetching a page is
+                      not a citation; the audit page measures citations. */}
                   {p.retrieval > 0 && (
                     <span
                       className="inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      style={{ background: "var(--success-soft)", color: "var(--success)" }}
+                      style={{ background: "var(--bg-subtle)", color: "var(--text-secondary)" }}
                     >
-                      <CheckCircle2 style={{ width: 10, height: 10 }} />
-                      Cited in AI answers
+                      Fetched by a retrieval bot
                     </span>
                   )}
                 </div>
@@ -238,11 +259,13 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
           style={{ color: "var(--text-tertiary)", borderTop: "1px solid var(--border-subtle)" }}
         >
           <Info style={{ width: 12, height: 12, flexShrink: 0, marginTop: 1 }} />
+          {/* 17 Nov, part 3: it said fetched pages "tend to appear in AI answers 2–4 weeks later", a figure
+              nothing here measures. Your audits show which pages AI answers cite. */}
           <span>
-            Pages fetched by <em>retrieval</em> and <em>indexing</em> bots tend to appear in AI
-            answers 2–4 weeks later. This is a{" "}
-            <strong style={{ color: "var(--text-secondary)" }}>correlation</strong>, not proof of
-            causation — a crawl grants access, not influence.
+            A crawler fetching a page doesn&apos;t mean an AI answer used it. Any link between the
+            two is a <strong style={{ color: "var(--text-secondary)" }}>correlation</strong> at
+            most, not proof of causation — a crawl grants access, not influence. Your audits show
+            which pages AI answers cite.
           </span>
         </div>
       </div>
@@ -258,34 +281,39 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
               Pages AI has never seen
             </h3>
             <p className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-              {hasSitemap
-                ? "In your sitemap — but no AI crawler has ever fetched them"
-                : "Add a sitemap so we can measure which pages AI has and hasn’t discovered"}
+              {!visitsRecorded
+                ? "Needs crawler visits on record to measure"
+                : hasSitemap
+                  ? "In your sitemap, with no AI crawler visit to them in this period"
+                  : "Add a sitemap so we can measure which pages AI has and hasn’t discovered"}
             </p>
           </div>
-          <button
-            onClick={handleCreateTask}
-            disabled={taskState === "creating" || taskState === "done"}
-            className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-opacity disabled:opacity-60"
-            style={{ background: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
-          >
-            {taskState === "creating" ? (
-              <>
-                <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} />
-                Creating…
-              </>
-            ) : taskState === "done" ? (
-              <>
-                <CheckCircle2 style={{ width: 12, height: 12 }} />
-                Task created
-              </>
-            ) : (
-              <>
-                Create task
-                <ArrowRight style={{ width: 12, height: 12 }} />
-              </>
-            )}
-          </button>
+          {visitsRecorded && (
+            <button
+              type="button"
+              onClick={handleCreateTask}
+              disabled={taskState === "creating" || taskState === "done"}
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-opacity disabled:opacity-60"
+              style={{ background: "var(--accent-primary)", color: "var(--accent-primary-fg)" }}
+            >
+              {taskState === "creating" ? (
+                <>
+                  <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} />
+                  Creating…
+                </>
+              ) : taskState === "done" ? (
+                <>
+                  <CheckCircle2 style={{ width: 12, height: 12 }} />
+                  Task created
+                </>
+              ) : (
+                <>
+                  Create task
+                  <ArrowRight style={{ width: 12, height: 12 }} />
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {taskState === "done" && (
@@ -328,9 +356,15 @@ export function AgentAnalyticsPagesCoverage({ brandId }: PagesCoverageProps) {
               </div>
             ))}
           </div>
+        ) : !visitsRecorded ? (
+          <p className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+            No AI crawler visit is recorded for this period, so we can&apos;t tell which pages AI
+            crawlers have or haven&apos;t fetched. Upload a log file or install the snippet above to
+            start recording visits.
+          </p>
         ) : hasSitemap ? (
           <p className="text-[12px]" style={{ color: "var(--success)" }}>
-            All sitemap pages have been crawled by AI — full coverage.
+            Every sitemap page had an AI crawler visit in this period.
           </p>
         ) : (
           <p className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>

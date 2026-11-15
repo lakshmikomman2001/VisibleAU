@@ -1,6 +1,7 @@
 "use client";
 
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
+import { displayDate } from "@/lib/trust/display-dates";
 
 interface ComparisonVerdictCardProps {
   competitorDomain: string;
@@ -8,15 +9,25 @@ interface ComparisonVerdictCardProps {
   brandWon: boolean | null;
   brandMentioned: boolean;
   competitorMentioned: boolean;
-  rawResponse?: string;
+  /** 17 Nov, part 3: when this comparison ran. */
+  runAt?: string;
+  /** Only the start of the answer was kept (a row from before 17 Nov), so it has no verdict. */
+  answerCutOff?: boolean;
 }
 
+/**
+ * 17 Nov, part 3: "Brand mentioned: Yes/No" read as the audit's verified mention. It's a text match in this
+ * separate head-to-head answer, so it says that: "Named in this answer". The verdict is the comparisons API's,
+ * judged again from the stored answer (lib/conversational/comparison-verdict.ts).
+ */
 export function ComparisonVerdictCard({
   competitorDomain,
   engine,
   brandWon,
   brandMentioned,
   competitorMentioned,
+  runAt,
+  answerCutOff = false,
 }: ComparisonVerdictCardProps) {
   const verdict = brandWon === true ? "Won" : brandWon === false ? "Lost" : "Inconclusive";
   const verdictColor =
@@ -46,11 +57,17 @@ export function ComparisonVerdictCard({
       </div>
       <p className="text-xs mb-2" style={{ color: "var(--text-tertiary)" }}>
         {ENGINE_DISPLAY_NAMES[engine as keyof typeof ENGINE_DISPLAY_NAMES] ?? engine}
+        {runAt ? ` · Ran ${displayDate(runAt)}` : ""}
       </p>
-      <div className="flex gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
-        <span>Brand mentioned: {brandMentioned ? "Yes" : "No"}</span>
-        <span>Competitor mentioned: {competitorMentioned ? "Yes" : "No"}</span>
+      <div className="flex flex-wrap gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+        <span>Named in this answer: {brandMentioned ? "Yes" : "No"}</span>
+        <span>Competitor named: {competitorMentioned ? "Yes" : "No"}</span>
       </div>
+      {answerCutOff && (
+        <p className="mt-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+          Only the start of this answer was kept, so its verdict can&apos;t be read.
+        </p>
+      )}
     </div>
   );
 }

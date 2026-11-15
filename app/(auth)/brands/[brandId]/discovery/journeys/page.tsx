@@ -2,12 +2,13 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
-import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { JourneyFlowChart } from "@/components/domain/discovery/journey-flow-chart";
 import { JourneyResultCard } from "@/components/domain/discovery/journey-result-card";
+import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
+import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
+import { type JourneyTurnChip, orderJourneyRuns } from "@/lib/conversational/journey-results";
 import { actionFailureMessage, fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
 
 interface Journey {
@@ -26,7 +27,8 @@ interface RunResult {
   firstMentionTurn: number | null;
   brandAppearedInNTurns: number;
   totalTurns: number;
-  turnResults: Array<{ turn: number; brandMentioned: boolean }>;
+  // 17 Nov, part 3: the route reads the stored `brand_mentioned` key into this (journeyTurnChips).
+  turnResults: JourneyTurnChip[];
   runAt: string;
 }
 
@@ -188,6 +190,10 @@ export default function JourneysPage() {
   const isActiveTemplate = active?.isTemplate === true;
   const activeResults =
     selectedJourney && !isActiveTemplate ? (results[selectedJourney] ?? []) : [];
+  // 17 Nov, part 3: "No results yet" showed while the results were still loading, and beside the error when
+  // they failed. It shows only once they've loaded, and there are none.
+  const activeResultsFailed = active ? active.id in resultsFailed : false;
+  const activeResultsLoaded = active ? active.id in results : false;
 
   return (
     <div className="space-y-6 p-6">
@@ -306,7 +312,7 @@ export default function JourneysPage() {
                 )}
               </div>
               <ActionError message={actionError} />
-              {!isActiveTemplate && active.id in resultsFailed && (
+              {!isActiveTemplate && activeResultsFailed && (
                 <LoadError
                   what="this journey's results"
                   detail={resultsFailed[active.id]}
@@ -351,26 +357,35 @@ export default function JourneysPage() {
                   >
                     Results
                   </p>
+                  {/* 17 Nov, part 3: each engine's latest run first, every card dated (repeat runs looked
+                      identical). */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {activeResults.map((r) => (
+                    {orderJourneyRuns(activeResults).map(({ run: r, latestForEngine }) => (
                       <JourneyResultCard
                         key={r.id}
                         journeyName={active.journeyName}
                         engine={r.engine}
                         journeyScore={r.journeyScore}
                         firstMentionTurn={r.firstMentionTurn}
-                        turnResults={
-                          Array.isArray(r.turnResults)
-                            ? (r.turnResults as Array<{ turn: number; brandMentioned: boolean }>)
-                            : []
-                        }
+                        turnResults={Array.isArray(r.turnResults) ? r.turnResults : []}
+                        runAt={r.runAt}
+                        latestForEngine={latestForEngine}
                       />
                     ))}
                   </div>
                 </div>
               )}
 
-              {!isActiveTemplate && activeResults.length === 0 && (
+              {!isActiveTemplate && !activeResultsLoaded && !activeResultsFailed && (
+                <div
+                  className="h-24 animate-pulse rounded-lg"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--text-primary) 8%, transparent)",
+                  }}
+                />
+              )}
+
+              {!isActiveTemplate && activeResultsLoaded && activeResults.length === 0 && (
                 <div className="py-8 text-center" style={{ color: "var(--text-tertiary)" }}>
                   <p className="text-sm">No results yet — run the journey to see scores.</p>
                 </div>

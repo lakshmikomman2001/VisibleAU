@@ -52,6 +52,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             idFieldPresent: entityHomePage.entityHomeHasIdField ?? false,
             sameAsCount: entityHomePage.entityHomeSameAsCount ?? 0,
             pageUrl: entityHomePage.entityHomePageUrl,
+            // 17 Nov, part 3: when this page's row was last written. A later check that finds no candidate
+            // writes nothing, so this verdict can be older than the last check: the card shows the date.
+            checkedAt: entityHomePage.auditedAt,
           }
         : null,
       pages: audits,

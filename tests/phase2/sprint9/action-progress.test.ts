@@ -40,10 +40,14 @@ describe("action-progress route (canonical helper + tier gate + honesty rule)", 
     expect(routeSource).toContain("withRlsContext");
   });
 
-  it("returns completedThisMonth/totalTasks/measuredImpact/validationPending shape", () => {
+  // 17 Nov, part 3: measured re-audits, never measuredImpact (a sum of made-up lifts).
+  it("returns completedThisMonth/openTasks/totalTasks/reaudits/awaitingReaudit/monthLabel, never measuredImpact", () => {
     expect(routeSource).toContain("completedThisMonth");
+    expect(routeSource).toContain("openTasks");
     expect(routeSource).toContain("totalTasks");
-    expect(routeSource).toContain("measuredImpact");
-    expect(routeSource).toContain("validationPending");
+    expect(routeSource).toContain("reaudits: summary.reaudits");
+    expect(routeSource).toContain("awaitingReaudit");
+    expect(routeSource).toContain("monthLabel");
+    expect(routeSource).not.toContain("measuredImpact:");
   });
 });

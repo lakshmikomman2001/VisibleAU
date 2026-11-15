@@ -10,6 +10,37 @@ export interface ValidatedSchemaBlock {
   status: "valid" | "warning" | "danger";
   issues: string[];
   detail: string;
+  /**
+   * How many crawled pages carry this exact block (17 Nov, part 3). The page used to list and count one block per
+   * page it appeared on, so a sitewide Organization block counted up to 20 times. Absent on audits before then.
+   */
+  pageCount?: number;
+}
+
+/**
+ * The distinct blocks across the crawled pages, each with the number of pages it appeared on: two blocks are the
+ * same block when their JSON-LD is identical.
+ */
+export function distinctSchemaBlocks(
+  found: Array<{ block: SchemaBlock; pageUrl: string }>,
+): Array<{ block: SchemaBlock; pageCount: number }> {
+  const byKey = new Map<string, { block: SchemaBlock; pages: Set<string> }>();
+  for (const { block, pageUrl } of found) {
+    const key = JSON.stringify(block.attributes);
+    const seen = byKey.get(key);
+    if (seen) seen.pages.add(pageUrl);
+    else byKey.set(key, { block, pages: new Set([pageUrl]) });
+  }
+  return [...byKey.values()].map(({ block, pages }) => ({ block, pageCount: pages.size }));
+}
+
+/** validateSchemaBlocks over the distinct blocks, each carrying the number of pages it was found on. */
+export function validateDistinctSchemaBlocks(
+  found: Array<{ block: SchemaBlock; pageUrl: string }>,
+): ValidatedSchemaBlock[] {
+  const distinct = distinctSchemaBlocks(found);
+  const validated = validateSchemaBlocks(distinct.map((d) => d.block));
+  return validated.map((v, i) => ({ ...v, pageCount: distinct[i].pageCount }));
 }
 
 function isScored(type: string): boolean {
@@ -50,6 +81,9 @@ export function validateSchemaBlocks(blocks: SchemaBlock[]): ValidatedSchemaBloc
       }
     }
 
+    // 17 Nov, part 3: this used to mark every FAQPage with questions "danger" and the page counted it as
+    // "Hallucinated" -- but nothing here compares the questions with the page's own text. It is a reminder to
+    // check, a warning, never a finding that the schema is wrong.
     if (block.type === "FAQPage" || block.type.includes("FAQ")) {
       const mainEntity = attrs.mainEntity;
       if (Array.isArray(mainEntity)) {
@@ -58,18 +92,14 @@ export function validateSchemaBlocks(blocks: SchemaBlock[]): ValidatedSchemaBloc
           .map((e: Record<string, unknown>) => String(e.name ?? ""));
         if (questions.length > 0) {
           issues.push(
-            `${questions.length} FAQ questions in schema — verify each exists on the actual FAQ page to prevent LLM hallucination`,
+            `${questions.length} FAQ questions in the schema. We don't compare them with your page's text: check each one is asked and answered on the page.`,
           );
         }
       }
     }
 
-    const hasDangerIssue = issues.some((i) => i.includes("hallucination"));
-    const status: "valid" | "warning" | "danger" = hasDangerIssue
-      ? "danger"
-      : issues.length > 0
-        ? "warning"
-        : "valid";
+    // "danger" is kept in the type for audits stored before 17 Nov; nothing sets it now.
+    const status: "valid" | "warning" | "danger" = issues.length > 0 ? "warning" : "valid";
 
     const detail =
       issues.length === 0

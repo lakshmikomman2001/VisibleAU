@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { getCoverageGap, getTopPagesByPurpose } from "@/lib/agent-analytics";
+import { countCrawlerVisits, getCoverageGap, getTopPagesByPurpose } from "@/lib/agent-analytics";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { crawlSite } from "@/lib/crawler";
 import {
@@ -65,10 +65,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
     // If sitemap fetch fails, report empty coverage
   }
 
-  const [coverageGap, topRetrieval, topIndexing] = await Promise.all([
+  const [coverageGap, topRetrieval, topIndexing, visitsInPeriod] = await Promise.all([
     getCoverageGap(brandId, sitemapUrls, periodStart, periodEnd),
     getTopPagesByPurpose(brandId, "retrieval", periodStart, periodEnd, 10),
     getTopPagesByPurpose(brandId, "indexing", periodStart, periodEnd, 10),
+    // 17 Nov, part 3: with no visit on record, no sitemap page can be called "never seen".
+    countCrawlerVisits(brandId, periodStart, periodEnd),
   ]);
 
   return NextResponse.json({
@@ -78,6 +80,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ brandId:
       topIndexing,
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
+      visitsInPeriod,
     },
   });
 }

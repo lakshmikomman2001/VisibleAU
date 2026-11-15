@@ -52,9 +52,12 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
           </h3>
           {current && (
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              {/* 9 Nov (part 9): an unscored version reads "Not measured yet", not 0/18. */}
-              Depth: {scoreText(current.depthScore, 18)} &middot; Last generated:{" "}
-              {new Date(current.generatedAt).toLocaleDateString()}
+              {/* 9 Nov (part 9): an unscored version reads "Not measured yet", not 0/18. 17 Nov, part 3: this
+                  is lib/retrieval/llmstxt-generator.ts's coverage score for our draft (how many of your pages
+                  it lists, plus robots.txt and the about, contact, FAQ and services pages), not the generator
+                  page's /18, which scores the file on your site -- it says which. */}
+              Draft coverage: {scoreText(current.depthScore, 18)} (our draft, not your site&apos;s
+              file) &middot; Last generated: {new Date(current.generatedAt).toLocaleDateString()}
             </p>
           )}
         </div>
@@ -109,7 +112,7 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
                 style={{ backgroundColor: "color-mix(in srgb, var(--foreground) 3%, transparent)" }}
               >
                 <span style={{ color: "var(--foreground)" }}>
-                  {new Date(v.generatedAt).toLocaleDateString()} — Depth{" "}
+                  {new Date(v.generatedAt).toLocaleDateString()} — Draft coverage{" "}
                   {scoreText(v.depthScore, 18)}
                 </span>
                 {v.isCurrent && (

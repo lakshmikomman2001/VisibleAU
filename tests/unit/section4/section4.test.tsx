@@ -219,17 +219,34 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
     expect(text).toContain("20");
   });
 
-  it(">25% unverified rate → impersonation warning renders", () => {
-    // 1/(2+1+0) = 33.3% > 25%
+  // 17 Nov, part 3: these asserted ">25% unverified -> possible bot impersonation". Unverified includes every hit
+  // from a crawler with no verification path ("No verification paths configured"), so it is missing data, not
+  // evidence of impersonation; only a spoofed hit (one that failed verification) is.
+  it("a high unverified share claims no impersonation; it says what unverified means", () => {
+    // 1/(2+1+0) = 33.3%
     const { container } = card(2, 1, 0);
-    expect(container.textContent).toContain("Unverified rate exceeds 25%");
-    expect(container.textContent).toContain("possible bot impersonation");
+    expect(container.textContent).not.toMatch(/impersonation\. Review|possible bot impersonation/);
+    expect(container.textContent).toContain("It isn't evidence of impersonation.");
   });
 
-  it("≤25% unverified rate → no warning", () => {
-    // 1/(3+1+0) = 25% exactly — NOT > 25%
+  it("spoofed hits (failed verification) are the warning, with their count", () => {
+    const { container } = card(10, 0, 3);
+    expect(container.textContent).toContain(
+      "3 visits claimed to be an AI crawler but failed verification.",
+    );
+  });
+
+  it("no spoofed hits → no failed-verification warning", () => {
     const { container } = card(3, 1, 0);
-    expect(container.textContent).not.toContain("Unverified rate exceeds 25%");
+    expect(container.textContent).not.toContain("failed verification");
+  });
+
+  it("the Retrieval count doesn't claim AI recommended you", () => {
+    const { container } = card(3, 1, 0);
+    expect(container.textContent).not.toContain("AI recommended you in live conversations");
+    expect(container.textContent).toContain(
+      "Each bot's purpose comes from our list of AI crawlers, not from the visit itself.",
+    );
   });
 
   // Task #46 (11th follow-up): source_ip is never persisted for real-time
@@ -252,13 +269,49 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
 // STEP 3 — Empty state as finding (§7.2 — the VisibleAU-ism)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** The snippet card's "Live" badge (a span reading exactly "Live"; the card's title is "Live snippet"). */
+function liveBadge(container: HTMLElement): boolean {
+  return Array.from(container.querySelectorAll("span")).some((s) => s.textContent === "Live");
+}
+
 describe("Step 3 — Empty state as finding (§7.2)", () => {
-  it("totalHits=0 → finding-framed empty state (not generic 'no data')", () => {
-    const { container } = render(<AgentAnalyticsSetupPanel brandId="t" totalHits={0} />);
+  // 17 Nov, part 3: this asserted "Connected — no AI crawler has visited yet. This is itself a finding" with
+  // nothing connected at all. Zero is a finding only when a source has sent visits before.
+  it("totalHits=0 with a connected source → finding-framed empty state (not generic 'no data')", () => {
+    const { container } = render(
+      <AgentAnalyticsSetupPanel
+        brandId="t"
+        totalHits={0}
+        ingestSources={[
+          { source: "log_upload", visits: 12, lastVisitAt: "2026-09-01T00:00:00+00:00" },
+        ]}
+      />,
+    );
     const t = container.textContent!;
-    expect(t).toContain("no AI crawler has visited yet");
+    expect(t).toContain("no AI crawler has visited in the last 30 days");
     expect(t).toContain("This is itself a finding");
     expect(t).toContain("Check Retrieval and CDN Shield");
+  });
+
+  it("totalHits=0 with nothing ever received → 'Nothing connected', no finding and no 'Live' snippet", () => {
+    const { container } = render(<AgentAnalyticsSetupPanel brandId="t" totalHits={0} />);
+    const t = container.textContent!;
+    expect(t).toContain("Nothing connected");
+    expect(t).not.toContain("This is itself a finding");
+    expect(t).not.toContain("Connected —");
+    expect(t).not.toContain("Already active on this brand");
+    expect(liveBadge(container)).toBe(false);
+  });
+
+  it("the snippet reads 'Live' only when it has sent visits", () => {
+    const { container } = render(
+      <AgentAnalyticsSetupPanel
+        brandId="t"
+        totalHits={5}
+        ingestSources={[{ source: "visit_api", visits: 5, lastVisitAt: null }]}
+      />,
+    );
+    expect(liveBadge(container)).toBe(true);
   });
 
   it("totalHits>0 → connected state with hit count, no finding", () => {

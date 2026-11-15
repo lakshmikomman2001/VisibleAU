@@ -38,7 +38,8 @@ interface TopAction {
   title: string;
   rationale: string;
   expectedImpact: string | null;
-  confidenceLabel: string;
+  /** 17 Nov, part 3: null when the task has none -- it defaulted to "likely". */
+  confidenceLabel: string | null;
   brandId: string;
 }
 
@@ -51,6 +52,8 @@ export interface AiPresenceInput {
   band: HeadlineColorBand | null;
   /** The 95% interval, when there's a value. */
   ci: { lower: number; upper: number } | null;
+  /** 17 Nov, part 3: "3 of 4 engines" when a whole engine failed (engineCoverageLabel), else null. */
+  coverage?: string | null;
 }
 
 export interface MeasuredScore {
@@ -64,6 +67,8 @@ export interface HealthCheckData {
   brandName: string;
   auditDate: string;
   engineCount: number;
+  /** 17 Nov, part 3: the latest audit's number, for "latest audit #50". */
+  auditNumber?: number | null;
   isSaas: boolean;
   aiPresence: AiPresenceInput;
   /** null: no technical audit yet. */
@@ -117,6 +122,8 @@ export function buildHealthCheckCards(data: HealthCheckData): HealthCard[] {
       value: measured ? presence.value : null,
       detail: measured
         ? `Named in ${presence.detail} answers to everyday questions` +
+          // 17 Nov, part 3: and "3 of 4 engines" when one failed, as the audit page says.
+          (presence.coverage ? ` · ${presence.coverage}` : "") +
           (presence.ci
             ? ` · 95% CI ${presence.ci.lower.toFixed(0)}–${presence.ci.upper.toFixed(0)}%`
             : "")
@@ -158,7 +165,8 @@ const CARD_ICONS: Record<HealthCard["key"], ReactNode> = {
 };
 
 export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
-  const { topAction, brandName, auditDate, engineCount } = data;
+  const { topAction, brandName, auditDate, engineCount, auditNumber } = data;
+  const coverage = data.aiPresence.coverage ?? null;
   const cards = buildHealthCheckCards(data);
 
   return (
@@ -184,8 +192,11 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
           {possessive(brandName)} Health Check
         </h1>
         <p className="text-[14px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-          Each check is measured on its own, with no combined score · latest audit across{" "}
-          {engineCount} AI engines · {auditDate}
+          {/* 17 Nov, part 3: the audit's number, and the engines that answered when one failed -- it gave the
+              engines asked. */}
+          Each check is measured on its own, with no combined score · latest audit
+          {auditNumber != null ? ` #${auditNumber}` : ""} across{" "}
+          {coverage ?? `${engineCount} AI engines`} · {auditDate}
         </p>
       </div>
 
@@ -258,15 +269,17 @@ export function HealthCheckPanel({ data }: { data: HealthCheckData }) {
               <span className="text-[12px] font-semibold" style={{ color: "var(--accent-blue)" }}>
                 Your #1 recommended action
               </span>
-              <span
-                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  background: "var(--accent-muted)",
-                  color: "var(--text-tertiary)",
-                }}
-              >
-                {topAction.confidenceLabel}
-              </span>
+              {topAction.confidenceLabel && (
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    background: "var(--accent-muted)",
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  {topAction.confidenceLabel}
+                </span>
+              )}
             </div>
             <div
               className="text-base font-semibold mb-1.5"

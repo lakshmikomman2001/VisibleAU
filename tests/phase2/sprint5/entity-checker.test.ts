@@ -4,6 +4,7 @@ vi.mock("@/db/schema", () => ({
   brandEntityScores: {
     brandId: "brand_id",
     id: "id",
+    checkedAt: "checked_at",
   },
 }));
 
@@ -14,6 +15,8 @@ function createMockTx(existingRow: Record<string, unknown> | null) {
     const chain: Record<string, unknown> = {};
     chain.from = () => chain;
     chain.where = () => chain;
+    // 17 Nov, part 3: refreshEntityScore orders by checked_at to update the brand's latest row.
+    chain.orderBy = () => chain;
     chain.limit = () => (existingRow ? Promise.resolve([existingRow]) : Promise.resolve([]));
     chain.set = (vals: Record<string, unknown>) => {
       writtenUpdates.push(vals);
@@ -105,5 +108,17 @@ describe("entity-checker — refreshEntityScore (mock mode)", () => {
     // written as a fabricated false.
     expect(written).not.toHaveProperty("knowledgePanelPresent");
     expect(written).not.toHaveProperty("wikidataEntryPresent");
+  });
+
+  // 17 Nov, part 3: it stamped checked_at = now on whatever row it found, so the Entity Score page showed that
+  // row's facts as checked today. It re-checks none of the facts the page shows, so it leaves checked_at alone.
+  it("never stamps checkedAt: the facts the page shows weren't checked here", async () => {
+    const { refreshEntityScore } = await import("@/lib/trust/entity-checker");
+
+    const tx = createMockTx({ id: "row-5", abnVerified: false, abnNumber: null });
+    await refreshEntityScore(tx as never, "brand-5", "org-5", "AU_EN");
+
+    expect(tx.writtenUpdates.length).toBe(1);
+    expect(tx.writtenUpdates[0]).not.toHaveProperty("checkedAt");
   });
 });

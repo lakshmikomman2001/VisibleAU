@@ -1,7 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { actionItems, audits } from "@/db/schema";
+import { engineCoverageLabel } from "@/lib/audit/engine-failure";
 import { sameQuestionSet } from "@/lib/audit/question-set";
 import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
@@ -67,6 +68,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
         completedAt: audits.completedAt,
         engines: audits.engines,
         promptsCount: audits.promptsCount,
+        metadata: audits.metadata,
         excludedFromTrendsReason: audits.excludedFromTrendsReason,
         // 15 Nov, part 2: never compared across a change of everyday questions.
         questionSetHash: audits.questionSetHash,
@@ -74,7 +76,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       })
       .from(audits)
       .where(and(eq(audits.brandId, brandId), eq(audits.status, "complete")))
-      .orderBy(desc(audits.completedAt))
+      // 17 Nov, part 3: newest as latestCompleteAudit picks it (DESC alone puts a NULL completed_at first).
+      .orderBy(sql`${audits.completedAt} DESC NULLS LAST`, desc(audits.auditNumber))
       .limit(10);
 
     if (completedAudits.length === 0) {
@@ -118,8 +121,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       // lib/scoring/measured-display.ts like every other surface.
       mentionedCount: resolvedCurrent.mentionedCount,
       sampleCount: resolvedCurrent.sampleCount,
-      // How every surface shows it: "8%" over "3 of 40" (lib/scoring/visibility-display.ts).
-      visibility: visibilityDisplay(resolvedCurrent),
+      // How every surface shows it: "8%" over "3 of 40" (lib/scoring/visibility-display.ts). 17 Nov, part 3: with
+      // "3 of 4 engines" when a whole engine failed, as the brand page and the audit page say.
+      visibility: {
+        ...visibilityDisplay(resolvedCurrent),
+        coverage: engineCoverageLabel(rawAudit),
+      },
       rankedCount: resolvedCurrent.rankedCount,
       medianPosition: resolvedCurrent.medianPosition,
       sourcedCount: resolvedCurrent.sourcedCount,

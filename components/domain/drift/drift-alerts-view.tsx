@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, Check, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import type { AuditChange } from "@/lib/visibility/audit-change";
 
 interface DriftAlert {
   id: string;
@@ -11,6 +12,8 @@ interface DriftAlert {
   severity: string;
   scoreDelta: string | null;
   dimensionDeltas: Record<string, { delta: number; severity: string }>;
+  /** 17 Nov, part 3: the change between the alert's two audits (lib/visibility/audit-change.ts). */
+  change?: AuditChange | null;
   acknowledged: boolean;
   createdAt: Date;
 }
@@ -102,8 +105,10 @@ export function DriftAlertsView({
       {/* Three across from 640px, stacked on a phone. */}
       <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 12, marginBottom: 28 }}>
         <KpiCard label="Active alerts" value={activeCount} icon={AlertTriangle} />
-        <KpiCard label="This week" value={weekCount} icon={TrendingDown} />
-        <KpiCard label="Resolved (30d)" value={resolvedCount} icon={Check} />
+        {/* 17 Nov, part 3: what they count -- raised in the last 7 days (dismissed or not); dismissed in the
+            last 30 days ("Resolved" read as if something was fixed). */}
+        <KpiCard label="Raised in the last 7 days" value={weekCount} icon={TrendingDown} />
+        <KpiCard label="Dismissed in the last 30 days" value={resolvedCount} icon={Check} />
       </div>
 
       <div
@@ -146,24 +151,55 @@ export function DriftAlertsView({
             // inngest/functions/detect-drift.ts's persist step). Show
             // it plainly as insufficient data, never as a fabricated
             // Drop/Rise number.
-            const isInsufficient = alert.scoreDelta === null;
-            const isDrop = alert.severity === "significant_drop";
-            const delta = alert.scoreDelta !== null ? Number(alert.scoreDelta) : null;
+            // 17 Nov, part 3: the badge and line come from the measured change between the alert's two audits
+            // (alert.change); without one, the stored delta's sign -- and only a significant drop or rise is called one.
+            const change = alert.change ?? null;
+            const direction =
+              change?.kind === "measured"
+                ? change.direction
+                : alert.severity === "significant_drop"
+                  ? "down"
+                  : alert.severity === "significant_rise"
+                    ? "up"
+                    : null;
+            const isInsufficient = change?.kind !== "measured" && alert.scoreDelta === null;
+            const isDrop = direction === "down";
             const Icon = isInsufficient ? AlertTriangle : isDrop ? TrendingDown : TrendingUp;
             const toneColor = isInsufficient
               ? "var(--text-tertiary)"
-              : isDrop
+              : direction === "down"
                 ? "var(--danger)"
-                : "var(--success)";
+                : direction === "up"
+                  ? "var(--success)"
+                  : "var(--text-secondary)";
             const toneSoft = isInsufficient
-              ? "var(--bg-base)"
-              : isDrop
+              ? "var(--bg-hover)"
+              : direction === "down"
                 ? "var(--danger-soft)"
-                : "var(--success-soft)";
-
+                : direction === "up"
+                  ? "var(--success-soft)"
+                  : "var(--bg-hover)";
+            const badge = isInsufficient
+              ? "Not comparable"
+              : direction === "down"
+                ? "Drop"
+                : direction === "up"
+                  ? "Rise"
+                  : "No change";
+            // What changed, in words: Visibility (the headline is the frequency dimension); sentiment and context
+            // have no classifier behind them, so they're never named.
+            const DIMENSION_WORDS: Record<string, string> = { frequency: "Visibility" };
             const affectedDims = Object.entries(alert.dimensionDeltas ?? {})
-              .filter(([, v]) => v.severity !== "within_noise")
-              .map(([k]) => k);
+              .filter(([k, v]) => v.severity !== "within_noise" && DIMENSION_WORDS[k])
+              .map(([k]) => DIMENSION_WORDS[k]);
+            const line =
+              change?.kind === "measured"
+                ? change.line
+                : change?.kind === "not_comparable" || change?.kind === "not_measured"
+                  ? change.reason
+                  : affectedDims.length > 0
+                    ? `Changed: ${affectedDims.join(", ")}`
+                    : "Visibility changed";
 
             return (
               <div
@@ -201,24 +237,9 @@ export function DriftAlertsView({
                       marginTop: 2,
                     }}
                   >
-                    {affectedDims.length > 0
-                      ? `Affected: ${affectedDims.join(", ")}`
-                      : "Composite score drift"}
+                    <span data-drift-change={change?.kind ?? "none"}>{line}</span>
                   </div>
                 </div>
-                {!isInsufficient && (
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: toneColor,
-                    }}
-                  >
-                    {delta! > 0 ? "+" : ""}
-                    {delta!.toFixed(1)}
-                  </span>
-                )}
                 <span
                   style={{
                     fontSize: 11,
@@ -229,7 +250,7 @@ export function DriftAlertsView({
                     color: toneColor,
                   }}
                 >
-                  {isInsufficient ? "Insufficient data" : isDrop ? "Drop" : "Rise"}
+                  {badge}
                 </span>
                 <span
                   style={{

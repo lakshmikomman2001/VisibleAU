@@ -61,6 +61,27 @@ export interface TrustSummary {
   // null = every component was absent/excluded -- "insufficient data to
   // score", not a number (not even 0).
   overallTrustScore: number | null;
+  // 17 Nov, part 3: when each check that feeds the score last ran (null: never), and the YouTube check's
+  // outcome, so the page can say when a figure was measured and why a check isn't in the score.
+  entityCheckedAt: Date | null;
+  youtubeCheckedAt: Date | null;
+  /** The latest YouTube check's outcome; null when there's none, or a row from before the real check. */
+  youtubeCheckStatus: YoutubeCheckStatus | null;
+}
+
+export type YoutubeCheckStatus = "confirmed" | "not_found" | "unconfirmed" | "unavailable";
+
+const YOUTUBE_CHECK_STATUSES: readonly string[] = [
+  "confirmed",
+  "not_found",
+  "unconfirmed",
+  "unavailable",
+];
+
+export function asYoutubeCheckStatus(value: string | null | undefined): YoutubeCheckStatus | null {
+  return value != null && YOUTUBE_CHECK_STATUSES.includes(value)
+    ? (value as YoutubeCheckStatus)
+    : null;
 }
 
 export async function computeTrustSummary(tx: DbClient, brandId: string): Promise<TrustSummary> {
@@ -87,6 +108,7 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
         abnStatus: brandEntityScores.abnStatus,
         wikipediaAuPresent: brandEntityScores.wikipediaAuPresent,
         auTldPresent: brandEntityScores.auTldPresent,
+        checkedAt: brandEntityScores.checkedAt,
       })
       .from(brandEntityScores)
       .where(eq(brandEntityScores.brandId, brandId))
@@ -103,7 +125,11 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
       .from(brandConsensusChecks)
       .where(eq(brandConsensusChecks.brandId, brandId)),
     tx
-      .select({ presenceScore: youtubePresenceAudits.presenceScore })
+      .select({
+        presenceScore: youtubePresenceAudits.presenceScore,
+        checkStatus: youtubePresenceAudits.checkStatus,
+        auditedAt: youtubePresenceAudits.auditedAt,
+      })
       .from(youtubePresenceAudits)
       .where(eq(youtubePresenceAudits.brandId, brandId))
       .orderBy(desc(youtubePresenceAudits.auditedAt))
@@ -148,9 +174,16 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
   // at the source (#37) -- this only protects against a future
   // re-neutralization leaking a stale confirmed score the same way
   // LinkedIn/Consensus just did.
+  //
+  // 17 Nov, part 3: only a confirmed channel's score counts. A "not_found" check (no channel matched
+  // confidently by name and website) was stored with presence 0 and averaged in as a measured 0; not finding a
+  // channel we can confirm isn't measuring the brand's YouTube presence as nothing. A row from before the real
+  // check (no check_status) is the old stub's 0. Both stay out of the average; the route says so.
+  const youtubeRow = youtubeRows[0];
+  const youtubeCheckStatus = asYoutubeCheckStatus(youtubeRow?.checkStatus);
   const youtubePresenceScore = gated(
     TRUST_CHECK_IMPLEMENTED.youtubePresence,
-    youtubeRows[0]?.presenceScore ?? null,
+    youtubeCheckStatus === "confirmed" ? (youtubeRow?.presenceScore ?? null) : null,
   );
 
   // Trust Intelligence honesty pass, then task #38's follow-up: the
@@ -188,5 +221,8 @@ export async function computeTrustSummary(tx: DbClient, brandId: string): Promis
     consensusScore,
     youtubePresenceScore,
     overallTrustScore,
+    entityCheckedAt: entityRows[0]?.checkedAt ?? null,
+    youtubeCheckedAt: youtubeRow?.auditedAt ?? null,
+    youtubeCheckStatus,
   };
 }

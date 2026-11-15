@@ -17,7 +17,8 @@ interface SourceRow {
   engine: string;
   sourceType: string;
   citationCount: number;
-  citationShare: string;
+  // The route sends a number; a string is the stored numeric(5,2) column's own shape.
+  citationShare: number | string;
   brandPresentInSource: boolean;
   gapSeverity: string;
   sourceAffinityNote: string | null;
@@ -51,14 +52,23 @@ const GAP_CONFIG: Record<string, { bg: string; color: string; label: string }> =
   },
   // Task #43: "other" is an unclassified bucket, not an actionable gap
   // in a specific channel -- a neutral badge, not Critical/Covered.
-  // Without this entry, an unrecognised gapSeverity value falls back to
-  // GAP_CONFIG.covered below, which would have rendered "other" as a
-  // false-reassuring green "Covered" badge.
+  // (An unrecognised gapSeverity used to fall back to GAP_CONFIG.covered,
+  // a false-reassuring green "Covered"; it's UNRATED below now.)
   unclassified: {
     bg: "color-mix(in srgb, var(--text-secondary) 20%, transparent)",
     color: "var(--text-secondary)",
     label: "Unclassified",
   },
+};
+
+/**
+ * 17 Nov, part 3: a severity this card doesn't know (a value written by some other code) is neutral and says
+ * it isn't rated. It fell back to GAP_CONFIG.covered, a green "Covered" nobody measured.
+ */
+const UNRATED = {
+  bg: "color-mix(in srgb, var(--text-secondary) 20%, transparent)",
+  color: "var(--text-secondary)",
+  label: "Not rated",
 };
 
 const RECALLED_TOOLTIP =
@@ -193,7 +203,7 @@ function TopDomainsList({ domains }: { domains: TopDomainEntry[] }) {
 }
 
 export function SourceGapCard({ source }: { source: SourceRow }) {
-  const gap = GAP_CONFIG[source.gapSeverity] ?? GAP_CONFIG.covered;
+  const gap = GAP_CONFIG[source.gapSeverity] ?? UNRATED;
 
   return (
     <div
@@ -271,10 +281,13 @@ export function SourceGapCard({ source }: { source: SourceRow }) {
           that fell back to omitting it) gets its own honest fallback --
           never an empty or broken list. A genuinely-computed empty array
           (this card's responses had nothing extractable) renders
-          nothing further, which TopDomainsList already handles. */}
+          nothing further, which TopDomainsList already handles.
+          17 Nov, part 3: it said "Top domains appear after the next audit."
+          -- a promise; the Citation Sources page computes them from the
+          audit's answers now, so only a stored row can lack them. */}
       {source.topDomains === null ? (
         <p className="mt-3 text-xs italic" style={{ color: "var(--text-secondary)" }}>
-          Top domains appear after the next audit.
+          Top domains weren&apos;t recorded for this audit.
         </p>
       ) : (
         <TopDomainsList domains={source.topDomains} />

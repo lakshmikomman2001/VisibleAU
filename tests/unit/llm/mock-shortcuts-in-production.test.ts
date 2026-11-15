@@ -20,6 +20,8 @@ function fakeTx(existing: Record<string, unknown>) {
   const chain = {
     from: () => chain,
     where: () => chain,
+    // 17 Nov, part 3: refreshEntityScore orders by checked_at to update the brand's latest row.
+    orderBy: () => chain,
     limit: async () => [existing],
     set: (values: Record<string, unknown>) => {
       writes.push(values);

@@ -7,6 +7,7 @@ export { checkCidrContainment, refreshAllIpRanges, refreshIpRangesForVendor } fr
 export type {
   CoverageGapResult,
   FiveXxResult,
+  IngestSourceSummary,
   RatioResult,
   RobotsViolation,
   TopPage,
@@ -15,9 +16,11 @@ export type {
   VolumeByVendor,
 } from "./metrics";
 export {
+  countCrawlerVisits,
   get5xxForBots,
   getCoverageGap,
   getCrawlToReferralRatio,
+  getIngestSources,
   getRobotsViolations,
   getTopPagesByPurpose,
   getVerificationRates,

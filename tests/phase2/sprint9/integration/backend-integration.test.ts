@@ -1086,15 +1086,18 @@ describe("§2.4 — Tracker Query (progress-summary, real DB)", () => {
     expect(body.completedThisMonth).toBe(1);
   });
 
-  it("measuredImpact = SUM(lift_achieved) WHERE score_after IS NOT NULL (this month UTC)", async () => {
+  // 17 Nov, part 3: no measuredImpact -- it was SUM(lift_achieved), the re-audit minus score_before (an
+  // expected-impact bucket). A re-audit counts only as a measured change between the task's own audit and its
+  // re-audit; these seeded tasks carry a lift_achieved but no audits, so nothing is measured.
+  it("never a stored lift: a task's lift_achieved isn't shown, and without its audits nothing is measured", async () => {
     const res = await getActionProgress(
       makeReq(`/api/brands/${orgABrandId}/action-progress`),
       makeParams(orgABrandId),
     );
     const body = await res.json();
-    // Only task2 completed this month (UTC): lift_achieved = 8.50
-    // task3 (June 30 23:00 UTC) is correctly excluded by UTC boundary
-    expect(Number(body.measuredImpact)).toBeCloseTo(8.5, 1);
+    expect(body).not.toHaveProperty("measuredImpact");
+    expect(body.reaudits.measured).toBe(0);
+    expect(JSON.stringify(body)).not.toContain("8.5");
   });
 
   it("no rows → 0, not NULL (COALESCE)", async () => {
@@ -1138,9 +1141,11 @@ describe("§2.4 — Tracker Query (progress-summary, real DB)", () => {
     expect(src).not.toMatch(/gte\(.*updatedAt/);
   });
 
-  it("⚠️ F21: progress-summary uses UTC-explicit date_trunc", () => {
+  // 17 Nov, part 3: the workspace's own month (Sydney time, as the dashboard's other cards) -- explicit, never the
+  // server's timezone (F21's concern), and no longer the UTC month.
+  it("⚠️ F21: progress-summary's month is explicit: the workspace's timezone, never the server's", () => {
     const src = readFileSync(path.resolve("lib/workflow/progress-summary.ts"), "utf-8");
-    expect(src).toContain("AT TIME ZONE 'UTC'");
+    expect(src).toContain("monthInTzSql(getOrgTimezone(organizationId), now)");
     expect(src).not.toMatch(/date_trunc\('month',\s*now\(\)\s*\)`/);
   });
 

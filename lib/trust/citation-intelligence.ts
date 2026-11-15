@@ -109,6 +109,27 @@ export interface SourceIntelligenceResult {
   topDomains: TopDomainEntry[];
 }
 
+/** 17 Nov, part 3: the columns of a citations row the source grouping reads. */
+export interface CitationRowForSources {
+  engine: string;
+  citedSources: unknown;
+  brandMentioned: boolean;
+  /** citations.mention_verification; null (or absent) on a legacy row, which counts as before. */
+  mentionVerification?: string | null;
+}
+
+/**
+ * 17 Nov, part 3: the audit page's mention, for one row in memory -- EXCLUDE_UNVERIFIED
+ * (lib/audit/organic-filter.ts) AND brand_mentioned: a name match the audit marked 'unverified' isn't a
+ * mention, and a legacy row (no verification recorded) counts exactly as it always did.
+ */
+export function isCountedMention(row: {
+  brandMentioned: boolean;
+  mentionVerification?: string | null;
+}): boolean {
+  return row.brandMentioned && row.mentionVerification !== "unverified";
+}
+
 /**
  * Task #46 follow-up (live-data correction): a sentinel sourceType for
  * "this engine had organic responses, but none of them cited anything
@@ -207,24 +228,19 @@ async function writePerAuditRow(tx: DbClient, row: PerAuditRowValues): Promise<v
  * is untouched for narrative-generator.ts/render-report-pdf.ts/
  * local-ai-trust-scorer.ts's existing per-audit reads. See
  * docs/ops/post-launch-db-hardening.md section 43.
+ *
+ * 17 Nov, part 3: the grouping is this pure function now, so the writer
+ * below (buildCitationSourceIntelligence) and the Citation Sources page's
+ * read (getLatestAuditCitationSources) compute the same thing from the
+ * same audit's everyday answers. `auditCitations` must already be that
+ * audit's organic, run_number = 1 rows (ORGANIC_ONLY, the audit page's
+ * definition of an everyday answer).
  */
-export async function buildCitationSourceIntelligence(
-  tx: DbClient,
+export function computeCitationSourceGroups(
+  auditCitations: readonly CitationRowForSources[],
+  brandDomain: string,
   auditId: string,
-  brandId: string,
-  organizationId: string,
-): Promise<SourceIntelligenceResult[]> {
-  const [brand] = await tx
-    .select({ domain: brands.domain })
-    .from(brands)
-    .where(eq(brands.id, brandId));
-  const brandDomain = brand?.domain ?? "";
-
-  const auditCitations = await tx
-    .select()
-    .from(citations)
-    .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
-
+): SourceIntelligenceResult[] {
   interface DomainTally {
     count: number;
     origin: CitationOrigin;
@@ -378,7 +394,14 @@ export async function buildCitationSourceIntelligence(
       // isBrandSourceType and this badge are now backed by the same
       // rule instead of a weaker substring-of-URL check for one and a
       // stricter domain check for the other.
-      tally(engine, source.sourceType, cit.brandMentioned || isBrandSourceType, {
+      //
+      // 17 Nov, part 3: "mentioned" is the audit page's mention now
+      // (isCountedMention: brand_mentioned AND mention_verification IS
+      // DISTINCT FROM 'unverified', EXCLUDE_UNVERIFIED in
+      // lib/audit/organic-filter.ts). A name match the audit couldn't
+      // confirm as this business made a source "Covered" here while the
+      // audit page didn't count it as a mention.
+      tally(engine, source.sourceType, isCountedMention(cit) || isBrandSourceType, {
         domain: displayDomain,
         origin,
         isBrand: isBrandDomain(rawDomain, brandDomain),
@@ -401,23 +424,6 @@ export async function buildCitationSourceIntelligence(
   }
 
   const results: SourceIntelligenceResult[] = [];
-  // Task #46 follow-up: collected here and written in ONE replace-set
-  // operation AFTER this loop (below) instead of a per-group upsert --
-  // a category that existed in a previous audit but has no group in
-  // THIS one must disappear from the rolling aggregate, not linger
-  // with stale numbers forever. See
-  // docs/ops/post-launch-db-hardening.md section 46 (aggregate
-  // replace-set follow-up).
-  const aggregateRowValues: Array<{
-    engine: string;
-    sourceType: string;
-    citationCount: number;
-    citationShare: string;
-    brandPresentInSource: boolean;
-    gapSeverity: GapSeverity;
-    sourceAffinityNote: string | null;
-    topDomains: TopDomainEntry[];
-  }> = [];
 
   for (const [key, group] of Object.entries(groupedByEngineSource)) {
     const [engine, sourceType] = key.split("::");
@@ -432,41 +438,6 @@ export async function buildCitationSourceIntelligence(
       sourceType === "other" ? "unclassified" : computeGapSeverity(share, group.brandPresent);
     const affinityNote = SOURCE_AFFINITY_NOTES[sourceType] ?? null;
     const topDomains = buildTopDomains(group.domains);
-
-    // Per-audit row: kept as-is (narrative-generator.ts and
-    // local-ai-trust-scorer.ts both still read these historically) --
-    // this is unchanged write behaviour, just now on a deduped count,
-    // via the shared writePerAuditRow helper (task #46 follow-up --
-    // see its own comment for the topDomains-retry/savepoint reasoning,
-    // previously inlined here, see docs/ops/post-launch-db-hardening.md
-    // sections 45 and the #45 follow-up for the full history).
-    await writePerAuditRow(tx, {
-      brandId,
-      organizationId,
-      auditId,
-      engine,
-      sourceType,
-      citationCount: group.count,
-      citationShare: String(share),
-      brandPresentInSource: group.brandPresent,
-      gapSeverity,
-      sourceAffinityNote: affinityNote,
-      topDomains,
-    });
-
-    // Task #46 follow-up: the aggregate write moved out of this
-    // per-group loop -- see the single replace-set operation after the
-    // loop, below. Collected here, in the exact shape that step needs.
-    aggregateRowValues.push({
-      engine,
-      sourceType,
-      citationCount: group.count,
-      citationShare: String(share),
-      brandPresentInSource: group.brandPresent,
-      gapSeverity,
-      sourceAffinityNote: affinityNote,
-      topDomains,
-    });
 
     results.push({
       sourceType,
@@ -497,31 +468,6 @@ export async function buildCitationSourceIntelligence(
   for (const [engine, responseCount] of Object.entries(organicResponseCountByEngine)) {
     if (engagedEngines.has(engine)) continue;
 
-    await writePerAuditRow(tx, {
-      brandId,
-      organizationId,
-      auditId,
-      engine,
-      sourceType: NO_CITATIONS_SOURCE_TYPE,
-      citationCount: responseCount,
-      citationShare: "0",
-      brandPresentInSource: false,
-      gapSeverity: "unclassified",
-      sourceAffinityNote: null,
-      topDomains: [],
-    });
-
-    aggregateRowValues.push({
-      engine,
-      sourceType: NO_CITATIONS_SOURCE_TYPE,
-      citationCount: responseCount,
-      citationShare: "0",
-      brandPresentInSource: false,
-      gapSeverity: "unclassified",
-      sourceAffinityNote: null,
-      topDomains: [],
-    });
-
     results.push({
       sourceType: NO_CITATIONS_SOURCE_TYPE,
       engine,
@@ -532,6 +478,55 @@ export async function buildCitationSourceIntelligence(
       gapSeverity: "unclassified",
       sourceAffinityNote: null,
     });
+  }
+
+  return results;
+}
+
+export async function buildCitationSourceIntelligence(
+  tx: DbClient,
+  auditId: string,
+  brandId: string,
+  organizationId: string,
+): Promise<SourceIntelligenceResult[]> {
+  const [brand] = await tx
+    .select({ domain: brands.domain })
+    .from(brands)
+    .where(eq(brands.id, brandId));
+  const brandDomain = brand?.domain ?? "";
+
+  const auditCitations = await tx
+    .select()
+    .from(citations)
+    .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
+  const results = computeCitationSourceGroups(auditCitations, brandDomain, auditId);
+
+  // Task #46 follow-up: collected here and written in ONE replace-set
+  // operation (below) instead of a per-group upsert -- a category that
+  // existed in a previous audit but has no group in THIS one must
+  // disappear from the rolling aggregate, not linger with stale numbers
+  // forever. See docs/ops/post-launch-db-hardening.md section 46
+  // (aggregate replace-set follow-up).
+  const aggregateRowValues = results.map((r) => ({
+    engine: r.engine,
+    sourceType: r.sourceType,
+    citationCount: r.citationCount,
+    citationShare: String(r.citationShare),
+    brandPresentInSource: r.brandPresentInSource,
+    gapSeverity: r.gapSeverity,
+    sourceAffinityNote: r.sourceAffinityNote,
+    topDomains: r.topDomains,
+  }));
+
+  // Per-audit rows: kept as-is (local-ai-trust-scorer.ts still reads
+  // these historically), via the shared writePerAuditRow helper (task
+  // #46 follow-up -- see its own comment for the topDomains-retry/
+  // savepoint reasoning, docs/ops/post-launch-db-hardening.md sections
+  // 45 and the #45 follow-up for the full history). Real categories
+  // first, then the "cited nothing" engines, the order they always had.
+  for (const row of aggregateRowValues) {
+    await writePerAuditRow(tx, { brandId, organizationId, auditId, ...row });
   }
 
   // Task #41: the aggregate slot the schema already reserved
@@ -876,10 +871,107 @@ async function getCurrentCitationRows(tx: DbClient, brandId: string): Promise<St
 /** Task #43: real, actionable categories read above the Unclassified
  * card -- "other" isn't a channel a customer can address, so it
  * shouldn't compete for the same visual priority as one that is. */
-function sortUnclassifiedLast(rows: StoredSourceRow[]): StoredSourceRow[] {
+function sortUnclassifiedLast<T extends { gapSeverity: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => {
     const aUnclassified = a.gapSeverity === "unclassified" ? 1 : 0;
     const bUnclassified = b.gapSeverity === "unclassified" ? 1 : 0;
     return aUnclassified - bUnclassified;
   });
+}
+
+/** The audit a Citation Sources view was computed from. */
+export interface CitationSourcesAudit {
+  id: string;
+  auditNumber: number;
+  completedAt: Date | null;
+}
+
+/** One card, computed from the audit's own answers (citationShare a number, topDomains always computed). */
+export interface LiveCategoryRow {
+  /** `${engine}::${sourceType}`: unique within one audit's view. */
+  id: string;
+  engine: string;
+  sourceType: CitedSourceType;
+  citationCount: number;
+  citationShare: number;
+  brandPresentInSource: boolean;
+  gapSeverity: GapSeverity;
+  sourceAffinityNote: string | null;
+  topDomains: TopDomainEntry[];
+}
+
+export interface LatestAuditCitationSources {
+  /** null: the brand has no complete audit, so there's nothing to show. */
+  audit: CitationSourcesAudit | null;
+  categories: LiveCategoryRow[];
+  enginesWithoutCitations: NoCitationsRow[];
+}
+
+/**
+ * The brand's latest complete audit: the same pick, in the same order, as lib/visibility/share-of-voice.ts's
+ * latestCompleteAudit (the audit the Visibility and Overview cards count on). Not imported from there: that
+ * module brings the answer cache and the database client into everything that imports lib/trust.
+ */
+async function latestCompleteAuditOf(
+  tx: DbClient,
+  brandId: string,
+): Promise<CitationSourcesAudit | null> {
+  const [audit] = await tx
+    .select({ id: audits.id, auditNumber: audits.auditNumber, completedAt: audits.completedAt })
+    .from(audits)
+    .where(and(eq(audits.brandId, brandId), eq(audits.status, AUDIT_STATUS_COMPLETE)))
+    .orderBy(sql`${audits.completedAt} DESC NULLS LAST`, desc(audits.auditNumber))
+    .limit(1);
+  return audit ?? null;
+}
+
+/**
+ * 17 Nov, part 3 -- what the Citation Sources page shows: the brand's latest complete audit (the audit page's
+ * own pick, latestCompleteAuditOf above), grouped from that audit's everyday answers
+ * (ORGANIC_ONLY, run_number = 1) by computeCitationSourceGroups, the same function the writer uses, with the
+ * audit's mention rule (isCountedMention). Computed when the page asks, so:
+ * - the page can name the audit its figures come from ("audit #50");
+ * - a "Covered" written before the mention rule was fixed shows by the fixed rule, never the stored one;
+ * - there's no fallback to an older audit's per-audit rows, which could carry replay-inflated counts from
+ *   before the run_number filter (getCurrentCitationRows' legacy path). getCurrentCitationSources, which reads
+ *   the stored rows, is left for the integration tests that cover the stored aggregate.
+ */
+export async function getLatestAuditCitationSources(
+  tx: DbClient,
+  brandId: string,
+): Promise<LatestAuditCitationSources> {
+  const latest = await latestCompleteAuditOf(tx, brandId);
+  if (!latest) return { audit: null, categories: [], enginesWithoutCitations: [] };
+
+  const [brand] = await tx
+    .select({ domain: brands.domain })
+    .from(brands)
+    .where(eq(brands.id, brandId));
+
+  const rows = await tx
+    .select({
+      engine: citations.engine,
+      citedSources: citations.citedSources,
+      brandMentioned: citations.brandMentioned,
+      mentionVerification: citations.mentionVerification,
+    })
+    .from(citations)
+    .where(and(eq(citations.auditId, latest.id), ORGANIC_ONLY, eq(citations.runNumber, 1)));
+
+  const results = sortUnclassifiedLast(
+    computeCitationSourceGroups(rows, brand?.domain ?? "", latest.id),
+  );
+
+  const categories: LiveCategoryRow[] = [];
+  const enginesWithoutCitations: NoCitationsRow[] = [];
+  for (const r of results) {
+    const id = `${r.engine}::${r.sourceType}`;
+    if (isRealSourceCategory(r.sourceType)) {
+      categories.push({ ...r, id, sourceType: r.sourceType });
+    } else {
+      enginesWithoutCitations.push({ id, engine: r.engine, answerCount: r.citationCount });
+    }
+  }
+
+  return { audit: latest, categories, enginesWithoutCitations };
 }

@@ -84,12 +84,18 @@ describe("validation-scheduler — exported constants & structure", () => {
 describe("validation-scheduler — source-level lift computation", () => {
   const valSource = fs.readFileSync(path.resolve("lib/workflow/validation-scheduler.ts"), "utf-8");
 
-  it("computeLift returns null when scoreBefore is missing", () => {
-    expect(valSource).toContain("if (!task?.scoreBefore) return null");
+  // 17 Nov, part 3: lift = scoreAfter − scoreBefore was made up -- score_before is a recommendation's
+  // expected-impact bucket (80/50/20). The lift is the measured change from the task's own audit to its re-audit.
+  it("computeLift returns null when the task has no audit of its own", () => {
+    expect(valSource).toContain("if (!task?.auditId) return null");
   });
 
-  it("lift = scoreAfter - scoreBefore", () => {
-    expect(valSource).toContain("scoreAfter - Number(task.scoreBefore)");
+  it("lift = the measured change between the task's own audit and its re-audit (audit-change), null when not comparable", () => {
+    expect(valSource).toContain(
+      "auditChanges(serviceDb, [{ key: taskId, beforeId: task.auditId, afterId: reauditId }])",
+    );
+    expect(valSource).toContain('change?.kind === "measured" ? change.points : null');
+    expect(valSource).not.toContain("Number(task.scoreBefore)");
   });
 
   it("scheduleReaudit calls markReauditDeferred on over-quota", () => {

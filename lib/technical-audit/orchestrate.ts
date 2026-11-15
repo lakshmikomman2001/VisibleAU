@@ -10,8 +10,13 @@ import { analyzeRobots } from "@/lib/robots-txt/analyze";
 import { extractSchemaBlocks } from "@/lib/schema-audit/extract";
 import { SCHEMA_REALITY_CHECK } from "@/lib/schema-audit/reality-check";
 import { schemaRichnessScore } from "@/lib/schema-audit/richness-score";
-import { validateSchemaBlocks } from "@/lib/schema-audit/validate-blocks";
+import { validateDistinctSchemaBlocks } from "@/lib/schema-audit/validate-blocks";
 import { checkSSR } from "@/lib/ssr-check/per-page";
+import {
+  crawlFindings,
+  SITE_DEPENDENT_DIMENSIONS,
+  type SiteDependentDimension,
+} from "./crawl-status";
 import { computeTechnicalComposite } from "./score-aggregator";
 import type { TechnicalAuditDimensions } from "./types";
 
@@ -19,6 +24,18 @@ interface OrchestrateResult {
   dimensions: TechnicalAuditDimensions;
   scoreComposite: number;
   findings: Record<string, unknown>;
+  /**
+   * 17 Nov, part 3: false when the crawl fetched no page (the home page didn't answer). The writer then stores no
+   * score for the checks that need the site (crawl-status.ts SITE_DEPENDENT_DIMENSIONS) and no composite: the
+   * numbers above are what the scorers return for nothing, not measurements.
+   */
+  siteReached: boolean;
+  /**
+   * The checks whose request got no answer (or a 5xx), so their score above isn't a measurement: every
+   * site-dependent check when the site wasn't reached, else robots.txt and llms.txt when their own request
+   * failed. The writer stores no score for these, and no composite when there are any.
+   */
+  unmeasured: SiteDependentDimension[];
 }
 
 function deduplicateInjections(all: PromptInjection[]): PromptInjection[] {
@@ -100,7 +117,13 @@ export function scoreMeta(crawl: CrawlResult): { score: number; findings: MetaFi
   const descriptionPresent = desc.length >= 50 && desc.length <= 160;
   if (descriptionPresent) score += META_WEIGHTS.description;
   const descriptionVerdict: DescriptionVerdict =
-    desc.length === 0 ? "missing" : desc.length < 50 ? "too_short" : desc.length > 160 ? "too_long" : "ok";
+    desc.length === 0
+      ? "missing"
+      : desc.length < 50
+        ? "too_short"
+        : desc.length > 160
+          ? "too_long"
+          : "ok";
 
   const ogTitle = $('meta[property="og:title"]').length > 0;
   const ogDesc = $('meta[property="og:description"]').length > 0;
@@ -140,17 +163,23 @@ export async function orchestrateTechnicalAudit(
   // Robots
   const robots = analyzeRobots(crawl);
 
-  // llms.txt
+  // llms.txt. 17 Nov, part 3: what the request got is kept -- a timeout or a 5xx is "couldn't check", never a
+  // missing file scored 0 ("Not started").
   let llmsTxtContent: string | null = null;
   let llmsFullContent: string | null = null;
+  let llmsTxtFetch: "found" | "absent" | "unreachable" = "unreachable";
   try {
     const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) {
       const body = await r.text();
       if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsTxtContent = body;
+      // A 2xx that isn't a plain-text file (the site's own HTML page) is a missing file.
+      llmsTxtFetch = llmsTxtContent ? "found" : "absent";
+    } else {
+      llmsTxtFetch = r.status >= 400 && r.status < 500 ? "absent" : "unreachable";
     }
   } catch {
-    /* not found */
+    /* no answer: stays "unreachable" */
   }
   try {
     const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
@@ -163,8 +192,12 @@ export async function orchestrateTechnicalAudit(
   }
   const llmsTxt = scoreLlmsTxtDepth(llmsTxtContent, llmsFullContent);
 
-  // Schema
-  const allSchemaBlocks = crawl.pages.flatMap((p) => extractSchemaBlocks(p));
+  // Schema. The score reads every block found (unchanged); the stored list is the distinct blocks, each with
+  // the number of pages it was on (17 Nov, part 3), so a sitewide block is one block, not one per page.
+  const schemaFound = crawl.pages.flatMap((p) =>
+    extractSchemaBlocks(p).map((block) => ({ block, pageUrl: p.url })),
+  );
+  const allSchemaBlocks = schemaFound.map((f) => f.block);
   const schemaScore = schemaRichnessScore(allSchemaBlocks);
   const schemaTypes = [...new Set(allSchemaBlocks.map((b) => b.type))];
   const schemaGaps = ["Organization", "LocalBusiness", "FAQPage", "Article"].filter(
@@ -206,8 +239,11 @@ export async function orchestrateTechnicalAudit(
   const scoreComposite = computeTechnicalComposite(dimensions);
 
   const findings = {
+    // 17 Nov, part 3: whether the crawl reached the site (lib/technical-audit/crawl-status.ts).
+    crawl: crawlFindings(crawl),
     robots: robots.findings,
     llmsTxt: {
+      fetchStatus: llmsTxtFetch,
       present: !!llmsTxtContent,
       url: llmsTxtContent ? `https://${domain}/llms.txt` : null,
       depthScore: llmsTxt.score,
@@ -224,7 +260,9 @@ export async function orchestrateTechnicalAudit(
       richness: schemaScore,
       gaps: schemaGaps,
       realityCheck: SCHEMA_REALITY_CHECK,
-      blocks: validateSchemaBlocks(allSchemaBlocks),
+      blocks: validateDistinctSchemaBlocks(schemaFound),
+      // How many pages the blocks were read from, so the page can say "on N pages".
+      pagesScanned: crawl.pages.length,
     },
     meta: meta.findings,
     content: {
@@ -254,5 +292,13 @@ export async function orchestrateTechnicalAudit(
     aiDiscovery: aiDiscovery.findings,
   };
 
-  return { dimensions, scoreComposite, findings };
+  const siteReached = crawl.pages.length > 0;
+  const unmeasured: SiteDependentDimension[] = !siteReached
+    ? [...SITE_DEPENDENT_DIMENSIONS]
+    : [
+        ...(robots.readable ? [] : (["scoreRobots"] as const)),
+        ...(llmsTxtFetch === "unreachable" ? (["scoreLlmsTxt"] as const) : []),
+      ];
+
+  return { dimensions, scoreComposite, findings, siteReached, unmeasured };
 }

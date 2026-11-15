@@ -14,16 +14,19 @@ vi.mock("@/db/client", () => ({
  * different shape (gaps/audits chain .orderBy().limit(); brands/
  * citations resolve directly off .where()).
  */
-function makeMockTx(opts: {
-  gaps?: unknown[];
-  latestAudit?: { id: string } | undefined;
-  brandDomain?: string | undefined;
-  citationRows?: unknown[];
-  tablesExist?: boolean;
-} = {}) {
+function makeMockTx(
+  opts: {
+    gaps?: unknown[];
+    latestAudit?: { id: string; auditNumber: number } | undefined;
+    brandDomain?: string | undefined;
+    citationRows?: unknown[];
+    tablesExist?: boolean;
+  } = {},
+) {
   const gaps = opts.gaps ?? [];
   const auditRows = opts.latestAudit ? [opts.latestAudit] : [];
-  const brandRows = opts.brandDomain !== undefined ? [{ domain: opts.brandDomain }] : [{ domain: null }];
+  const brandRows =
+    opts.brandDomain !== undefined ? [{ domain: opts.brandDomain }] : [{ domain: null }];
   const citationRows = opts.citationRows ?? [];
 
   return {
@@ -33,7 +36,9 @@ function makeMockTx(opts: {
           return { where: () => ({ orderBy: () => ({ limit: () => Promise.resolve(gaps) }) }) };
         }
         if (table === audits) {
-          return { where: () => ({ orderBy: () => ({ limit: () => Promise.resolve(auditRows) }) }) };
+          return {
+            where: () => ({ orderBy: () => ({ limit: () => Promise.resolve(auditRows) }) }),
+          };
         }
         if (table === brands) {
           return { where: () => Promise.resolve(brandRows) };
@@ -48,89 +53,34 @@ function makeMockTx(opts: {
   };
 }
 
+// 17 Nov, part 3: no "Missing Topic Coverage" -- topical_coverage_gaps isn't a measurement (every vertical's
+// library, matched by unexpanded template, "no content" by default; "improves N prompts" counted library prompts).
 describe("citation-failure-diagnosis", () => {
-  it(
-    "returns CitationDiagnosis[] matching the component type shape",
-    { timeout: 15000 },
-    async () => {
-      const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
+  const GAP = {
+    topicCluster: "emergency_plumbing",
+    topicLabel: "Emergency Plumbing",
+    vertical: "tradies",
+    brandHasContent: false,
+    crossPromptImpact: 3,
+    competitorCoverage: [{ domain: "comp.com.au", depth: 80 }],
+  };
 
-      const mockTx = makeMockTx({
-        gaps: [
-          {
-            topicCluster: "emergency_plumbing",
-            topicLabel: "Emergency Plumbing",
-            vertical: "tradies",
-            brandHasContent: false,
-            crossPromptImpact: 3,
-            competitorCoverage: [{ domain: "comp.com.au", depth: 80 }],
-          },
-        ],
-      });
-
-      const result = await diagnose(mockTx as never, {
-        brandId: "brand-1",
-      });
-
-      expect(result).toBeInstanceOf(Array);
-      expect(result.length).toBeGreaterThan(0);
-
-      const d = result[0];
-      expect(d).toHaveProperty("patternKey");
-      expect(d).toHaveProperty("severity");
-      expect(d).toHaveProperty("evidence");
-      expect(["high", "medium", "low"]).toContain(d.severity);
-      expect(d.patternKey).toBe("missing_topic_coverage");
-    },
-  );
-
-  it("diagnoses from topical gaps alone when no completed audit exists (no error)", async () => {
+  it("returns CitationDiagnosis[]; never a topical-gap diagnosis, whatever topical_coverage_gaps holds", {
+    timeout: 15000,
+  }, async () => {
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
-
-    const mockTx = makeMockTx({
-      gaps: [
-        {
-          topicCluster: "test_topic",
-          topicLabel: "Test Topic",
-          vertical: "saas",
-          brandHasContent: false,
-          crossPromptImpact: 2,
-          competitorCoverage: [],
-        },
-      ],
-      // No latestAudit -- both audit-scoped diagnoses skip entirely.
-    });
-
-    const result = await diagnose(mockTx as never, { brandId: "brand-1" });
-
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.every((d) => d.patternKey === "missing_topic_coverage")).toBe(true);
+    const result = await diagnose(makeMockTx({ gaps: [GAP] }) as never, { brandId: "brand-1" });
+    expect(result).toBeInstanceOf(Array);
+    expect(result.some((d) => d.patternKey === "missing_topic_coverage")).toBe(false);
+    expect(JSON.stringify(result)).not.toMatch(
+      /Fixing this could improve|No content found for topic/,
+    );
   });
 
-  it("diagnoses from topical gaps alone when S5/S7 tables absent (no error)", async () => {
+  it("no completed audit: no diagnosis at all (no error)", async () => {
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
-
-    const mockTx = makeMockTx({
-      gaps: [
-        {
-          topicCluster: "test_topic",
-          topicLabel: "Test Topic",
-          vertical: "saas",
-          brandHasContent: false,
-          crossPromptImpact: 2,
-          competitorCoverage: [],
-        },
-      ],
-      latestAudit: { id: "audit-1" },
-      brandDomain: "example.com.au",
-      citationRows: [],
-      tablesExist: false,
-    });
-
-    const result = await diagnose(mockTx as never, { brandId: "brand-1" });
-
-    expect(result.length).toBeGreaterThan(0);
-    expect(result.every((d) => d.patternKey === "missing_topic_coverage")).toBe(true);
+    const result = await diagnose(makeMockTx({ gaps: [GAP] }) as never, { brandId: "brand-1" });
+    expect(result).toEqual([]);
   });
 });
 
@@ -143,7 +93,10 @@ describe("citation-failure-diagnosis", () => {
  * can't simulate Postgres actually applying a WHERE clause.
  */
 describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your website isn't cited' check", () => {
-  function citationRow(engine: string, citedSources: Array<{ domain: string; url: string; origin?: string }>) {
+  function citationRow(
+    engine: string,
+    citedSources: Array<{ domain: string; url: string; origin?: string }>,
+  ) {
     return { engine, citedSources };
   }
 
@@ -151,7 +104,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
@@ -165,12 +118,17 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const d = result.find((r) => r.patternKey === "brand_domain_not_cited");
 
     expect(d).toBeDefined();
-    expect(d?.evidence).toContain("AI engines cited 2 sources across 2 engines, and none was your website.");
+    // 17 Nov, part 3: answers, as the audit page counts them, and which audit -- it counted links.
+    expect(d?.evidence).toContain(
+      "In audit #50, 2 of 2 everyday answers linked a source (2 links in all, across 2 engines), and none was your website.",
+    );
     expect(d?.evidence).toContain("Claude: 1 source (Recalled)");
     expect(d?.evidence).toContain("Perplexity: 1 source (Retrieved)");
     // Mixed retrieved+recalled -- both origin-specific remediations apply.
     expect(d?.remediation).toContain("engines that search live");
-    expect(d?.remediation).toContain("Get listed and mentioned on the sites these engines already cite");
+    expect(d?.remediation).toContain(
+      "Get listed and mentioned on the sites these engines already cite",
+    );
   });
 
   // Task #46 follow-up: the remediation used to be one static line for
@@ -182,7 +140,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
       const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
       const mockTx = makeMockTx({
-        latestAudit: { id: "audit-1" },
+        latestAudit: { id: "audit-1", auditNumber: 50 },
         brandDomain: "bondiplumbing.com.au",
         citationRows: [
           citationRow("perplexity", [
@@ -202,7 +160,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
       const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
       const mockTx = makeMockTx({
-        latestAudit: { id: "audit-1" },
+        latestAudit: { id: "audit-1", auditNumber: 50 },
         brandDomain: "bondiplumbing.com.au",
         citationRows: [
           citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
@@ -212,7 +170,9 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
       const result = await diagnose(mockTx as never, { brandId: "brand-1" });
       const d = result.find((r) => r.patternKey === "brand_domain_not_cited");
 
-      expect(d?.remediation).toContain("Get listed and mentioned on the sites these engines already cite");
+      expect(d?.remediation).toContain(
+        "Get listed and mentioned on the sites these engines already cite",
+      );
       expect(d?.remediation).not.toContain("engines that search live");
     });
   });
@@ -224,7 +184,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
       citationRows: [
         citationRow("chatgpt", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
@@ -242,7 +202,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
@@ -260,7 +220,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
@@ -278,9 +238,11 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: undefined, // brands.domain is null
-      citationRows: [citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }])],
+      citationRows: [
+        citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
+      ],
     });
 
     const result = await diagnose(mockTx as never, { brandId: "brand-1" });
@@ -291,7 +253,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
       citationRows: [citationRow("gemini", []), citationRow("claude", [])],
     });
@@ -304,9 +266,11 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
     const mockTx = makeMockTx({
-      latestAudit: { id: "audit-1" },
+      latestAudit: { id: "audit-1", auditNumber: 50 },
       brandDomain: "bondiplumbing.com.au",
-      citationRows: [citationRow("gemini", [{ domain: "192.168.1.1", url: "https://192.168.1.1/x" }])],
+      citationRows: [
+        citationRow("gemini", [{ domain: "192.168.1.1", url: "https://192.168.1.1/x" }]),
+      ],
     });
 
     const result = await diagnose(mockTx as never, { brandId: "brand-1" });
@@ -322,65 +286,19 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
   });
 });
 
-/**
- * A drizzle `sql` template's queryChunks mixes literal-text chunks
- * (objects shaped `{ value: [string] }`) with raw interpolated param
- * values (plain strings/numbers) -- this reconstructs just the literal
- * SQL text, skipping params, so tests can assert on query shape
- * without a real Postgres connection.
- */
-function queryChunksToText(query: unknown): string {
-  const chunks = (query as { queryChunks?: unknown[] })?.queryChunks ?? [];
-  return chunks
-    .map((c) => {
-      const value = (c as { value?: unknown })?.value;
-      return Array.isArray(value) ? value.join("") : "";
-    })
-    .join("");
-}
-
-describe("comparison_prompt_results diagnosis -- the competitor_cited column bug", () => {
-  it("no longer throws 42703 and uses competitor_mentioned, scoped to the latest audit", async () => {
+// 17 Nov, part 3: "X is cited N times in prompts where your brand is absent" came from comparison_prompt_results
+// (head-to-head prompts that named the competitor: no citation, nothing about the brand being absent). diagnose() no
+// longer reads that table; a competitor diagnosis comes only from the audit's own answers (a competitor's website
+// linked in everyday answers that didn't name the brand: tests/integration/brand-pages-agree-with-audit.integration).
+describe("comparison_prompt_results -- never a 'cited instead' claim", () => {
+  it("diagnose() runs no comparison_prompt_results query", async () => {
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
-
-    let call = 0;
-    const executeSpy = vi.fn().mockImplementation(() => {
-      call++;
-      // Call 1 is always tableExists("comparison_prompt_results"); call 2
-      // is the comparison_prompt_results aggregate query.
-      if (call === 1) return Promise.resolve([{ exists: true }]);
-      return Promise.resolve([{ competitor_domain: "rivalplumbing.com.au", cited_count: "2" }]);
+    const mockTx = makeMockTx({
+      latestAudit: { id: "audit-1", auditNumber: 50 },
+      tablesExist: true,
     });
-
-    const mockTx = {
-      select: () => ({
-        from: (table: unknown) => {
-          if (table === topicalCoverageGaps) {
-            return { where: () => ({ orderBy: () => ({ limit: () => Promise.resolve([]) }) }) };
-          }
-          if (table === audits) {
-            return { where: () => ({ orderBy: () => ({ limit: () => Promise.resolve([{ id: "audit-1" }]) }) }) };
-          }
-          if (table === brands) return { where: () => Promise.resolve([{ domain: null }]) };
-          if (table === citations) return { where: () => Promise.resolve([]) };
-          throw new Error("unexpected table");
-        },
-      }),
-      execute: executeSpy,
-    };
-
     const result = await diagnose(mockTx as never, { brandId: "brand-1" });
-
-    const compDiagnosis = result.find((r) => r.patternKey === "competitor_cited_instead");
-    expect(compDiagnosis).toBeDefined();
-    expect(compDiagnosis?.competitorCited).toBe("rivalplumbing.com.au");
-
-    // The fixed query references competitor_mentioned and audit_id,
-    // never the non-existent competitor_cited column.
-    const calls = executeSpy.mock.calls.map((c) => queryChunksToText(c[0]));
-    const compQuery = calls.find((c) => c.includes("comparison_prompt_results"));
-    expect(compQuery).toContain("competitor_mentioned");
-    expect(compQuery).toContain("audit_id");
-    expect(compQuery).not.toContain("competitor_cited");
+    expect(result.some((r) => r.patternKey === "competitor_cited_instead")).toBe(false);
+    expect(mockTx.execute).not.toHaveBeenCalled();
   });
 });

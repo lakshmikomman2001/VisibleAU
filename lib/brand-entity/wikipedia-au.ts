@@ -89,6 +89,19 @@ export async function checkWikipediaAuStatus(brandName: string): Promise<Wikiped
   }
 }
 
+/**
+ * The Wikipedia lookup's state as a technical audit stored it (17 Nov, part 3: findings.brandEntity
+ * .wikipediaAuStatus), or null for an audit from before then, which kept only true/false -- and false there
+ * also covered a lookup that failed.
+ */
+export function wikipediaStatusFromFindings(findings: unknown): WikipediaAuStatus["status"] | null {
+  if (typeof findings !== "object" || findings === null) return null;
+  const brandEntity = (findings as { brandEntity?: unknown }).brandEntity;
+  if (typeof brandEntity !== "object" || brandEntity === null) return null;
+  const status = (brandEntity as { wikipediaAuStatus?: unknown }).wikipediaAuStatus;
+  return status === "found" || status === "not_found" || status === "unavailable" ? status : null;
+}
+
 export async function checkWikipediaAu(brandName: string): Promise<WikipediaAuResult> {
   const result = await checkWikipediaAuStatus(brandName);
   if (result.status !== "found") {

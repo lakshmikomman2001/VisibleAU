@@ -24,9 +24,9 @@ interface CompetitiveBenchmarkData {
     totalWins: number;
     totalLosses: number;
     totalInconclusive: number;
-    topicalGapsOwned: number;
-    fastestPath: string | null;
   };
+  /** 17 Nov, part 3: the audit whose head-to-head questions these are. */
+  audit?: { number: number; completedAt: string | null } | null;
 }
 
 interface CompetitiveBenchmarkPanelProps {
@@ -105,16 +105,27 @@ export function CompetitiveBenchmarkPanel({ data, tier, loading }: CompetitiveBe
         boxShadow: "var(--elevation-rest)",
       }}
     >
-      <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-        Competitive Benchmark
-      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+          Competitive Benchmark
+        </p>
+        {/* 17 Nov, part 3: what these are -- a separate "compare X with Y" question per competitor and engine, not
+            the audit's everyday answers -- and which audit asked them. */}
+        {data.audit && (
+          <p
+            className="text-[11px]"
+            style={{ color: "var(--text-tertiary)" }}
+            data-benchmark-audit=""
+          >
+            Head-to-head questions, audit #{data.audit.number}
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-4 sm:gap-6">
         <MiniStat label="Wins" value={summary.totalWins} color="var(--success)" />
         <MiniStat label="Losses" value={summary.totalLosses} color="var(--danger)" />
         <MiniStat label="Draw" value={summary.totalInconclusive} color="var(--warning)" />
-        <InfoChip label="Topics they own" value={String(summary.topicalGapsOwned)} />
-        {summary.fastestPath && <InfoChip label="Fastest path" value={summary.fastestPath} />}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -182,19 +193,6 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
       </span>
       <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
         {label}
-      </span>
-    </div>
-  );
-}
-
-function InfoChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-        {label}:
-      </span>
-      <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-        {value}
       </span>
     </div>
   );

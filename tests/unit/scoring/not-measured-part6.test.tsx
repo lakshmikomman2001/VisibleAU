@@ -162,7 +162,8 @@ describe("the agent-readiness card's technical sub-signals", () => {
         mcpEndpointPresent={null}
       />,
     );
-    expect(screen.getByText(/llms\.txt depth:/).textContent).toContain(NOT_CHECKED);
+    // 17 Nov, part 3: the line names what it is -- VisibleAU's own draft, not the site's file.
+    expect(screen.getByText(/llms\.txt draft coverage/).textContent).toContain(NOT_CHECKED);
     expect(screen.getByText(/MCP:/).textContent).toBe(`MCP: ${NOT_CHECKED}`);
     expect(document.body.textContent).not.toMatch(/absent/);
   });
@@ -176,7 +177,9 @@ describe("the agent-readiness card's technical sub-signals", () => {
         mcpEndpointPresent={true}
       />,
     );
-    expect(screen.getByText(/llms\.txt depth:/).textContent).toBe("llms.txt depth: absent");
+    expect(screen.getByText(/llms\.txt draft coverage/).textContent).toBe(
+      "llms.txt draft coverage (ours, not your site's file): absent",
+    );
     expect(screen.getByText(/MCP:/).textContent).toBe("MCP: detected");
   });
 });

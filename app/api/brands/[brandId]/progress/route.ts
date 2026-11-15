@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const summary = await getProgressSummary(brandId, tx);
+    const summary = await getProgressSummary(brandId, tx, currentUser.organizationId);
     return NextResponse.json(summary);
   });
 }

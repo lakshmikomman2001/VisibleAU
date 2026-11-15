@@ -1,7 +1,14 @@
 import { and, desc, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { agentReadinessScores, brandEntityScores, brands, llmstxtVersions } from "@/db/schema";
+import {
+  agentReadinessScores,
+  brandEntityScores,
+  brands,
+  llmstxtVersions,
+  technicalAudits,
+} from "@/db/schema";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
+import { wikipediaStatusFromFindings } from "@/lib/brand-entity/wikipedia-au";
 import { crawlSite } from "@/lib/crawler";
 import type { CrawlPage } from "@/lib/crawler/types";
 import { inngest } from "@/lib/inngest/client";
@@ -15,6 +22,7 @@ import {
   computeTotalScore,
   computeVerifyScore,
 } from "@/lib/retrieval/agent-readiness";
+import { LLMSTXT_DRAFT_GAP } from "@/lib/retrieval/agent-readiness-breakdown";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
 import { readinessRobots } from "@/lib/robots-txt/evaluate";
@@ -123,6 +131,13 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       });
     });
 
+    // 17 Nov, part 3 (in-step logic only; no step id, trigger or function id changed): an input nothing measures
+    // is null and earns no points (lib/retrieval/agent-readiness.ts). This hard-coded page load fast true, name
+    // consistent true, Wikipedia false, directories from a column only a stub writes (lib/trust/entity-checker.ts
+    // localDirectoryCount: 0), review citations 0, expert quotes false and citation rate / diversity 0. And a
+    // crawl that reached no page scores none of the parts read from the pages, instead of measured zeros.
+    const siteReached = crawlResult.pages.length > 0;
+
     const techSignals = await step.run("check-tech", async () => {
       const llmstxtRows = await serviceDb
         .select()
@@ -132,14 +147,22 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       const llmstxtRow = llmstxtRows[0];
 
       const mcp = await checkMcpEndpoint(brand.domain);
+      // robots.txt that didn't answer (a 5xx or no answer) isn't "no robots.txt, so nothing blocks".
+      const robotsUnread = crawlResult.robotsTxtFetch?.status === "unreachable";
 
       return {
+        // VisibleAU's own generated draft (llmstxt_versions), not a file on the site.
         llmstxtPresent: !!llmstxtRow,
         llmstxtValid: !!llmstxtRow && llmstxtRow.depthScore >= 6,
-        robotsAllowsCrawlers: robotsAllowsCrawlers(crawlResult.robotsTxt),
-        ssrPasses: checkSsr(crawlResult.pages),
-        aiDiscoveryEndpoints: !!crawlResult.sitemapXml,
-        pageLoadFast: true,
+        robotsAllowsCrawlers:
+          !siteReached || robotsUnread ? null : robotsAllowsCrawlers(crawlResult.robotsTxt),
+        ssrPasses: siteReached ? checkSsr(crawlResult.pages) : null,
+        aiDiscoveryEndpoints:
+          !siteReached || crawlResult.sitemap?.status === "unreachable"
+            ? null
+            : !!crawlResult.sitemapXml,
+        // Nothing measures page speed.
+        pageLoadFast: null,
         mcpEndpointPresent: mcp.mcpEndpointPresent,
         mcpEndpointValid: mcp.mcpEndpointValid,
         mcpToolsCount: mcp.mcpToolsCount,
@@ -153,11 +176,14 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       const hasLocalReg = /australianBusinessRegister|abn/i.test(html);
 
       return {
-        orgSchemaPresent: entityHome.entityHomeHasOrgSchema,
-        localBusinessSchema: hasLocalBiz,
-        localRegInSchema: hasLocalReg,
-        nameConsistent: true,
-        serviceReadable: crawlResult.pages.some((p: { url: string }) => /\/services/i.test(p.url)),
+        orgSchemaPresent: siteReached ? entityHome.entityHomeHasOrgSchema : null,
+        localBusinessSchema: siteReached ? hasLocalBiz : null,
+        localRegInSchema: siteReached ? hasLocalReg : null,
+        // Nothing compares the name across the web.
+        nameConsistent: null,
+        serviceReadable: siteReached
+          ? crawlResult.pages.some((p: { url: string }) => /\/services/i.test(p.url))
+          : null,
       };
     });
 
@@ -169,26 +195,51 @@ export const scoreAgentReadinessFn = inngest.createFunction(
         .orderBy(desc(brandEntityScores.checkedAt))
         .limit(1);
       const entity = entityRows[0];
+      // The technical audit that triggered this run keeps the Wikipedia lookup's own state; an older one only
+      // says "present" (true) or false, which also covers a lookup that failed.
+      const [tech] = await serviceDb
+        .select({ findings: technicalAudits.findings })
+        .from(technicalAudits)
+        .where(eq(technicalAudits.brandId, brandId))
+        .orderBy(desc(technicalAudits.createdAt))
+        .limit(1);
+      const wikiStatus = wikipediaStatusFromFindings(tech?.findings);
 
       return {
-        abnConfirmed: entity?.abnVerified === true,
-        wikipediaAu: false,
-        auDirectories: entity?.localDirectoryCount ?? 0,
-        reviewCitations: 0,
-        expertQuotes: false,
+        abnConfirmed: !entity || entity.abnStatus === "check_skipped" ? null : entity.abnVerified,
+        wikipediaAu:
+          wikiStatus === "found"
+            ? true
+            : wikiStatus === "not_found"
+              ? false
+              : entity?.wikipediaAuPresent === true
+                ? true
+                : null,
+        // Directory listings, review citations and expert quotes: nothing measures them.
+        auDirectories: null,
+        reviewCitations: null,
+        expertQuotes: null,
       };
     });
 
     const authoritySignals = await step.run("check-authority", () => {
       return {
-        topicalCoverage: Math.min(crawlResult.pages.length * 5, 100),
-        citationRate: 0,
-        citationDiversity: 0,
+        topicalCoverage: siteReached ? Math.min(crawlResult.pages.length * 5, 100) : null,
+        // Nothing here reads the audits' citations yet.
+        citationRate: null,
+        citationDiversity: null,
       };
     });
 
     const taskFitSignals = await step.run("detect-task-fit", () => {
-      return detectTaskFitFromCrawl(crawlResult.pages);
+      return siteReached
+        ? detectTaskFitFromCrawl(crawlResult.pages)
+        : {
+            bookingAccessible: null,
+            pricingVisible: null,
+            serviceAreaDefined: null,
+            faqDirectAnswers: null,
+          };
     });
 
     const scores = await step.run("compute-and-store", async () => {
@@ -217,21 +268,22 @@ export const scoreAgentReadinessFn = inngest.createFunction(
           `Local AI Trust isn't scored yet: ${localTrust.measuredParts.join(", ")} checked; still to check: ${localTrust.notMeasuredParts.join(", ")}.`,
         );
       }
-      if (!techSignals.llmstxtPresent)
-        gaps.push("No llms.txt file detected — generate and host one.");
+      // 17 Nov, part 3: this checks VisibleAU's own draft (llmstxt_versions), not the site's file; it said
+      // "No llms.txt file detected". A gap is only for a part that was measured (false, never null).
+      if (!techSignals.llmstxtPresent) gaps.push(LLMSTXT_DRAFT_GAP);
       // Which crawler it blocks, from the crawl-site step's robots.txt (that step's output is unchanged, so a run
       // in flight across a deploy reads the same shape).
       const robotsGap = readinessRobots(crawlResult.robotsTxt).gap;
-      if (!techSignals.robotsAllowsCrawlers && robotsGap) gaps.push(robotsGap);
+      if (techSignals.robotsAllowsCrawlers === false && robotsGap) gaps.push(robotsGap);
       if (!techSignals.mcpEndpointPresent)
         gaps.push("No MCP endpoint found. Consider exposing an MCP manifest.");
-      if (!entitySignals.orgSchemaPresent)
+      if (entitySignals.orgSchemaPresent === false)
         gaps.push("Missing Organisation JSON-LD on your Entity Home page.");
-      if (!verifySignals.abnConfirmed)
+      if (verifySignals.abnConfirmed === false)
         gaps.push("ABN not yet verified. Add your ABN to structured data.");
-      if (!taskFitSignals.bookingAccessible)
+      if (taskFitSignals.bookingAccessible === false)
         gaps.push("No online booking detected. Add a booking link or widget.");
-      if (!taskFitSignals.pricingVisible)
+      if (taskFitSignals.pricingVisible === false)
         gaps.push("No visible pricing. Surface pricing for AI answer extraction.");
 
       await serviceDb.insert(agentReadinessScores).values({

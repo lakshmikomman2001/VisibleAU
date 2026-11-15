@@ -285,7 +285,8 @@ describe("the brand page's audit history", () => {
     const html = renderToStaticMarkup(element as ReactElement).replace(/&#x27;/g, "'");
     expect(html).toContain(NOTE);
     // One marker: between #48 and #50, never between #47 and #48.
-    expect(html.match(/title="Questions changed between/g)?.length).toBe(1);
+    // 17 Nov, part 3: a bar's title starts with its own audit and figure ("Audit #50: 33% (13 of 40)").
+    expect(html.match(/title="[^"]*Questions changed between/g)?.length).toBe(1);
   }, 60_000);
 });
 

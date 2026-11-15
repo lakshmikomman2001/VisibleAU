@@ -219,6 +219,28 @@ describe("a new brand's first audit starts when it's confirmed", () => {
   });
 });
 
+// 16 Nov, part 5 follow-up: with the location still to confirm, the business-type card doesn't start the audit (it
+// would be refused -- the location isn't confirmed -- and the owner shown an error); it confirms, and the location
+// card comes next.
+describe("a new brand whose location is still to confirm", () => {
+  it("the business-type card just confirms; it doesn't offer to start the first audit", () => {
+    render(
+      <BrandDetailClient
+        {...PROPS}
+        classificationState="needs_confirmation"
+        brand={{
+          ...HERO,
+          classificationStatus: "needs_confirmation",
+          classification: LOW_CONFIDENCE,
+          locationConfirmedAt: null,
+        }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Confirm and start the first audit" })).toBeNull();
+    expect(screen.queryByText(/its first audit starts/)).toBeNull();
+  });
+});
+
 describe("after Confirm, Run audit works and the audit starts (a brand that already has audits)", () => {
   it("confirms, the page comes back complete, and Run audit posts the audit", async () => {
     const view = renderBrand("needs_confirmation", LOW_CONFIDENCE, 3);

@@ -74,8 +74,10 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
     await expect(page.getByRole("heading", { name: "E2E Detail Brand", level: 1 })).toBeVisible();
     // Domain must be visible
     await expect(page.getByText("e2edetail.com.au")).toBeVisible();
-    // Vertical label (the edit form's <select> holds a "Tradies" option too)
-    await expect(page.getByText("tradies", { exact: true })).toBeVisible();
+    // 16 Nov, part 3: the header names the business type in words -- the confirmed type, or until then the
+    // vertical ("Tradies"), never the raw key "tradies". (The edit form's <select> holds a "Tradies" option too, so
+    // read the header's own element.)
+    await expect(page.locator("[data-brand-business-type]")).toHaveText("Tradies");
   });
 
   test("detail page has Edit button", async ({ page }) => {

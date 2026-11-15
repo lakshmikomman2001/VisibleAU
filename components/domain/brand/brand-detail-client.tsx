@@ -590,7 +590,9 @@ export function BrandDetailClient({
         {needsConfirmation && (
           <ClassificationConfirmCard
             brandId={brand.id}
-            startFirstAudit={auditCount === 0}
+            // 16 Nov, part 5 follow-up: only when nothing else is pending -- with the location still to confirm
+            // (its own card comes next), the audit would be refused and the owner shown an error.
+            startFirstAudit={auditCount === 0 && !locationNeedsConfirmation}
             mode={classificationFailed ? "could_not_classify" : "low_confidence"}
             vertical={brand.vertical}
             location={

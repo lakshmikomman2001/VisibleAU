@@ -435,12 +435,18 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
 
   // ── 7. Complete task → Done column + lift rendering ──────────────────────
 
-  test("7. Complete task → Done column + lift renders (Assertion #2, #4)", async ({ page }) => {
+  // 17 Nov, part 3: a task's change is its own audit against its re-audit, as the audit pages show them
+  // (lib/visibility/audit-change.ts), never score_before -> score_after: score_before is the recommendation's
+  // expected-impact bucket (80/50/20), so "80 → 88" set an estimate against a measurement. With no re-audit yet,
+  // the card says so, whatever score_after holds.
+  test("7. Complete task → Done column; no change shown until it's re-audited (Assertion #2)", async ({
+    page,
+  }) => {
     await signInThroughForm(page, user1);
 
-    // Create a task with scoreBefore for lift testing
+    // A task from the seeded audit, with an expected-impact bucket of 80
     const createRes = await page.request.post(`/api/brands/${brandId}/tasks`, {
-      data: { title: "E2E Lift Task", effort: "medium", scoreBefore: 80 },
+      data: { title: "E2E Lift Task", effort: "medium", scoreBefore: 80, auditId },
     });
     expect(createRes.ok()).toBe(true);
     const liftTask = (await createRes.json()) as { id: string };
@@ -465,21 +471,20 @@ test.describe("FE-1: Sprint 2 Workflow E2E", () => {
     const doneColumn = page.getByLabel("Done column");
     await expect(doneColumn.getByText("E2E Lift Task")).toBeVisible({ timeout: 10_000 });
 
-    // 14-day sleep prevents full lift — simulate scoreAfter via DB
-    console.log(`[FE-1.7] reauditQueued: ${completeData.reauditQueued}. Simulating scoreAfter.`);
+    // The re-audit sleeps 14 days. A score_after as the old writer stored it (re-audit's visibility, no re-audit
+    // id) must not turn into a change on the card.
+    console.log(`[FE-1.7] reauditQueued: ${completeData.reauditQueued}. Setting score_after only.`);
     await db
       .update(remediationTasks)
       .set({ scoreAfter: "88.00" })
       .where(eq(remediationTasks.id, liftTask.id));
 
-    // Reload and check lift renders (Assertion #4: scoreBefore → scoreAfter)
     await page.reload();
     await expect(doneColumn.getByText("E2E Lift Task")).toBeVisible({ timeout: 10_000 });
 
     const taskCard = page.locator('[aria-label*="E2E Lift Task"]').first();
-    await expect(taskCard.getByText("80")).toBeVisible();
-    await expect(taskCard.getByText("→")).toBeVisible();
-    await expect(taskCard.getByText("88")).toBeVisible();
+    await expect(taskCard.locator("[data-task-change]")).toHaveText("Not re-audited yet");
+    await expect(taskCard.getByText(/\b80\b|\b88\b|→/)).toHaveCount(0);
   });
 
   // ── 8. Dashboard stat cards ──────────────────────────────────────────────

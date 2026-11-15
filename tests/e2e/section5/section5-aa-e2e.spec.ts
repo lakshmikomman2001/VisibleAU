@@ -221,8 +221,16 @@ test.describe("Step 4 — AA surface smoke", () => {
     // Purpose split renders
     await expect(page.locator("text=Retrieval").first()).toBeVisible();
 
-    // >25% unverified rate → impersonation warning (8/10 = 80%)
-    await expect(page.locator("text=Unverified rate exceeds 25%")).toBeVisible({ timeout: 5_000 });
+    // 17 Nov, part 3: 8 of 10 seeded hits are unverified (none spoofed). Unverified means we couldn't confirm the
+    // crawler -- for some there's no way to -- so it's no evidence of impersonation: the card says so, and only a
+    // spoofed hit (one that failed verification) raises a warning. It said "Unverified rate exceeds 25% -- possible
+    // bot impersonation".
+    await expect(
+      page.getByText("It isn't evidence of impersonation.", { exact: false }),
+    ).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText(/possible bot impersonation|failed verification/)).toHaveCount(0);
 
     // Setup panel renders (3 ingestion cards)
     await expect(page.locator("text=Upload a log file")).toBeVisible();

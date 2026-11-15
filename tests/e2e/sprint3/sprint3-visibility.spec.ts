@@ -336,36 +336,35 @@ test.describe("FE-1: Sprint 3 Visibility E2E", () => {
 
   // ── 4. Fan-out tree renders sub-queries ────────────────────────────────
 
-  // Query simulation (the fan-out tree) is paused behind a default-off flag since 07cb14d (23 Oct):
-  // the page says so instead of drawing the seeded sub-queries.
-  test("4. Fan-out: the page says query simulation is paused", async ({ page }) => {
+  // Query simulation (the fan-out tree) is paused behind a default-off flag since 07cb14d (23 Oct). 17 Nov,
+  // part 2: while it's paused the page shows nothing for it -- no "being rebuilt and will return soon" note
+  // (a customer page shows no placeholder) and none of the seeded sub-queries.
+  test("4. Fan-out: nothing shown while query simulation is paused", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    await expect(
-      page.getByText("Query simulation is being rebuilt and will return soon"),
-    ).toBeVisible();
+    await expect(page.getByText(/Query simulation|being rebuilt|return soon/)).toHaveCount(0);
     await expect(page.getByText("best plumber in Sydney")).toHaveCount(0);
   });
 
   // ── 5. Topical gaps with HIGH LEVERAGE badge ───────────────────────────
 
-  test("5. Topical gap list shows gaps sorted by impact, HIGH LEVERAGE badge", async ({ page }) => {
+  // 17 Nov, part 3: no topical gap list. topical_coverage_gaps isn't a measurement (every vertical's library
+  // prompts, matched by unexpanded template, "No content" by default; "HIGH LEVERAGE" counted library prompts),
+  // so the seeded gap (Emergency Plumbing, crossPromptImpact 3, brandHasContent false) is never shown.
+  test("5. No topical gap list: the seeded gap isn't shown", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("link").filter({ hasText: "Share of voice & trends" }).click();
     await page.waitForURL(`**/brands/${brandId}/visibility**`, { timeout: 10_000 });
     await expect(page.getByText("Share of Voice")).toBeVisible({ timeout: 15_000 });
 
-    // Emergency Plumbing gap should be visible (crossPromptImpact: 3 → HIGH LEVERAGE badge)
-    await expect(page.getByText("Emergency Plumbing")).toBeVisible();
-    await expect(page.getByText(/HIGH LEVERAGE/)).toBeVisible();
-
-    // "No content" badge for brandHasContent: false
-    await expect(page.getByText("No content").first()).toBeVisible();
+    await expect(page.getByText("Emergency Plumbing")).toHaveCount(0);
+    await expect(page.getByText(/HIGH LEVERAGE/)).toHaveCount(0);
+    await expect(page.getByText("No content")).toHaveCount(0);
   });
 
   // ── 6. Citation failure page reachable from hub ────────────────────────
@@ -633,11 +632,11 @@ test.describe("FE-3: Cross-sprint integration", () => {
     });
 
     await expect(page.getByText("Share of Voice")).toBeVisible();
-    // Query simulation is paused (07cb14d): its note, not the seeded fan-out prompt.
-    await expect(
-      page.getByText("Query simulation is being rebuilt and will return soon"),
-    ).toBeVisible();
-    await expect(page.getByText("Emergency Plumbing")).toBeVisible();
+    // 17 Nov: the latest audit's mentions and sources (part 1); nothing for paused query simulation (part 2);
+    // no topical gaps (part 3).
+    await expect(page.locator("[data-mentions-card]")).toBeVisible();
+    await expect(page.getByText(/Query simulation|being rebuilt|return soon/)).toHaveCount(0);
+    await expect(page.getByText("Emergency Plumbing")).toHaveCount(0);
 
     await expect(page.getByRole("link", { name: "Citation Failure Diagnosis" })).toBeVisible();
   });
@@ -671,18 +670,17 @@ test.describe("FE-3: Cross-sprint integration", () => {
     expect(visRes.ok()).toBe(true);
     const visData = await visRes.json();
 
-    expect(visData).toHaveProperty("trends");
+    // 17 Nov, parts 1 and 3: the latest audit's own mentions and sources, never a visibility_trends row (its
+    // mention rate counted distinct questions across a week, unverified mentions included; its citation rate
+    // only the brand's own domain).
+    expect(visData).not.toHaveProperty("trends");
+    expect(visData).toHaveProperty("mentionsAndSources.state");
+    expect(["no_audit", "not_measured", "measured"]).toContain(visData.mentionsAndSources.state);
     // One Share of Voice (7 Nov): the shared counter's payload, not snapshot rows.
     expect(visData).toHaveProperty("shareOfVoice");
     expect(visData).toHaveProperty("tier");
     expect(visData).toHaveProperty("brandDomain");
     expect(visData.shareOfVoice).toHaveProperty("line");
-
-    if (visData.trends) {
-      expect(visData.trends).toHaveProperty("mentionRate");
-      expect(visData.trends).toHaveProperty("citationRate");
-      expect(visData.trends).toHaveProperty("brandArchetype");
-    }
 
     const fanOutRes = await page.request.get(`/api/brands/${fe3BrandId}/fan-out`);
     expect(fanOutRes.ok()).toBe(true);
@@ -697,6 +695,7 @@ test.describe("FE-3: Cross-sprint integration", () => {
       expect(Array.isArray(group.results)).toBe(true);
     }
 
+    // The topical-gaps route is API-only since 17 Nov (no page reads it: tests/helpers/plan-gates.ts).
     const gapsRes = await page.request.get(`/api/brands/${fe3BrandId}/topical-gaps`);
     expect(gapsRes.ok()).toBe(true);
     const gapsData = await gapsRes.json();

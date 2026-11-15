@@ -168,11 +168,12 @@ test.describe("5.1 — The Loop, end to end", () => {
     const content = await page.textContent("body");
     expect(content).toContain("Bondi Plumbing");
     expect(content).toContain("Step 3 of 5");
-    // Step 2 shows the top gap when there is one, the task only when there isn't (46dee56, 25 Sep):
-    // Bondi has both.
-    expect(content).toContain("#1 gap: Emergency Plumbing");
-    // Step 5: pending state — no number
-    expect(content).toContain("Validation audit scheduled");
+    // 17 Nov, part 3: step 2 is the top task, never a topical gap -- topical_coverage_gaps isn't a measurement
+    // (every vertical's library prompts, "no content" by default), so Bondi's seeded gap isn't shown.
+    expect(content).not.toContain("#1 gap: Emergency Plumbing");
+    expect(content).toContain("Update local directory listings");
+    // Step 5: the task isn't done, so there's no re-audit and no number (it said "Validation audit scheduled").
+    expect(content).toContain("Not re-audited yet");
     expect(content).not.toMatch(/\+\d+\.\d%.*re-audit/);
   });
 
@@ -673,7 +674,8 @@ test.describe("5.8 — Canon-declared states (F25)", () => {
         "Waiting for your audit to finish before scanning for content gaps.",
         // 17 Nov, part 2: no "Explanation will appear after gap analysis" / "Content draft will be generated".
         "No draft yet",
-        "Validation re-audit will run after draft approval",
+        // 17 Nov, part 3: what starts a re-audit is marking a task done, not approving a draft.
+        "Mark a task done to have it re-audited 14 days later",
       ]) {
         expect(content).toContain(waiting);
       }

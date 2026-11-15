@@ -81,7 +81,8 @@ export const verifyCrawlerHitsFn = inngest.createFunction(
       return count;
     });
 
-    // Check for impersonation: unverified rate > 25% over recent hits for any vendor
+    // Check for impersonation: more than 25% of a crawler's hits in the last hour (at least 10) FAILED
+    // verification ("spoofed"). Unverified hits -- the ones nothing could check -- never count.
     await step.run("check-impersonation", async () => {
       const stats = await serviceDb.execute(sql`
         SELECT crawler_name,

@@ -740,7 +740,8 @@ export default function PdfBuilderPage() {
                           lib/pdf/render.tsx's own Methodology section. */}
                       <p>
                         <strong>Not yet measured:</strong> Sentiment (tone of mentions) and Context
-                        (recommended vs. listed) are planned but not yet scored.
+                        (recommended vs. listed) aren&apos;t scored: no tone or framing classifier
+                        exists.
                       </p>
                       <p>
                         <strong>Confidence:</strong> Scores include a 95% Wilson confidence interval

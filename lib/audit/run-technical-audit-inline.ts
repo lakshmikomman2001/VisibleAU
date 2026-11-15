@@ -58,6 +58,10 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       auTldPresent: auTldResult.auTldPresent,
     };
     const entityScoreValue = brandEntityScore(entityInput);
+    // Leftovers task, part 3 (17 Nov): an ABN or Wikipedia lookup that didn't complete counted 0 in the score, shown
+    // as measured. The Brand & Entity score -- and so the composite -- is stored only when both completed.
+    const entityLookupFailed =
+      abnResult.abnStatus === "check_failed" || wikiStatus.status === "unavailable";
 
     const result = await orchestrateTechnicalAudit(brand.domain, crawl, entityScoreValue);
 
@@ -77,13 +81,16 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       scoreSchema: siteScore("scoreSchema"),
       scoreMeta: siteScore("scoreMeta"),
       scoreContent: siteScore("scoreContent"),
-      scoreBrandEntity: result.dimensions.scoreBrandEntity.toFixed(2),
+      scoreBrandEntity: entityLookupFailed ? null : result.dimensions.scoreBrandEntity.toFixed(2),
       scoreSignals: siteScore("scoreSignals"),
       scoreAiDiscovery: siteScore("scoreAiDiscovery"),
-      scoreComposite: result.unmeasured.length === 0 ? result.scoreComposite.toFixed(2) : null,
+      scoreComposite:
+        result.unmeasured.length === 0 && !entityLookupFailed
+          ? result.scoreComposite.toFixed(2)
+          : null,
       findings: Object.assign({}, result.findings, {
         brandEntity: {
-          score: entityScoreValue,
+          score: entityLookupFailed ? null : entityScoreValue,
           abnVerified: abnResult.abnVerified,
           abnNumber: abnResult.abnNumber,
           abnStatus: abnResult.abnStatus,

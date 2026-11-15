@@ -305,9 +305,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
 
           {!latestAudit ? (
             <div className="rounded-lg border bg-card p-6 text-center">
-              <p className="text-muted-foreground">
-                No completed audits yet. Your agency will run the first audit soon.
-              </p>
+              <p className="text-muted-foreground">No completed audits yet.</p>
             </div>
           ) : (
             <>

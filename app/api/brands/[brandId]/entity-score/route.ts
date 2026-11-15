@@ -164,6 +164,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       // owner's own confirmation (Part C) or AI-answer citations (Part
       // D), on their own surfaces.
       auDirectoryPresence: null,
+      // Leftovers task, part 3 (17 Nov): nor the directory columns a stub wrote for every brand ("not on hipages,
+      // Yellow Pages, ServiceSeeking or Word of Mouth", a count of 0) -- nothing ever checked them.
+      hipagesPresent: null,
+      hipagesRating: null,
+      yellowPagesPresent: null,
+      serviceSeekingPresent: null,
+      wordOfMouthPresent: null,
+      wordOfMouthRating: null,
+      localDirectoryCount: null,
       // Trust Intelligence honesty pass follow-up: never present a
       // Knowledge Panel / Wikidata result (even a previously-stub-written
       // one already sitting in the row) while the real check doesn't exist.

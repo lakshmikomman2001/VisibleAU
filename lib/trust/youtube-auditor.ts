@@ -36,8 +36,13 @@ export interface YoutubeChannelScoreInput {
   subscriberCount: number | null;
   /** null when YouTube didn't report it; left out of the score the same way. */
   videoCount: number | null;
-  /** null when recency is unknown (the enrich step degraded gracefully) -- scored as stale, not penalised further than that. */
+  /** null when there's no upload, or when it couldn't be checked (see lastUploadChecked). */
   daysSinceLastUpload: number | null;
+  /**
+   * Leftovers task, part 3 (17 Nov): false when the uploads request failed. Recency is then left out of the score
+   * and no "No recent uploads" gap is raised -- it was scored 0 of 30 and reported as stale. Omitted: checked.
+   */
+  lastUploadChecked?: boolean;
 }
 
 export interface YoutubeChannelScoreResult {
@@ -97,13 +102,18 @@ export function scoreYoutubePresenceFromChannel(
     }
   }
 
-  possible += PART_POINTS;
-  if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 90) {
-    score += 30;
-  } else if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 365) {
-    score += 15;
+  // Couldn't check the latest upload: no points and no "No recent uploads", but say so.
+  if (input.lastUploadChecked === false) {
+    gaps.push("Couldn't check the channel's latest upload, so recency isn't part of this score.");
   } else {
-    gaps.push("No recent uploads — an active channel signals current relevance to AI crawlers.");
+    possible += PART_POINTS;
+    if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 90) {
+      score += 30;
+    } else if (input.daysSinceLastUpload !== null && input.daysSinceLastUpload <= 365) {
+      score += 15;
+    } else {
+      gaps.push("No recent uploads — an active channel signals current relevance to AI crawlers.");
+    }
   }
 
   return { presenceScore: Math.round((score / possible) * 100), gaps };

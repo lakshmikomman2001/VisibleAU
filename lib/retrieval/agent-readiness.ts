@@ -11,8 +11,9 @@ export interface TechInputs {
   ssrPasses: boolean | null;
   aiDiscoveryEndpoints: boolean | null;
   pageLoadFast: boolean | null;
-  mcpEndpointPresent: boolean;
-  mcpEndpointValid: boolean;
+  /** null: couldn't check (leftovers task, part 3) -- no points, and not a gap. */
+  mcpEndpointPresent: boolean | null;
+  mcpEndpointValid: boolean | null;
   mcpToolsCount: number;
 }
 

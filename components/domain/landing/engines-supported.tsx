@@ -24,11 +24,9 @@ export function EnginesSupported() {
           </div>
         ))}
       </div>
-      {/* Google AI surfaces (Phase 1, part 3): the passed "(Q3 2026)" is gone, and Google is still "coming soon"
-          here: it runs only for workspaces Sri switches on, so the public page doesn't claim it. */}
-      <p className="text-center text-sm text-muted-foreground" data-engines-coming-soon="">
-        Coming soon: Microsoft Copilot, Google AI Overviews and Google AI Mode
-      </p>
+      {/* Leftovers task, part 3 (17 Nov): the four engines we audit, and nothing promised. "Coming soon: Microsoft
+          Copilot, Google AI Overviews and Google AI Mode" went (nothing audits Copilot; Google runs only for
+          workspaces Sri switches on). */}
     </section>
   );
 }

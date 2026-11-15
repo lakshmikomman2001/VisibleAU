@@ -28,11 +28,17 @@ describe("crawlSite -- the home page's answer", () => {
       httpStatus: 503,
     });
     expect(result.errors).toEqual(["Failed to fetch https://down.example.com.au (HTTP 503)"]);
-    expect(result.robotsTxtFetch).toEqual({ status: "unreachable", httpStatus: 503 });
+    // Leftovers task, part 3: with why it couldn't be checked.
+    expect(result.robotsTxtFetch).toEqual({
+      status: "unreachable",
+      httpStatus: 503,
+      reason: "HTTP 503",
+    });
     expect(result.sitemap).toEqual({
       url: "https://down.example.com.au/sitemap.xml",
       status: "unreachable",
       httpStatus: 503,
+      reason: "HTTP 503",
     });
   });
 
@@ -47,7 +53,11 @@ describe("crawlSite -- the home page's answer", () => {
       httpStatus: null,
     });
     expect(result.errors).toEqual(["Failed to fetch https://gone.example.com.au (no answer)"]);
-    expect(result.robotsTxtFetch).toEqual({ status: "unreachable", httpStatus: null });
+    expect(result.robotsTxtFetch).toEqual({
+      status: "unreachable",
+      httpStatus: null,
+      reason: "no answer",
+    });
   });
 
   it("a site that answers: homepage reached with its status; a 404 robots.txt is 'absent', a real sitemap 'found'", async () => {

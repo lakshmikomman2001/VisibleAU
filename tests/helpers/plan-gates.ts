@@ -89,7 +89,6 @@ export const ASSERT_TIER_GATES = [
   "app/api/brands/[brandId]/agent-analytics/cdn-join/route.ts",
   "app/api/brands/[brandId]/agent-analytics/coverage/route.ts",
   "app/api/brands/[brandId]/agent-analytics/overview/route.ts",
-  "app/api/brands/[brandId]/agent-analytics/ratio/route.ts",
   "app/api/brands/[brandId]/agent-analytics/referrals/route.ts",
   "app/api/brands/[brandId]/agent-readiness/refresh/route.ts",
   "app/api/brands/[brandId]/agent-readiness/route.ts",
@@ -189,11 +188,6 @@ export const PLAN_GATE_ENTRY_POINTS: Record<
   "app/api/brands/[brandId]/agent-analytics/overview/route.ts": {
     callers: {
       "app/(auth)/brands/[brandId]/retrieval/agent-analytics/page.tsx": "agent_analytics",
-    },
-  },
-  "app/api/brands/[brandId]/agent-analytics/ratio/route.ts": {
-    callers: {
-      "app/(auth)/brands/[brandId]/retrieval/agent-analytics/page.tsx": "crawl_referral_ratio",
     },
   },
   "app/api/brands/[brandId]/agent-analytics/referrals/route.ts": {

@@ -120,7 +120,10 @@ async function verifyFcrdns(
     // Step 2: PTR must end with the expected suffix
     if (!ptr.endsWith(expectedSuffix)) return "spoofed";
 
-    // Step 3: forward DNS the PTR hostname
+    // Step 3: forward DNS the PTR hostname. Leftovers task, part 3 (17 Nov): when neither lookup answers (a
+    // timeout, SERVFAIL, no record) the check didn't complete -- "inconclusive", so the hit stays unverified. It
+    // was "spoofed": a DNS failure counted as a crawler pretending to be another, raising the impersonation
+    // webhook and the card's "failed verification".
     let forwardIps: string[];
     try {
       forwardIps = await dns.resolve4(ptr);
@@ -128,7 +131,7 @@ async function verifyFcrdns(
       try {
         forwardIps = await dns.resolve6(ptr);
       } catch {
-        return "spoofed";
+        return "inconclusive";
       }
     }
 

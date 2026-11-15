@@ -1,17 +1,5 @@
 "use client";
 
-import { PlanLockedCard } from "@/components/domain/pricing/plan-lock";
-import { LoadError } from "@/components/shared/load-error";
-
-interface RatioResult {
-  vendor: string;
-  verifiedCrawls: number;
-  referralSessions: number;
-  ratio: number | null;
-  ratioLabel: string;
-  benchmark: number | null;
-}
-
 interface Props {
   retrievalHits: number;
   indexingHits: number;
@@ -20,11 +8,6 @@ interface Props {
   verified: number;
   unverified: number;
   spoofed: number;
-  ratioData: { results: RatioResult[]; caveat: string } | null;
-  ratioLocked: boolean;
-  /** The ratio's fetch failed: say so, never "No referral data available yet". */
-  ratioFailed?: boolean;
-  onRetryRatio?: () => void;
 }
 
 export function AgentAnalyticsCrawlerCard({
@@ -35,10 +18,6 @@ export function AgentAnalyticsCrawlerCard({
   verified,
   unverified,
   spoofed,
-  ratioData,
-  ratioLocked,
-  ratioFailed = false,
-  onRetryRatio = () => {},
 }: Props) {
   // 17 Nov, part 3: "unverified" includes every hit from a crawler we have no way to verify ("No verification
   // paths configured", lib/agent-analytics/verify-crawler-hits.ts), so a high unverified share is missing
@@ -121,51 +100,8 @@ export function AgentAnalyticsCrawlerCard({
         )}
       </div>
 
-      {/* Ratio: its locked card on a plan without it (never fetched there). 17 Nov, part 2: shown only when a
-          referral was measured -- with none, every vendor read "0 visitors sent" beside a benchmark, and the empty
-          state offered to "connect a referral source", which nothing in the app does. */}
-      {(ratioLocked ||
-        ratioFailed ||
-        (ratioData?.results.some((r) => r.referralSessions > 0) ?? false)) && (
-        <div
-          className="mt-5 border-t pt-4"
-          style={{ borderColor: "color-mix(in srgb, var(--foreground) 10%, transparent)" }}
-        >
-          {ratioLocked ? (
-            <PlanLockedCard feature="crawl_referral_ratio" />
-          ) : ratioFailed ? (
-            <LoadError what="the crawl-to-referral ratio" onRetry={onRetryRatio} />
-          ) : ratioData?.results.some((r) => r.referralSessions > 0) ? (
-            <div>
-              <h3 className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-                Crawl-to-Referral Ratio
-              </h3>
-              <div className="mt-2 space-y-1">
-                {ratioData.results.slice(0, 4).map((r) => (
-                  <div key={r.vendor} className="flex items-center justify-between text-sm">
-                    <span style={{ color: "var(--foreground)" }}>{r.vendor}</span>
-                    <span className="font-mono" style={{ color: "var(--text-secondary)" }}>
-                      {r.ratioLabel}
-                      {r.benchmark != null && (
-                        <span className="ml-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-                          (benchmark: {r.benchmark.toLocaleString()}:1)
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {/* AA-13: caveat ON the card, not buried */}
-              <p
-                className="mt-3 text-xs leading-relaxed"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {ratioData.caveat}
-              </p>
-            </div>
-          ) : null}
-        </div>
-      )}
+      {/* Leftovers task, part 3 (17 Nov): no crawl-to-referral ratio. Nothing measures referrals (ai_referral_hits
+          has no writer anyone reaches), so the ratio was sold on the Growth plan and never had a number to show. */}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
 } from "./crawl-status";
 import { computeTechnicalComposite } from "./score-aggregator";
 import type { TechnicalAuditDimensions } from "./types";
+import { outcomeForError, outcomeForStatus } from "@/lib/crawler/fetch-outcome";
 
 interface OrchestrateResult {
   dimensions: TechnicalAuditDimensions;
@@ -167,7 +168,11 @@ export async function orchestrateTechnicalAudit(
   // missing file scored 0 ("Not started").
   let llmsTxtContent: string | null = null;
   let llmsFullContent: string | null = null;
+  // Leftovers task, part 3 (17 Nov): only a 404 or 410 is a missing file (lib/crawler/fetch-outcome.ts) -- a 403 or
+  // 429 was "absent" -- and llms-full.txt keeps its own answer too: a timeout or an error there was "not found",
+  // scored 0 of 3 ("llms-full.txt companion").
   let llmsTxtFetch: "found" | "absent" | "unreachable" = "unreachable";
+  let llmsTxtFetchReason: string | null = null;
   try {
     const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) {
@@ -176,20 +181,35 @@ export async function orchestrateTechnicalAudit(
       // A 2xx that isn't a plain-text file (the site's own HTML page) is a missing file.
       llmsTxtFetch = llmsTxtContent ? "found" : "absent";
     } else {
-      llmsTxtFetch = r.status >= 400 && r.status < 500 ? "absent" : "unreachable";
+      const outcome = outcomeForStatus(r.status);
+      llmsTxtFetch = outcome.state === "absent" ? "absent" : "unreachable";
+      if (outcome.state === "unchecked") llmsTxtFetchReason = outcome.reason;
     }
-  } catch {
-    /* no answer: stays "unreachable" */
+  } catch (err) {
+    const outcome = outcomeForError(err);
+    if (outcome.state === "unchecked") llmsTxtFetchReason = outcome.reason;
   }
+  let llmsFullFetch: "found" | "absent" | "unreachable" = "unreachable";
+  let llmsFullFetchReason: string | null = null;
   try {
     const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) {
       const body = await r.text();
       if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsFullContent = body;
+      llmsFullFetch = llmsFullContent ? "found" : "absent";
+    } else {
+      const outcome = outcomeForStatus(r.status);
+      llmsFullFetch = outcome.state === "absent" ? "absent" : "unreachable";
+      if (outcome.state === "unchecked") llmsFullFetchReason = outcome.reason;
     }
-  } catch {
-    /* not found */
+  } catch (err) {
+    const outcome = outcomeForError(err);
+    if (outcome.state === "unchecked") llmsFullFetchReason = outcome.reason;
   }
+  // The depth score counts the companion file only when there's an llms.txt to score; then a companion that
+  // couldn't be checked leaves the score unmeasured, never 3 points short.
+  const llmsScoreUnchecked =
+    llmsTxtFetch === "unreachable" || (llmsTxtFetch === "found" && llmsFullFetch === "unreachable");
   const llmsTxt = scoreLlmsTxtDepth(llmsTxtContent, llmsFullContent);
 
   // Schema. The score reads every block found (unchanged); the stored list is the distinct blocks, each with
@@ -244,6 +264,9 @@ export async function orchestrateTechnicalAudit(
     robots: robots.findings,
     llmsTxt: {
       fetchStatus: llmsTxtFetch,
+      ...(llmsTxtFetchReason ? { fetchReason: llmsTxtFetchReason } : {}),
+      fullFetchStatus: llmsFullFetch,
+      ...(llmsFullFetchReason ? { fullFetchReason: llmsFullFetchReason } : {}),
       present: !!llmsTxtContent,
       url: llmsTxtContent ? `https://${domain}/llms.txt` : null,
       depthScore: llmsTxt.score,
@@ -297,7 +320,9 @@ export async function orchestrateTechnicalAudit(
     ? [...SITE_DEPENDENT_DIMENSIONS]
     : [
         ...(robots.readable ? [] : (["scoreRobots"] as const)),
-        ...(llmsTxtFetch === "unreachable" ? (["scoreLlmsTxt"] as const) : []),
+        ...(llmsScoreUnchecked ? (["scoreLlmsTxt"] as const) : []),
+        // Leftovers task, part 3: an AI-discovery file that couldn't be checked leaves that score unmeasured.
+        ...(aiDiscovery.measured ? [] : (["scoreAiDiscovery"] as const)),
       ];
 
   return { dimensions, scoreComposite, findings, siteReached, unmeasured };

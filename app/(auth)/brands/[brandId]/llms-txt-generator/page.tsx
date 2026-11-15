@@ -14,6 +14,7 @@ import { type CrawlFindings, crawlReach } from "@/lib/technical-audit/crawl-stat
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
+import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 
 interface LlmsTxtComponents {
   present: boolean;
@@ -27,6 +28,9 @@ interface LlmsTxtComponents {
 interface LlmsTxtFindings {
   /** The llms.txt request's answer (17 Nov): "unreachable" is a timeout or a 5xx. Absent on older audits. */
   fetchStatus?: "found" | "absent" | "unreachable";
+  /** Leftovers task, part 3: llms-full.txt's own answer, and why it couldn't be checked. Absent on older audits. */
+  fullFetchStatus?: "found" | "absent" | "unreachable";
+  fullFetchReason?: string;
   present: boolean;
   url: string | null;
   depthScore: number;
@@ -42,10 +46,14 @@ interface LlmsTxtFindings {
 
 interface AiDiscoveryFindings {
   score: number;
-  aiTxtPresent: boolean;
-  aiSummaryPresent: boolean;
-  aiFaqPresent: boolean;
-  aiServicePresent: boolean;
+  aiTxtPresent: boolean | null;
+  aiSummaryPresent: boolean | null;
+  aiFaqPresent: boolean | null;
+  aiServicePresent: boolean | null;
+  /** Leftovers task, part 3: why a file couldn't be checked (lib/ai-discovery/endpoints.ts). */
+  notChecked?: Partial<
+    Record<"aiTxtPresent" | "aiSummaryPresent" | "aiFaqPresent" | "aiServicePresent", string>
+  >;
 }
 
 const DEPTH_TIERS: Array<{ min: number; label: string; tone: "danger" | "warning" | "success" }> = [
@@ -65,8 +73,10 @@ function getDepthTier(score: number) {
 
 export interface LlmsTxtChecklistRow {
   label: string;
-  pass: boolean;
+  /** null: couldn't check (leftovers task, part 3: the llms-full.txt request failed), with why in `note`. */
+  pass: boolean | null;
   pts: number;
+  note?: string;
 }
 
 /**
@@ -79,6 +89,8 @@ export interface LlmsTxtChecklistRow {
  */
 export function buildLlmsTxtChecklist(
   components: LlmsTxtComponents | undefined,
+  /** Why llms-full.txt couldn't be checked, when its request failed. */
+  fullUnchecked?: string | null,
 ): LlmsTxtChecklistRow[] | null {
   if (!components) return null;
   return [
@@ -87,7 +99,9 @@ export function buildLlmsTxtChecklist(
     { label: "Sections (## headings)", pass: components.sections, pts: 3 },
     { label: "Links to canonical pages", pass: components.links, pts: 3 },
     { label: "Content depth (≥1500 chars)", pass: components.depth, pts: 3 },
-    { label: "llms-full.txt companion", pass: components.fullTxt, pts: 3 },
+    fullUnchecked
+      ? { label: "llms-full.txt companion", pass: null, pts: 3, note: couldntCheck(fullUnchecked) }
+      : { label: "llms-full.txt companion", pass: components.fullTxt, pts: 3 },
   ];
 }
 
@@ -115,20 +129,39 @@ export function buildDiscoveryChecks(
       ? { label: "Sitemap.xml present", state: "yes", text: "Yes · bonus" }
       : sitemap.status === "absent"
         ? { label: "Sitemap.xml present", state: "no", text: "Not found" }
-        : { label: "Sitemap.xml present", state: "unchecked", text: "Couldn't check" };
-  const aiRow = (label: string, found: boolean | undefined): DiscoveryCheckRow =>
-    typeof found !== "boolean"
-      ? { label, state: "unchecked", text: unchecked }
-      : found
-        ? { label, state: "yes", text: "Yes · bonus" }
-        : { label, state: "no", text: "Not found" };
+        : {
+            label: "Sitemap.xml present",
+            state: "unchecked",
+            text: sitemap.reason ? couldntCheck(sitemap.reason) : "Couldn't check",
+          };
+  // Leftovers task, part 3: a file whose request failed says "Couldn't check (why)" -- it was "Not found".
+  const aiRow = (
+    label: string,
+    found: boolean | null | undefined,
+    failure?: string,
+  ): DiscoveryCheckRow =>
+    failure
+      ? { label, state: "unchecked", text: couldntCheck(failure) }
+      : typeof found !== "boolean"
+        ? { label, state: "unchecked", text: unchecked }
+        : found
+          ? { label, state: "yes", text: "Yes · bonus" }
+          : { label, state: "no", text: "Not found" };
   return [
     sitemapRow,
     // Task FFF: label sourced from AI_TXT_PATHS, the same list the detector checks (either location) -- a
     // static ".well-known/ai.txt" label would mislabel a root /ai.txt file as "not found".
-    aiRow(AI_TXT_PATHS.join(" or "), aiDiscovery?.aiTxtPresent),
-    aiRow("/ai/summary.json", aiDiscovery?.aiSummaryPresent),
-    aiRow("/ai/faq.json", aiDiscovery?.aiFaqPresent),
+    aiRow(
+      AI_TXT_PATHS.join(" or "),
+      aiDiscovery?.aiTxtPresent,
+      aiDiscovery?.notChecked?.aiTxtPresent,
+    ),
+    aiRow(
+      "/ai/summary.json",
+      aiDiscovery?.aiSummaryPresent,
+      aiDiscovery?.notChecked?.aiSummaryPresent,
+    ),
+    aiRow("/ai/faq.json", aiDiscovery?.aiFaqPresent, aiDiscovery?.notChecked?.aiFaqPresent),
   ];
 }
 
@@ -204,6 +237,13 @@ export default async function LlmsTxtGeneratorPage({
   const reach = crawlReach(techAudit.findings);
   const siteUnreached = reach.kind === "unreached";
   const llmsUnchecked = siteUnreached || findings?.fetchStatus === "unreachable";
+  // Leftovers task, part 3: llms.txt was read but its companion couldn't be checked -- the score waits on it.
+  const fullUnchecked =
+    !llmsUnchecked &&
+    findings?.fetchStatus === "found" &&
+    findings?.fullFetchStatus === "unreachable"
+      ? (findings.fullFetchReason ?? "no answer")
+      : null;
   const crawledOn = techAudit.crawledAt
     ? new Date(techAudit.crawledAt).toLocaleDateString("en-AU", {
         timeZone: getOrgTimezone(currentUser.organizationId),
@@ -211,13 +251,15 @@ export default async function LlmsTxtGeneratorPage({
     : null;
   // 9 Nov (part 9): a missing depth score is "Not measured yet" -- no number and no "Not started" tier
   // badge (lib/scoring/measured.ts).
-  const scoreM = measured(llmsUnchecked ? null : techAudit.scoreLlmsTxt);
+  const scoreM = measured(llmsUnchecked || fullUnchecked ? null : techAudit.scoreLlmsTxt);
   const score = scoreM.measured ? scoreM.value : null;
   const tier = score === null ? null : getDepthTier(score);
   const toneColors = tier === null ? null : TONE_COLORS[tier.tone];
-  const notScoredText = llmsUnchecked ? "Couldn't check" : NOT_MEASURED;
+  const notScoredText = llmsUnchecked || fullUnchecked ? "Couldn't check" : NOT_MEASURED;
 
-  const components = llmsUnchecked ? null : buildLlmsTxtChecklist(findings?.components);
+  const components = llmsUnchecked
+    ? null
+    : buildLlmsTxtChecklist(findings?.components, fullUnchecked);
 
   const discoveryChecks = buildDiscoveryChecks(
     siteUnreached ? undefined : crawl?.sitemap,
@@ -366,7 +408,7 @@ export default async function LlmsTxtGeneratorPage({
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {components ? (
               components.map((c) => {
-                const failing = !c.pass;
+                const failing = c.pass === false;
                 const scoreVal = c.pass ? c.pts : 0;
                 return (
                   <div
@@ -386,7 +428,11 @@ export default async function LlmsTxtGeneratorPage({
                         color: failing ? "var(--danger)" : "var(--success)",
                       }}
                     >
-                      {failing ? `No · ${scoreVal}/${c.pts}` : `Yes · ${scoreVal}/${c.pts}`}
+                      {c.pass === null
+                        ? c.note
+                        : failing
+                          ? `No · ${scoreVal}/${c.pts}`
+                          : `Yes · ${scoreVal}/${c.pts}`}
                     </span>
                   </div>
                 );

@@ -170,7 +170,9 @@ describe("decision 1: the scoring line on every plan", () => {
 });
 
 describe("methodology v2.2, part 5: Sentiment and Context are never described as measured", () => {
-  it("What we measure marks them Coming soon, and only them", async () => {
+  // Leftovers task, part 3 (17 Nov): the marketing site claims only what exists -- no "Coming soon" tiles for
+  // Sentiment and Context (no classifier), and no "coming soon" on About.
+  it("What we measure shows only what's measured: Frequency, Position, Source citation", async () => {
     const html = renderToStaticMarkup(
       createElement((await import("@/components/domain/landing/dimensions")).WhatsMeasured),
     );
@@ -179,23 +181,18 @@ describe("methodology v2.2, part 5: Sentiment and Context are never described as
       start[1],
       text(html.slice(start.index, starts[i + 1]?.index ?? html.length)),
     ]);
-    expect(cards.map((c) => c[0])).toEqual([
-      "Frequency",
-      "Position",
-      "Source citation",
-      "Sentiment",
-      "Context",
-    ]);
+    expect(cards.map((c) => c[0])).toEqual(["Frequency", "Position", "Source citation"]);
     for (const [name, card] of cards) {
-      expect(card.includes("Coming soon"), name).toBe(name === "Sentiment" || name === "Context");
+      expect(card, name).not.toMatch(/coming soon|will show/i);
     }
   });
 
   it("no public page claims them measured; About says what's measured", async () => {
     const pages = await publicPages();
     expect(pages["/about"]).toContain(
-      "measuring how often the answers name you, where they place you, and which sources they cite. Sentiment and context are coming soon.",
+      "measuring how often the answers name you, where they place you, and which sources they cite. Then we give you specific recommendations to improve.",
     );
+    expect(pages["/about"]).not.toMatch(/coming soon/i);
     for (const [path, page] of Object.entries(pages)) {
       expect(page, path).not.toMatch(/measuring[^.]*(sentiment|context)/i);
       expect(page, path).not.toMatch(/in what context/i);

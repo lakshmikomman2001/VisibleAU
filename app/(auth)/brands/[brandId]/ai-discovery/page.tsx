@@ -15,6 +15,7 @@ import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
+import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
 // do not re-hardcode a second copy here, that's how this page's weights
@@ -132,7 +133,14 @@ export default async function AiDiscoveryPage({
   // 9 Nov (part 9): a missing sub-score is "Not measured yet", never 0/6 (lib/scoring/measured.ts).
   const scoreM = measured(unreached ? null : techAudit.scoreAiDiscovery);
   const score = scoreM.measured ? scoreM.value : null;
-  const notScoredText = unreached ? "Not checked" : NOT_MEASURED;
+  // Leftovers task, part 3: a file whose request failed is "Couldn't check (why)", and the score with it.
+  const notCheckedFiles = findings?.notChecked ?? {};
+  const someNotChecked = Object.keys(notCheckedFiles).length > 0;
+  const notScoredText = unreached
+    ? "Not checked"
+    : someNotChecked
+      ? "Couldn't check"
+      : NOT_MEASURED;
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 24px" }}>
@@ -226,6 +234,7 @@ export default async function AiDiscoveryPage({
           const stored = findings?.[ep.key];
           const checked = typeof stored === "boolean";
           const present = stored === true;
+          const failure = notCheckedFiles[ep.key];
           return (
             <div
               key={ep.key}
@@ -284,7 +293,9 @@ export default async function AiDiscoveryPage({
                   {present ? ep.weight : 0}/{ep.weight}
                 </span>
               ) : (
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Not checked</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                  {failure ? couldntCheck(failure) : "Not checked"}
+                </span>
               )}
             </div>
           );

@@ -116,14 +116,7 @@ function cdnRow(verdict: string, vendor = "Bot", blocked = false, active = true)
 describe("Step 1 — CDN-join verdict mapping", () => {
   function renderWithCdn(rows: ReturnType<typeof cdnRow>[]) {
     stubFetch({ cdnJoin: { results: rows } });
-    return render(
-      <AgentAnalyticsSection
-        overview={OVERVIEW}
-        ratioData={null}
-        ratioLocked={false}
-        brandId="t"
-      />,
-    );
+    return render(<AgentAnalyticsSection overview={OVERVIEW} brandId="t" />);
   }
 
   it("healthy → 'Reaches your site' in var(--success)", async () => {
@@ -191,8 +184,6 @@ describe("Step 2 — Verification 3-state (AA-05)", () => {
         verified={v}
         unverified={u}
         spoofed={s}
-        ratioData={null}
-        ratioLocked={false}
       />,
     );
   }
@@ -336,10 +327,9 @@ describe("Step 3 — Empty state as finding (§7.2)", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("Step 4 — MANDATORY caveats (AA-13, AA-14)", () => {
-  const CAVEAT =
-    "Referral attribution is structurally incomplete. Treat this as a floor, not a verdict.";
-
-  it("AA-13: ratio caveat renders ON the card when ratioData present", () => {
+  // Leftovers task, part 3 (17 Nov): no crawl-to-referral ratio on the card (nothing measures referrals), so no
+  // AA-13 caveat there either.
+  it("AA-13: the card shows no crawl-to-referral ratio", () => {
     const { container } = render(
       <AgentAnalyticsCrawlerCard
         retrievalHits={50}
@@ -349,24 +339,9 @@ describe("Step 4 — MANDATORY caveats (AA-13, AA-14)", () => {
         verified={90}
         unverified={5}
         spoofed={5}
-        ratioData={{
-          results: [
-            {
-              vendor: "OpenAI",
-              verifiedCrawls: 100,
-              referralSessions: 10,
-              ratio: 10,
-              ratioLabel: "10:1",
-              benchmark: 8,
-            },
-          ],
-          caveat: CAVEAT,
-        }}
-        ratioLocked={false}
       />,
     );
-    expect(container.textContent).toContain("structurally incomplete");
-    expect(container.textContent).toContain("floor, not a verdict");
+    expect(container.textContent).not.toMatch(/Crawl-to-Referral|referral ratio|visitors sent/i);
   });
 
   it("AA-14: correlation caveat renders on coverage panel", async () => {

@@ -225,11 +225,6 @@ const PLAN_REFUSING_ROUTES: RouteCase[] = [
     load: () => import("@/app/api/brands/[brandId]/agent-analytics/overview/route"),
   },
   {
-    file: `${b}/agent-analytics/ratio/route.ts`,
-    methods: ["GET"],
-    load: () => import("@/app/api/brands/[brandId]/agent-analytics/ratio/route"),
-  },
-  {
     file: `${b}/agent-analytics/referrals/route.ts`,
     methods: ["POST"],
     load: () => import("@/app/api/brands/[brandId]/agent-analytics/referrals/route"),

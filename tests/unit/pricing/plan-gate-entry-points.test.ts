@@ -159,7 +159,8 @@ const BRAND_ENTRIES = BRAND_ROUTES.map(
 
 describe("each brand-feature route is called only from files that lock first", () => {
   it("there are brand-feature routes, and the URL finder finds a known caller", () => {
-    expect(BRAND_ROUTES.length).toBeGreaterThanOrEqual(40);
+    // Leftovers task, part 3: 39 -- the crawl-to-referral ratio's route is gone.
+    expect(BRAND_ROUTES.length).toBeGreaterThanOrEqual(39);
     expect(callersOf("app/api/brands/[brandId]/consensus-score/route.ts")).toEqual([
       "app/(auth)/brands/[brandId]/trust/consensus/page.tsx",
     ]);

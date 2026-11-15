@@ -502,8 +502,8 @@ export function AuditReport({
                 which were never backed by real tone/framing analysis
                 (see lib/scoring/dimension-result.ts). */}
             <Text style={s.methodText}>
-              Sentiment (tone of mentions) and Context (recommended vs. listed) are planned but not
-              yet measured, so they're shown as "Not yet measured" above.
+              Sentiment (tone of mentions) and Context (recommended vs. listed) aren't measured: no
+              tone or framing classifier exists, so they're shown as "Not yet measured" above.
             </Text>
             <Text style={s.methodText}>
               Scores include a 95% Wilson confidence interval accounting for sample size and

@@ -8,7 +8,6 @@ export type {
   CoverageGapResult,
   FiveXxResult,
   IngestSourceSummary,
-  RatioResult,
   RobotsViolation,
   TopPage,
   VerificationRate,
@@ -19,7 +18,6 @@ export {
   countCrawlerVisits,
   get5xxForBots,
   getCoverageGap,
-  getCrawlToReferralRatio,
   getIngestSources,
   getRobotsViolations,
   getTopPagesByPurpose,
@@ -42,7 +40,6 @@ export {
   emit5xxTasks,
   emitCdnJoinTasks,
   emitCoverageGapTasks,
-  emitImpersonationTasks,
 } from "./task-emitter";
 export type { VerificationResult, VerificationStatus, VerifiedVia } from "./verify-crawler-hits";
 export { batchVerify, clearVerificationCache, verifyCrawlerHit } from "./verify-crawler-hits";

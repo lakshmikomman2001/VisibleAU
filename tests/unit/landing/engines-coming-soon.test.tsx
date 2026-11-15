@@ -10,11 +10,11 @@ import { EnginesSupported } from "@/components/domain/landing/engines-supported"
 const html = () => renderToStaticMarkup(<EnginesSupported />).replace(/<!-- -->/g, "");
 
 describe("the landing page's engines", () => {
-  it("names Google only as coming soon, with no date", () => {
-    const comingSoon = html().match(/data-engines-coming-soon="">([^<]*)</)?.[1] ?? "";
-    expect(comingSoon).toBe(
-      "Coming soon: Microsoft Copilot, Google AI Overviews and Google AI Mode",
-    );
+  // Leftovers task, part 3 (17 Nov): nothing promised -- the "Coming soon: Microsoft Copilot, Google AI Overviews and
+  // Google AI Mode" line is gone (nothing audits Copilot; Google runs only for workspaces Sri switches on).
+  it("promises nothing: no 'coming soon', no Copilot, no Google, no date", () => {
+    expect(html()).not.toMatch(/coming soon/i);
+    expect(html()).not.toMatch(/Copilot|Google AI/);
     expect(html()).not.toMatch(/\bQ[1-4]\s+20\d\d\b/);
     expect(html()).not.toMatch(/\b20\d\d\b/);
   });

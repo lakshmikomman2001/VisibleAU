@@ -41,7 +41,8 @@ describe("every API route answers the brand check through it", () => {
 
   it("every route that checks brand access maps the refusal with brandAccessErrorResponse", () => {
     const checking = routes().filter((f) => /\bassertBrandAccess\(/.test(sourceText(f)));
-    expect(checking.length).toBeGreaterThanOrEqual(60);
+    // Leftovers task, part 3: 59 -- the crawl-to-referral ratio's route is gone.
+    expect(checking.length).toBeGreaterThanOrEqual(59);
     expect(checking.filter((f) => !sourceText(f).includes("brandAccessErrorResponse(e)"))).toEqual(
       [],
     );

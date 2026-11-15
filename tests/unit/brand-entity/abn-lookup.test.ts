@@ -44,13 +44,15 @@ describe("lookupAbn — bypass modes", () => {
     consoleSpy.mockRestore();
   });
 
-  it("unset bypass with no GUID returns empty (real path attempted)", async () => {
+  // Leftovers task, part 3 (17 Nov): with no GUID the lookup never runs -- "check_skipped" (not checked), never a
+  // status-less "not verified" that agent readiness read as "ABN not yet verified".
+  it("unset bypass with no GUID: not checked (check_skipped)", async () => {
     vi.stubEnv("ABN_LOOKUP_BYPASS", "");
     vi.stubEnv("ABN_LOOKUP_GUID", "");
 
     const result = await lookupAbn("58110395714");
 
     expect(result.abnVerified).toBe(false);
-    expect(result.abnStatus).toBeNull();
+    expect(result.abnStatus).toBe("check_skipped");
   });
 });

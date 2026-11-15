@@ -76,7 +76,7 @@ it until it ships.
 | `hallucination.acknowledged` | A user acknowledges a hallucination incident | `organizationId`, `brandId`, `hallucinationId` |
 | `visibility.trend.updated` | The weekly visibility-trend aggregate recomputes | `brandId`, `organizationId`, `periodLabel` |
 | `agent.readiness.scored` | An agent-readiness scan completes | `brandId`, `organizationId`, `totalScore` |
-| `crawler.impersonation-detected` | A verified-crawler check finds a spoofed hit | `organizationId`, `brandId`, `crawlerName`, `spoofedCount`, `totalCount` |
+| `crawler.impersonation-detected` | More than 25% of a crawler's hits in the last hour (at least 10) failed verification (spoofed); unverified hits don't count | `organizationId`, `brandId`, `crawlerName`, `spoofedCount`, `totalCount` |
 
 `audit.score.dropped` and `audit.score.changed` are **reserved event
 names** (`lib/webhooks/events.ts`'s `VALID_EVENTS`, usable as a value

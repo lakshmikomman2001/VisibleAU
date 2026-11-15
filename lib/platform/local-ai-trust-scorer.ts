@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brandEntityScores, citationSourceIntelligence } from "@/db/schema";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { abnWasChecked } from "@/lib/brand-entity/score";
 
 export interface LocalAiTrustResult {
   localAiTrustScore: number | null;
@@ -97,9 +98,12 @@ export async function computeLocalAiTrustScore(
   const parts: Record<LocalTrustPart, ReturnType<typeof measured>> = {
     gmb: measured(lsr.gmb_completeness),
     directory: { measured: false },
-    abn: entity
-      ? { measured: true, value: entity.abnVerified === true ? 100 : 0 }
-      : { measured: false },
+    // Leftovers task, part 3: only an ABN that was looked up (lib/brand-entity/score.ts abnWasChecked) -- a skipped
+    // or failed lookup was a measured 0.
+    abn:
+      entity && abnWasChecked(entity)
+        ? { measured: true, value: entity.abnVerified === true ? 100 : 0 }
+        : { measured: false },
     nap: measured(lsr.nap_consistency),
     citation:
       totalAuDir > 0

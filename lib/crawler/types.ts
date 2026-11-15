@@ -31,16 +31,22 @@ export interface CrawlSitemapOutcome {
   url: string;
   status: "found" | "absent" | "unreachable";
   httpStatus: number | null;
+  /** Leftovers task, part 3: why it couldn't be checked ("timed out", "blocked, HTTP 403"), when unreachable. */
+  reason?: string;
 }
 
 /**
- * The robots.txt request's own answer (17 Nov, part 3; RFC 9309, as fetchRobotsTxt reads it): "found", "absent"
- * for a 4xx (no file: nothing is restricted), "unreachable" for a 5xx or no answer (nothing can be said).
- * `robotsTxt` null alone can't tell the last two apart.
+ * The robots.txt request's own answer (17 Nov, part 3): "found", "absent" for a 404 or 410 (no file: nothing is
+ * restricted), "unreachable" for anything else -- a 5xx, no answer, and (leftovers task, part 3) a 401/403 or 429:
+ * our checker being blocked or rate-limited says nothing about the file or about what an AI crawler gets (RFC 9309
+ * lets a crawler treat any 4xx as "no rules", but a block of OUR request isn't a reading of the site's rules).
+ * `robotsTxt` null alone can't tell these apart.
  */
 export interface CrawlRobotsOutcome {
   status: "found" | "absent" | "unreachable";
   httpStatus: number | null;
+  /** Why it couldn't be checked, when unreachable. */
+  reason?: string;
 }
 
 export interface CrawlResult {

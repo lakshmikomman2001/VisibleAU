@@ -87,14 +87,7 @@ const OVERVIEW = {
 describe("agent analytics: CDN Shield × Crawler Activity", () => {
   it("a failed fetch says so, instead of 'Loading CDN Shield analysis...' for good", async () => {
     stubFetch([["/api/brands/t/agent-analytics/cdn-join", 500, { error: "boom" }]]);
-    render(
-      <AgentAnalyticsSection
-        overview={OVERVIEW}
-        ratioData={null}
-        ratioLocked={false}
-        brandId="t"
-      />,
-    );
+    render(<AgentAnalyticsSection overview={OVERVIEW} brandId="t" />);
     expect(await screen.findByText(/Couldn't load the CDN Shield analysis/)).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByText(/Loading CDN Shield analysis/)).not.toBeInTheDocument(),

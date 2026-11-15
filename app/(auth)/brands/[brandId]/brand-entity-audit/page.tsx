@@ -121,7 +121,11 @@ export default async function BrandEntityAuditPage({
   const scoreM = measured(techAudit.scoreBrandEntity);
   const score = scoreM.measured ? scoreM.value : null;
 
-  const abnSkipped = findings?.abnStatus === "check_skipped";
+  // Leftovers task, part 3: a lookup that didn't complete ("check_failed") is not checked, like a skipped one --
+  // no "0 of 3 earned" -- and the score waits on it (the technical audit stores none).
+  const abnFailed = findings?.abnStatus === "check_failed";
+  const abnSkipped = findings?.abnStatus === "check_skipped" || abnFailed;
+  const entityScoreUnchecked = abnFailed || findings?.wikipediaAuStatus === "unavailable";
 
   // Task RRR: "No ABN verified" was ambiguous -- it hid three different
   // situations (never provided / provided but not Active / genuinely
@@ -132,7 +136,9 @@ export default async function BrandEntityAuditPage({
   let abnDetail: string;
   let abnSourceUrl: string | null = null;
   let abnSourceLabel: string | undefined;
-  if (abnSkipped) {
+  if (abnFailed) {
+    abnDetail = "Couldn't check the ABR on this audit: the lookup didn't complete";
+  } else if (abnSkipped) {
     abnDetail = "Check temporarily unavailable — verification pending";
   } else if (!abnOnFile) {
     abnDetail = "No ABN on file — add it in brand settings to verify against the ABR";
@@ -239,7 +245,11 @@ export default async function BrandEntityAuditPage({
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 4px" }}>
             AU-localised brand presence signals &middot; Score:{" "}
             {score === null ? (
-              NOT_MEASURED
+              entityScoreUnchecked ? (
+                "Couldn't check"
+              ) : (
+                NOT_MEASURED
+              )
             ) : (
               <>
                 {score}/{BRAND_ENTITY_MAX_SCORE}

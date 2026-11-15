@@ -53,8 +53,17 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
 
   if (!abn) return empty;
 
+  // Leftovers task, part 3 (17 Nov): no GUID is a lookup that never ran ("check_skipped", not checked), and a lookup
+  // that didn't complete -- an HTTP error, a timeout, no answer -- is "check_failed": neither is "not verified".
+  // Both read as unchecked everywhere (lib/brand-entity/score.ts abnWasChecked). They returned no status, which
+  // agent readiness read as "ABN not yet verified" and Local AI Trust as a measured 0.
+  const failed: AbnLookupResult = {
+    ...empty,
+    abnNumber: abn.replace(/\s/g, ""),
+    abnStatus: "check_failed",
+  };
   const guid = process.env.ABN_LOOKUP_GUID;
-  if (!guid) return empty;
+  if (!guid) return { ...empty, abnNumber: abn.replace(/\s/g, ""), abnStatus: "check_skipped" };
 
   const cleanAbn = abn.replace(/\s/g, "");
   if (!/^\d{11}$/.test(cleanAbn)) return empty;
@@ -68,7 +77,7 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
         await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
-      if (!res.ok) return empty;
+      if (!res.ok) return failed;
 
       const text = await res.text();
       const json = JSON.parse(text.replace(/^callback\(/, "").replace(/\)$/, ""));
@@ -82,9 +91,9 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
       };
     } catch {
       if (attempt === 0) continue;
-      return empty;
+      return failed;
     }
   }
 
-  return empty;
+  return failed;
 }

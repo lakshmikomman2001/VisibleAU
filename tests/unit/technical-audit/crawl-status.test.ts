@@ -129,11 +129,14 @@ describe("the writer: a crawl that reached nothing stores no site score", () => 
     expect(src).toMatch(
       /result\.unmeasured\.includes\(key\) \? null : result\.dimensions\[key\]\.toFixed\(2\)/,
     );
+    // Leftovers task, part 3: and none when the ABN or Wikipedia lookup didn't complete.
     expect(src).toMatch(
-      /scoreComposite: result\.unmeasured\.length === 0 \? result\.scoreComposite\.toFixed\(2\) : null/,
+      /result\.unmeasured\.length === 0 && !entityLookupFailed \? result\.scoreComposite\.toFixed\(2\) : null/,
     );
-    // Brand & Entity doesn't read the site: it keeps its score.
-    expect(src).toMatch(/scoreBrandEntity: result\.dimensions\.scoreBrandEntity\.toFixed\(2\)/);
+    // Brand & Entity doesn't read the site: it keeps its score -- unless one of its lookups didn't complete.
+    expect(src).toMatch(
+      /scoreBrandEntity: entityLookupFailed \? null : result\.dimensions\.scoreBrandEntity\.toFixed\(2\)/,
+    );
     // The Wikipedia lookup's own state is kept (Couldn't check vs not found).
     expect(src).toMatch(/wikipediaAuStatus: wikiStatus\.status/);
   });

@@ -73,9 +73,25 @@ export interface EntityFacts {
  * apart from the lookup being unavailable, so it's never the only basis. With none, there's no score: "Not
  * measured yet" (lib/scoring/measured.ts), never 0.
  */
+/**
+ * Leftovers task, part 3 (17 Nov): whether an ABN was actually looked up -- verified, or a status the register
+ * returned. Not when the lookup was skipped ("check_skipped": no GUID, or bypassed), didn't complete
+ * ("check_failed": an HTTP error or a timeout), or never ran (no status). The one rule every reader uses.
+ */
+export function abnWasChecked(row: {
+  abnVerified: boolean | null;
+  abnStatus: string | null;
+}): boolean {
+  return (
+    row.abnVerified === true ||
+    (row.abnStatus !== null &&
+      row.abnStatus !== "check_skipped" &&
+      row.abnStatus !== "check_failed")
+  );
+}
+
 export function entityScoreBasis(row: EntityFacts): { measured: boolean; basis: string } {
-  const abnChecked =
-    row.abnVerified || (row.abnStatus !== null && row.abnStatus !== "check_skipped");
+  const abnChecked = abnWasChecked(row);
   const measured = abnChecked || row.auTldPresent !== null || row.wikipediaAuPresent;
   const parts = [
     abnChecked ? (row.abnVerified ? "ABN verified" : "ABN not verified") : "ABN not checked",

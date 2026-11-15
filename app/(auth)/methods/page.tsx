@@ -110,9 +110,9 @@ export default async function MethodologyPage() {
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 8px" }}>
           Position (where in the answer you're mentioned) and Source citation (how often a mention
           links to a source) describe how you appear in the answers that DO mention you. They're
-          shown next to the score, but they never change the score itself. Sentiment and Context are
-          planned but not yet scored: no real tone/framing classifier exists yet, so both are marked
-          "Not yet measured" rather than shown as a number.
+          shown next to the score, but they never change the score itself. Sentiment and Context
+          aren&apos;t scored: no tone or framing classifier exists, so both are marked &quot;Not yet
+          measured&quot; rather than shown as a number.
         </p>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are

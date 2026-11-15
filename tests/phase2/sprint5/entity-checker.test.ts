@@ -54,15 +54,20 @@ describe("entity-checker — refreshEntityScore (mock mode)", () => {
     expect(result.wikidataEntryUrl).toBeNull();
     expect(result.localRegVerified).toBe(false);
     expect(result.localRegNumber).toBeNull();
-    expect(result.directoryUpdates).toEqual({
-      hipagesPresent: false,
-      hipagesRating: null,
-      yellowPagesPresent: false,
-      serviceSeekingPresent: false,
-      wordOfMouthPresent: false,
-      wordOfMouthRating: null,
-      localDirectoryCount: 0,
-    });
+    // Leftovers task, part 3 (17 Nov): no directory result -- the stub wrote "not on hipages, Yellow Pages,
+    // ServiceSeeking or Word of Mouth" and a count of 0 for every brand, checking nothing.
+    expect("directoryUpdates" in result).toBe(false);
+    for (const written of tx.writtenUpdates) {
+      for (const key of [
+        "hipagesPresent",
+        "yellowPagesPresent",
+        "serviceSeekingPresent",
+        "wordOfMouthPresent",
+        "localDirectoryCount",
+      ]) {
+        expect(written, key).not.toHaveProperty(key);
+      }
+    }
   });
 
   it("returns localRegVerified=true when ABN exists and is verified", async () => {

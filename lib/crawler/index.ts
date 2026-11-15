@@ -8,11 +8,15 @@ import type {
   CrawlRobotsOutcome,
   CrawlSitemapOutcome,
 } from "./types";
+import { outcomeForError, outcomeForStatus } from "./fetch-outcome";
 
 // "Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)" (lib/product.ts). The "+URL" is where a site owner
 // who sees this bot in their logs reads what it is and how to reach us: the About page says (9 Nov; it named
 // the old domain's /bot, which never existed). Renamed from VisibleAU-Audit-Bot on 10 Nov (Sri).
 export const DEFAULT_UA = CRAWLER_USER_AGENT;
+
+/** How long robots.txt and the sitemap get to answer (they had no limit; a page gets the crawl's own). */
+export const FILE_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_PAGES = 20;
 const DEFAULT_TIMEOUT = 15000;
 
@@ -94,27 +98,41 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   const errors: string[] = [];
 
   let robotsTxt: string | null = null;
+  // Leftovers task, part 3 (17 Nov): only a 404 or 410 is "no robots.txt" (lib/crawler/fetch-outcome.ts); a 403 or
+  // 429 was read as absent ("No robots.txt found -- AI crawler access is undeclared"). And a timeout: it had none.
   let robotsTxtFetch: CrawlRobotsOutcome = { status: "unreachable", httpStatus: null };
   try {
-    const r = await fetch(`${baseUrl}/robots.txt`, { headers: { "User-Agent": ua } });
+    const r = await fetch(`${baseUrl}/robots.txt`, {
+      headers: { "User-Agent": ua },
+      signal: AbortSignal.timeout(FILE_FETCH_TIMEOUT_MS),
+    });
     if (r.ok) {
       robotsTxt = await r.text();
       robotsTxtFetch = { status: "found", httpStatus: r.status };
     } else {
-      robotsTxtFetch = {
-        status: r.status >= 400 && r.status < 500 ? "absent" : "unreachable",
-        httpStatus: r.status,
-      };
+      const outcome = outcomeForStatus(r.status);
+      robotsTxtFetch =
+        outcome.state === "unchecked"
+          ? { status: "unreachable", httpStatus: r.status, reason: outcome.reason }
+          : { status: "absent", httpStatus: r.status };
     }
-  } catch {
-    /* no answer: stays "unreachable" */
+  } catch (err) {
+    const outcome = outcomeForError(err);
+    robotsTxtFetch = {
+      status: "unreachable",
+      httpStatus: null,
+      ...(outcome.state === "unchecked" ? { reason: outcome.reason } : {}),
+    };
   }
 
   let sitemapXml: string | null = null;
   const sitemapUrl = robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
   let sitemap: CrawlSitemapOutcome = { url: sitemapUrl, status: "unreachable", httpStatus: null };
   try {
-    const s = await fetch(sitemapUrl, { headers: { "User-Agent": ua } });
+    const s = await fetch(sitemapUrl, {
+      headers: { "User-Agent": ua },
+      signal: AbortSignal.timeout(FILE_FETCH_TIMEOUT_MS),
+    });
     if (s.ok) {
       sitemapXml = await s.text();
       sitemap = {
@@ -123,14 +141,21 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
         httpStatus: s.status,
       };
     } else {
-      sitemap = {
-        url: sitemapUrl,
-        status: s.status >= 400 && s.status < 500 ? "absent" : "unreachable",
-        httpStatus: s.status,
-      };
+      // Leftovers task, part 3: a 403 or 429 is couldn't check, not "Not found".
+      const outcome = outcomeForStatus(s.status);
+      sitemap =
+        outcome.state === "unchecked"
+          ? { url: sitemapUrl, status: "unreachable", httpStatus: s.status, reason: outcome.reason }
+          : { url: sitemapUrl, status: "absent", httpStatus: s.status };
     }
-  } catch {
-    /* no answer: sitemap stays "unreachable" */
+  } catch (err) {
+    const outcome = outcomeForError(err);
+    sitemap = {
+      url: sitemapUrl,
+      status: "unreachable",
+      httpStatus: null,
+      ...(outcome.state === "unchecked" ? { reason: outcome.reason } : {}),
+    };
   }
 
   let homepage: CrawlHomepageOutcome | undefined;
@@ -205,7 +230,10 @@ export async function fetchRobotsTxt(domain: string, timeoutMs = 5000): Promise<
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.ok) return { status: "found", text: await res.text() };
-    if (res.status >= 400 && res.status < 500) return { status: "absent", httpStatus: res.status };
+    // Leftovers task, part 3: only a 404 or 410 is "no robots.txt" -- a 403 or 429 read as absent made every
+    // crawler "allowed" on the CDN join and crawler-access checks.
+    if (outcomeForStatus(res.status).state === "absent")
+      return { status: "absent", httpStatus: res.status };
     return { status: "unreachable", httpStatus: res.status };
   } catch {
     return { status: "unreachable", httpStatus: null };

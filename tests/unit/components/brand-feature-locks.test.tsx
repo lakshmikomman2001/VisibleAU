@@ -399,13 +399,11 @@ describe("Trust's tiles", () => {
   });
 });
 
-describe("Agent analytics (Starter; its ratio, CDN check and page coverage Growth)", () => {
+// Leftovers task, part 3 (17 Nov): no crawl-to-referral ratio -- not sold, not shown, no route (nothing measures
+// referrals). Two Growth sections remain.
+describe("Agent analytics (Starter; its CDN check and page coverage Growth)", () => {
   const OVERVIEW = { overview: { volumeByVendor: [], volumeByPurpose: [], verificationRates: [] } };
-  const GROWTH_ROUTES = [
-    `${API}/agent-analytics/ratio`,
-    `${API}/agent-analytics/cdn-join`,
-    `${API}/agent-analytics/coverage`,
-  ];
+  const GROWTH_ROUTES = [`${API}/agent-analytics/cdn-join`, `${API}/agent-analytics/coverage`];
 
   async function analytics(tier: string) {
     stubFetch((url) =>
@@ -423,11 +421,11 @@ describe("Agent analytics (Starter; its ratio, CDN check and page coverage Growt
     expect(requested().filter((url) => url.includes("/agent-analytics/"))).toEqual([]);
   });
 
-  it("Starter: the overview, with the three Growth sections locked in place and never fetched", async () => {
+  it("Starter: the overview, with the two Growth sections locked in place and never fetched", async () => {
     await analytics("starter");
     await waitFor(() => expect(lockedCard("page_coverage")).not.toBeNull());
-    expect(lockedCard("crawl_referral_ratio")).not.toBeNull();
     expect(lockedCard("cdn_shield_check")).not.toBeNull();
+    expect(requested().some((url) => url.includes("/agent-analytics/ratio"))).toBe(false);
     expect(asked(`${API}/agent-analytics/overview`)).toHaveLength(1);
     for (const route of GROWTH_ROUTES) expect(asked(route), route).toEqual([]);
   });

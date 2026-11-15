@@ -149,12 +149,12 @@ describe("Step 1: Cross-org access → 404 (assertBrandAccess)", () => {
     expect(res.status).not.toBe(200);
   });
 
-  it("non-owner gets 404 on ratio", async () => {
+  it("non-owner gets 404 on page coverage", async () => {
     mockedGetCurrentUser.mockResolvedValue(makeOtherUser());
-    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/ratio/route");
+    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/coverage/route");
 
     const res = await GET(
-      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/ratio`),
+      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/coverage`),
       { params: Promise.resolve({ brandId: OWNER_BRAND_ID }) },
     );
     expect(res.status).toBe(404);
@@ -176,27 +176,29 @@ describe("Step 1: Cross-org access → 404 (assertBrandAccess)", () => {
 // STEP 2 — Tier gates → 403 (reads subscriptions.tier)
 // ═══════════════════════════════════════════════════════════════════
 
+// Leftovers task, part 3 (17 Nov): the gates are checked on page coverage (a Growth route) -- the crawl-to-referral
+// ratio route they used is gone (nothing measures referrals).
 describe("Step 2: Tier gates → 403 (assertTier reads subscriptions.tier)", () => {
-  it("growth-tier org gets 200 on ratio (Growth required)", async () => {
+  it("growth-tier org gets 200 on page coverage (Growth required)", async () => {
     mockedGetCurrentUser.mockResolvedValue(makeOwnerUser());
-    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/ratio/route");
+    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/coverage/route");
 
     const res = await GET(
-      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/ratio`),
+      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/coverage`),
       { params: Promise.resolve({ brandId: OWNER_BRAND_ID }) },
     );
     expect(res.status).toBe(200);
   });
 
-  it("starter-tier org gets 403 on ratio (Growth required)", async () => {
+  it("starter-tier org gets 403 on page coverage (Growth required)", async () => {
     // Downgrade owner org's subscription to starter
     await pgClient`UPDATE subscriptions SET tier = 'starter' WHERE organization_id = ${OWNER_ORG_ID}`;
 
     mockedGetCurrentUser.mockResolvedValue(makeOwnerUser());
-    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/ratio/route");
+    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/coverage/route");
 
     const res = await GET(
-      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/ratio`),
+      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/coverage`),
       { params: Promise.resolve({ brandId: OWNER_BRAND_ID }) },
     );
     expect(res.status).toBe(403);
@@ -250,10 +252,10 @@ describe("Step 2: Tier gates → 403 (assertTier reads subscriptions.tier)", () 
     expect(subRow.tier).toBe("growth");
 
     mockedGetCurrentUser.mockResolvedValue(makeOwnerUser());
-    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/ratio/route");
+    const { GET } = await import("@/app/api/brands/[brandId]/agent-analytics/coverage/route");
 
     const res = await GET(
-      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/ratio`),
+      new Request(`http://localhost/api/brands/${OWNER_BRAND_ID}/agent-analytics/coverage`),
       { params: Promise.resolve({ brandId: OWNER_BRAND_ID }) },
     );
     // If it wrongly reads organizations.tier='free', this would be 403
@@ -384,91 +386,15 @@ describe("Step 5: serviceDb.execute() result shape — array iteration works", (
 // STEP 6 — Impersonation task emission (full flow)
 // ═══════════════════════════════════════════════════════════════════
 
-describe("Step 6: emitImpersonationTasks fires when unverifiedRate > 25%", () => {
-  it("emits a task when > 25% unverified and ≥ 10 hits", async () => {
-    // Feed getVerificationRates a brand with >25% unverified (4 unverified out of 12 = 33%)
-    const now = new Date();
-    const recentTs = new Date(now.getTime() - 3600_000).toISOString();
-
-    // 8 verified + 4 unverified = 12 total, 33% unverified
-    const values = [];
-    for (let i = 0; i < 8; i++) {
-      values.push(
-        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/v${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`,
-      );
-    }
-    for (let i = 0; i < 4; i++) {
-      values.push(
-        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/u${i}', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.${i}.2', 'log_upload')`,
-      );
-    }
-    await pgClient.unsafe(`
-      INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, verification_status, visited_at, source_ip, ingest_source)
-      VALUES ${values.join(",")}
-    `);
-
-    const { getVerificationRates } = await import("@/lib/agent-analytics/metrics");
-    const { emitImpersonationTasks } = await import("@/lib/agent-analytics/task-emitter");
-
-    const periodStart = new Date(now.getTime() - 86400_000);
-    const rates = await getVerificationRates(OWNER_BRAND_ID, periodStart, now);
-
-    const openai = rates.find((r: any) => r.vendor === "openai");
-    expect(openai).toBeDefined();
-    expect(openai!.total).toBeGreaterThanOrEqual(10);
-    expect(openai!.unverifiedRate).toBeGreaterThan(25);
-
-    // Now emit tasks — this exercises createTask against the real DB
-    const emitted = await emitImpersonationTasks(
-      { organizationId: OWNER_ORG_ID, brandId: OWNER_BRAND_ID },
-      rates,
-    );
-
-    expect(emitted).toBeGreaterThan(0);
-
-    // Verify the task was actually written to the DB
-    const [task] = await pgClient`
-      SELECT id, title, recommendation_key FROM remediation_tasks
-      WHERE brand_id = ${OWNER_BRAND_ID}
-        AND recommendation_key = 'investigate_impersonation'
-    `;
-    expect(task).toBeDefined();
-    expect(task.title).toContain("unverified");
-    expect(task.recommendation_key).toBe("investigate_impersonation");
-  });
-
-  it("does NOT emit when unverifiedRate ≤ 25%", async () => {
-    const now = new Date();
-    const recentTs = new Date(now.getTime() - 3600_000).toISOString();
-
-    // 9 verified + 1 unverified = 10 total, 10% unverified (below threshold)
-    const values = [];
-    for (let i = 0; i < 9; i++) {
-      values.push(
-        `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok${i}', 'indexing', 'verified', '${recentTs}'::timestamptz, '40.88.${i}.1', 'log_upload')`,
-      );
-    }
-    values.push(
-      `('${OWNER_BRAND_ID}', '${OWNER_ORG_ID}', 'GPTBot', 'must_allow', 'https://s2-test.local/ok9', 'indexing', 'unverified', '${recentTs}'::timestamptz, '40.88.9.1', 'log_upload')`,
-    );
-
-    await pgClient.unsafe(`
-      INSERT INTO crawler_visit_logs (brand_id, organization_id, crawler_name, crawler_tier, visited_url, visit_purpose, verification_status, visited_at, source_ip, ingest_source)
-      VALUES ${values.join(",")}
-    `);
-
-    const { getVerificationRates } = await import("@/lib/agent-analytics/metrics");
-    const { emitImpersonationTasks } = await import("@/lib/agent-analytics/task-emitter");
-
-    const periodStart = new Date(now.getTime() - 86400_000);
-    const rates = await getVerificationRates(OWNER_BRAND_ID, periodStart, now);
-
-    const emitted = await emitImpersonationTasks(
-      { organizationId: OWNER_ORG_ID, brandId: OWNER_BRAND_ID },
-      rates,
-    );
-
-    expect(emitted).toBe(0);
+// Leftovers task, part 3 (17 Nov): no "possible impersonation" task. It was made when more than 25% of a crawler's
+// hits were unverified -- but "unverified" is what a hit is when nothing could check it, so the share says how
+// much was checkable, not that anyone impersonated a bot. The measured signal is a hit that FAILED verification
+// ("spoofed"), which raises the crawler.impersonation-detected webhook (tests/integration/section3).
+describe("Step 6: no impersonation task from unverified hits", () => {
+  it("the emitter and its task type are gone", async () => {
+    const emitter = await import("@/lib/agent-analytics/task-emitter");
+    expect("emitImpersonationTasks" in emitter).toBe(false);
+    expect(emitter.AA_TASK_TYPES as readonly string[]).not.toContain("investigate_impersonation");
   });
 });
 

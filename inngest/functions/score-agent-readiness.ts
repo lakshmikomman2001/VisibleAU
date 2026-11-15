@@ -26,6 +26,7 @@ import { LLMSTXT_DRAFT_GAP } from "@/lib/retrieval/agent-readiness-breakdown";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
 import { readinessRobots } from "@/lib/robots-txt/evaluate";
+import { abnWasChecked } from "@/lib/brand-entity/score";
 
 // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: robots.txt's own rules for GPTBot and ClaudeBot (RFC 9309,
 // lib/robots-txt/evaluate.ts). This read any "disallow: /" under them or * as a block -- "Disallow: /admin" too.
@@ -163,8 +164,10 @@ export const scoreAgentReadinessFn = inngest.createFunction(
             : !!crawlResult.sitemapXml,
         // Nothing measures page speed.
         pageLoadFast: null,
-        mcpEndpointPresent: mcp.mcpEndpointPresent,
-        mcpEndpointValid: mcp.mcpEndpointValid,
+        // Leftovers task, part 3: null when it couldn't be checked (lib/retrieval/mcp-checker.ts) or the site wasn't
+        // reached -- never "absent".
+        mcpEndpointPresent: siteReached ? mcp.mcpEndpointPresent : null,
+        mcpEndpointValid: siteReached ? mcp.mcpEndpointValid : null,
         mcpToolsCount: mcp.mcpToolsCount,
       };
     });
@@ -206,7 +209,9 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       const wikiStatus = wikipediaStatusFromFindings(tech?.findings);
 
       return {
-        abnConfirmed: !entity || entity.abnStatus === "check_skipped" ? null : entity.abnVerified,
+        // Leftovers task, part 3: only an ABN that was looked up (abnWasChecked); a skipped or failed lookup is
+        // unmeasured, never "ABN not yet verified".
+        abnConfirmed: entity && abnWasChecked(entity) ? entity.abnVerified : null,
         wikipediaAu:
           wikiStatus === "found"
             ? true
@@ -275,7 +280,7 @@ export const scoreAgentReadinessFn = inngest.createFunction(
       // in flight across a deploy reads the same shape).
       const robotsGap = readinessRobots(crawlResult.robotsTxt).gap;
       if (techSignals.robotsAllowsCrawlers === false && robotsGap) gaps.push(robotsGap);
-      if (!techSignals.mcpEndpointPresent)
+      if (techSignals.mcpEndpointPresent === false)
         gaps.push("No MCP endpoint found. Consider exposing an MCP manifest.");
       if (entitySignals.orgSchemaPresent === false)
         gaps.push("Missing Organisation JSON-LD on your Entity Home page.");

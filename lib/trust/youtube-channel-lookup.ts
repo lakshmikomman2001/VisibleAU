@@ -38,6 +38,11 @@ export interface YoutubeChannelMatch {
   subscriberCount: number | null;
   videoCount: number | null;
   lastUploadAt: string | null;
+  /**
+   * Leftovers task, part 3 (17 Nov): false when the uploads request failed (a timeout or an HTTP error) -- the latest
+   * upload is then unknown, never "no recent uploads". True when YouTube answered (a channel with no uploads too).
+   */
+  lastUploadChecked: boolean;
 }
 
 export interface YoutubeChannelCandidate {
@@ -326,11 +331,11 @@ async function getRecentVideoDescriptions(
   playlistId: string,
   apiKey: string,
   maxResults: number,
-): Promise<{ descriptions: string[]; lastUploadAt: string | null }> {
+): Promise<{ descriptions: string[]; lastUploadAt: string | null; uploadsChecked: boolean }> {
   try {
     const url = `${YOUTUBE_API_BASE}/playlistItems?part=snippet&maxResults=${maxResults}&playlistId=${encodeURIComponent(playlistId)}&key=${apiKey}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return { descriptions: [], lastUploadAt: null };
+    if (!res.ok) return { descriptions: [], lastUploadAt: null, uploadsChecked: false };
     const data = await res.json();
     const items = Array.isArray(data?.items) ? data.items : [];
     const descriptions = items
@@ -344,12 +349,13 @@ async function getRecentVideoDescriptions(
     return {
       descriptions,
       lastUploadAt: typeof firstPublishedAt === "string" ? firstPublishedAt : null,
+      uploadsChecked: true,
     };
   } catch {
     // Recency/domain signal from videos is best-effort -- a failure here
     // degrades gracefully rather than discarding an otherwise-viable
     // candidate (the channel description/customUrl are still checked).
-    return { descriptions: [], lastUploadAt: null };
+    return { descriptions: [], lastUploadAt: null, uploadsChecked: false };
   }
 }
 
@@ -371,7 +377,7 @@ export async function checkYoutubePresence(
 
     const videos = resolved.uploadsPlaylistId
       ? await getRecentVideoDescriptions(resolved.uploadsPlaylistId, apiKey, 1)
-      : { descriptions: [], lastUploadAt: null };
+      : { descriptions: [], lastUploadAt: null, uploadsChecked: true };
 
     return {
       status: "confirmed",
@@ -384,6 +390,7 @@ export async function checkYoutubePresence(
         subscriberCount: resolved.subscriberCount,
         videoCount: resolved.videoCount,
         lastUploadAt: videos.lastUploadAt,
+        lastUploadChecked: videos.uploadsChecked,
       },
     };
   }
@@ -405,7 +412,7 @@ export async function checkYoutubePresence(
 
   const videos = details.uploadsPlaylistId
     ? await getRecentVideoDescriptions(details.uploadsPlaylistId, apiKey, 5)
-    : { descriptions: [], lastUploadAt: null };
+    : { descriptions: [], lastUploadAt: null, uploadsChecked: true };
 
   const candidatePreview: YoutubeChannelCandidate = {
     channelId: best.channelId,
@@ -432,6 +439,7 @@ export async function checkYoutubePresence(
         ...candidatePreview,
         matchConfidence: best.nameSimilarity,
         lastUploadAt: videos.lastUploadAt,
+        lastUploadChecked: videos.uploadsChecked,
       },
     };
   }

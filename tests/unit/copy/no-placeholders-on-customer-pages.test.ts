@@ -8,16 +8,16 @@
  * promises "soon".
  *
  * Every page a signed-in customer or a client-portal viewer sees, and the components and lib copy they render.
- * The marketing site (app/(marketing), components/domain/landing) is public roadmap copy, outside this guard.
+ * Leftovers task, part 3 (17 Nov): and the marketing site (app/(marketing), components/domain/landing) -- it claims
+ * only what exists (Sri), so no "coming soon", "planned", "will show" or "soon" there either.
  * Comments are ignored; the text a page can show is what's checked.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const ROOTS = ["app/(auth)", "app/client-portal", "components", "lib"];
+const ROOTS = ["app/(auth)", "app/(marketing)", "app/client-portal", "components", "lib"];
 const SKIP = [
-  /^components[\\/]domain[\\/]landing[\\/]/,
   /^components[\\/]ui[\\/]/,
   // Operator-only pages and their copy.
   /^app[\\/]\(auth\)[\\/]admin[\\/]/,
@@ -25,7 +25,7 @@ const SKIP = [
 ];
 
 const PLACEHOLDER =
-  /coming soon|coming v\d|being rebuilt|will return( soon)?\b|not yet available|available (after|yet)|hasn't been built|will populate|will appear after|\bbeta\b|demo coming/i;
+  /coming soon|coming v\d|being rebuilt|will return( soon)?\b|not yet available|available (after|yet)|hasn't been built|will populate|will appear after|\bbeta\b|demo coming|\b(is|are) planned\b|planned but|will show|(?<!as )\bsoon\b/i;
 
 function files(dir: string): string[] {
   const out: string[] = [];

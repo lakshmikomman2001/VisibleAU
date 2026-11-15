@@ -12,9 +12,9 @@ export interface EntityCheckResult {
   knowledgePanelUrl: string | null;
   wikidataEntryPresent: boolean | null;
   wikidataEntryUrl: string | null;
-  localRegVerified: boolean;
+  /** null when the registry lookup didn't complete (leftovers task, part 3): the stored value is kept. */
+  localRegVerified: boolean | null;
   localRegNumber: string | null;
-  directoryUpdates: Record<string, boolean | number | null>;
 }
 
 export async function refreshEntityScore(
@@ -39,13 +39,14 @@ export async function refreshEntityScore(
   const current = existing[0];
   const abnAlreadyVerified = current?.abnVerified ?? false;
 
-  let localRegVerified = abnAlreadyVerified;
+  let localRegVerified: boolean | null = abnAlreadyVerified;
   let localRegNumber = current?.abnNumber ?? null;
 
   if (!abnAlreadyVerified) {
+    // Leftovers task, part 3 (17 Nov): a lookup that didn't complete changes nothing -- it wrote "not verified".
     const registryResult = await checkRegistry(marketCode, current?.abnNumber ?? null);
-    localRegVerified = registryResult.verified;
-    localRegNumber = registryResult.number;
+    localRegVerified = registryResult?.verified ?? null;
+    localRegNumber = registryResult?.number ?? localRegNumber;
   }
 
   // Trust Intelligence honesty pass follow-up: checkKnowledgePanel and
@@ -57,13 +58,13 @@ export async function refreshEntityScore(
     ? await checkKnowledgePanel(brandId)
     : null;
   const wdResult = TRUST_CHECK_IMPLEMENTED.wikidata ? await checkWikidata(brandId) : null;
-  const dirResult = await checkDirectories(brandId, marketCode);
+  // Leftovers task, part 3 (17 Nov): no directory check. It was a stub that wrote "not on hipages, Yellow Pages,
+  // ServiceSeeking or Word of Mouth" and a count of 0 for every brand, checking nothing.
 
   const updates: Record<string, unknown> = {
     organizationId,
     marketCode,
-    localRegVerified,
-    localRegNumber,
+    ...(localRegVerified === null ? {} : { localRegVerified, localRegNumber }),
     ...(kpResult
       ? {
           knowledgePanelPresent: kpResult.present,
@@ -72,7 +73,6 @@ export async function refreshEntityScore(
         }
       : {}),
     ...(wdResult ? { wikidataEntryPresent: wdResult.present, wikidataEntryUrl: wdResult.url } : {}),
-    ...dirResult,
     // 17 Nov, part 3: no checked_at. This re-checks nothing the Entity Score page shows (the ABN result here
     // goes to local_reg_*, the directory and Knowledge Panel/Wikidata checks are stubs); the ABN, .au and
     // Wikipedia facts were checked when the technical audit wrote the row, and checked_at says when.
@@ -90,14 +90,13 @@ export async function refreshEntityScore(
     wikidataEntryUrl: wdResult?.url ?? null,
     localRegVerified,
     localRegNumber,
-    directoryUpdates: dirResult,
   };
 }
 
 async function checkRegistry(
   marketCode: string,
   existingNumber: string | null,
-): Promise<{ verified: boolean; number: string | null }> {
+): Promise<{ verified: boolean; number: string | null } | null> {
   // Mock mode counts any stored ABN as verified without a lookup: local development only. isMockMode() throws
   // in production, so the check fails and stores nothing, and an ABN is never "verified" unless the ABR said so.
   if (isMockMode()) {
@@ -108,25 +107,26 @@ async function checkRegistry(
     try {
       const res = await fetch(
         `https://abr.business.gov.au/json/AbnDetails.aspx?abn=${existingNumber}&callback=cb`,
+        { signal: AbortSignal.timeout(10_000) },
       );
+      // Leftovers task, part 3: an HTTP error, a timeout or an answer that isn't the register's is "couldn't check"
+      // (null), never "not verified".
+      if (!res.ok) return null;
       const text = await res.text();
       const match = text.match(/cb\((.*)\)/);
-      if (match) {
-        const data = JSON.parse(match[1]);
-        return {
-          verified: data.Abn === existingNumber,
-          number: existingNumber,
-        };
-      }
+      if (!match) return null;
+      const data = JSON.parse(match[1]);
+      return { verified: data.Abn === existingNumber, number: existingNumber };
     } catch {
-      // Fall through
+      return null;
     }
   }
 
-  return { verified: false, number: existingNumber };
+  // No ABN to look up (or not an Australian market): nothing was checked; keep what's stored.
+  return null;
 }
 
-// The three checks below are stubs, the same in every mode (each had a mock branch identical to its other one).
+// The two checks below are stubs, the same in every mode (each had a mock branch identical to its other one).
 async function checkKnowledgePanel(
   _brandId: string,
 ): Promise<{ present: boolean; accurate: boolean | null; url: string | null }> {
@@ -135,19 +135,4 @@ async function checkKnowledgePanel(
 
 async function checkWikidata(_brandId: string): Promise<{ present: boolean; url: string | null }> {
   return { present: false, url: null };
-}
-
-async function checkDirectories(
-  _brandId: string,
-  _marketCode: string,
-): Promise<Record<string, boolean | number | null>> {
-  return {
-    hipagesPresent: false,
-    hipagesRating: null,
-    yellowPagesPresent: false,
-    serviceSeekingPresent: false,
-    wordOfMouthPresent: false,
-    wordOfMouthRating: null,
-    localDirectoryCount: 0,
-  };
 }

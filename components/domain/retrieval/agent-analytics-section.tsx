@@ -34,15 +34,6 @@ interface VerificationRate {
   spoofedRate: number;
 }
 
-interface RatioResult {
-  vendor: string;
-  verifiedCrawls: number;
-  referralSessions: number;
-  ratio: number | null;
-  ratioLabel: string;
-  benchmark: number | null;
-}
-
 interface OverviewShape {
   volumeByVendor: VolumeByVendor[];
   volumeByPurpose: VolumeByPurpose[];
@@ -53,13 +44,6 @@ interface OverviewShape {
 
 interface Props {
   overview: OverviewShape;
-  ratioData: {
-    results: RatioResult[];
-    caveat: string;
-    periodStart: string;
-    periodEnd: string;
-  } | null;
-  ratioLocked: boolean;
   brandId: string;
 }
 
@@ -86,7 +70,7 @@ const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
   not_testable: { label: "Can't be tested from outside", color: "var(--text-secondary)" },
 };
 
-export function AgentAnalyticsSection({ overview, ratioData, ratioLocked, brandId }: Props) {
+export function AgentAnalyticsSection({ overview, brandId }: Props) {
   const { locked: cdnLocked, planRefused } = useBrandFeatureGate("cdn_shield_check");
   // Playwright-run follow-ups (10 Nov), part 8: a failed fetch was dropped, so the section said "Loading CDN
   // Shield analysis..." for good. It says it failed, through the shared loader (useLoad, part 1 of the

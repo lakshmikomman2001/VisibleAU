@@ -8,15 +8,18 @@ export const AA_TASK_TYPES = [
   "fix_5xx_for_bots",
   "add_sitemap_for_ai",
   "thin_content_never_crawled",
-  "investigate_impersonation",
   "robots_violation_needs_edge_rule",
 ] as const;
 
 export type AaTaskType = (typeof AA_TASK_TYPES)[number];
 
-const AA13_CAVEAT =
-  "Note: referral attribution is structurally incomplete — many AI platforms send no referrer header. " +
-  "The referral side is a lower bound; the true ratio is better than shown.";
+// Leftovers task, part 3 (17 Nov): no "possible impersonation" task. It was raised when more than 25% of a crawler's
+// hits were unverified -- but "unverified" is what a hit is when there's no way to check it (no IP for a snippet
+// visit, no published range or reverse-DNS suffix for many crawlers), so the share says how much could be checked,
+// not that anyone pretended to be a bot. The measured signal is a hit that FAILED verification ("spoofed": a
+// reverse-DNS name or ASN that contradicts the crawler it claims to be): inngest/functions/verify-crawler-hits.ts's
+// "check-impersonation" step sends the crawler.impersonation-detected webhook when more than 25% of at least 10
+// hits in an hour are spoofed. Nothing called the emitter; no task of this type exists in any local database.
 
 interface TaskEmitContext {
   organizationId: string;
@@ -143,37 +146,6 @@ export async function emit5xxTasks(ctx: TaskEmitContext, results: FiveXxResult[]
           dimension: "retrieval",
           recommendationKey: "fix_5xx_for_bots",
           effort: "high",
-          qualityStatus: "sufficient",
-        },
-        serviceDb,
-      );
-      emitted++;
-    }
-  }
-
-  return emitted;
-}
-
-export async function emitImpersonationTasks(
-  ctx: TaskEmitContext,
-  rates: VerificationRate[],
-): Promise<number> {
-  let emitted = 0;
-
-  for (const r of rates) {
-    if (r.unverifiedRate > 25 && r.total >= 10) {
-      await createTask(
-        {
-          organizationId: ctx.organizationId,
-          brandId: ctx.brandId,
-          title: `${r.vendor}: ${r.unverifiedRate}% unverified — possible impersonation`,
-          description:
-            `${r.unverified} of ${r.total} hits claiming to be ${r.vendor} could not be verified. ` +
-            `An unverified rate above 25% suggests scraping activity impersonating AI bots. ` +
-            `${r.spoofed > 0 ? `${r.spoofed} hits were confirmed spoofed.` : ""}`,
-          dimension: "retrieval",
-          recommendationKey: "investigate_impersonation",
-          effort: "medium",
           qualityStatus: "sufficient",
         },
         serviceDb,

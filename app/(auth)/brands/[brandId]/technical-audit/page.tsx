@@ -167,6 +167,22 @@ export default async function TechnicalAuditPage({
     const part = all?.[section] as Record<string, unknown> | undefined;
     return part?.fetchStatus;
   };
+  // Leftovers task, part 3: llms.txt read but its llms-full.txt companion couldn't be checked; an AI-discovery
+  // file that couldn't be checked; the ABN or Wikipedia lookup that didn't complete. Each leaves its score
+  // unmeasured ("Couldn't check"), never a 0 for the part nobody could see.
+  const allFindings = (techAudit.findings ?? {}) as Record<
+    string,
+    Record<string, unknown> | undefined
+  >;
+  const llmsFullUnchecked =
+    allFindings.llmsTxt?.fetchStatus === "found" &&
+    allFindings.llmsTxt?.fullFetchStatus === "unreachable";
+  const aiDiscoveryUnchecked =
+    Object.keys((allFindings.aiDiscovery?.notChecked as Record<string, string> | undefined) ?? {})
+      .length > 0;
+  const entityLookupFailed =
+    allFindings.brandEntity?.abnStatus === "check_failed" ||
+    allFindings.brandEntity?.wikipediaAuStatus === "unavailable";
   const storedDim = (key: string): string | null => {
     if (unreached && isSiteDependentDimension(key)) return null;
     return (techAudit as Record<string, unknown>)[key] as string | null;
@@ -386,7 +402,10 @@ export default async function TechnicalAuditPage({
           // A check whose own request got no answer (robots.txt or llms.txt, from 17 Nov) has no score either.
           const requestFailed =
             (dim.key === "scoreRobots" && findingStatus("robots") === "unreachable") ||
-            (dim.key === "scoreLlmsTxt" && findingStatus("llmsTxt") === "unreachable");
+            (dim.key === "scoreLlmsTxt" &&
+              (findingStatus("llmsTxt") === "unreachable" || llmsFullUnchecked)) ||
+            (dim.key === "scoreAiDiscovery" && aiDiscoveryUnchecked) ||
+            (dim.key === "scoreBrandEntity" && entityLookupFailed);
           const notChecked = (unreached && isSiteDependentDimension(dim.key)) || requestFailed;
           const m = measured(storedDim(dim.key));
           const raw = m.measured ? m.value : null;

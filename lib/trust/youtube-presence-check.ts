@@ -134,6 +134,7 @@ export async function buildYoutubePresenceAuditRow(
     subscriberCount: channel.subscriberCount,
     videoCount: channel.videoCount,
     daysSinceLastUpload,
+    lastUploadChecked: channel.lastUploadChecked,
   });
 
   return {

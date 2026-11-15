@@ -10,7 +10,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AI_DISCOVERY_WEIGHTS, AI_TXT_PATHS, checkAiDiscovery } from "@/lib/ai-discovery/endpoints";
 
-function mockFetch(responder: (url: string) => { status: number; contentType?: string; body?: string }) {
+function mockFetch(
+  responder: (url: string) => { status: number; contentType?: string; body?: string },
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = String(input);
     const { status, contentType, body = "x".repeat(200) } = responder(url);
@@ -74,10 +76,14 @@ describe("⚠️ FFF — checkAiDiscovery: ai.txt accepts either standard locati
     expect(result.score).toBe(0);
   });
 
-  it("a thrown fetch error still resolves to false, not an unhandled rejection", async () => {
+  // Leftovers task, part 3 (17 Nov): a request that failed is "couldn't check" (null, with why), never a missing
+  // file -- it resolved to false, "✗ 0/3" and "Not found".
+  it("a thrown fetch error resolves to couldn't check (null, with why), not an unhandled rejection", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network error"));
     const result = await checkAiDiscovery("example.com.au");
     expect(result.score).toBe(0);
-    expect(result.findings.aiTxtPresent).toBe(false);
+    expect(result.measured).toBe(false);
+    expect(result.findings.aiTxtPresent).toBeNull();
+    expect(result.findings.notChecked?.aiTxtPresent).toBe("no answer");
   });
 });

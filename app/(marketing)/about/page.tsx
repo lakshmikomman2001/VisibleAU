@@ -23,8 +23,7 @@ export default function AboutPage() {
         <p>
           We audit your brand&apos;s visibility across ChatGPT, Claude, Gemini, and Perplexity —
           measuring how often the answers name you, where they place you, and which sources they
-          cite. Sentiment and context are coming soon. Then we give you specific recommendations to
-          improve.
+          cite. Then we give you specific recommendations to improve.
         </p>
         {/* Playwright-run follow-ups (10 Nov), part 7: the bot's user agent points here, so a site owner who sees it
             in their logs reads what it is. What it fetches is lib/crawler/index.ts's crawlSite (and fetchRobotsTxt,
@@ -36,13 +35,15 @@ export default function AboutPage() {
         </h2>
         <p>
           For each customer&apos;s website, {PRODUCT_NAME} reads its public pages: its robots.txt,
-          its sitemap and up to 20 pages. Every request identifies itself as{" "}
-          <code>{CRAWLER_USER_AGENT}</code>; we never send another company&apos;s crawler name. To
-          say whether an AI crawler such as GPTBot may read a site, we read the rules its robots.txt
-          sets for that crawler. Whether a CDN or firewall lets an AI crawler through can&apos;t be
-          tested from outside without pretending to be it, so we don&apos;t: a site&apos;s own
-          server logs, uploaded to {PRODUCT_NAME}, show the crawler&apos;s real, verified visits. If
-          you see our checker in your logs and didn&apos;t expect it, email{" "}
+          its sitemap, up to 20 pages, and the files written for AI tools if it has them (llms.txt,
+          llms-full.txt, ai.txt, the /ai/ summary, FAQ and service files, and an MCP manifest).
+          Every request identifies itself as <code>{CRAWLER_USER_AGENT}</code>; we never send
+          another company&apos;s crawler name. To say whether an AI crawler such as GPTBot may read
+          a site, we read the rules its robots.txt sets for that crawler. Whether a CDN or firewall
+          lets an AI crawler through can&apos;t be tested from outside without pretending to be it,
+          so we don&apos;t: a site&apos;s own server logs, uploaded to {PRODUCT_NAME}, show the
+          crawler&apos;s real, verified visits. If you see our checker in your logs and didn&apos;t
+          expect it, email{" "}
           <a href={`mailto:${CONTACT_EMAIL}`} className="underline text-primary">
             {CONTACT_EMAIL}
           </a>

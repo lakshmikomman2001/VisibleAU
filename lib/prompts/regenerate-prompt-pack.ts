@@ -5,6 +5,7 @@ import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import type { BrandClassification } from "@/lib/types/brand";
 import { buildPromptPack } from "./build-prompt-pack";
+import { classificationFloor } from "./classification-floor";
 import { PROMPT_GENERATOR_VERSION } from "./generator-version";
 
 /**
@@ -62,9 +63,12 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
   if (!brand) return;
   if (brand.classificationStatus !== "complete") return;
   if (!brand.locationMode) return;
-  if (!brand.classification) return;
-
-  const classification = brand.classification as BrandClassification;
+  // 16 Nov, part 6: no stored classification (the classifier failed) is no reason to leave the brand without
+  // questions once its owner confirmed what it is -- they're built from those confirmed facts (classificationFloor).
+  // This returned here, so the brand kept its old generator version and every audit threw PromptPackGenerationError.
+  const classification =
+    (brand.classification as BrandClassification | null) ??
+    classificationFloor({ categories: brand.categories, audience: brand.audience });
   const regionLabel = resolveRegionLabel(brand);
 
   const pack = buildPromptPack(
@@ -115,7 +119,9 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
     return;
   }
 
-  const newVersion = hadPackBefore ? (brand.promptPackVersion ?? 1) + 1 : brand.promptPackVersion ?? 1;
+  const newVersion = hadPackBefore
+    ? (brand.promptPackVersion ?? 1) + 1
+    : (brand.promptPackVersion ?? 1);
 
   await tx
     .update(brands)

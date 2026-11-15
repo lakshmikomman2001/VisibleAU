@@ -7,6 +7,7 @@ import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { sendPromptPackGenerationFailedAlert } from "@/lib/communication/alert-composer";
 import { appUrl } from "@/lib/email/links";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
+import { classificationFloor } from "@/lib/prompts/classification-floor";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 import type { BrandClassification } from "@/lib/types/brand";
@@ -188,14 +189,20 @@ export async function getAuditPrompts(
     }));
   }
 
-  if (classification) {
+  // 16 Nov, part 6: a confirmed brand with no stored classification (its classifier failed) builds from what its
+  // owner confirmed (classificationFloor), not the shared vertical pack.
+  if (classification || ready) {
     // Not yet frozen (classification unconfirmed or location not set)
     // -- build a live, unfrozen pack for this one audit from whatever
     // confirmed facts already exist, rather than blocking the audit
     // entirely until both are settled.
     const regionLabel = resolveRegionLabel(currentBrand);
     return buildPromptPack(
-      classification,
+      classification ??
+        classificationFloor({
+          categories: currentBrand.categories,
+          audience: currentBrand.audience,
+        }),
       currentBrand.name,
       currentBrand.domain,
       {

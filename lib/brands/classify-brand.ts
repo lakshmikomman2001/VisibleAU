@@ -163,10 +163,10 @@ export async function classifyBrand(
       category: resolveCategory(userVertical ?? "general"),
       buyerType: "smb",
       audience: "both",
-      intentSignals: sanitizeIntentSignals([
-        `${brandName} Australia`,
-        `best ${userVertical ?? "business"} Australia`,
-      ]),
+      // 16 Nov, part 6: no search phrases made up here -- they become questions, and these did: "Best Harbour Bean
+      // Australia in Parramatta?" (the brand's own name as an everyday question) and "best tradies Australia" for a
+      // café.
+      intentSignals: [],
       competitors: [],
       auRelevance: "au_present",
       confidence: 0.3,

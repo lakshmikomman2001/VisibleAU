@@ -14,6 +14,7 @@ import {
   CATEGORY_LABELS,
   CATEGORY_TEMPLATES,
   type CategoryKey,
+  LOCAL_CATEGORY_KEYS,
   SERVICE_WORD_FALLBACK,
 } from "@/lib/prompts/templates";
 
@@ -41,13 +42,9 @@ export function exampleQuestion(type: CategoryKey, place: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** True when the types' questions name the brand's suburb (local), false when they're national (software). */
+/** True when the types are local (their questions name the brand's suburb), false when they're national (software). */
 function isLocal(types: readonly CategoryKey[]): boolean {
-  return types.some((type) =>
-    Object.values(CATEGORY_TEMPLATES[type] ?? {})
-      .flat()
-      .some((t) => t.includes("{region}")),
-  );
+  return types.some((type) => LOCAL_CATEGORY_KEYS.includes(type));
 }
 
 /** The pack page's "what this vertical gets", every line true of the product. */

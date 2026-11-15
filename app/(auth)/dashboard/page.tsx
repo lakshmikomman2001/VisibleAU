@@ -75,6 +75,8 @@ export default async function DashboardPage() {
           id: brands.id,
           name: brands.name,
           vertical: brands.vertical,
+          // 17 Nov, part 1: the persona section's local view goes by the confirmed business type.
+          categories: brands.categories,
           competitors: brands.competitors,
           competitorWebsites: brands.competitorWebsites,
         })
@@ -557,6 +559,7 @@ export default async function DashboardPage() {
               brandId={switcherBrand?.id ?? null}
               brandName={switcherBrand?.name ?? ""}
               vertical={switcherBrand?.vertical ?? ""}
+              categories={switcherBrand?.categories ?? []}
               tier={tier}
             />
           </div>

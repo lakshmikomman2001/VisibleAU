@@ -1,4 +1,4 @@
-import type { CategoryKey } from "@/lib/prompts/templates";
+import { type CategoryKey, LOCAL_CATEGORY_KEYS } from "@/lib/prompts/templates";
 
 /**
  * Vunnara (21 Oct, "directory listings... never scraping", Part B) --
@@ -85,25 +85,9 @@ const TRADE_CATEGORIES: readonly CategoryKey[] = [
 // business (trades, allied health, legal, real estate, hospitality),
 // never the SaaS/software categories (a design-tools startup doesn't
 // get listed on Yellow Pages).
-const LOCAL_SERVICE_CATEGORIES: readonly CategoryKey[] = [
-  ...TRADE_CATEGORIES,
-  "allied_health_dental",
-  "allied_health_physio",
-  "allied_health_mental",
-  "allied_health_general",
-  "legal_services",
-  "real_estate_agency",
-  "hospitality_restaurant",
-  // 16 Nov, part 2: the new local types. No further directory: the AU ones that fit (CPA Australia's and CA ANZ's
-  // member finders, the Tax Practitioners Board register) sit on sites whose other pages -- news, guidance --
-  // would count as directory citations, since a citation is matched by domain.
-  "cafe",
-  "fitness_gym",
-  "beauty_salon",
-  "retail_shop",
-  "accounting_practice",
-  "general",
-];
+// 17 Nov, part 1: the one definition of a local business type (a type whose questions name the suburb), not a list
+// kept here by hand -- every local type is checked against these six directories, every software type against none.
+const LOCAL_SERVICE_CATEGORIES: readonly CategoryKey[] = LOCAL_CATEGORY_KEYS;
 
 export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> = {
   AU_EN: [

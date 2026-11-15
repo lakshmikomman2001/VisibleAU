@@ -2,8 +2,9 @@
 
 import { Activity, ArrowRight, Building2, Eye, Globe, MapPin, Shield } from "lucide-react";
 import Link from "next/link";
+import { isLocalBusiness } from "@/lib/brands/local-business";
 
-type Persona = "agency" | "smb" | "local_tradie";
+type Persona = "agency" | "smb" | "local_business";
 
 interface PersonaSectionProps {
   title: string;
@@ -42,36 +43,17 @@ function PersonaSection({ title, description, icon, href, color }: PersonaSectio
   );
 }
 
-function derivePersona(vertical: string, tier: string): Persona {
+/**
+ * 17 Nov, part 1 (Sri's decision): a local business -- its confirmed type, or before that its vertical, is local
+ * (lib/brands/local-business.ts, from the one definition of a local type) -- gets the local view. This kept a list of
+ * words ("plumber", "dental", "cafe"...) the vertical keys never matched, so a tradie got the small-business view.
+ */
+function derivePersona(
+  brand: { vertical: string; categories?: readonly string[] | null },
+  tier: string,
+): Persona {
   if (tier === "agency" || tier === "agency_pro" || tier === "enterprise") return "agency";
-  const localVerticals = [
-    "plumber",
-    "electrician",
-    "tradie",
-    "builder",
-    "landscaper",
-    "trades",
-    "home_services",
-    "dental",
-    "medical",
-    "allied_health",
-    "fitness",
-    "beauty",
-    "real_estate",
-    "restaurant",
-    "cafe",
-    "retail",
-    "automotive",
-    "cleaning",
-    "pest_control",
-    "removalist",
-    "locksmith",
-    "roofing",
-    "hvac",
-    "painting",
-  ];
-  if (localVerticals.includes((vertical ?? "").toLowerCase())) return "local_tradie";
-  return "smb";
+  return isLocalBusiness(brand) ? "local_business" : "smb";
 }
 
 /**
@@ -84,14 +66,17 @@ export function PersonaDashboard({
   brandId,
   brandName,
   vertical,
+  categories = [],
   tier,
 }: {
   brandId: string | null;
   brandName: string;
   vertical: string;
+  /** 17 Nov, part 1: the brand's confirmed business types -- the local view goes by them first. */
+  categories?: readonly string[];
   tier: string;
 }) {
-  const persona = derivePersona(vertical, tier);
+  const persona = derivePersona({ vertical, categories }, tier);
   if (persona !== "agency" && brandId === null) return null;
 
   if (persona === "agency") {
@@ -124,7 +109,7 @@ export function PersonaDashboard({
     );
   }
 
-  if (persona === "local_tradie") {
+  if (persona === "local_business") {
     return (
       <div className="space-y-3">
         <h3

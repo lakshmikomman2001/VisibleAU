@@ -54,16 +54,30 @@ describe("4.6 — PersonaDashboard: persona derivation", () => {
     expect(container.textContent).toContain("Agency Command Centre");
   });
 
-  it("vertical 'plumber' + non-agency tier → local_tradie persona", () => {
+  // 17 Nov, part 1: the real values the app passes -- the vertical key ("tradies") and the confirmed type -- not words
+  // like "plumber", which brands.vertical can't hold (the persona kept a list of those, and missed "tradies").
+  it("a plumber (tradies, confirmed as plumbing) + non-agency tier → local business persona", () => {
     const { container } = render(
-      <PersonaDashboard brandId="b1" brandName="Bondi Plumbing" vertical="plumber" tier="growth" />,
+      <PersonaDashboard
+        brandId="b1"
+        brandName="Bondi Plumbing"
+        vertical="tradies"
+        categories={["trades_plumbing"]}
+        tier="growth"
+      />,
     );
     expect(container.textContent).toContain("Local Business Insights");
   });
 
-  it("vertical 'electrician' → local_tradie persona", () => {
+  it("an electrician (tradies, confirmed as electrical) → local business persona", () => {
     const { container } = render(
-      <PersonaDashboard brandId="b1" brandName="Sparky" vertical="electrician" tier="starter" />,
+      <PersonaDashboard
+        brandId="b1"
+        brandName="Sparky"
+        vertical="tradies"
+        categories={["trades_electrical"]}
+        tier="starter"
+      />,
     );
     expect(container.textContent).toContain("Local Business Insights");
   });
@@ -100,13 +114,13 @@ describe("4.6 — Agency persona: shipped elements", () => {
   });
 });
 
-describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
+describe("4.6 — local business persona: shipped elements (Bondi)", () => {
   it("renders 'Agent readiness' section", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
         brandName="Bondi Plumbing"
-        vertical="plumber"
+        vertical="tradies"
         tier="growth"
       />,
     );
@@ -118,7 +132,7 @@ describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
       <PersonaDashboard
         brandId="bondi-id"
         brandName="Bondi Plumbing"
-        vertical="plumber"
+        vertical="tradies"
         tier="growth"
       />,
     );
@@ -130,7 +144,7 @@ describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
       <PersonaDashboard
         brandId="bondi-id"
         brandName="Bondi Plumbing"
-        vertical="plumber"
+        vertical="tradies"
         tier="growth"
       />,
     );
@@ -142,7 +156,7 @@ describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
       <PersonaDashboard
         brandId="bondi-id"
         brandName="Bondi Plumbing"
-        vertical="plumber"
+        vertical="tradies"
         tier="growth"
       />,
     );
@@ -154,7 +168,7 @@ describe("4.6 — local_tradie persona: shipped elements (Bondi)", () => {
       <PersonaDashboard
         brandId="bondi-id"
         brandName="Bondi Plumbing"
-        vertical="plumber"
+        vertical="tradies"
         tier="growth"
       />,
     );

@@ -125,7 +125,8 @@ describe("one brand: the switcher shows it, and the sections follow it", () => {
     const html = await overview(oneBrand);
     expect(html).toContain(TRACKER);
     expect(html).not.toContain("data-autopilot-picker");
-    expect(html).toContain("Solo Signs Overview");
+    // 17 Nov, part 1 (Sri): a tradie gets the local business view, not the small-business overview.
+    expect(html).toContain("Local Business Insights");
     expect(html).toContain(`href="/brands/${oneBrand.brandIds["Solo Signs"]}/health-check"`);
   }, 120_000);
 });

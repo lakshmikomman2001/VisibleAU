@@ -925,3 +925,15 @@ export function getTemplatesForCategory(
   }
   return [];
 }
+
+/**
+ * 17 Nov, part 1 -- the one definition of a local business type: its everyday questions name the brand's suburb
+ * ({region}). Every trade, allied health, legal, real estate, hospitality, café, gym, salon, shop, accountant and
+ * general local type; never a software type. The directory registry's local directories, the Autopilot overview's
+ * local view (lib/brands/local-business.ts) and the marketing facts read this -- no second hand-kept list.
+ */
+export const LOCAL_CATEGORY_KEYS: readonly CategoryKey[] = CATEGORY_KEYS.filter((key) =>
+  Object.values(CATEGORY_TEMPLATES[key] ?? {})
+    .flat()
+    .some((template) => template?.includes("{region}")),
+);

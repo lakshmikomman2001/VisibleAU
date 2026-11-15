@@ -10,24 +10,42 @@ interface LlmsTxtPreviewProps {
   regions: string;
 }
 
-const VERTICAL_TEMPLATES: Record<
-  string,
-  {
-    tagline: [string, string];
-    services: Array<{ name: string; slug: string; desc: string }>;
-    faqs: Array<{ q: string; anchor: string }>;
-    blog: string;
-  }
-> = {
+/**
+ * 17 Nov, part 2 -- the llms.txt a business copies onto its own site never claims anything for it: a licence, a
+ * registration, insurance, an accreditation, a government scheme or availability we haven't checked is a bracketed
+ * line the owner completes or deletes (FILL_IN_NOTE says so above the preview). The templates said "Licensed, insured,
+ * and locally trusted.", "AHPRA registered, Medicare & NDIS accepted.", "24/7 callouts", "Remote consultations
+ * available" and "Cloud-based, secure, and scalable." for every business of the vertical. Questions ("Are you licensed
+ * and insured?") stay: they point at the business's own answers. tests/unit/retrieval/no-claims-for-the-business.test.ts
+ * guards it.
+ */
+export const FILL_IN_NOTE =
+  "Lines in [square brackets] are for you: complete them or delete them before you publish. We don't know your licence, registrations, cover or hours, so we never fill them in for you.";
+
+interface LlmsTemplate {
+  tagline: string;
+  /** The lines only the owner can fill in: each one bracketed. */
+  facts: string[];
+  services: Array<{ name: string; slug: string; desc: string }>;
+  faqs: Array<{ q: string; anchor: string }>;
+  blog: string;
+}
+
+const VERTICAL_TEMPLATES: Record<string, LlmsTemplate> = {
   tradies: {
-    tagline: [
-      "Professional trade services in {regions}.",
-      "Licensed, insured, and locally trusted.",
+    tagline: "Trade services in {regions}.",
+    facts: [
+      "Licence number: [add yours, or delete this line]",
+      "Public liability insurance: [your insurer and cover, or delete this line]",
     ],
     services: [
-      { name: "Emergency repairs", slug: "emergency", desc: "24/7 callouts" },
+      {
+        name: "Emergency repairs",
+        slug: "emergency",
+        desc: "[your call-out hours (e.g. 24/7), or delete this line]",
+      },
       { name: "Installations", slug: "installations", desc: "New installations and upgrades" },
-      { name: "Maintenance", slug: "maintenance", desc: "Scheduled maintenance plans" },
+      { name: "Maintenance", slug: "maintenance", desc: "Servicing and maintenance" },
     ],
     faqs: [
       { q: "How much does a callout cost?", anchor: "cost" },
@@ -37,18 +55,24 @@ const VERTICAL_TEMPLATES: Record<
     blog: "Trade tips for homeowners",
   },
   allied_health: {
-    tagline: [
-      "Allied health services in {regions}.",
-      "AHPRA registered, Medicare & NDIS accepted.",
+    tagline: "Allied health services in {regions}.",
+    facts: [
+      "AHPRA registration: [add yours, or delete this line]",
+      "Bulk billing / Medicare: [yes / no, or delete this line]",
+      "NDIS: [registered provider? yes / no, or delete this line]",
     ],
     services: [
       {
         name: "Initial assessment",
         slug: "assessment",
-        desc: "Comprehensive intake and evaluation",
+        desc: "Intake and evaluation",
       },
       { name: "Treatment plans", slug: "treatment", desc: "Personalised care programs" },
-      { name: "Telehealth", slug: "telehealth", desc: "Remote consultations available" },
+      {
+        name: "Telehealth",
+        slug: "telehealth",
+        desc: "[remote consultations? yes / no, or delete this line]",
+      },
     ],
     faqs: [
       { q: "Do you accept Medicare?", anchor: "medicare" },
@@ -58,14 +82,12 @@ const VERTICAL_TEMPLATES: Record<
     blog: "Health tips and practice updates",
   },
   saas: {
-    tagline: [
-      "Software solutions for Australian businesses.",
-      "Cloud-based, secure, and scalable.",
-    ],
+    tagline: "Software for Australian businesses.",
+    facts: ["Where customer data is stored: [add yours, or delete this line]"],
     services: [
       { name: "Platform overview", slug: "platform", desc: "Core features and capabilities" },
       { name: "Integrations", slug: "integrations", desc: "Connect with your existing tools" },
-      { name: "Pricing", slug: "pricing", desc: "Plans for teams of every size" },
+      { name: "Pricing", slug: "pricing", desc: "Plans and pricing" },
     ],
     faqs: [
       { q: "Is there a free trial?", anchor: "trial" },
@@ -74,10 +96,10 @@ const VERTICAL_TEMPLATES: Record<
     ],
     blog: "Product updates and industry insights",
   },
-  // 16 Nov, part 3: every other business (a café, a gym, a law firm, an agent...) gets this, not the tradie template
-  // ("24/7 callouts", "How much does a callout cost?") -- and it claims nothing the business would have to check.
+  // 16 Nov, part 3: every other business (a café, a gym, a law firm, an agent...) gets this, not the tradie template.
   local: {
-    tagline: ["Local business serving {regions}.", "Our services, hours and contact details."],
+    tagline: "Local business serving {regions}.",
+    facts: [],
     services: [
       { name: "About us", slug: "about", desc: "Who we are and what we do" },
       { name: "Services", slug: "services", desc: "What we offer" },
@@ -102,16 +124,15 @@ export function generateLlmsTxt(
   const base = `https://${domain}`;
   const regionText = regions || "your local area";
 
-  const tagline0 = tmpl.tagline[0].replace("{regions}", regionText);
-  const tagline1 = tmpl.tagline[1].replace("{regions}", regionText);
+  const tagline = tmpl.tagline.replace("{regions}", regionText);
 
   const lines = [
     `# ${brandName}`,
-    `> ${tagline0}`,
-    `> ${tagline1}`,
+    `> ${tagline}`,
+    ...tmpl.facts.map((fact) => `> ${fact}`),
     "",
     "## About",
-    `- [About us](${base}/about): Company overview and credentials`,
+    `- [About us](${base}/about): Who we are`,
     `- [Service areas](${base}/areas): ${regionText}`,
     `- [Reviews](${base}/reviews): Customer testimonials and ratings`,
     "",
@@ -226,6 +247,19 @@ export function LlmsTxtPreview({ brandName, domain, vertical, regions }: LlmsTxt
           </button>
         </div>
       </div>
+      <p
+        data-fill-in-note=""
+        style={{
+          fontSize: 12,
+          margin: 0,
+          padding: "10px 20px",
+          color: "var(--text-primary)",
+          background: "var(--warning-soft)",
+          borderBottom: "1px solid var(--border-subtle)",
+        }}
+      >
+        {FILL_IN_NOTE}
+      </p>
       <pre
         style={{
           fontSize: 12,

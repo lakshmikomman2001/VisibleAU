@@ -218,6 +218,14 @@ function QuestionItem({ question, brandId }: { question: QuestionRow; brandId: s
               >
                 {capsule}
               </p>
+              {/* 17 Nov, part 2: it goes on the business's own site -- the owner checks it, and fills in any bracket. */}
+              <p
+                data-capsule-check=""
+                style={{ fontSize: 11, color: "var(--text-secondary)", margin: "6px 0 0" }}
+              >
+                Check it before you publish. Anything in [square brackets] is for you to complete or
+                delete.
+              </p>
             </div>
           )}
         </div>

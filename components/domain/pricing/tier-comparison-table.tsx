@@ -1,10 +1,11 @@
 "use client";
 
 import { Check, X } from "lucide-react";
+import type { PublicGoogleAi } from "@/lib/marketing/google-ai";
 import {
-  COMPARISON_ROWS,
   type ComparisonRow,
   comparisonIncludes,
+  comparisonRows,
   PLAN_FEATURE_COPY,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
@@ -20,8 +21,16 @@ function rowKey(row: ComparisonRow): string {
  * 6 Nov -- every plan, Enterprise included, and every row from lib/pricing/tiers.ts
  * (COMPARISON_ROWS): no ticks of its own. A server-checked feature's row is named and
  * described as the app's locks name it.
+ * 16 Nov: with Google's AI answers' row while the global setting has them on (`googleAi`, the pricing page's
+ * loadGoogleAiClaim()).
  */
-export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean }) {
+export function TierComparisonTable({
+  showFreeTier,
+  googleAi = null,
+}: {
+  showFreeTier: boolean;
+  googleAi?: PublicGoogleAi | null;
+}) {
   const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
 
   return (
@@ -57,7 +66,7 @@ export function TierComparisonTable({ showFreeTier }: { showFreeTier: boolean })
             </tr>
           </thead>
           <tbody>
-            {COMPARISON_ROWS.map((row) => (
+            {comparisonRows(googleAi).map((row) => (
               <tr
                 key={rowKey(row)}
                 data-row={rowKey(row)}

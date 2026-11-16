@@ -1,4 +1,8 @@
-export function EnginesSupported() {
+import { GoogleAiClaim } from "@/components/domain/google-ai/google-ai-claim";
+import { googleAiPublicSentence, type PublicGoogleAi } from "@/lib/marketing/google-ai";
+
+/** 16 Nov: `googleAi` is the landing page's loadGoogleAiClaim(): null (or left out) while the global setting has Google off. */
+export function EnginesSupported({ googleAi = null }: { googleAi?: PublicGoogleAi | null }) {
   const engines = [
     { name: "ChatGPT", color: "#10a37f" },
     { name: "Claude", color: "#D97706" },
@@ -26,7 +30,18 @@ export function EnginesSupported() {
       </div>
       {/* Leftovers task, part 3 (17 Nov): the four engines we audit, and nothing promised. "Coming soon: Microsoft
           Copilot, Google AI Overviews and Google AI Mode" went (nothing audits Copilot; Google runs only for
-          workspaces Sri switches on). */}
+          workspaces Sri switches on). 16 Nov (Sri): Google's AI answers for Growth and up, said only while the global
+          setting has them on. */}
+      <GoogleAiClaim googleAi={googleAi}>
+        {(g) => (
+          <p
+            className="text-center text-sm text-muted-foreground max-w-2xl mx-auto"
+            data-google-ai-claim=""
+          >
+            {googleAiPublicSentence(g)}
+          </p>
+        )}
+      </GoogleAiClaim>
     </section>
   );
 }

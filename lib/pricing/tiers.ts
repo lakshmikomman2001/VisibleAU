@@ -17,7 +17,16 @@
  *   manager" (no account managers). "Custom integrations" is "(by arrangement)": built only by agreement.
  * tests/unit/pricing/pricing-claims.test.tsx holds the page to this.
  */
+import { googleAiPlanLine, type PublicGoogleAi } from "@/lib/marketing/google-ai";
+
 export const PRIORITY_EMAIL_SUPPORT = "Priority email support";
+
+/**
+ * 16 Nov (Sri: Google AI Overviews and AI Mode for every Growth, Agency and Agency Pro workspace): the plan Google's AI
+ * answers start at. lib/governance/google-surfaces.ts GOOGLE_SURFACES_MIN_TIER is this constant, so the audit's gate
+ * and the plans' lists can't differ.
+ */
+export const GOOGLE_AI_FROM_TIER = "growth";
 
 export type PlanFeature =
   | "client_portal"
@@ -43,6 +52,12 @@ export interface TierDefinition {
   unlocks: PlanFeature[];
   /** The plan below whose features this one has too: "Everything in Agency" on its card. */
   everythingIn?: string;
+  /**
+   * 16 Nov: Google's AI answers (googleAiPlanLine) are on this plan's card -- only while the global setting has them
+   * on (cardFeatures' `googleAi`, from lib/governance/google-surfaces.ts publicGoogleAi). Growth, Agency and Agency
+   * Pro; never Starter or Free. Enterprise has them through "Everything in Agency Pro".
+   */
+  googleAi?: true;
   popular?: boolean;
 }
 
@@ -84,6 +99,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "3x/week audits",
     unlocks: [],
     popular: true,
+    googleAi: true,
     highlights: ["1 brand", "4 AI engines", "3x weekly audits"],
     extras: ["Drift detection alerts", "Competitor tracking", "PDF export"],
   },
@@ -97,6 +113,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     engines: 4,
     frequency: "Daily audits",
     unlocks: ["client_portal", "white_label_reports", "webhooks"],
+    googleAi: true,
     highlights: ["5 brands", "4 AI engines", "Daily automated audits"],
     extras: [PRIORITY_EMAIL_SUPPORT],
   },
@@ -111,6 +128,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "2x daily audits",
     unlocks: ["bulk_operations", "ga4"],
     everythingIn: "agency",
+    googleAi: true,
     highlights: ["25 brands", "4 AI engines", "2x daily audits"],
     extras: [],
   },
@@ -245,11 +263,17 @@ export function seatsText(tier: TierDefinition): string {
  * 6 Nov -- a plan's pricing card, top to bottom: its highlights, how it's scored (the same on
  * every plan), its seats, the plan it has everything in, the features it unlocks (in the app's
  * own words), then the rest.
+ * 16 Nov: after its highlights, Google's AI answers on a plan that has them -- only given `googleAi` (what
+ * lib/governance/google-surfaces.ts publicGoogleAi says now; null while the global setting is off).
  */
-export function cardFeatures(tier: TierDefinition): string[] {
+export function cardFeatures(
+  tier: TierDefinition,
+  googleAi: PublicGoogleAi | null = null,
+): string[] {
   const below = tier.everythingIn ? getTierDefinition(tier.everythingIn) : undefined;
   return [
     ...tier.highlights,
+    ...(tier.googleAi && googleAi ? [googleAiPlanLine(googleAi.surfaces)] : []),
     SCORING_LINE,
     seatsText(tier),
     ...(below ? [`Everything in ${below.name}`] : []),
@@ -285,6 +309,27 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { feature: "ga4" },
   { label: PRIORITY_EMAIL_SUPPORT, from: "agency" },
 ];
+
+/**
+ * 16 Nov: the table's rows, with Google's AI answers after the Growth rows while the global setting has them on
+ * (`googleAi`, from publicGoogleAi), ticked from GOOGLE_AI_FROM_TIER up; COMPARISON_ROWS as they are otherwise.
+ */
+export function comparisonRows(googleAi: PublicGoogleAi | null): ComparisonRow[] {
+  if (!googleAi) return COMPARISON_ROWS;
+  const row: ComparisonRow = {
+    label: googleAiPlanLine(googleAi.surfaces),
+    from: GOOGLE_AI_FROM_TIER,
+  };
+  const lastFromRow = COMPARISON_ROWS.reduce(
+    (at, r, i) => ("from" in r && r.from === GOOGLE_AI_FROM_TIER ? i : at),
+    -1,
+  );
+  return [
+    ...COMPARISON_ROWS.slice(0, lastFromRow + 1),
+    row,
+    ...COMPARISON_ROWS.slice(lastFromRow + 1),
+  ];
+}
 
 /** Whether a plan's cell on a row is ticked; null for a row of values. */
 export function comparisonIncludes(row: ComparisonRow, tierKey: string): boolean | null {

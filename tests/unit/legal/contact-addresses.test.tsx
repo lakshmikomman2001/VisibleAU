@@ -47,7 +47,8 @@ describe("contact addresses", () => {
     expect(html(<Terms />)).toContain(`href="mailto:${CONTACT_EMAIL}"`);
 
     const About = (await import("@/app/(marketing)/about/page")).default;
-    expect(html(<About />)).toContain(`href="mailto:${CONTACT_EMAIL}"`);
+    // 16 Nov: the about page is async (it loads what it may say about Google's AI answers).
+    expect(html(await About())).toContain(`href="mailto:${CONTACT_EMAIL}"`);
 
     const Privacy = (await import("@/app/(marketing)/privacy/page")).default;
     expect(html(<Privacy />)).toContain(`href="mailto:${PRIVACY_EMAIL}"`);

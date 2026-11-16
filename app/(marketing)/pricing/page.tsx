@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { loadGoogleAiClaim } from "@/components/domain/google-ai/load-google-ai-claim";
 import PricingTableClient from "@/components/domain/pricing/pricing-table-client";
 import { TierComparisonTable } from "@/components/domain/pricing/tier-comparison-table";
 import type { Region } from "@/db/schema/enums";
@@ -22,6 +23,8 @@ export default async function PricingPage() {
   const region = (headerList.get(REGION_HEADER) as Region | null) ?? "au";
   const showFreeTier = isFreeTierEnabled(region);
   const isAu = region === "au";
+  // 16 Nov (Sri): Growth and up list Google's AI answers only while the global setting has them on.
+  const googleAi = await loadGoogleAiClaim();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16" data-pricing-region={region}>
@@ -31,8 +34,12 @@ export default async function PricingPage() {
       <p className="mt-2 text-center mb-10" style={{ color: "var(--text-secondary)" }}>
         Per-brand flat-rate. No per-prompt surprises.
       </p>
-      <PricingTableClient showFreeTier={showFreeTier} defaultGstInclusive={isAu} />
-      <TierComparisonTable showFreeTier={showFreeTier} />
+      <PricingTableClient
+        showFreeTier={showFreeTier}
+        defaultGstInclusive={isAu}
+        googleAi={googleAi}
+      />
+      <TierComparisonTable showFreeTier={showFreeTier} googleAi={googleAi} />
     </div>
   );
 }

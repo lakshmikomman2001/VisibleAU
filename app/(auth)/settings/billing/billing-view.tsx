@@ -11,6 +11,12 @@ import { actionFailureMessage, fetchJson, LoadFailure } from "@/lib/load/fetch-j
 import { billingRegionLabel } from "@/lib/pricing/gst";
 import type { RenewalLine } from "@/lib/pricing/renewal";
 
+/** 16 Nov: Google's AI answers on this plan -- what this workspace's audits run, or the plan that has them. */
+export interface BillingGoogleAi {
+  kind: "included" | "locked";
+  text: string;
+}
+
 interface Props {
   tier: string;
   tierName: string;
@@ -25,6 +31,7 @@ interface Props {
   frequency: string;
   success: boolean;
   reason: string | null;
+  googleAi?: BillingGoogleAi | null;
 }
 
 const REASON_MESSAGES: Record<string, string> = {
@@ -44,6 +51,7 @@ export default function BillingView({
   frequency,
   success,
   reason,
+  googleAi = null,
 }: Props) {
   // Team follow-ups, item 6: billing is the owner's (the billing routes answer 403 otherwise).
   const canManageBilling = useCan("manage_billing");
@@ -350,6 +358,29 @@ export default function BillingView({
               {billingRegionLabel()}
             </div>
           </div>
+          {googleAi ? (
+            <div style={{ gridColumn: "1 / -1" }} data-billing-google-ai={googleAi.kind}>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--text-tertiary)",
+                  marginBottom: 4,
+                }}
+              >
+                Google AI answers
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color:
+                    googleAi.kind === "included" ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                {googleAi.text}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Action buttons */}

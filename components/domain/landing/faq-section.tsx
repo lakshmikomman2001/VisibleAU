@@ -6,6 +6,7 @@ import {
   AUDIT_RESULTS_DELETED,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
+import { googleAiFaq, type PublicGoogleAi } from "@/lib/marketing/google-ai";
 import { INDUSTRIES_ANSWER } from "@/lib/marketing/vertical-facts";
 import { formatAud, priceTaxSuffix } from "@/lib/pricing/gst";
 import { getTierDefinition, type TierDefinition } from "@/lib/pricing/tiers";
@@ -79,14 +80,22 @@ const FAQ_ITEMS = [
   },
 ];
 
-export function FaqSection() {
+/**
+ * 16 Nov (Sri): `googleAi` is the landing page's loadGoogleAiClaim() -- while the global setting has Google's AI
+ * answers on, the FAQ says what they are (lib/marketing/google-ai.ts), after "Does it use real AI engines?"; null,
+ * and it says nothing about them.
+ */
+export function FaqSection({ googleAi = null }: { googleAi?: PublicGoogleAi | null }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const items = googleAi
+    ? [...FAQ_ITEMS.slice(0, 2), googleAiFaq(googleAi), ...FAQ_ITEMS.slice(2)]
+    : FAQ_ITEMS;
 
   return (
     <section className="py-20 max-w-3xl mx-auto px-6">
       <h2 className="text-3xl font-bold text-center mb-10">Frequently asked questions</h2>
       <div className="divide-y">
-        {FAQ_ITEMS.map((item, i) => (
+        {items.map((item, i) => (
           <div key={item.q}>
             <button
               type="button"

@@ -3,7 +3,7 @@
  * a trend carries where it crosses into a newer methodology. The public Methodology page says what changed.
  */
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   METHODOLOGY_VERSION,
   methodologyChangeNote,
@@ -41,6 +41,12 @@ describe("methodology versions", () => {
 });
 
 describe("the Methodology page says what changed", () => {
+  // 16 Nov: the page loads what it may say about Google's AI answers (components/domain/google-ai), so its first
+  // import brings in the database client and took over 5 s under load; done once here.
+  beforeAll(async () => {
+    await import("@/app/(marketing)/methodology/page");
+  }, 60_000);
+
   it("a 'What changed' note for the improved detection, and that earlier audits aren't compared", async () => {
     const Page = (await import("@/app/(marketing)/methodology/page")).default;
     const html = renderToStaticMarkup(await Page()).replace(/\s+/g, " ");

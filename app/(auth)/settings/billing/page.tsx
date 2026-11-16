@@ -3,13 +3,49 @@ import { redirect } from "next/navigation";
 import { withRlsContext } from "@/db/client";
 import { subscriptions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { publicGoogleAi, resolveGoogleSurfaces } from "@/lib/governance/google-surfaces";
+import { googleAiLockedMessage, googleAiPlanLine } from "@/lib/marketing/google-ai";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { formatAud } from "@/lib/pricing/gst";
 import { renewalLine } from "@/lib/pricing/renewal";
-import { getTierDefinition, tierDisplayName } from "@/lib/pricing/tiers";
+import {
+  GOOGLE_AI_FROM_TIER,
+  getTierDefinition,
+  tierDisplayName,
+  tierRank,
+} from "@/lib/pricing/tiers";
 import { TIER_AUDIT_LIMITS } from "@/lib/scheduling/tier-limits";
-import BillingView from "./billing-view";
+import BillingView, { type BillingGoogleAi } from "./billing-view";
+
+/**
+ * 16 Nov (Sri: Google's AI answers on for Growth and up): what this plan says about them, from lib/pricing/tiers.ts's
+ * line. On when this workspace's next audit would run them (resolveGoogleSurfaces: the global setting, its own override,
+ * the plan); below Growth, while the global setting has them on, the plan that has them; otherwise nothing. A failed
+ * read says nothing rather than guess.
+ */
+async function billingGoogleAi(
+  organizationId: string,
+  planTier: string,
+): Promise<BillingGoogleAi | null> {
+  try {
+    const resolved = await resolveGoogleSurfaces(organizationId, { tier: planTier });
+    if (resolved.surfaces.length > 0) {
+      return { kind: "included", text: googleAiPlanLine(resolved.surfaces) };
+    }
+    if (tierRank(planTier) >= tierRank(GOOGLE_AI_FROM_TIER)) return null;
+    const offered = await publicGoogleAi();
+    return offered ? { kind: "locked", text: googleAiLockedMessage(offered) } : null;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "billing_google_ai_unread",
+        error: err instanceof Error ? err.name : "unknown",
+      }),
+    );
+    return null;
+  }
+}
 
 export default async function BillingPage({
   searchParams,
@@ -39,6 +75,7 @@ export default async function BillingPage({
 
   const limits =
     TIER_AUDIT_LIMITS[tier as keyof typeof TIER_AUDIT_LIMITS] ?? TIER_AUDIT_LIMITS.free;
+  const googleAi = await billingGoogleAi(currentUser.organizationId, tier);
 
   return (
     <BillingView
@@ -54,6 +91,7 @@ export default async function BillingPage({
       frequency={limits.frequency}
       success={params.success === "true"}
       reason={params.reason ?? null}
+      googleAi={googleAi}
     />
   );
 }

@@ -6,6 +6,8 @@
  * - DataForSEO's residency entry says only what its own documents say (where it processes: not documented);
  * - the completion email is unchanged without Google, and carries the Google lines with it;
  * - drift never compares an audit with one that counted Google in its headline differently.
+ * 16 Nov: the methodology's Google section follows the global setting too (it said it whenever the env switch was on):
+ * its loader is stubbed here; tests/integration/public-google-claims.integration.test.tsx reads the real setting.
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,8 +18,17 @@ import {
   GOOGLE_SURFACES_RESIDENCY_ENTRY,
   RESIDENCY_CONFIG,
 } from "@/lib/governance/residency-config";
+import type { PublicGoogleAi } from "@/lib/marketing/google-ai";
 
-afterEach(() => vi.unstubAllEnvs());
+const claim = vi.hoisted(() => ({ value: null as PublicGoogleAi | null }));
+vi.mock("@/components/domain/google-ai/load-google-ai-claim", () => ({
+  loadGoogleAiClaim: async () => claim.value,
+}));
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  claim.value = null;
+});
 
 function on() {
   vi.stubEnv("GOOGLE_AI_SURFACES_ENABLED", "true");
@@ -53,6 +64,15 @@ describe("the public pages name the provider only once Google can run", () => {
 
   it("on: methodology says how Google is collected and what 'not shown' means; privacy names the processor", async () => {
     on();
+    // The global setting on, as publicGoogleAi() reads it.
+    claim.value = {
+      surfaces: ["google_ai_overviews", "google_ai_mode"],
+      fromTier: "growth",
+      fromPlan: "Growth",
+      countedInScore: false,
+      device: "desktop",
+      queueMode: "standard",
+    };
     const methodology = await render("methodology");
     expect(methodology).toContain("data-methodology-google");
     expect(methodology).toContain("collected for us by DataForSEO");

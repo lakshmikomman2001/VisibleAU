@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PROMPTS_PER_AUDIT, RUNS_PER_PROMPT, TIER_ENGINES } from "@/lib/llm/tier-engines";
+import type { PublicGoogleAi } from "@/lib/marketing/google-ai";
 import {
   displayPriceCents,
   formatAud,
@@ -30,12 +31,15 @@ interface Props {
   defaultGstInclusive: boolean;
   /** lib/product.ts GST_REGISTERED; a prop so the registered path stays tested. */
   gstRegistered?: boolean;
+  /** 16 Nov: the pricing page's loadGoogleAiClaim(); the Google line is on Growth and up only while it's set. */
+  googleAi?: PublicGoogleAi | null;
 }
 
 export default function PricingTableClient({
   showFreeTier,
   defaultGstInclusive,
   gstRegistered = GST_REGISTERED,
+  googleAi = null,
 }: Props) {
   const router = useRouter();
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
@@ -231,7 +235,7 @@ export default function PricingTableClient({
               </p>
 
               <ul className="flex-1 space-y-2 mb-6">
-                {cardFeatures(tier).map((f) => (
+                {cardFeatures(tier, googleAi).map((f) => (
                   <li
                     key={f}
                     data-card-line

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { GoogleAiClaim } from "@/components/domain/google-ai/google-ai-claim";
+import { loadGoogleAiClaim } from "@/components/domain/google-ai/load-google-ai-claim";
+import { googleAiPublicSentence } from "@/lib/marketing/google-ai";
 import { CONTACT_EMAIL, CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
 import { buildMetadata } from "@/lib/seo/metadata";
 
@@ -6,7 +9,8 @@ export function generateMetadata(): Metadata {
   return buildMetadata({ title: "About", path: "/about" });
 }
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const googleAi = await loadGoogleAiClaim();
   return (
     <article className="max-w-3xl mx-auto px-6 py-16">
       <h1 className="text-3xl font-bold mb-6">About {PRODUCT_NAME}</h1>
@@ -25,6 +29,10 @@ export default function AboutPage() {
           measuring how often the answers name you, where they place you, and which sources they
           cite. Then we give you specific recommendations to improve.
         </p>
+        {/* 16 Nov (Sri): Google's AI answers, only while the global setting has them on (components/domain/google-ai). */}
+        <GoogleAiClaim googleAi={googleAi}>
+          {(g) => <p data-google-ai-claim="">{googleAiPublicSentence(g)}</p>}
+        </GoogleAiClaim>
         {/* Playwright-run follow-ups (10 Nov), part 7: the bot's user agent points here, so a site owner who sees it
             in their logs reads what it is. What it fetches is lib/crawler/index.ts's crawlSite (and fetchRobotsTxt,
             lib/crawler/crawler-access.ts's home-page check). Follow-ups from af8de42..d1eb5a1, part 2: every

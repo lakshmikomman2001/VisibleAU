@@ -10,8 +10,9 @@ import {
   users,
 } from "@/db/schema";
 import { TREND_EXCLUSION_SETTING_KEY } from "@/lib/admin/trend-exclusions";
+import type { PublicGoogleAi } from "@/lib/marketing/google-ai";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
-import { tierRank } from "@/lib/pricing/tiers";
+import { GOOGLE_AI_FROM_TIER, tierDisplayName, tierRank } from "@/lib/pricing/tiers";
 import { PRODUCT_NAME } from "@/lib/product";
 import { hasGoogleSurfaceProviderCredentials } from "@/lib/serp/credentials";
 import { recordAction } from "./audit-trail";
@@ -59,8 +60,11 @@ export const GOOGLE_SURFACE_FLAG_KEYS: Record<GoogleSurface, string> = {
   google_ai_mode: "google_ai_mode_enabled",
 };
 
-/** Sri's decision (8 Nov): Growth and up, and only where switched on. */
-export const GOOGLE_SURFACES_MIN_TIER = "growth";
+/**
+ * Sri's decision (8 Nov): Growth and up, and only where switched on. 16 Nov: the plans list it from the same
+ * constant (lib/pricing/tiers.ts GOOGLE_AI_FROM_TIER), so the gate and the pricing page can't differ.
+ */
+export const GOOGLE_SURFACES_MIN_TIER = GOOGLE_AI_FROM_TIER;
 
 export type GoogleQueueMode = "standard" | "priority" | "live";
 export type GoogleDevice = "desktop" | "mobile";
@@ -287,6 +291,48 @@ export async function resolveGoogleSurfaces(
     tier,
   });
   return { surfaces: GOOGLE_SURFACES.filter((s) => decisions[s].on), decisions, settings };
+}
+
+/**
+ * 16 Nov (Sri: Google AI Overviews and AI Mode on for every Growth, Agency and Agency Pro workspace, and said so on
+ * the public pages -- only while it's true): what an audit for a workspace on GOOGLE_SURFACES_MIN_TIER with no
+ * override would run if it started now, by the same rule (decideGoogleSurfaces) on the same settings. Null -- and
+ * nothing is said about Google anywhere public -- when no surface is on: the env switch off or no credentials
+ * (nothing read), the global setting off, or the settings couldn't be read. A workspace override decides for that
+ * workspace only, so it's never a public claim. lib/marketing/google-ai.ts words it.
+ */
+export async function publicGoogleAi(): Promise<PublicGoogleAi | null> {
+  if (!googleSurfacesEnvEnabled() || !googleSurfaceCredentialsPresent()) return null;
+  let settings: GoogleSurfaceSettings;
+  try {
+    settings = await readGoogleSurfaceSettings();
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "google_surfaces_public_settings_unread",
+        error: err instanceof Error ? err.name : "unknown",
+      }),
+    );
+    return null;
+  }
+  const decisions = decideGoogleSurfaces({
+    envEnabled: true,
+    credentialsPresent: true,
+    isSample: false,
+    settings,
+    overrides: { google_ai_overviews: null, google_ai_mode: null },
+    tier: GOOGLE_SURFACES_MIN_TIER,
+  });
+  const surfaces = GOOGLE_SURFACES.filter((s) => decisions[s].on);
+  if (surfaces.length === 0) return null;
+  return {
+    surfaces,
+    fromTier: GOOGLE_SURFACES_MIN_TIER,
+    fromPlan: tierDisplayName(GOOGLE_SURFACES_MIN_TIER),
+    countedInScore: settings.countInHeadline,
+    device: settings.device,
+    queueMode: settings.queueMode,
+  };
 }
 
 /** The operator-set postcode for a brand (brands have no postcode column), or null. */

@@ -13,7 +13,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { AUDIT_AGE_BANDS, lastAuditTone } from "@/lib/brands/audit-age";
 import {
   averageVisibility,
@@ -192,6 +192,13 @@ describe("the Last audit badge, by age", () => {
 
   it("a brand audited 22 days ago doesn't get a green badge", async () => {
     const { BrandRow } = await import("@/components/domain/brand/brand-row");
+    // 16 Nov: the row ages its audit against the clock, so it's drawn at NOW -- with the real clock, "22 days before
+    // 8 Nov" passed 30 days ("stale") at 03:00 UTC on 16 Nov and the test failed on its own.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const { container } = render(
       createElement(BrandRow, {
         brand: {

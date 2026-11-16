@@ -10,6 +10,10 @@
  * Every page a signed-in customer or a client-portal viewer sees, and the components and lib copy they render.
  * Leftovers task, part 3 (17 Nov): and the marketing site (app/(marketing), components/domain/landing) -- it claims
  * only what exists (Sri), so no "coming soon", "planned", "will show" or "soon" there either.
+ * 16 Nov (Google AI task, part 3): the audit page's Sentiment and Context said "Not yet measured · No tone classifier
+ * yet" / "No classifier for recommended vs listed yet", as if one were coming; every surface now says "Not scored"
+ * (lib/scoring/measured-display.ts NOT_SCORED_LABEL), and "not yet measured" and "classifier yet" are caught. And
+ * lib/marketing is scanned too: its copy (lib/marketing/google-ai.ts, vertical-facts.ts) is on the public pages.
  * Comments are ignored; the text a page can show is what's checked.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -21,11 +25,10 @@ const SKIP = [
   /^components[\\/]ui[\\/]/,
   // Operator-only pages and their copy.
   /^app[\\/]\(auth\)[\\/]admin[\\/]/,
-  /^lib[\\/]marketing[\\/]/,
 ];
 
 const PLACEHOLDER =
-  /coming soon|coming v\d|being rebuilt|will return( soon)?\b|not yet available|available (after|yet)|hasn't been built|will populate|will appear after|\bbeta\b|demo coming|\b(is|are) planned\b|planned but|will show|(?<!as )\bsoon\b/i;
+  /coming soon|coming v\d|being rebuilt|will return( soon)?\b|not yet available|available (after|yet)|hasn't been built|will populate|will appear after|\bbeta\b|demo coming|\b(is|are) planned\b|planned but|will show|(?<!as )\bsoon\b|not yet measured|classifier[^.;"]*\byet\b/i;
 
 function files(dir: string): string[] {
   const out: string[] = [];
@@ -82,8 +85,36 @@ describe("no placeholder copy on customer pages", () => {
       "Cross-platform consensus isn't available yet",
       "Deeper diagnosis available after trust + comparison data is collected",
       "No referral data available yet. Connect a referral source",
+      "Not yet measured",
+      "Not yet measured — excluded from scoring",
+      "No tone classifier yet",
+      "No classifier for recommended vs listed yet",
     ]) {
       expect(PLACEHOLDER.test(old), old).toBe(true);
+    }
+  });
+});
+
+describe("Sentiment and Context say they aren't scored, in one wording", () => {
+  it("'Not scored', with the classifier that doesn't exist, from lib/scoring/measured-display.ts", async () => {
+    const { NOT_MEASURED_REASONS, NOT_SCORED_LABEL } = await import(
+      "@/lib/scoring/measured-display"
+    );
+    expect(NOT_SCORED_LABEL).toBe("Not scored");
+    expect(NOT_MEASURED_REASONS).toEqual({
+      sentiment: "No tone classifier exists",
+      context: "No framing classifier exists (recommended vs listed)",
+    });
+    // Every surface that shows the two tiles takes the label from there.
+    for (const path of [
+      "app/(auth)/audits/[auditId]/page.tsx",
+      "app/client-portal/[inviteToken]/page.tsx",
+      "app/(marketing)/sample-audit/result/[id]/sample-result-view.tsx",
+      "components/domain/brand/brand-detail-client.tsx",
+      "lib/pdf/render.tsx",
+      "app/(auth)/agency/reports/pdf-builder/page.tsx",
+    ]) {
+      expect(readFileSync(path, "utf-8"), path).toContain("NOT_SCORED_LABEL");
     }
   });
 });

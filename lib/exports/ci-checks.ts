@@ -70,5 +70,5 @@ export function sourceCitationLine(input: CiExportInput): string {
   return `Source citation: ${sourceCitationSummary(input.mentionDetail)}`;
 }
 
-/** Sentiment and Context: no classifier yet. */
-export const NOT_MEASURED_TEXT = "Not yet measured — excluded from scoring";
+/** Sentiment and Context: no classifier exists (16 Nov: it said "Not yet measured", as if one were coming). */
+export const NOT_MEASURED_TEXT = "Not scored — no tone or framing classifier exists";

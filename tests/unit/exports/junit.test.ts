@@ -94,10 +94,10 @@ describe("buildJunit -- Typical position and Source citation never fail", () => 
     expect(xml).not.toMatch(/\/100/);
   });
 
-  it("Sentiment and Context are skipped: not yet measured", () => {
+  it("Sentiment and Context are skipped: not scored", () => {
     const xml = buildJunit(audit(3, 40));
     expect(
-      xml.match(/<skipped message="Not yet measured — excluded from scoring"\/>/g),
+      xml.match(/<skipped message="Not scored — no tone or framing classifier exists"\/>/g),
     ).toHaveLength(2);
   });
 });

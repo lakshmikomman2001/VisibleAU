@@ -83,8 +83,8 @@ export default async function MethodologyPage() {
           Position (where in the answer you&apos;re mentioned) and Source citation (how often a
           mention links to a source) describe how you appear in the answers that DO mention you —
           they&apos;re shown next to the score, but they never change the score itself. Sentiment
-          and Context aren&apos;t measured — no tone or framing classifier exists — so both are
-          marked &quot;Not yet measured&quot; rather than shown as a number.
+          and Context aren&apos;t scored — no tone or framing classifier exists — so both are marked
+          &quot;Not scored&quot; rather than shown as a number.
         </p>
         <p className="text-sm text-muted-foreground">
           From 19 Oct 2026, the Visibility Score is the mention rate. Earlier audits are

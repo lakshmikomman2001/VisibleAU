@@ -14,7 +14,12 @@ import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { PRODUCT_NAME } from "@/lib/product";
 import { measured } from "@/lib/scoring/measured";
-import { engineAnswerLine, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
+import {
+  engineAnswerLine,
+  NOT_SCORED_LABEL,
+  positionCard,
+  sourceCitationCard,
+} from "@/lib/scoring/measured-display";
 import {
   formatVisibilityPercent,
   type VisibilityDisplay,
@@ -619,7 +624,7 @@ export default function PdfBuilderPage() {
                                 not_measured one (Sentiment, Context -- no real
                                 classifier exists) says so distinctly. */}
                             {dim.notMeasured
-                              ? "Not yet measured"
+                              ? NOT_SCORED_LABEL
                               : dim.insufficient
                                 ? "N/A — not mentioned"
                                 : dim.value}
@@ -732,16 +737,15 @@ export default function PdfBuilderPage() {
                         answers that mention the brand.
                       </p>
                       {/* Task #46 Phase 3, Part C: Sentiment and Context have
-                          no real classifier behind them yet -- say so
+                          no real classifier behind them -- say so
                           plainly instead of quoting the old nominal 20%/15%
                           weights, which were never backed by real
                           tone/framing analysis (see
                           lib/scoring/dimension-result.ts). Matches
                           lib/pdf/render.tsx's own Methodology section. */}
                       <p>
-                        <strong>Not yet measured:</strong> Sentiment (tone of mentions) and Context
-                        (recommended vs. listed) aren&apos;t scored: no tone or framing classifier
-                        exists.
+                        <strong>Not scored:</strong> Sentiment (tone of mentions) and Context
+                        (recommended vs. listed): no tone or framing classifier exists.
                       </p>
                       <p>
                         <strong>Confidence:</strong> Scores include a 95% Wilson confidence interval

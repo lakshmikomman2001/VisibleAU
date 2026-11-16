@@ -1642,11 +1642,11 @@ describe("BrandDetailClient — insufficient-data handling (Task #46 Phase 2)", 
 
   // Task #46 Phase 3, Part C: Sentiment has no real classifier behind its
   // stored value (mention.found ? "positive" : "neutral") -- unconditionally
-  // "Not yet measured" now, regardless of mention count/insufficient-data
+  // "Not scored" now, regardless of mention count/insufficient-data
   // status (the old sentimentScore/sentimentInsufficientData props are gone).
-  it('"Sentiment" tile always shows "Not yet measured", regardless of mention status', () => {
+  it('"Sentiment" tile always shows "Not scored", regardless of mention status', () => {
     render(<BrandDetailClient {...baseProps} recentAudits={[]} latestAudit={null} />);
-    expect(screen.getByText("Not yet measured")).toBeInTheDocument();
+    expect(screen.getByText("Not scored")).toBeInTheDocument();
   });
 
   it("sparkline marks a zero-mention point with a dashed/transparent bar, distinct from a real low score", () => {

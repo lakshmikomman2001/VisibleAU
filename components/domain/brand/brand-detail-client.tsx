@@ -66,6 +66,7 @@ import {
   engineRowDisplay,
   formatTypicalRank,
   type MentionDetailCard,
+  NOT_SCORED_LABEL,
 } from "@/lib/scoring/measured-display";
 import {
   type VisibilityDisplay,
@@ -1142,7 +1143,7 @@ export function BrandDetailClient({
                     detail: "Answers that name your business, across your audits",
                     key: 2,
                   },
-                  { label: "Sentiment", value: "Not yet measured", key: 3 },
+                  { label: "Sentiment", value: NOT_SCORED_LABEL, key: 3 },
                 ] satisfies KpiTile[])
               : ([
                   {
@@ -1204,11 +1205,11 @@ export function BrandDetailClient({
                     // Task #46 Phase 3, Part C: Sentiment has no real
                     // classifier behind its stored value at all (mention.found
                     // ? "positive" : "neutral" -- lib/scoring/dimension-result.ts)
-                    // -- unconditionally "Not yet measured", every audit, never
+                    // -- unconditionally "Not scored", every audit, never
                     // gated on mention count the way the Visibility score tile's
                     // insufficientData is.
                     label: "Sentiment",
-                    value: "Not yet measured",
+                    value: NOT_SCORED_LABEL,
                     key: 3,
                   },
                 ] satisfies KpiTile[])

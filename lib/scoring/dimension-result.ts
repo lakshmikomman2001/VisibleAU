@@ -21,7 +21,8 @@
  * "listed" : "neutral"/"absent"` -- a pure function of whether the brand
  * was mentioned at all, not of the response's actual tone or how it was
  * framed. No real classifier exists. Sri's decision (17 Oct): mark both
- * "Not yet measured" -- NOT "insufficient_data" (which means "0
+ * as not measured (shown "Not scored" since 16 Nov, lib/scoring/measured-display.ts
+ * NOT_SCORED_LABEL) -- NOT "insufficient_data" (which means "0
  * mentions, so nothing to measure"; these have plenty of mentions,
  * there's simply no real measurement behind the stored label either
  * way). Unlike "insufficient_data", "not_measured" is unconditional:

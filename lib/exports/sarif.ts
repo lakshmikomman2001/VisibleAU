@@ -30,13 +30,13 @@ const RULES = [
   {
     id: "VA003",
     name: "Sentiment",
-    shortDescription: { text: "Tone of mentions (not yet measured)" },
+    shortDescription: { text: "Tone of mentions (not scored: no tone classifier exists)" },
     helpUri: SCORING_HELP,
   },
   {
     id: "VA004",
     name: "Context",
-    shortDescription: { text: "Recommended vs listed (not yet measured)" },
+    shortDescription: { text: "Recommended vs listed (not scored: no framing classifier exists)" },
     helpUri: SCORING_HELP,
   },
   {

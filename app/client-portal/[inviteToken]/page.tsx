@@ -23,6 +23,7 @@ import {
   type MentionDetailCounts,
   NOT_MEASURED_REASONS,
   NOT_RANKED_REASON,
+  NOT_SCORED_LABEL,
   positionCard,
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
@@ -447,7 +448,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
                     const text = notRanked
                       ? "Not ranked"
                       : notMeasured
-                        ? "Not yet measured"
+                        ? NOT_SCORED_LABEL
                         : dimInsufficient
                           ? "N/A"
                           : measured

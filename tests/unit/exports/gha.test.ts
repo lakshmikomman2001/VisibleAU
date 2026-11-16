@@ -95,9 +95,9 @@ describe("buildGha -- Typical position and Source citation are informational", (
     );
   });
 
-  it("Sentiment and Context are notices: not yet measured", () => {
+  it("Sentiment and Context are notices: not scored", () => {
     const output = buildGha(audit(3, 40));
-    expect(output).toContain("::notice title=Sentiment::Not yet measured — excluded from scoring");
-    expect(output).toContain("::notice title=Context::Not yet measured — excluded from scoring");
+    expect(output).toContain("::notice title=Sentiment::Not scored — no tone or framing classifier exists");
+    expect(output).toContain("::notice title=Context::Not scored — no tone or framing classifier exists");
   });
 });

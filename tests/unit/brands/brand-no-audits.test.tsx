@@ -40,7 +40,7 @@ describe("a brand with no audits", () => {
       "VisibilityNo audits yetHow often AI answers name you, after your first audit",
       "Typical positionNo audits yetYour usual place when AI lists businesses",
       "Total mentionsNo audits yetAnswers that name your business, across your audits",
-      "SentimentNot yet measured",
+      "SentimentNot scored",
     ]);
     for (const card of cards) expect(card.textContent?.trim()).not.toBe("");
     expect(screen.getByText("Run your first audit to see engine scores.")).toBeInTheDocument();

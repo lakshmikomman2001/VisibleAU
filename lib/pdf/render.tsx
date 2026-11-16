@@ -9,6 +9,7 @@ import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-resu
 import {
   engineAnswerLine,
   type MentionDetailCard,
+  NOT_SCORED_LABEL,
   positionCard,
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
@@ -104,10 +105,10 @@ function formatDate(iso: string | null): string {
 function dimValueText(result: DimensionResult): string {
   if (result.status === "scored") return fmt(result.value);
   // Task #46 Phase 3, Part C: "not_measured" (Sentiment, Context -- no real
-  // classifier exists yet) is a distinct reason from "insufficient_data"
+  // classifier exists) is a distinct reason from "insufficient_data"
   // (no mention rows to measure from) and gets its own wording here, same
   // as the audit page and the other export formats.
-  return result.status === "not_measured" ? "Not yet measured" : "N/A — not mentioned";
+  return result.status === "not_measured" ? NOT_SCORED_LABEL : "N/A — not mentioned";
 }
 
 function mentionDetailCards(data: AuditPdfData): {
@@ -496,14 +497,14 @@ export function AuditReport({
               the brand appears when it IS mentioned; they're shown separately and never blended
               into the Visibility score.
             </Text>
-            {/* Task #46 Phase 3, Part C: Sentiment and Context are planned
-                but have no real classifier behind them yet -- say so
+            {/* Task #46 Phase 3, Part C: Sentiment and Context have no real
+                classifier behind them -- say so
                 plainly instead of quoting the old nominal 20%/15% weights,
                 which were never backed by real tone/framing analysis
                 (see lib/scoring/dimension-result.ts). */}
             <Text style={s.methodText}>
-              Sentiment (tone of mentions) and Context (recommended vs. listed) aren't measured: no
-              tone or framing classifier exists, so they're shown as "Not yet measured" above.
+              Sentiment (tone of mentions) and Context (recommended vs. listed) aren't scored: no
+              tone or framing classifier exists, so they're shown as "Not scored" above.
             </Text>
             <Text style={s.methodText}>
               Scores include a 95% Wilson confidence interval accounting for sample size and

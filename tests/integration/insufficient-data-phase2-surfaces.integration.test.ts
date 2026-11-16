@@ -331,9 +331,9 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
   // (it's the mention rate, 0%, over 10 real answers) -- it renders
   // "0.0", never "N/A". Only Position/Source-citation (which measure
   // the mentions that didn't happen) go N/A -- 2, not 3. Sentiment/
-  // Context render "Not yet measured" (unconditional, unrelated to
+  // Context render "Not scored" (unconditional, unrelated to
   // mention count).
-  it("zero-mention brand: headline renders 0.0 (a real measurement); Position/Source-citation render N/A; Sentiment/Context render 'Not yet measured'", async () => {
+  it("zero-mention brand: headline renders 0.0 (a real measurement); Position/Source-citation render N/A; Sentiment/Context render 'Not scored'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: ZERO_INVITE_TOKEN }),
@@ -342,7 +342,7 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     expect(html).toContain("N/A");
     expect(html).toContain("Not mentioned in any of 10 AI answers checked this audit.");
     expect(html.match(/>N\/A</g)?.length).toBe(2);
-    expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    expect(html.match(/Not scored/g)?.length).toBe(2);
   });
 
   // Vunnara (19 Oct, post-aa83b3a): the stored score_composite column
@@ -350,7 +350,7 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
   // as Frequency alone (1 of 10 organic answers mentioned = 10.0), never
   // blended with Position/Source-citation (which still render their own
   // real 100.0 scores independently, visible in the dimension grid).
-  it("real-mention brand: headline is the live mention rate (10.0, not the stale blended 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not yet measured'", async () => {
+  it("real-mention brand: headline is the live mention rate (10.0, not the stale blended 62.3); Position/Source-citation render real scores; Sentiment/Context still say 'Not scored'", async () => {
     const ClientPortalViewPage = (await import("@/app/client-portal/[inviteToken]/page")).default;
     const element = await ClientPortalViewPage({
       params: Promise.resolve({ inviteToken: REAL_INVITE_TOKEN }),
@@ -361,7 +361,7 @@ describe("app/client-portal/[inviteToken]/page.tsx -- external client portal", (
     expect(html).not.toContain("71.2");
     expect(html).not.toContain(">N/A<");
     expect(html).not.toContain("Not mentioned in any of");
-    expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    expect(html.match(/Not scored/g)?.length).toBe(2);
   });
 });
 
@@ -445,10 +445,10 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     // Frequency is a real measurement even at 0 mentions -- its genuine
     // "0/100" still renders (that's the real mention rate, not
     // fabrication). Position/Source-citation go N/A (2); Sentiment/
-    // Context are the third, unconditional "Not yet measured" state (2).
+    // Context are the third, unconditional "Not scored" state (2).
     expect(html.match(/0\/100/g)?.length).toBe(1);
     expect(html.match(/>N\/A</g)?.length).toBe(2);
-    expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    expect(html.match(/Not scored/g)?.length).toBe(2);
     // Build 1 follow-up (final reconcile) / Audit reliability Part C,
     // item 4: this sample brand has no confirmed CATEGORY -- its
     // questions come from the generic vertical+region pack (get-audit-
@@ -482,7 +482,7 @@ describe("app/(marketing)/sample-audit/result/[id]/page.tsx + sample-result-view
     expect(html).toContain("Mentioned in 1 of 12 answer");
     expect(html).not.toMatch(/don.{1,8}t mention/);
     expect(html).not.toContain("Not enough data");
-    expect(html.match(/Not yet measured/g)?.length).toBe(2);
+    expect(html.match(/Not scored/g)?.length).toBe(2);
     expect(html).toContain(
       "These are general questions for your industry. Sign up to tailor them to your specific business.",
     );

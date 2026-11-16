@@ -8,6 +8,7 @@ import {
   type MentionDetailCard,
   NOT_MEASURED_REASONS,
   NOT_RANKED_REASON,
+  NOT_SCORED_LABEL,
 } from "@/lib/scoring/measured-display";
 
 interface AuditResult {
@@ -76,7 +77,7 @@ function ScoreCard({
   value: number | null;
   insufficient?: boolean;
   notMeasured?: boolean;
-  /** Visible under "Not yet measured" -- never only a hover title. */
+  /** Visible under "Not scored" -- never only a hover title. */
   notMeasuredReason?: string;
   // Vunnara (20 Oct, post-a093ceb), item 5: Frequency's value here is
   // byte-identical to the headline above it (resolve-audit-
@@ -109,7 +110,7 @@ function ScoreCard({
         </div>
         <div id={statusId}>
           <div className="text-sm font-bold" style={{ color: "var(--text-tertiary)" }}>
-            Not yet measured
+            {NOT_SCORED_LABEL}
           </div>
           {notMeasuredReason && (
             <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>

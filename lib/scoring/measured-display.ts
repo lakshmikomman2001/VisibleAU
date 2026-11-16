@@ -24,13 +24,19 @@ import type { DimensionKey } from "@/lib/scoring/dimension-result";
 export const SMALL_SAMPLE_MENTIONS = 5;
 
 /**
- * Why a dimension says "Not yet measured" -- shown as visible text under
- * it, never only on hover (phones, keyboards and screen readers never see
- * a hover title).
+ * 16 Nov (Sri): what a dimension with no classifier behind it says, on every surface -- the audit page, the client
+ * portal, the sample audit, the brand page, the PDF and its builder, the methodology and the CI exports. It said "Not
+ * yet measured" / "No tone classifier yet", as if one were coming; none is built.
+ */
+export const NOT_SCORED_LABEL = "Not scored";
+
+/**
+ * Why a dimension says "Not scored" -- shown as visible text under it, never only on hover (phones, keyboards and
+ * screen readers never see a hover title).
  */
 export const NOT_MEASURED_REASONS: Partial<Record<DimensionKey, string>> = {
-  sentiment: "No tone classifier yet",
-  context: "No classifier for recommended vs listed yet",
+  sentiment: "No tone classifier exists",
+  context: "No framing classifier exists (recommended vs listed)",
 };
 
 /** Why Position says "Not ranked" -- visible, like NOT_MEASURED_REASONS. */

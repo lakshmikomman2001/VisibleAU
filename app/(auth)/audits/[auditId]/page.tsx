@@ -65,6 +65,7 @@ import {
   failedNotCountedNote,
   NOT_MEASURED_REASONS,
   NOT_RANKED_REASON,
+  NOT_SCORED_LABEL,
   positionCard,
   sourceCitationCard,
 } from "@/lib/scoring/measured-display";
@@ -1282,7 +1283,7 @@ export default async function AuditPage({
                 // 0-100 score or its interval bar (lib/scoring/measured-
                 // display.ts says why). Sentiment/Context have no real
                 // classifier behind them at all (task #46 Phase 3, Part C),
-                // so they're always "Not yet measured" -- a different state
+                // so they're always "Not scored" -- a different state
                 // from Position's "not ranked" (real mentions, none inside a
                 // list) and from "not mentioned" (nothing to measure).
                 const card =
@@ -1347,7 +1348,7 @@ export default async function AuditPage({
                           : notRanked
                             ? "Mentioned but not ranked"
                             : notMeasured
-                              ? "Not yet measured"
+                              ? NOT_SCORED_LABEL
                               : "Not mentioned"}
                       </p>
                       {(measured?.smallSampleNote ?? reason) && (

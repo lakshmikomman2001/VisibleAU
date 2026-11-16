@@ -37,8 +37,8 @@ const NONE = "Good local options: Alpha Plumbing and Beta Plumbing.";
 
 /** The explanations that used to be hover-only. */
 const EXPLANATIONS = [
-  "No tone classifier yet",
-  "No classifier for recommended vs listed yet",
+  "No tone classifier exists",
+  "No framing classifier exists (recommended vs listed)",
   "Never inside a numbered or bulleted list",
   "not confirmed as your business",
   "1 error",
@@ -142,13 +142,13 @@ describe("audit page: every explanation is visible and in the accessible descrip
     expect(
       body.getByRole("figure", {
         name: "Sentiment",
-        description: "Not yet measured No tone classifier yet",
+        description: "Not scored No tone classifier exists",
       }),
     ).toBeTruthy();
     expect(
       body.getByRole("figure", {
         name: "Context",
-        description: "Not yet measured No classifier for recommended vs listed yet",
+        description: "Not scored No framing classifier exists (recommended vs listed)",
       }),
     ).toBeTruthy();
     expectNoExplanationInTitles(document);
@@ -218,7 +218,7 @@ describe("client portal and sample audit: the same, visible", () => {
     expect(
       body.getByRole("figure", {
         name: "Sentiment",
-        description: "Not yet measured No tone classifier yet",
+        description: "Not scored No tone classifier exists",
       }),
     ).toBeTruthy();
     expect(
@@ -263,7 +263,7 @@ describe("client portal and sample audit: the same, visible", () => {
     expect(
       body.getByRole("figure", {
         name: "Context",
-        description: "Not yet measured No classifier for recommended vs listed yet",
+        description: "Not scored No framing classifier exists (recommended vs listed)",
       }),
     ).toBeTruthy();
     expect(

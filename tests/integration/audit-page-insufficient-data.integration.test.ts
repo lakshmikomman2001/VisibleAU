@@ -289,24 +289,24 @@ describe("audit detail page — zero-mention audit", () => {
   // Source citation are "insufficient_data" (no mention rows to measure
   // from -- "Not mentioned"); Sentiment and Context are unconditionally
   // "not_measured" (no real classifier exists at all, regardless of
-  // mentions -- "Not yet measured"). Vunnara (19 Oct, post-aa83b3a):
+  // mentions -- "Not scored"). Vunnara (19 Oct, post-aa83b3a):
   // Frequency is the headline now, shown above this card, not one of its
   // tiles -- no more "Weight" line/labels at all (no blend left to show
   // a weight for).
-  it("Position/Source citation render N/A — insufficient data; Sentiment/Context render 'Not yet measured'", async () => {
+  it("Position/Source citation render N/A — insufficient data; Sentiment/Context render 'Not scored'", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
     expect(html.match(/Not mentioned<\/p>/g)?.length).toBe(2);
-    expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
+    expect(html.match(/Not scored<\/p>/g)?.length).toBe(2);
     expect(html).not.toContain("Weight:");
   });
 
   // Audit #36 follow-up: the standalone Sentiment card (a "—" over
   // "Sentiment score (0–100)") is gone while there is no classifier; the
   // "When you're mentioned" tile is the one place it says so.
-  it("Sentiment says 'Not yet measured' once, in the dimension grid -- no standalone card, no 0–100 caption, no fabricated breakdown", async () => {
+  it("Sentiment says 'Not scored' once, in the dimension grid -- no standalone card, no 0–100 caption, no fabricated breakdown", async () => {
     const html = await renderAuditPage(ZERO_AUDIT_ID);
     // Price corrections (25 Oct): the reason is visible text, not a hover.
-    expect(html).toContain("No tone classifier yet");
+    expect(html).toContain("No tone classifier exists");
     expect(html.match(/>Sentiment</g)).toHaveLength(1);
     expect(html).not.toContain("(0–100)");
     // The old Positive/Neutral/Negative breakdown (derived from the same
@@ -339,11 +339,11 @@ describe("audit detail page — partial-mention audit (3 of 12 organic responses
   // scored the moment there's a real mention (no more N/A/insufficient),
   // but Sentiment/Context stay "not_measured" regardless -- they're
   // unconditional, never gated on mention count.
-  it("Position/Source citation are scored (no N/A) once there's a real mention; Sentiment/Context still render 'Not yet measured'", async () => {
+  it("Position/Source citation are scored (no N/A) once there's a real mention; Sentiment/Context still render 'Not scored'", async () => {
     const html = await renderAuditPage(PARTIAL_AUDIT_ID);
     expect(html).not.toContain(">N/A<");
     expect(html.match(/Not mentioned<\/p>/g)).toBeNull();
-    expect(html.match(/Not yet measured<\/p>/g)?.length).toBe(2);
+    expect(html.match(/Not scored<\/p>/g)?.length).toBe(2);
   });
 });
 

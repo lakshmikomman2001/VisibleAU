@@ -107,3 +107,47 @@ describe("the promises are worded in one place", () => {
     expect(naming).toEqual(["lib/pricing/tiers.ts"]);
   });
 });
+
+/**
+ * 20 Nov (Sri's decision, part 3): no compliance or certification claim anywhere a customer reads it -- pages,
+ * components, emails (lib/email), the PDF (lib/reports, lib/pdf) -- but the privacy policy and the terms, which may name
+ * the law. The sign-in and sign-up pages said "AU-first vertical content & compliance"; the landing page said
+ * "Australian Privacy Act 1988 compliant" until 19 Nov.
+ */
+const CLAIM_WORDS =
+  /\bcomplian(?:ce|t)\b|\bcertif(?:ied|ication|ications|icate)\b|\bGDPR\b|\bISO ?27001\b|\bSOC ?2\b|\bHIPAA\b|\baccredited\b/i;
+/** Where the words may appear, and why: the law in the legal pages; audit questions about other businesses. */
+const CLAIM_WORDS_ALLOWED: Record<string, string> = {
+  "app/(marketing)/privacy/page.tsx": "the privacy policy names the law",
+  "app/(marketing)/terms/page.tsx": "the terms name the law",
+  "lib/prompts/templates.ts":
+    "questions an audit asks AI engines about a kind of business, not a claim of ours",
+};
+const CUSTOMER_FACING = ["app", "components", "lib", "emails"];
+
+describe("no compliance or certification claim outside /privacy and /terms", () => {
+  readSourcesBeforeAll(CUSTOMER_FACING);
+
+  it("no shipped file says compliant, compliance, certified or a certification name", () => {
+    const claiming = sourcePaths(CUSTOMER_FACING)
+      .filter((path) => !/\.test\.tsx?$/.test(path))
+      .filter((path) => !(path in CLAIM_WORDS_ALLOWED))
+      .filter((path) => CLAIM_WORDS.test(stripComments(sourceText(path))));
+    expect(claiming).toEqual([]);
+  });
+
+  it("the sign-in and sign-up pages share one list, and it says what the product does", async () => {
+    const { AUTH_PAGE_FEATURES } = await import("@/lib/marketing/auth-features");
+    expect(AUTH_PAGE_FEATURES[0]).toBe(
+      "How often AI answers name your business, across the engines on your plan",
+    );
+    for (const form of [
+      "app/sign-in/[[...sign-in]]/sign-in-form.tsx",
+      "app/sign-up/[[...sign-up]]/sign-up-form.tsx",
+    ]) {
+      const text = sourceText(form);
+      expect(text).toContain("const FEATURES = AUTH_PAGE_FEATURES;");
+      expect(stripComments(text)).not.toMatch(CLAIM_WORDS);
+    }
+  });
+});

@@ -14,13 +14,10 @@ import {
   SESSION_ENDED_REASON,
   safeRedirectPath,
 } from "@/lib/auth/paths";
+import { AUTH_PAGE_FEATURES } from "@/lib/marketing/auth-features";
 
-const FEATURES = [
-  "AU-first vertical content & compliance",
-  "Suburb-level tracking, not just metro",
-  "Flat agency tiers — no per-brand surprises",
-  "Research-backed Action Center",
-];
+// 20 Nov (part 3): one list for both auth pages (lib/marketing/auth-features.ts); no compliance claim.
+const FEATURES = AUTH_PAGE_FEATURES;
 
 /**
  * Live invite test follow-ups (8 Nov), part 1 -- sign-in opened from an invite to an account (page.tsx reads

@@ -11,13 +11,10 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { signUp } from "@/lib/auth/client";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { authPagePath, inviteFromPath, newWorkspacePath, safeRedirectPath } from "@/lib/auth/paths";
+import { AUTH_PAGE_FEATURES } from "@/lib/marketing/auth-features";
 
-const FEATURES = [
-  "AU-first vertical content & compliance",
-  "Suburb-level tracking, not just metro",
-  "Flat agency tiers — no per-brand surprises",
-  "Research-backed Action Center",
-];
+// 20 Nov (part 3): one list for both auth pages (lib/marketing/auth-features.ts); no compliance claim.
+const FEATURES = AUTH_PAGE_FEATURES;
 
 const INPUT_STYLE: React.CSSProperties = {
   height: 36,

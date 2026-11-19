@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { assertBrandAccess, BrandAccessDeniedError } from "@/lib/governance";
 import { brandFeatureIncluded } from "@/lib/pricing/brand-features";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { taskDimensionLabel } from "@/lib/scoring/dimension-labels";
 import { isUuid } from "@/lib/validation/uuid";
 import { getTasksByBrand } from "@/lib/workflow/task-manager";
 import { TasksPageClient } from "./tasks-page-client";
@@ -44,7 +45,8 @@ export default async function TasksPage({ params }: { params: Promise<{ brandId:
     priority: t.priority,
     effort: t.effort,
     confidenceLabel: t.confidenceLabel,
-    dimension: t.dimension,
+    // 20 Nov (part 8): the label a task shows with -- never "context" or "sentiment" (lib/scoring/dimension-labels.ts).
+    dimension: taskDimensionLabel(t.dimension, t.recommendationKey),
     scoreBefore: t.scoreBefore,
     scoreAfter: t.scoreAfter,
     assignedTo: t.assignedTo,

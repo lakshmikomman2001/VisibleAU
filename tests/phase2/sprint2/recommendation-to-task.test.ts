@@ -53,9 +53,13 @@ describe("task-manager — recommendation-to-task creation flow", () => {
     expect(fn).toContain("description: rec.action");
   });
 
+  // 20 Nov (part 8): from the recommendation's dimension, as shown -- a stored "context" or "sentiment" tag takes the
+  // measured group its recommendation fits, or none (lib/scoring/dimension-labels.ts taskDisplayDimension).
   it("populates dimension from recommendation", () => {
     const fn = source.slice(source.indexOf("async function createTaskFromRecommendation"));
-    expect(fn).toContain("dimension: rec.dimension");
+    expect(fn).toContain(
+      "dimension: taskDisplayDimension(rec.dimension, rec.recommendationKey) ?? undefined",
+    );
   });
 
   it("populates auditId from recommendation", () => {

@@ -1,6 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { actionItems } from "@/db/schema";
+import { assertMeasuredTaskDimension } from "@/lib/scoring/dimension-labels";
 import type { RecommendationWithConfidence } from "./types";
 
 export interface PersistRecommendationsResult {
@@ -54,6 +55,8 @@ export async function persistRecommendations(
   const inProgressKeys = new Set(inProgressRows.map((r) => r.recommendationKey));
 
   const toInsert = recommendations.filter((r) => !inProgressKeys.has(r.recommendationKey));
+  // 20 Nov (part 8): no action item tagged with a dimension that isn't measured (Sentiment, Context).
+  for (const rec of toInsert) assertMeasuredTaskDimension(rec.dimension);
   const skippedInProgressKeys = recommendations
     .filter((r) => inProgressKeys.has(r.recommendationKey))
     .map((r) => r.recommendationKey);

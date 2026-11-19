@@ -1,6 +1,7 @@
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { actionItems, remediationTasks } from "@/db/schema";
+import { assertMeasuredTaskDimension, taskDisplayDimension } from "@/lib/scoring/dimension-labels";
 import { computePriorityScore, deriveConfidenceLabel } from "./priority-scorer";
 
 const CONFIDENCE_TO_QUALITY: Record<string, string> = {
@@ -45,6 +46,8 @@ export interface CreateTaskInput {
 }
 
 export async function createTask(input: CreateTaskInput, dbClient: DbClient) {
+  // 20 Nov (part 8): no new task tagged with a dimension that isn't measured (Sentiment, Context).
+  assertMeasuredTaskDimension(input.dimension);
   const confidenceLabel = deriveConfidenceLabel(input.qualityStatus ?? null);
   const hasScoreInputs = input.scoreBefore != null || input.estimatedAfter != null;
   const rawImpact = (input.scoreBefore ?? 0) - (input.estimatedAfter ?? 0);
@@ -244,7 +247,9 @@ export async function createTaskFromRecommendation(
       recommendationKey: rec.recommendationKey,
       title: rec.title,
       description: rec.action,
-      dimension: rec.dimension,
+      // 20 Nov (part 8): an item stored with "context" or "sentiment" (before the triggers stopped writing them) becomes a
+      // task under the measured group its recommendation fits, or none -- never the unmeasured tag.
+      dimension: taskDisplayDimension(rec.dimension, rec.recommendationKey) ?? undefined,
       qualityStatus,
       scoreBefore,
     },

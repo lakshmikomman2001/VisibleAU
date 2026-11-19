@@ -5,6 +5,7 @@ import {
   ACTION_GROUP_LABELS,
   ACTION_GROUP_ORDER,
   OTHER_ACTION_GROUP_LABEL,
+  taskDisplayDimension,
 } from "@/lib/scoring/dimension-labels";
 import { RecommendationCard } from "./recommendation-card";
 
@@ -55,9 +56,12 @@ export function DimensionGroup({ items, isFree, showBrandLabel }: DimensionGroup
   // An item whose dimension isn't a known group used to be silently
   // dropped (DIMENSION_ORDER only listed the five scoring dimensions);
   // it now lands in "Other".
-  const grouped = groupBy(items, (i) =>
-    KNOWN_GROUPS.has(i.dimension) ? i.dimension : OTHER_GROUP,
-  );
+  // 20 Nov (part 8): a stored "context" or "sentiment" tag shows under the measured group its recommendation fits, or
+  // Other -- never a "Context" or "Sentiment" heading (taskDisplayDimension).
+  const grouped = groupBy(items, (i) => {
+    const shown = taskDisplayDimension(i.dimension, i.recommendationKey);
+    return shown !== null && KNOWN_GROUPS.has(shown) ? shown : OTHER_GROUP;
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>

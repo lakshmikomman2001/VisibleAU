@@ -17,7 +17,7 @@ import {
   displayRecommendationAction,
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
-import { dimensionLabel } from "@/lib/scoring/dimension-labels";
+import { taskDimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import {
   type MentionDetailCounts,
@@ -142,7 +142,8 @@ export default async function ClientPortalViewPage({ params }: Props) {
       id: string;
       title: string;
       action: string;
-      dimension: string;
+      /** 20 Nov (part 8): the label to show, never "Context" or "Sentiment"; null for none. */
+      dimensionLabel: string | null;
       status: string;
     }[] = [];
     if (brand) {
@@ -177,7 +178,8 @@ export default async function ClientPortalViewPage({ params }: Props) {
           id: r.id,
           title: displayRecommendationTitle(r),
           action: displayRecommendationAction(r, citedDirectories),
-          dimension: r.dimension,
+          // 20 Nov (part 8): never "Context" or "Sentiment" -- a measured group's label, or none.
+          dimensionLabel: taskDimensionLabel(r.dimension, r.recommendationKey),
           status: r.status,
         }));
       }
@@ -517,15 +519,17 @@ export default async function ClientPortalViewPage({ params }: Props) {
                             <p className="text-sm font-medium">{item.title}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{item.action}</p>
                           </div>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded flex-shrink-0"
-                            style={{
-                              backgroundColor: `${theme.primaryColor}15`,
-                              color: theme.primaryColor,
-                            }}
-                          >
-                            {dimensionLabel(item.dimension)}
-                          </span>
+                          {item.dimensionLabel && (
+                            <span
+                              className="text-xs px-2 py-0.5 rounded flex-shrink-0"
+                              style={{
+                                backgroundColor: `${theme.primaryColor}15`,
+                                color: theme.primaryColor,
+                              }}
+                            >
+                              {item.dimensionLabel}
+                            </span>
+                          )}
                         </div>
                       </li>
                     ))}

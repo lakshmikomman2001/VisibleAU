@@ -15,7 +15,7 @@ import {
   displayRecommendationTitle,
   resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
-import { actionGroupLabel } from "@/lib/scoring/dimension-labels";
+import { taskDimensionLabel } from "@/lib/scoring/dimension-labels";
 import { isUuid } from "@/lib/validation/uuid";
 
 export default async function ActionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -112,7 +112,11 @@ export default async function ActionDetailPage({ params }: { params: Promise<{ i
         {displayRecommendationTitle(item)}
       </h1>
       <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 24px" }}>
-        {item.brandName} &middot; {actionGroupLabel(item.dimension)}
+        {/* 20 Nov (part 8): no "Context" or "Sentiment" label -- a measured group, or none. */}
+        {item.brandName}
+        {taskDimensionLabel(item.dimension, item.recommendationKey)
+          ? ` · ${taskDimensionLabel(item.dimension, item.recommendationKey)}`
+          : ""}
       </p>
 
       <TierGate isFree={isFree}>

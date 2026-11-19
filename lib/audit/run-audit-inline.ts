@@ -3,11 +3,11 @@ import { serviceDb, withRlsContext } from "@/db/client";
 import { audits, brands, citations, driftAlerts, engineCallFailures } from "@/db/schema";
 import type { Tier } from "@/db/schema/enums";
 import { answerMention } from "@/lib/audit/answer-mention";
+import { sendAuditComplete } from "@/lib/audit/audit-complete";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine-failure";
-import { sendAuditComplete } from "@/lib/audit/audit-complete";
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
@@ -718,10 +718,12 @@ export async function runAuditInline(
         // message -- so a downstream reader (the CI export route) can
         // tell "this audit was skipped, not genuinely failed" apart
         // from a real failure without parsing free-text error prose.
-        metadata: {
+        // 20 Nov (part 9): merged into what the audit's metadata already said -- it replaced it, so a free sample that
+        // failed lost isSample and its status page answered 404 instead of "failed".
+        metadata: sql`coalesce(${audits.metadata}, '{}'::jsonb) || ${JSON.stringify({
           error: err instanceof Error ? err.message : String(err),
-          errorCode: err instanceof Error ? err.name : undefined,
-        },
+          ...(err instanceof Error ? { errorCode: err.name } : {}),
+        })}::jsonb`,
       })
       .where(eq(audits.id, auditId))
       .catch(() => {});

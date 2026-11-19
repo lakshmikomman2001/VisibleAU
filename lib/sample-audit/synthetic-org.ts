@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { organizations } from "@/db/schema";
-
-const SAMPLE_ORG_SLUG = "__sample__";
+import { SAMPLE_ORG_SLUG } from "./sample-org-slug";
 
 export async function ensureSampleOrg() {
   const [existing] = await serviceDb

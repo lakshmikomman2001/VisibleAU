@@ -13,7 +13,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const RUNNER_SOURCE = readFileSync("lib/audit/run-audit-inline.ts", "utf8");
-const CLEANUP_SOURCE = readFileSync("inngest/functions/sample-audit-cleanup.ts", "utf8");
+// 20 Nov (part 9): the per-brand delete lives in lib/sample-audit/retention.ts, which the daily clean-up and the weekly
+// retention job both run.
+const CLEANUP_SOURCE = readFileSync("lib/sample-audit/retention.ts", "utf8");
+const JOB_SOURCES = [
+  readFileSync("inngest/functions/sample-audit-cleanup.ts", "utf8"),
+  readFileSync("inngest/functions/audit-data-retention.ts", "utf8"),
+];
 
 // citations and audits are handled separately below -- audits IS the
 // row being cleaned up (not a "child" of itself), and citations is
@@ -62,6 +68,24 @@ describe("sample-audit-cleanup.ts's delete list matches what run-audit-inline.ts
       const idx = CLEANUP_SOURCE.indexOf(`.delete(${table})`);
       expect(idx, `${table} must be deleted`).toBeGreaterThan(-1);
       expect(idx, `${table} must be deleted before audits`).toBeLessThan(auditsDeleteIdx);
+    }
+  });
+
+  it("both jobs run it", () => {
+    for (const job of JOB_SOURCES) expect(job).toContain("deleteExpiredSampleData()");
+  });
+
+  it("deletes what the brand-walking crons write for a brand before the brand (they kept it for ever)", () => {
+    const brandsDeleteIdx = CLEANUP_SOURCE.indexOf(".delete(brands)");
+    for (const table of [
+      "youtubePresenceAudits",
+      "brandWebMentions",
+      "linkedinPresenceAudits",
+      "brandConsensusChecks",
+    ]) {
+      const idx = CLEANUP_SOURCE.indexOf(`.delete(${table})`);
+      expect(idx, `${table} must be deleted`).toBeGreaterThan(-1);
+      expect(idx, `${table} before the brand`).toBeLessThan(brandsDeleteIdx);
     }
   });
 

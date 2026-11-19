@@ -2,6 +2,7 @@ import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import {
   AUDIT_DATA_RETENTION_MONTHS,
   CRAWLER_LOG_RETENTION_DAYS,
+  SAMPLE_AUDIT_RETENTION_HOURS,
 } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { TIER_ENGINES } from "@/lib/llm/tier-engines";
@@ -77,3 +78,10 @@ export const KEPT_UNTIL_YOU_ASK = `Two copies are kept until you ask us to delet
  * (lib/agent-analytics/log-upload-storage.ts).
  */
 export const SERVER_LOGS_KEPT = `If you upload your server logs, we keep the AI crawlers' visits from them (the crawler, the page, the time, the response code and the IP address it came from) for ${CRAWLER_LOG_RETENTION_DAYS} days. The file itself is deleted once we've read it.`;
+
+/**
+ * 20 Nov (part 9): the free sample audit on the home page (no sign-up) keeps the website address it was given, with the
+ * kind of business and the suburb, and its questions and answers, for SAMPLE_AUDIT_RETENTION_HOURS -- then the daily
+ * clean-up deletes all of it, the address included (lib/sample-audit/retention.ts; the weekly retention job runs it too).
+ */
+export const SAMPLE_DATA_DELETED = `If you run the free sample audit, we delete the website address you gave and its questions and answers ${SAMPLE_AUDIT_RETENTION_HOURS === 24 ? "a day" : `${SAMPLE_AUDIT_RETENTION_HOURS} hours`} after you ran it.`;

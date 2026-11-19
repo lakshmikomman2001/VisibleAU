@@ -7,6 +7,7 @@ import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { getOrgTimezone, monthInTzSql } from "@/lib/platform/org-timezone";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { TIER_DEFINITIONS, tierDisplayName } from "@/lib/pricing/tiers";
+import { SAMPLE_ORG_SLUG } from "@/lib/sample-audit/sample-org-slug";
 
 /**
  * Part 14 (Sri, 13 Nov): what Vunnara pays its providers, for operators only and only on /admin
@@ -91,6 +92,9 @@ function planPrice(tier: string): number | null {
 
 const usd = (v: string | null) => (v === null ? 0 : Number(v));
 
+/** The free sample's line on the costs page (20 Nov, part 9). */
+export const SAMPLE_COSTS_LINE = "Free sample audits (home page, no workspace)";
+
 /** Month to date (Sydney time) across every workspace with an audit this month. */
 export async function loadOperatorCosts(now: Date = new Date()): Promise<OperatorCosts> {
   const { start, end } = monthInTzSql(getOrgTimezone(), now);
@@ -100,6 +104,7 @@ export async function loadOperatorCosts(now: Date = new Date()): Promise<Operato
       auditNumber: audits.auditNumber,
       organizationId: audits.organizationId,
       organizationName: organizations.name,
+      organizationSlug: organizations.slug,
       brandName: brands.name,
       status: audits.status,
       createdAt: audits.createdAt,
@@ -155,7 +160,10 @@ export async function loadOperatorCosts(now: Date = new Date()): Promise<Operato
   }
   const googleOf = new Map(googleRows.map((g) => [g.auditId, usd(g.usd)]));
 
-  const byWorkspace = new Map<string, { name: string; audits: OperatorAuditCost[] }>();
+  const byWorkspace = new Map<
+    string,
+    { name: string; isSample: boolean; audits: OperatorAuditCost[] }
+  >();
   for (const a of auditRows) {
     const engines = [...(enginesOf.get(a.id) ?? new Map<string, number>())]
       .map(([engine, v]) => ({ engine, name: ENGINE_NAMES[engine] ?? engine, usd: v }))
@@ -174,7 +182,13 @@ export async function loadOperatorCosts(now: Date = new Date()): Promise<Operato
       followUpAudCents: cost?.followUpAudCents ?? 0,
       incomplete: cost?.incomplete ?? false,
     };
-    const ws = byWorkspace.get(a.organizationId) ?? { name: a.organizationName, audits: [] };
+    // 20 Nov (part 9): the free sample's audits are real provider spend, so they stay in the totals -- on a line of their
+    // own that says what they are, never as a "Sample Audit" workspace on the Free plan.
+    const ws = byWorkspace.get(a.organizationId) ?? {
+      name: a.organizationSlug === SAMPLE_ORG_SLUG ? SAMPLE_COSTS_LINE : a.organizationName,
+      isSample: a.organizationSlug === SAMPLE_ORG_SLUG,
+      audits: [],
+    };
     ws.audits.push(row);
     byWorkspace.set(a.organizationId, ws);
   }
@@ -188,8 +202,8 @@ export async function loadOperatorCosts(now: Date = new Date()): Promise<Operato
     workspaces.push({
       organizationId,
       name: ws.name,
-      plan: tierDisplayName(tier),
-      planPriceAudCents: planPrice(tier),
+      plan: ws.isSample ? "No plan (free sample)" : tierDisplayName(tier),
+      planPriceAudCents: ws.isSample ? null : planPrice(tier),
       audits: ws.audits,
       byEngine,
       enginesUsd,

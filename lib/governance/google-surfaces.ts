@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { notTheSampleWorkspace } from "@/db/open-workspace";
 import {
   brandGoogleLocations,
   brands,
@@ -410,10 +411,11 @@ export async function loadGoogleSurfaceAdminView(
   const envEnabled = googleSurfacesEnvEnabled();
   const hasCredentials = hasGoogleSurfaceProviderCredentials();
   const settings = await readGoogleSurfaceSettings();
+  // 20 Nov (part 9): not the free sample's system workspace -- no one's workspace, and its brands are visitors' domains.
   const workspaces = await serviceDb
     .select({ id: organizations.id, name: organizations.name })
     .from(organizations)
-    .where(isNull(organizations.deletedAt))
+    .where(and(isNull(organizations.deletedAt), notTheSampleWorkspace()))
     .orderBy(organizations.name);
 
   let selected: GoogleSurfaceAdminView["selected"] = null;

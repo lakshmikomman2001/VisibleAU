@@ -7,6 +7,7 @@ import {
   AUDIT_RESULTS_DELETED,
   FREE_PLAN_ENGINE_NAMES,
   KEPT_UNTIL_YOU_ASK,
+  SAMPLE_DATA_DELETED,
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
   SERVER_LOGS_KEPT,
@@ -114,6 +115,8 @@ export function faqItems({
         AUDIT_RESULTS_DELETED,
         KEPT_UNTIL_YOU_ASK,
         SERVER_LOGS_KEPT,
+        // 20 Nov (part 9): the free sample's data, a day.
+        SAMPLE_DATA_DELETED,
       ]
         .filter(Boolean)
         .join(" "),

@@ -1,23 +1,11 @@
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import {
-  actionItems,
-  audits,
-  brands,
-  citations,
-  driftAlerts,
-  engineCallFailures,
-  organizations,
-  rateLimitCounters,
-} from "@/db/schema";
+import { rateLimitCounters } from "@/db/schema";
 import { deleteStaleAuthRateLimits } from "@/lib/auth/rate-limit-cleanup";
-import {
-  SAMPLE_AUDIT_RETENTION_HOURS,
-  SAMPLE_RATE_LIMIT_COUNTER_RETENTION_DAYS,
-} from "@/lib/governance/residency-config";
+import { SAMPLE_RATE_LIMIT_COUNTER_RETENTION_DAYS } from "@/lib/governance/residency-config";
 import { inngest } from "@/lib/inngest/client";
+import { deleteExpiredSampleData } from "@/lib/sample-audit/retention";
 
-const SAMPLE_ORG_SLUG = "__sample__";
 const HOUR_MS = 60 * 60 * 1000;
 
 /**
@@ -52,8 +40,6 @@ const HOUR_MS = 60 * 60 * 1000;
 export const sampleAuditCleanup = inngest.createFunction(
   { id: "sample-audit-cleanup", triggers: [{ cron: "0 3 * * *" }] },
   async () => {
-    const cutoff = new Date(Date.now() - SAMPLE_AUDIT_RETENTION_HOURS * HOUR_MS);
-
     // Task #46 (17th follow-up): rate_limit_counters has no native TTL --
     // a daily delete here is cheap for a table this small/low-write, and
     // this cron already runs once a day for the sample-audit domain this
@@ -78,92 +64,9 @@ export const sampleAuditCleanup = inngest.createFunction(
     // brand or audit id alone. tests/integration/sample-audit-cleanup.
     // integration.test.ts proves a real org's brand, even one with the
     // exact same child-row shape, is never touched.
-    const [sampleOrg] = await serviceDb
-      .select({ id: organizations.id })
-      .from(organizations)
-      .where(eq(organizations.slug, SAMPLE_ORG_SLUG));
-
-    if (!sampleOrg) {
-      return {
-        deletedBrands: 0,
-        deletedRateLimitCounters: deletedCounters.length,
-        failedBrands: 0,
-        deletedAuthRateLimits: authRateLimits.deleted,
-      };
-    }
-
-    const oldAudits = await serviceDb
-      .select({ id: audits.id, brandId: audits.brandId })
-      .from(audits)
-      .where(and(eq(audits.organizationId, sampleOrg.id), lt(audits.createdAt, cutoff)));
-
-    if (oldAudits.length === 0) {
-      return {
-        deletedBrands: 0,
-        deletedRateLimitCounters: deletedCounters.length,
-        failedBrands: 0,
-        deletedAuthRateLimits: authRateLimits.deleted,
-      };
-    }
-
-    const oldAuditIdsByBrand = new Map<string, string[]>();
-    for (const a of oldAudits) {
-      const list = oldAuditIdsByBrand.get(a.brandId);
-      if (list) list.push(a.id);
-      else oldAuditIdsByBrand.set(a.brandId, [a.id]);
-    }
-
-    let deletedBrands = 0;
-    let failedBrands = 0;
-
-    for (const [brandId, auditIds] of oldAuditIdsByBrand) {
-      try {
-        await serviceDb.transaction(async (tx) => {
-          // Re-confirm, inside the transaction, that this brand really
-          // belongs to the sample org before deleting anything through
-          // it -- the same belt-and-suspenders defence app/api/sample-
-          // audit/[auditId]/status/route.ts already uses, not the only
-          // defence (every query below also only ever touches rows via
-          // auditIds/brandId already derived from the sampleOrg-scoped
-          // query above).
-          const [brand] = await tx
-            .select({ id: brands.id, organizationId: brands.organizationId })
-            .from(brands)
-            .where(eq(brands.id, brandId));
-          if (!brand || brand.organizationId !== sampleOrg.id) {
-            throw new Error(
-              `sample-audit-cleanup: brand ${brandId} is not a __sample__-org brand; refusing to delete`,
-            );
-          }
-
-          await tx.delete(actionItems).where(inArray(actionItems.auditId, auditIds));
-          await tx.delete(driftAlerts).where(inArray(driftAlerts.currentAuditId, auditIds));
-          await tx.delete(driftAlerts).where(inArray(driftAlerts.previousAuditId, auditIds));
-          await tx.delete(engineCallFailures).where(inArray(engineCallFailures.auditId, auditIds));
-          await tx.delete(citations).where(inArray(citations.auditId, auditIds));
-          await tx.delete(audits).where(inArray(audits.id, auditIds));
-
-          const [remaining] = await tx
-            .select({ c: sql<number>`count(*)::int` })
-            .from(audits)
-            .where(eq(audits.brandId, brandId));
-          if (remaining && Number(remaining.c) === 0) {
-            await tx.delete(brands).where(eq(brands.id, brandId));
-            deletedBrands++;
-          }
-        });
-      } catch (err) {
-        // Part C, item 7: "make the job log its failures. It mustn't
-        // keep failing silently" -- this is the exact fix for the FK
-        // throw that used to abort the whole function with nothing
-        // written to any log. A failed brand is skipped (its rows stay
-        // in next night's backlog -- diag-0092 reports it), never
-        // retried in a loop that could re-throw and take every other
-        // brand in this run down with it.
-        failedBrands++;
-        console.error(`[sample-audit-cleanup] brand ${brandId} failed:`, err);
-      }
-    }
+    // 20 Nov (part 9): every sample brand past the cutoff, by its own creation time, with what crons wrote for it
+    // (lib/sample-audit/retention.ts) -- the shared clean-up the weekly retention job runs too.
+    const { deletedBrands, failedBrands } = await deleteExpiredSampleData();
 
     return {
       deletedBrands,

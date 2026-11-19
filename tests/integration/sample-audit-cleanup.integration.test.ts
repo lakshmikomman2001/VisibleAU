@@ -22,6 +22,7 @@ import { citations } from "@/db/schema/citations";
 import { driftAlerts } from "@/db/schema/drift-alerts";
 import { engineCallFailures } from "@/db/schema/engine-call-failures";
 import { organizations } from "@/db/schema/organizations";
+import { youtubePresenceAudits } from "@/db/schema/youtube-presence-audits";
 import { ensureSampleOrg } from "@/lib/sample-audit/synthetic-org";
 
 const step = { run: (_name: string, fn: () => unknown) => fn() };
@@ -109,14 +110,18 @@ async function seedBrandWithFullChildRowSet(opts: { organizationId: string; suff
 }
 
 async function childRowCounts(brandId: string, auditIds: string[]) {
-  const [brandRows, auditRows, citationRows, failureRows, actionRows, driftRows] = await Promise.all([
-    serviceDb.select().from(brands).where(eq(brands.id, brandId)),
-    serviceDb.select().from(audits).where(inArray(audits.id, auditIds)),
-    serviceDb.select().from(citations).where(inArray(citations.auditId, auditIds)),
-    serviceDb.select().from(engineCallFailures).where(inArray(engineCallFailures.auditId, auditIds)),
-    serviceDb.select().from(actionItems).where(inArray(actionItems.auditId, auditIds)),
-    serviceDb.select().from(driftAlerts).where(inArray(driftAlerts.currentAuditId, auditIds)),
-  ]);
+  const [brandRows, auditRows, citationRows, failureRows, actionRows, driftRows] =
+    await Promise.all([
+      serviceDb.select().from(brands).where(eq(brands.id, brandId)),
+      serviceDb.select().from(audits).where(inArray(audits.id, auditIds)),
+      serviceDb.select().from(citations).where(inArray(citations.auditId, auditIds)),
+      serviceDb
+        .select()
+        .from(engineCallFailures)
+        .where(inArray(engineCallFailures.auditId, auditIds)),
+      serviceDb.select().from(actionItems).where(inArray(actionItems.auditId, auditIds)),
+      serviceDb.select().from(driftAlerts).where(inArray(driftAlerts.currentAuditId, auditIds)),
+    ]);
   return {
     brand: brandRows.length,
     audits: auditRows.length,
@@ -129,15 +134,23 @@ async function childRowCounts(brandId: string, auditIds: string[]) {
 
 afterAll(async () => {
   for (const orgId of createdRealOrgIds) {
-    const orgBrands = await serviceDb.select({ id: brands.id }).from(brands).where(eq(brands.organizationId, orgId));
+    const orgBrands = await serviceDb
+      .select({ id: brands.id })
+      .from(brands)
+      .where(eq(brands.organizationId, orgId));
     for (const b of orgBrands) {
-      const brandAudits = await serviceDb.select({ id: audits.id }).from(audits).where(eq(audits.brandId, b.id));
+      const brandAudits = await serviceDb
+        .select({ id: audits.id })
+        .from(audits)
+        .where(eq(audits.brandId, b.id));
       const auditIds = brandAudits.map((a) => a.id);
       if (auditIds.length > 0) {
         await serviceDb.delete(actionItems).where(inArray(actionItems.auditId, auditIds));
         await serviceDb.delete(driftAlerts).where(inArray(driftAlerts.currentAuditId, auditIds));
         await serviceDb.delete(driftAlerts).where(inArray(driftAlerts.previousAuditId, auditIds));
-        await serviceDb.delete(engineCallFailures).where(inArray(engineCallFailures.auditId, auditIds));
+        await serviceDb
+          .delete(engineCallFailures)
+          .where(inArray(engineCallFailures.auditId, auditIds));
         await serviceDb.delete(citations).where(inArray(citations.auditId, auditIds));
         await serviceDb.delete(audits).where(inArray(audits.id, auditIds));
       }
@@ -148,46 +161,135 @@ afterAll(async () => {
 });
 
 describe("sampleAuditCleanup -- full child-row removal, scoped hard to __sample__", () => {
-  it(
-    "a sample brand with an action item and a drift alert is fully removed; a real org's brand with the same data is untouched",
-    async () => {
-      const sampleOrg = await ensureSampleOrg();
+  it("a sample brand with an action item and a drift alert is fully removed; a real org's brand with the same data is untouched", async () => {
+    const sampleOrg = await ensureSampleOrg();
 
-      const [realOrg] = await serviceDb
-        .insert(organizations)
-        .values({ clerkOrgId: `${TEST_PREFIX}-real`, name: "[cleanup test] real org", slug: `${TEST_PREFIX}-real` })
-        .returning();
-      createdRealOrgIds.push(realOrg.id);
+    const [realOrg] = await serviceDb
+      .insert(organizations)
+      .values({
+        clerkOrgId: `${TEST_PREFIX}-real`,
+        name: "[cleanup test] real org",
+        slug: `${TEST_PREFIX}-real`,
+      })
+      .returning();
+    createdRealOrgIds.push(realOrg.id);
 
-      const { brand: sampleBrand, auditIds: sampleAuditIds } = await seedBrandWithFullChildRowSet({
+    const { brand: sampleBrand, auditIds: sampleAuditIds } = await seedBrandWithFullChildRowSet({
+      organizationId: sampleOrg.id,
+      suffix: "sample",
+    });
+    const { brand: realBrand, auditIds: realAuditIds } = await seedBrandWithFullChildRowSet({
+      organizationId: realOrg.id,
+      suffix: "real",
+    });
+
+    const before = await childRowCounts(sampleBrand.id, sampleAuditIds);
+    expect(before).toEqual({
+      brand: 1,
+      audits: 2,
+      citations: 1,
+      failures: 1,
+      actionItems: 1,
+      driftAlerts: 1,
+    });
+
+    const { sampleAuditCleanup } = await import("@/inngest/functions/sample-audit-cleanup");
+    type Handler = (ctx: {
+      step: typeof step;
+    }) => Promise<{ deletedBrands: number; failedBrands: number }>;
+    const result = await (sampleAuditCleanup as unknown as { fn: Handler }).fn({ step });
+
+    expect(result.failedBrands).toBe(0);
+    expect(result.deletedBrands).toBeGreaterThanOrEqual(1);
+
+    const after = await childRowCounts(sampleBrand.id, sampleAuditIds);
+    expect(after).toEqual({
+      brand: 0,
+      audits: 0,
+      citations: 0,
+      failures: 0,
+      actionItems: 0,
+      driftAlerts: 0,
+    });
+
+    // The real org's brand -- same age, same action item, same drift
+    // alert -- must be completely untouched: this cleanup job only
+    // ever sees audits whose organization_id is the __sample__ org,
+    // so a real org's old brand is never even read, let alone deleted.
+    const realAfter = await childRowCounts(realBrand.id, realAuditIds);
+    expect(realAfter).toEqual({
+      brand: 1,
+      audits: 2,
+      citations: 1,
+      failures: 1,
+      actionItems: 1,
+      driftAlerts: 1,
+    });
+  }, 30_000);
+});
+
+/**
+ * 20 Nov (part 9): two ways a sample brand -- a visitor's domain -- stayed for ever: a cron's row with a NO ACTION
+ * foreign key (the monthly YouTube check's) made its delete throw, and a brand whose audit was never written had no old
+ * audit to lead to it. Both go now, 24 hours on; a fresh sample is kept.
+ */
+describe("sample data is deleted 24 hours on, brand row included", () => {
+  async function sampleBrand(suffix: string, createdAt: Date) {
+    const sampleOrg = await ensureSampleOrg();
+    const [brand] = await serviceDb
+      .insert(brands)
+      .values({
         organizationId: sampleOrg.id,
-        suffix: "sample",
-      });
-      const { brand: realBrand, auditIds: realAuditIds } = await seedBrandWithFullChildRowSet({
-        organizationId: realOrg.id,
-        suffix: "real",
-      });
+        name: `Cleanup Test Brand ${suffix}`,
+        domain: `${TEST_PREFIX}-${suffix}.example.com.au`,
+        vertical: "tradies",
+        region: "au",
+        competitors: [],
+        primaryRegions: [],
+        createdAt,
+      })
+      .returning();
+    return brand;
+  }
 
-      const before = await childRowCounts(sampleBrand.id, sampleAuditIds);
-      expect(before).toEqual({ brand: 1, audits: 2, citations: 1, failures: 1, actionItems: 1, driftAlerts: 1 });
+  it("a sample brand with a YouTube row from the monthly cron, and one whose audit was never written, are deleted; a fresh one stays", async () => {
+    const withYoutube = await sampleBrand("youtube", OLD_CREATED_AT);
+    await serviceDb.insert(audits).values({
+      brandId: withYoutube.id,
+      organizationId: withYoutube.organizationId,
+      // The sample workspace numbers every visitor's audit; one no real run reaches.
+      auditNumber: 900_000 + Math.floor(Math.random() * 99_000),
+      triggeredBy: "sample",
+      status: "complete",
+      createdAt: OLD_CREATED_AT,
+    });
+    await serviceDb.insert(youtubePresenceAudits).values({
+      brandId: withYoutube.id,
+      organizationId: withYoutube.organizationId,
+    });
+    const orphan = await sampleBrand("orphan", OLD_CREATED_AT);
+    const fresh = await sampleBrand("fresh", new Date());
 
-      const { sampleAuditCleanup } = await import("@/inngest/functions/sample-audit-cleanup");
-      type Handler = (ctx: { step: typeof step }) => Promise<{ deletedBrands: number; failedBrands: number }>;
-      const result = await (sampleAuditCleanup as unknown as { fn: Handler }).fn({ step });
+    const { sampleAuditCleanup } = await import("@/inngest/functions/sample-audit-cleanup");
+    type Handler = (ctx: {
+      step: typeof step;
+    }) => Promise<{ deletedBrands: number; failedBrands: number }>;
+    const result = await (sampleAuditCleanup as unknown as { fn: Handler }).fn({ step });
+    expect(result.failedBrands).toBe(0);
 
-      expect(result.failedBrands).toBe(0);
-      expect(result.deletedBrands).toBeGreaterThanOrEqual(1);
+    const left = async (id: string) =>
+      (await serviceDb.select({ id: brands.id }).from(brands).where(eq(brands.id, id))).length;
+    expect(await left(withYoutube.id)).toBe(0);
+    expect(
+      await serviceDb
+        .select({ id: youtubePresenceAudits.id })
+        .from(youtubePresenceAudits)
+        .where(eq(youtubePresenceAudits.brandId, withYoutube.id)),
+    ).toHaveLength(0);
+    expect(await left(orphan.id)).toBe(0);
+    expect(await left(fresh.id)).toBe(1);
 
-      const after = await childRowCounts(sampleBrand.id, sampleAuditIds);
-      expect(after).toEqual({ brand: 0, audits: 0, citations: 0, failures: 0, actionItems: 0, driftAlerts: 0 });
-
-      // The real org's brand -- same age, same action item, same drift
-      // alert -- must be completely untouched: this cleanup job only
-      // ever sees audits whose organization_id is the __sample__ org,
-      // so a real org's old brand is never even read, let alone deleted.
-      const realAfter = await childRowCounts(realBrand.id, realAuditIds);
-      expect(realAfter).toEqual({ brand: 1, audits: 2, citations: 1, failures: 1, actionItems: 1, driftAlerts: 1 });
-    },
-    30_000,
-  );
+    // The fresh one is the test's to remove.
+    await serviceDb.delete(brands).where(eq(brands.id, fresh.id));
+  }, 30_000);
 });

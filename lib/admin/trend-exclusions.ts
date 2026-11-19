@@ -1,6 +1,7 @@
 import { endOfISOWeek, startOfISOWeek } from "date-fns";
 import { and, count, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
+import { notInTheSampleWorkspace } from "@/db/open-workspace";
 import {
   audits,
   brands,
@@ -116,7 +117,12 @@ export async function loadTrendExclusionAdminView({
   };
   // 15 Nov, part 4: a deleted brand's audits only when the operator asks for them.
   const listedBrands: SQL | undefined = showDeletedBrands ? undefined : isNull(brands.deletedAt);
-  const complete = and(eq(audits.status, "complete"), listedBrands);
+  // 20 Nov (part 9): customers' audits only -- not the free sample's (a visitor's one-off, never in a trend).
+  const complete = and(
+    eq(audits.status, "complete"),
+    listedBrands,
+    notInTheSampleWorkspace(audits.organizationId),
+  );
   const [recent, excluded, [totals], [deletedTotals]] = await Promise.all([
     serviceDb
       .select(select)

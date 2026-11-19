@@ -1,5 +1,6 @@
-import { isNull, lt } from "drizzle-orm";
+import { and, isNull, lt } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
+import { notTheSampleWorkspace } from "@/db/open-workspace";
 import { aiReferralHits } from "@/db/schema/ai-referral-hits";
 import { crawlerVisitLogs } from "@/db/schema/crawler-visit-logs";
 import { organizations } from "@/db/schema/organizations";
@@ -12,6 +13,7 @@ import {
 import { inngest } from "@/lib/inngest/client";
 import { deleteExpiredAnswerCache } from "@/lib/retention/answer-cache-retention";
 import { deleteExpiredAudits } from "@/lib/retention/audit-retention";
+import { deleteExpiredSampleData } from "@/lib/sample-audit/retention";
 
 export const auditDataRetention = inngest.createFunction(
   {
@@ -57,12 +59,18 @@ export const auditDataRetention = inngest.createFunction(
       return { deletedAiReferralHits: deleted.length };
     });
 
+    // 20 Nov (part 9): the free sample's data, past SAMPLE_AUDIT_RETENTION_HOURS, brand rows included -- the daily
+    // clean-up's job (inngest/functions/sample-audit-cleanup.ts), run here too so a missed night can't keep it.
+    const samplePurge = await step.run("purge-expired-sample-data", () =>
+      deleteExpiredSampleData(),
+    );
+
     const residencyRefresh = await step.run("refresh-data-residency", async () => {
       // Open workspaces only: a closed one counts as absent.
       const orgs = await serviceDb
         .select({ id: organizations.id })
         .from(organizations)
-        .where(isNull(organizations.deletedAt));
+        .where(and(isNull(organizations.deletedAt), notTheSampleWorkspace()));
       let refreshed = 0;
       for (const org of orgs) {
         await recordDataResidency(org.id);
@@ -80,6 +88,14 @@ export const auditDataRetention = inngest.createFunction(
       return { deletedCacheRows: purged.deletedCacheRows, moreCacheRows: purged.more };
     });
 
-    return { ...result, ...crawlerPurge, ...referralPurge, ...residencyRefresh, ...cachePurge };
+    return {
+      ...result,
+      ...crawlerPurge,
+      ...referralPurge,
+      sampleBrandsDeleted: samplePurge.deletedBrands,
+      sampleBrandsFailed: samplePurge.failedBrands,
+      ...residencyRefresh,
+      ...cachePurge,
+    };
   },
 );

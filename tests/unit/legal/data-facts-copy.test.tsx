@@ -18,6 +18,7 @@ import {
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
   KEPT_UNTIL_YOU_ASK,
+  SAMPLE_DATA_DELETED,
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
   SERVER_LOGS_KEPT,
@@ -53,7 +54,7 @@ describe("what an audit sends, the same on every page", () => {
     // 19 Nov (Sri's review): the providers by name, what outlives the deletion, the server logs -- and no
     // "We comply with Australia's Privacy Act 1988" (a legal claim nobody has checked).
     expect(answer).toBe(
-      `When you run an audit, we send ${AUDIT_QUESTIONS} to ${AUDIT_AI_PROVIDERS}. ${SENT_FOR_A_CONFIRMED_LOCATION} ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} ${KEPT_UNTIL_YOU_ASK} ${SERVER_LOGS_KEPT} Read the privacy policy`,
+      `When you run an audit, we send ${AUDIT_QUESTIONS} to ${AUDIT_AI_PROVIDERS}. ${SENT_FOR_A_CONFIRMED_LOCATION} ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} ${KEPT_UNTIL_YOU_ASK} ${SERVER_LOGS_KEPT} ${SAMPLE_DATA_DELETED} Read the privacy policy`,
     );
     expect(answer).not.toMatch(/Privacy Act|comply|complian/i);
     expect(answer).not.toMatch(/domain and business name are sent/i);

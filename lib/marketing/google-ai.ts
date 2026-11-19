@@ -91,6 +91,22 @@ export function googleAiPublicSentence(googleAi: PublicGoogleAi): string {
 }
 
 /**
+ * 19 Nov (Sri's review of /pricing): where Google's results are checked from -- lib/google-surfaces/location.ts's
+ * order: the postcode if the provider's list of Google's places has it, else the suburb, the city, the state's
+ * capital. One wording for the comparison table and the methodology.
+ */
+export const GOOGLE_AI_LOCATION_TEXT =
+  "from your postcode where Google supports it, otherwise your suburb, city or state capital";
+
+/** The comparison table's grey line under the Google row (19 Nov), like the lines under the rows below it. */
+export function googleAiRowDescription(googleAi: PublicGoogleAi): string {
+  const score = googleAi.countedInScore
+    ? "Shown in its own section and counted in your Visibility score."
+    : "Shown in its own section, not counted in your Visibility score.";
+  return `${score} ${GOOGLE_AI_LOCATION_TEXT.charAt(0).toUpperCase()}${GOOGLE_AI_LOCATION_TEXT.slice(1)}.`;
+}
+
+/**
  * 19 Nov (the FAQ's "Is my data safe?"): what goes to DataForSEO -- each question as the search (lib/serp/dataforseo.ts
  * `keyword`) and the Google location it's checked from (`location_code`), nothing else about the business.
  */

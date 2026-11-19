@@ -1,4 +1,5 @@
 import {
+  GOOGLE_AI_LOCATION_TEXT,
   googleAiArrival,
   googleAiSurfacesText,
   type PublicGoogleAi,
@@ -29,10 +30,8 @@ export function GoogleAiMethodology({ googleAi }: { googleAi: PublicGoogleAi }) 
         provider, logged out, so nobody&apos;s search history or personal results are involved.
       </p>
       <p className="text-sm text-muted-foreground mb-2">
-        Each result is for one place and one device ({googleAi.device}): the business&apos;s
-        postcode where we have it, otherwise its suburb, its city or its state&apos;s capital (the
-        audit then says &quot;Results for Sydney NSW, not your suburb&quot;), and never the whole of
-        Australia. Each result is labelled with that place, the device and the date.
+        {/* 19 Nov: the place in the comparison table's words (GOOGLE_AI_LOCATION_TEXT), one source. */}
+        {`Each result is for one place and one device (${googleAi.device}), checked ${GOOGLE_AI_LOCATION_TEXT} (the audit then says "Results for Sydney NSW, not your suburb"), and never the whole of Australia. Each result is labelled with that place, the device and the date.`}
       </p>
       <p className="text-sm text-muted-foreground mb-2">
         Google&apos;s results arrive {googleAiArrival(googleAi)} and are shown in their own section,{" "}

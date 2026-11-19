@@ -80,6 +80,18 @@ export function TierComparisonTable({
                         {PLAN_FEATURE_COPY[row.feature].description}
                       </span>
                     </>
+                  ) : "description" in row && row.description ? (
+                    // 19 Nov: a from-plan row's grey line (Google's AI answers: lib/marketing/google-ai.ts).
+                    <>
+                      {row.label}
+                      <span
+                        className="block text-xs"
+                        style={{ color: "var(--text-tertiary)" }}
+                        data-row-description=""
+                      >
+                        {row.description}
+                      </span>
+                    </>
                   ) : (
                     row.label
                   )}

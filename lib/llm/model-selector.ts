@@ -65,3 +65,13 @@ export function selectModel(tier: Tier, engine: Engine, task: ModelTask): string
   }
   return DERIVED_TASK_MODELS[engine];
 }
+
+/**
+ * 19 Nov (Sri's review of /pricing): the model a plan's audits ask each engine for -- selectModel's brand_mention
+ * model, by plan key -- so the pricing cards and Compare plans say which models a plan gets. "4 AI engines" on every
+ * paid plan hid that Starter asks Claude Haiku and Growth and up Sonnet, and Agency and up ask GPT-4.1 and Sonar Pro.
+ */
+export function auditModelFor(planKey: string, engine: Engine): string {
+  const models = (PRIMARY_MODELS as Record<string, Record<Engine, string> | undefined>)[planKey];
+  return (models ?? PRIMARY_MODELS.starter)[engine];
+}

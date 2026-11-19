@@ -17,7 +17,15 @@
  *   manager" (no account managers). "Custom integrations" is "(by arrangement)": built only by agreement.
  * tests/unit/pricing/pricing-claims.test.tsx holds the page to this.
  */
-import { googleAiPlanLine, type PublicGoogleAi } from "@/lib/marketing/google-ai";
+import { ENGINE_DISPLAY_NAMES, type Engine } from "@/lib/llm/interface";
+import { auditModelFor } from "@/lib/llm/model-selector";
+import { modelName } from "@/lib/llm/model-set";
+import { TIER_ENGINES } from "@/lib/llm/tier-engines";
+import {
+  googleAiPlanLine,
+  googleAiRowDescription,
+  type PublicGoogleAi,
+} from "@/lib/marketing/google-ai";
 
 export const PRIORITY_EMAIL_SUPPORT = "Priority email support";
 
@@ -259,10 +267,34 @@ export function seatsText(tier: TierDefinition): string {
   return `${tier.seats} team ${tier.seats === 1 ? "seat" : "seats"}`;
 }
 
+/** Every engine, in the order the plans list them (lib/llm/tier-engines.ts, a paid plan's). */
+const ENGINE_ORDER: readonly Engine[] = TIER_ENGINES.starter ?? [];
+
+/**
+ * 19 Nov (Sri's review of /pricing): the model a plan's audits ask an engine for ("Haiku 4.5", "Sonnet 4.6",
+ * lib/llm/model-selector.ts), or null when the plan doesn't use that engine.
+ */
+export function planModel(tierKey: string, engine: Engine): string | null {
+  const engines = TIER_ENGINES[tierKey] ?? [];
+  return engines.includes(engine) ? modelName(auditModelFor(tierKey, engine)) : null;
+}
+
+/**
+ * The card's line naming each engine's model on the plan: "Models: ChatGPT (GPT-4.1 mini), Claude (Haiku 4.5),
+ * Gemini (3.5 Flash-Lite), Perplexity (Sonar)". The models differ by plan, so "4 AI engines" alone hid it.
+ */
+export function planModelsLine(tierKey: string): string {
+  const parts = ENGINE_ORDER.flatMap((engine) => {
+    const model = planModel(tierKey, engine);
+    return model ? [`${ENGINE_DISPLAY_NAMES[engine]} (${model})`] : [];
+  });
+  return `Models: ${parts.join(", ")}`;
+}
+
 /**
  * 6 Nov -- a plan's pricing card, top to bottom: its highlights, how it's scored (the same on
  * every plan), its seats, the plan it has everything in, the features it unlocks (in the app's
- * own words), then the rest.
+ * own words), then the rest. 19 Nov: after its highlights, the models it asks each engine for.
  * 16 Nov: after its highlights, Google's AI answers on a plan that has them -- only given `googleAi` (what
  * lib/governance/google-surfaces.ts publicGoogleAi says now; null while the global setting is off).
  */
@@ -273,6 +305,7 @@ export function cardFeatures(
   const below = tier.everythingIn ? getTierDefinition(tier.everythingIn) : undefined;
   return [
     ...tier.highlights,
+    planModelsLine(tier.key),
     ...(tier.googleAi && googleAi ? [googleAiPlanLine(googleAi.surfaces)] : []),
     SCORING_LINE,
     seatsText(tier),
@@ -289,13 +322,21 @@ export function cardFeatures(
  */
 export type ComparisonRow =
   | { label: string; value: (tier: TierDefinition) => string }
-  | { label: string; from: string }
+  | { label: string; from: string; description?: string }
   | { feature: PlanFeature };
 
 export const COMPARISON_ROWS: ComparisonRow[] = [
   { label: "Brands", value: (t) => (t.brands < 0 ? "Unlimited" : String(t.brands)) },
   { label: "Team seats", value: (t) => (t.seats < 0 ? "Unlimited" : String(t.seats)) },
   { label: "AI engines", value: (t) => String(t.engines) },
+  // 19 Nov: the model each engine answers with differs by plan (lib/llm/model-selector.ts); "—" where the plan
+  // doesn't use the engine.
+  ...ENGINE_ORDER.map(
+    (engine): ComparisonRow => ({
+      label: `${ENGINE_DISPLAY_NAMES[engine]} model`,
+      value: (t) => planModel(t.key, engine) ?? "—",
+    }),
+  ),
   { label: "Audit frequency", value: (t) => t.frequency },
   { label: SCORING_LINE, from: "free" },
   { label: "Action items", from: "starter" },
@@ -316,9 +357,11 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
  */
 export function comparisonRows(googleAi: PublicGoogleAi | null): ComparisonRow[] {
   if (!googleAi) return COMPARISON_ROWS;
+  // 19 Nov: with the grey line the rows below have: its own section, the score, where it's checked from.
   const row: ComparisonRow = {
     label: googleAiPlanLine(googleAi.surfaces),
     from: GOOGLE_AI_FROM_TIER,
+    description: googleAiRowDescription(googleAi),
   };
   const lastFromRow = COMPARISON_ROWS.reduce(
     (at, r, i) => ("from" in r && r.from === GOOGLE_AI_FROM_TIER ? i : at),

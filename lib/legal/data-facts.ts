@@ -31,6 +31,23 @@ export const SENT_FOR_A_CONFIRMED_LOCATION =
 export const AUDIT_RESULTS_DELETED = `We delete an audit's results ${AUDIT_DATA_RETENTION_MONTHS} months after it ran, or sooner if you ask us to.`;
 
 /**
+ * 20 Nov (part 4): what goes to DataForSEO with each question besides the question itself -- the Google location it's
+ * checked from (lib/serp/dataforseo.ts `location_code`, lib/google-surfaces/location.ts). One phrase for the FAQ
+ * (lib/marketing/google-ai.ts googleAiDataSentence) and the privacy page, which didn't say it. Here, not in google-ai.ts,
+ * so the privacy page reads it without the Google setting-aware wording (tests/unit/google-surfaces guard).
+ */
+export const GOOGLE_CHECKED_FROM_PLACE =
+  "the place they're checked from (your postcode where Google supports it, otherwise your suburb, city or state capital)";
+
+/**
+ * 20 Nov (part 4): what the information is used for, as the code uses it. The privacy page said "used solely to run AI
+ * visibility audits and deliver reports", but adding a business also sends its home page to Anthropic to work out what
+ * kind of business it is (lib/brands/classify-brand.ts), and the account's email gets sign-in, invite and alert emails.
+ */
+export const INFORMATION_USE =
+  "We use your information to run your audits and show you their results, to work out what kind of business each one you add is (from its home page, by Anthropic's Claude, as above), and to send the emails and reports you sign up for or ask for. We do not sell your data.";
+
+/**
  * 19 Nov (Sri's review of the landing page's "Is my data safe?"): the companies an audit's questions go to, by name,
  * not "the AI providers" -- one per engine (lib/llm/interface.ts), as the privacy page's Third-party services lists
  * them.

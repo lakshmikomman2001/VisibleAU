@@ -204,7 +204,7 @@ describe("the FAQ", () => {
 
     const on = faqItems({ googleAi: ON, showFreeTier: true });
     expect(answer(on, "Is my data safe?").a).toContain(
-      "On Growth plans and up, the same questions also go to DataForSEO, which asks Google for us, logged out, with the place they're checked from (your postcode, or else your suburb, city or state capital).",
+      "On Growth plans and up, the same questions also go to DataForSEO, which asks Google for us, logged out, with the place they're checked from (your postcode where Google supports it, otherwise your suburb, city or state capital).",
     );
     expect(answer(on, "How long does an audit take?").a).toContain(
       "On Growth plans and up, Google's results arrive about 10 minutes after the four AI engines' answers.",

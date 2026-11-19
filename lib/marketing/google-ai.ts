@@ -12,6 +12,7 @@
  *
  * Client-safe: no database, no env (the pricing cards are a client component).
  */
+import { GOOGLE_CHECKED_FROM_PLACE } from "@/lib/legal/data-facts";
 import { TIER_ENGINES } from "@/lib/llm/tier-engines";
 
 /** lib/governance/google-surfaces.ts GOOGLE_SURFACES, in display order. */
@@ -119,7 +120,7 @@ export function googleAiRowDescription(googleAi: PublicGoogleAi): string {
  * `keyword`) and the Google location it's checked from (`location_code`), nothing else about the business.
  */
 export function googleAiDataSentence(googleAi: PublicGoogleAi): string {
-  return `On ${googleAi.fromPlan} plans and up, the same questions also go to DataForSEO, which asks Google for us, logged out, with the place they're checked from (your postcode, or else your suburb, city or state capital).`;
+  return `On ${googleAi.fromPlan} plans and up, the same questions also go to DataForSEO, which asks Google for us, logged out, with ${GOOGLE_CHECKED_FROM_PLACE}.`;
 }
 
 /** 19 Nov (the FAQ's "How long does an audit take?"). */

@@ -8,6 +8,8 @@ import {
   AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
+  GOOGLE_CHECKED_FROM_PLACE,
+  INFORMATION_USE,
   KEPT_UNTIL_YOU_ASK,
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
@@ -58,9 +60,10 @@ export default function PrivacyPage() {
               (lib/retention/audit-retention.ts). Kept until deletion is asked for: generated PDF reports and
               the evidence archive (lib/trust/evidence-archiver.ts, RESPONSE_SNIPPET_CHARS of each first-run
               answer), and the actions someone has started or finished. */}
+          {/* 20 Nov (part 4): not "used solely to run AI visibility audits and deliver reports" -- adding a business sends
+              its home page to Anthropic too (lib/legal/data-facts.ts INFORMATION_USE). */}
           <p>
-            Your information is used solely to run AI visibility audits and deliver reports. We do
-            not sell your data. The questions we send to the AI providers, and their answers, are
+            {INFORMATION_USE} The questions we send to the AI providers, and their answers, are
             saved with your audit results. {AUDIT_RESULTS_DELETED} {KEPT_UNTIL_YOU_ASK} Actions
             you've started or finished stay in your Action Center.
           </p>
@@ -72,18 +75,14 @@ export default function PrivacyPage() {
           <p>
             The questions we send, and the business details above, are processed by{" "}
             {AUDIT_AI_PROVIDERS} through their APIs, in the United States, under each provider's API
-            data-usage terms. Payment processing is handled by Stripe. We use these services under
-            their respective data processing agreements.
+            data-usage terms. Payment processing is handled by Stripe.
           </p>
+          {/* 20 Nov (part 4): no "We use these services under their respective data processing agreements" -- no signed
+              agreement with any of them is in the repository or its docs (docs/privacy-policy-draft.md). */}
           {/* Google AI surfaces (Phase 1, part 3): said only once Google can run for a customer. */}
           {googleSurfacesCanRun() && (
             <p className="mt-2" data-privacy-google="">
-              Where a workspace has Google Search AI switched on, the audit questions (each naming a
-              kind of business and a place, and a few naming the business) also go to DataForSEO
-              (DataForSEO OÜ, Estonia), which collects Google&apos;s search results for us, logged
-              out. DataForSEO doesn&apos;t say where it processes data; the processors it lists are
-              in the United States and Germany, and it keeps the questions and results for{" "}
-              {DATAFORSEO_TASK_RETENTION_MONTHS} months.
+              {`Where a workspace has Google Search AI switched on, the audit questions (each naming a kind of business and a place, and a few naming the business) also go to DataForSEO (DataForSEO OÜ, Estonia), which collects Google's search results for us, logged out, with ${GOOGLE_CHECKED_FROM_PLACE}. DataForSEO doesn't say where it processes data; the processors it lists are in the United States and Germany, and it keeps the questions and results for ${DATAFORSEO_TASK_RETENTION_MONTHS} months.`}
             </p>
           )}
         </section>

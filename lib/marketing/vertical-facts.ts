@@ -17,6 +17,7 @@ import {
   LOCAL_CATEGORY_KEYS,
   SERVICE_WORD_FALLBACK,
 } from "@/lib/prompts/templates";
+import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
 
 /** The business types a vertical's brands confirm from (the confirmation card's first list). */
 export function verticalTypes(vertical: string): readonly CategoryKey[] {
@@ -79,6 +80,19 @@ export function answersPerAudit(): {
     paidAnswers: paidEngines * PROMPTS_PER_AUDIT,
     freeEngines,
     freeAnswers: freeEngines * PROMPTS_PER_AUDIT,
+  };
+}
+
+/**
+ * 19 Nov: the anonymous sample audit on the home page (lib/sample-audit/config.ts) -- smaller than any plan's audit,
+ * so the landing page and the FAQ say both: its questions x engines x runs = answers.
+ */
+export function sampleAuditAnswers(): { questions: number; engines: number; answers: number } {
+  const { promptsCount, engines, runsPerPrompt } = SAMPLE_AUDIT_CONFIG;
+  return {
+    questions: promptsCount,
+    engines: engines.length,
+    answers: promptsCount * engines.length * runsPerPrompt,
   };
 }
 

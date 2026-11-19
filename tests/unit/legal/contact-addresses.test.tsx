@@ -60,7 +60,9 @@ describe("contact addresses", () => {
     );
 
     const { PricingTeaser } = await import("@/components/domain/landing/pricing-teaser");
-    expect(html(<PricingTeaser />)).toContain(`href="mailto:${CONTACT_EMAIL}"`);
+    expect(html(<PricingTeaser showFreeTier={false} />)).toContain(
+      `href="mailto:${CONTACT_EMAIL}"`,
+    );
 
     const Pricing = (await import("@/app/(marketing)/pricing/page")).default;
     expect(html(await Pricing())).toContain(

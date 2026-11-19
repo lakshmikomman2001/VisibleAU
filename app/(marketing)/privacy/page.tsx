@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { googleSurfacesCanRun } from "@/lib/governance/google-surfaces-env";
 import {
   AUTH_RATE_LIMIT_RETENTION_HOURS,
   DATAFORSEO_TASK_RETENTION_MONTHS,
 } from "@/lib/governance/residency-config";
 import {
+  AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
+  KEPT_UNTIL_YOU_ASK,
   SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
 } from "@/lib/legal/data-facts";
@@ -60,10 +61,8 @@ export default function PrivacyPage() {
           <p>
             Your information is used solely to run AI visibility audits and deliver reports. We do
             not sell your data. The questions we send to the AI providers, and their answers, are
-            saved with your audit results. {AUDIT_RESULTS_DELETED} Two copies are kept until you ask
-            us to delete them: PDF reports you&apos;ve made, and your business&apos;s evidence
-            archive (the first {RESPONSE_SNIPPET_CHARS} characters of each answer, with its
-            question). Actions you&apos;ve started or finished stay in your Action Center.
+            saved with your audit results. {AUDIT_RESULTS_DELETED} {KEPT_UNTIL_YOU_ASK} Actions
+            you&apos;ve started or finished stay in your Action Center.
           </p>
         </section>
         <section>
@@ -71,11 +70,10 @@ export default function PrivacyPage() {
           {/* Part 6: the providers, as the Data Residency page lists them (lib/governance/residency-config.ts:
               OpenAI, Anthropic, Google and Perplexity, US, per provider API data-usage terms). */}
           <p>
-            The questions we send, and the business details above, are processed by OpenAI
-            (ChatGPT), Anthropic (Claude), Google (Gemini) and Perplexity through their APIs, in the
-            United States, under each provider&apos;s API data-usage terms. Payment processing is
-            handled by Stripe. We use these services under their respective data processing
-            agreements.
+            The questions we send, and the business details above, are processed by{" "}
+            {AUDIT_AI_PROVIDERS} through their APIs, in the United States, under each
+            provider&apos;s API data-usage terms. Payment processing is handled by Stripe. We use
+            these services under their respective data processing agreements.
           </p>
           {/* Google AI surfaces (Phase 1, part 3): said only once Google can run for a customer. */}
           {googleSurfacesCanRun() && (

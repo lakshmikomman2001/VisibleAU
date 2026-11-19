@@ -14,9 +14,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FaqSection } from "@/components/domain/landing/faq-section";
 import {
+  AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
+  KEPT_UNTIL_YOU_ASK,
+  SENT_FOR_A_CONFIRMED_LOCATION,
   SENT_WHEN_A_BUSINESS_IS_ADDED,
+  SERVER_LOGS_KEPT,
 } from "@/lib/legal/data-facts";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -46,9 +50,12 @@ describe("what an audit sends, the same on every page", () => {
     fireEvent.click(button);
     const answer = button.parentElement?.querySelector("p")?.textContent ?? "";
 
+    // 19 Nov (Sri's review): the providers by name, what outlives the deletion, the server logs -- and no
+    // "We comply with Australia's Privacy Act 1988" (a legal claim nobody has checked).
     expect(answer).toBe(
-      `When you run an audit, we send the AI providers ${AUDIT_QUESTIONS}. ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} We comply with Australia's Privacy Act 1988.`,
+      `When you run an audit, we send ${AUDIT_QUESTIONS} to ${AUDIT_AI_PROVIDERS}. ${SENT_FOR_A_CONFIRMED_LOCATION} ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} ${KEPT_UNTIL_YOU_ASK} ${SERVER_LOGS_KEPT} Read the privacy policy`,
     );
+    expect(answer).not.toMatch(/Privacy Act|comply|complian/i);
     expect(answer).not.toMatch(/domain and business name are sent/i);
     const auditSentence = answer.slice(0, answer.indexOf(". ") + 1);
     expect(auditSentence).not.toMatch(/domain|website/i);
@@ -63,6 +70,8 @@ describe("what an audit sends, the same on every page", () => {
     expect(policy).toContain(SENT_WHEN_A_BUSINESS_IS_ADDED);
     expect(policy).toContain(`${AUDIT_QUESTIONS}.`);
     expect(policy).toContain(AUDIT_RESULTS_DELETED);
+    expect(policy).toContain(KEPT_UNTIL_YOU_ASK);
+    expect(policy).toContain(`processed by ${AUDIT_AI_PROVIDERS} through their APIs`);
   });
 
   it("the Data Residency page: no domain in what audits send, the same sentences", async () => {

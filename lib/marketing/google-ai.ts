@@ -90,6 +90,19 @@ export function googleAiPublicSentence(googleAi: PublicGoogleAi): string {
   return `On ${googleAi.fromPlan} plans and up, we also check Google's ${googleAiSurfacesText(googleAi.surfaces)} from your postcode, shown alongside ${enginesText(googleAi)} (${googleAiScoreClause(googleAi)}).`;
 }
 
+/**
+ * 19 Nov (the FAQ's "Is my data safe?"): what goes to DataForSEO -- each question as the search (lib/serp/dataforseo.ts
+ * `keyword`) and the Google location it's checked from (`location_code`), nothing else about the business.
+ */
+export function googleAiDataSentence(googleAi: PublicGoogleAi): string {
+  return `On ${googleAi.fromPlan} plans and up, the same questions also go to DataForSEO, which asks Google for us, logged out, with the place they're checked from (your postcode, or else your suburb, city or state capital).`;
+}
+
+/** 19 Nov (the FAQ's "How long does an audit take?"). */
+export function googleAiTimingSentence(googleAi: PublicGoogleAi): string {
+  return `On ${googleAi.fromPlan} plans and up, Google's results arrive ${googleAiArrival(googleAi)}.`;
+}
+
 /** The FAQ's question and answer. */
 export function googleAiFaq(googleAi: PublicGoogleAi): { q: string; a: string } {
   const text = googleAiSurfacesText(googleAi.surfaces);

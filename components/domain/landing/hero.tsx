@@ -7,9 +7,9 @@ export function Hero() {
       <h1 className="mt-6 text-4xl sm:text-5xl font-bold tracking-tight max-w-3xl mx-auto">
         See your brand in ChatGPT, Claude, Gemini, and Perplexity
       </h1>
+      {/* 19 Nov (Sri's review): "Built for Australian SMBs" is the pill above; it isn't said twice. */}
       <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-        Get an honest read on how AI search engines describe your business. Built for Australian
-        SMBs.
+        Get an honest read on how AI search engines describe your business.
       </p>
       <div className="mt-8 flex justify-center gap-3 flex-wrap">
         <a

@@ -54,10 +54,11 @@ describe("the FAQ's counts come from the code", () => {
 
     const answer = answerTo("How long does an audit take?");
 
+    // 19 Nov (Sri's review): said as the anonymous sample, smaller than a plan's audit, not as "an audit".
     expect(answer).toContain(
-      `The free sample asks ${promptsCount} questions across ${engines.length} AI engines (${promptsCount * engines.length * runsPerPrompt} answers).`,
+      `The free sample audit (no sign-up) is smaller than a plan's audit: it asks ${promptsCount} questions across ${engines.length} AI engines (${promptsCount * engines.length * runsPerPrompt} answers).`,
     );
-    expect(answer).toContain("The free sample asks 6 questions across 2 AI engines (12 answers).");
+    expect(answer).toContain("it asks 6 questions across 2 AI engines (12 answers).");
   });
 
   it("follows the config when it changes -- the sentence isn't a copy of today's numbers", async () => {
@@ -72,7 +73,7 @@ describe("the FAQ's counts come from the code", () => {
     render(createElement(Fresh));
 
     expect(answerTo("How long does an audit take?")).toContain(
-      "The free sample asks 7 questions across 3 AI engines (21 answers).",
+      "it asks 7 questions across 3 AI engines (21 answers).",
     );
   });
 
@@ -89,7 +90,7 @@ describe("the FAQ's counts come from the code", () => {
   });
 
   it("the free plan is tiers.ts's and the server's: one audit a month, two engines", () => {
-    render(createElement(FaqSection));
+    render(createElement(FaqSection, { showFreeTier: true }));
     const free = getTierDefinition("free");
     const starter = getTierDefinition("starter");
 
@@ -99,7 +100,10 @@ describe("the FAQ's counts come from the code", () => {
     expect(free?.frequency).toBe("1 audit/month");
     expect(answer).toContain(`Free plan: ${free?.frequency} across ${free?.engines} AI engines.`);
     // Stale since GST-free pricing (11 Nov): not registered for GST, the price has no "inc. GST".
-    expect(answer).toContain(`Starter from A$${(starter?.monthlyPriceCentsIncGst ?? 0) / 100}/mo.`);
+    // 19 Nov: every paid plan's price from tiers.ts, then a link to /pricing.
+    expect(answer).toContain(
+      `Paid plans: Starter A$${(starter?.monthlyPriceCentsIncGst ?? 0) / 100}/mo,`,
+    );
     expect(answer).not.toMatch(/GST/);
     expect(answer).not.toContain("3 audits");
   });

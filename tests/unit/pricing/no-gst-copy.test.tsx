@@ -208,7 +208,7 @@ describe("not registered: nothing charges, includes or labels GST", () => {
 
   it("the landing teaser, the FAQ and the Terms", async () => {
     const { PricingTeaser } = await import("@/components/domain/landing/pricing-teaser");
-    expect(renderToStaticMarkup(<PricingTeaser />)).not.toMatch(/GST/);
+    expect(renderToStaticMarkup(<PricingTeaser showFreeTier />)).not.toMatch(/GST/);
     const { FaqSection } = await import("@/components/domain/landing/faq-section");
     expect(renderToStaticMarkup(<FaqSection />)).not.toMatch(/GST/);
     const Terms = (await import("@/app/(marketing)/terms/page")).default;

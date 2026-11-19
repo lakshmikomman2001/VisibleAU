@@ -57,6 +57,8 @@ export const DIRECT_GATES = [
   "lib/governance/google-surfaces.ts",
   "lib/platform/budget-policy.service.ts",
   "lib/pricing/plan-features.ts",
+  // 20 Nov (part 6): a workspace made while the free plan was off has no plan until checkout (Free doesn't count).
+  "lib/pricing/plan-required.ts",
   "lib/scheduling/quota-check.ts",
 ];
 

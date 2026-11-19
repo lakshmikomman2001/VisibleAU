@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/domain/app-shell";
 import { BreadcrumbProvider } from "@/components/domain/breadcrumb-context";
 import { CurrentBrandProvider } from "@/components/domain/current-brand-context";
+import { PlanRequiredGate } from "@/components/domain/plan-required-gate";
 import { PlanTierProvider } from "@/components/domain/plan-tier-context";
 import { RoleProvider } from "@/components/domain/role-context";
 import { serviceDb } from "@/db/client";
@@ -13,6 +14,7 @@ import { countBrands } from "@/lib/brands";
 import { brandUsage } from "@/lib/brands/limits";
 import { roleOf } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { workspaceNeedsPlan } from "@/lib/pricing/plan-required";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   // The middleware let a session cookie through, but the session behind
@@ -40,6 +42,9 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const role = await roleOf(currentUser);
   if (!role) redirect(NO_WORKSPACE_PATH);
 
+  // 20 Nov (part 6): a workspace made while the free plan was off goes to the plan picker until checkout.
+  const needsPlan = await workspaceNeedsPlan(serviceDb, currentUser.organizationId);
+
   return (
     <PlanTierProvider tier={orgTier}>
       <RoleProvider role={role}>
@@ -51,7 +56,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
               userName={currentUser.name ?? session.user?.name ?? ""}
               brandUsage={newBrandUsage}
             >
-              {children}
+              <PlanRequiredGate needsPlan={needsPlan}>{children}</PlanRequiredGate>
             </AppShell>
           </CurrentBrandProvider>
         </BreadcrumbProvider>

@@ -8,6 +8,7 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { runTechnicalAuditInline } from "@/lib/audit/run-technical-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
+import { roleRefusal } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
 import { INNGEST_STEP_BUDGET_MS } from "@/lib/llm/step-budget";
@@ -15,7 +16,7 @@ import {
   BudgetPolicyService,
   DailySpendCapExceededError,
 } from "@/lib/platform/budget-policy.service";
-import { roleRefusal } from "@/lib/governance";
+import { planRequiredResponse, workspaceNeedsPlan } from "@/lib/pricing/plan-required";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -27,6 +28,13 @@ export async function POST(req: Request) {
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const forbidden = await roleRefusal(currentUser, "run_audit");
   if (forbidden) return forbidden;
+  // 20 Nov (part 6): a workspace made while the free plan was off runs nothing until it has a plan.
+  if (
+    await withRlsContext(currentUser.organizationId, (tx) =>
+      workspaceNeedsPlan(tx, currentUser.organizationId),
+    )
+  )
+    return planRequiredResponse();
 
   let body: unknown;
   try {

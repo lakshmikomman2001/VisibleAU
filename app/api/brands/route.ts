@@ -13,6 +13,7 @@ import { roleRefusal } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { planRequiredResponse, workspaceNeedsPlan } from "@/lib/pricing/plan-required";
 
 const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
@@ -105,6 +106,13 @@ export async function POST(req: Request) {
   }
   const forbidden = await roleRefusal(currentUser, "manage_brands");
   if (forbidden) return forbidden;
+  // 20 Nov (part 6): adding a business sends its home page to Claude, so not before the workspace has a plan.
+  if (
+    await withRlsContext(currentUser.organizationId, (tx) =>
+      workspaceNeedsPlan(tx, currentUser.organizationId),
+    )
+  )
+    return planRequiredResponse();
 
   let body: unknown;
   try {

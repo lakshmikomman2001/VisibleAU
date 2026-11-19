@@ -32,6 +32,8 @@ interface Props {
   success: boolean;
   reason: string | null;
   googleAi?: BillingGoogleAi | null;
+  /** 20 Nov (part 6): a workspace made while the free plan was off, with no plan yet (lib/pricing/plan-required.ts). */
+  planRequired?: boolean;
 }
 
 const REASON_MESSAGES: Record<string, string> = {
@@ -52,6 +54,7 @@ export default function BillingView({
   success,
   reason,
   googleAi = null,
+  planRequired = false,
 }: Props) {
   // Team follow-ups, item 6: billing is the owner's (the billing routes answer 403 otherwise).
   const canManageBilling = useCan("manage_billing");
@@ -126,8 +129,9 @@ export default function BillingView({
     handlePortal();
   }, [handlePortal]);
 
-  // The plan's name (lib/pricing/tiers.ts tierDisplayName), as the page gives it.
-  const tierLabel = tierName;
+  // The plan's name (lib/pricing/tiers.ts tierDisplayName), as the page gives it -- or none, for a workspace that has no
+  // plan yet (20 Nov, part 6): not "Free" where the free plan is off.
+  const tierLabel = planRequired ? "No plan yet" : tierName;
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px" }}>
@@ -152,7 +156,7 @@ export default function BillingView({
             margin: "4px 0 0",
           }}
         >
-          {tierLabel} plan
+          {planRequired ? "No plan yet: choose one to start" : `${tierLabel} plan`}
         </p>
       </div>
 
@@ -241,10 +245,16 @@ export default function BillingView({
             marginBottom: 20,
           }}
         >
-          {monthlyPrice}
-          {monthlyPrice !== "A$0" && monthlyPrice !== "Custom" && <span> / month</span>}
-          {" · "}
-          {billingInterval === "annual" ? "Annual" : "Monthly"} billing
+          {planRequired ? (
+            "Audits start once you've chosen a plan."
+          ) : (
+            <>
+              {monthlyPrice}
+              {monthlyPrice !== "A$0" && monthlyPrice !== "Custom" && <span> / month</span>}
+              {" · "}
+              {billingInterval === "annual" ? "Annual" : "Monthly"} billing
+            </>
+          )}
         </div>
 
         {renewal.kind === "ends" && (
@@ -399,7 +409,7 @@ export default function BillingView({
               className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium"
               style={{ backgroundColor: "var(--accent-blue)", color: "var(--accent-blue-fg)" }}
             >
-              Upgrade plan
+              {planRequired ? "Choose a plan" : "Upgrade plan"}
             </a>
           ) : (
             <>

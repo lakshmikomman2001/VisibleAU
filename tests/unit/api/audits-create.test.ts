@@ -8,6 +8,7 @@ vi.mock("@/db/client", () => {
   };
   return {
     db: mockDb,
+    serviceDb: mockDb,
     withRlsContext: vi.fn(async (_orgId: string, fn: Function) => fn(mockDb)),
     setRlsContext: vi.fn(),
   };
@@ -62,6 +63,14 @@ vi.mock("@/lib/inngest/client", () => ({
   inngest: { send: vi.fn().mockResolvedValue(undefined) },
 }));
 
+// 20 Nov (part 6): the plan check (lib/pricing/plan-required.ts) reads the workspace row; these tests' database mock
+// doesn't answer it. A workspace with a plan, unless a test says otherwise.
+const plan = vi.hoisted(() => ({ needsPlan: false }));
+vi.mock("@/lib/pricing/plan-required", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pricing/plan-required")>()),
+  workspaceNeedsPlan: async () => plan.needsPlan,
+}));
+
 import { POST } from "@/app/api/audits/route";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -97,6 +106,20 @@ function makeCurrentUser() {
 describe("POST /api/audits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    plan.needsPlan = false;
+  });
+
+  it("402 for a workspace with no plan yet (made while the free plan was off): no audit runs", async () => {
+    plan.needsPlan = true;
+    mockGetCurrentUser.mockResolvedValue(makeCurrentUser() as never);
+    const req = new Request("http://localhost/api/audits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brandId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(402);
+    expect(await res.json()).toMatchObject({ error: "plan_required", choosePlanUrl: "/pricing" });
   });
 
   it("returns 401 when not authenticated", async () => {

@@ -28,6 +28,7 @@ import {
   WorkspaceStepError,
 } from "@/lib/auth/workspace-errors";
 import { recordDataResidency } from "@/lib/governance";
+import { newWorkspaceMetadata } from "@/lib/pricing/plan-required";
 import { DEFAULT_REPORT_SECTIONS as REPORT_PDF_DEFAULT_SECTIONS } from "@/lib/reports/report-sections";
 
 export const auth = betterAuth({
@@ -207,6 +208,9 @@ export async function provisionAppWorkspace(
           name: input.orgName,
           tier: "free",
           region: "au",
+          // 20 Nov (part 6): with the region's free plan off, the workspace has no plan until checkout
+          // (lib/pricing/plan-required.ts); with it on, it starts on Free as before.
+          metadata: newWorkspaceMetadata("au"),
         })
         .onConflictDoNothing({ target: organizations.clerkOrgId });
       const [row] = await tx

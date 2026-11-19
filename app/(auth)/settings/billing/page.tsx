@@ -8,6 +8,7 @@ import { googleAiLockedMessage, googleAiPlanLine } from "@/lib/marketing/google-
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { tierOfSubscription } from "@/lib/pricing/effective-tier";
 import { formatAud } from "@/lib/pricing/gst";
+import { workspaceNeedsPlan } from "@/lib/pricing/plan-required";
 import { renewalLine } from "@/lib/pricing/renewal";
 import {
   GOOGLE_AI_FROM_TIER,
@@ -92,6 +93,11 @@ export default async function BillingPage({
       success={params.success === "true"}
       reason={params.reason ?? null}
       googleAi={googleAi}
+      planRequired={
+        await withRlsContext(currentUser.organizationId, (tx) =>
+          workspaceNeedsPlan(tx, currentUser.organizationId),
+        )
+      }
     />
   );
 }

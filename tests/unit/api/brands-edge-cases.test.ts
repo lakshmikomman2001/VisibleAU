@@ -59,6 +59,14 @@ vi.mock("@/lib/brands", () => ({
   getBrandForOrg: vi.fn(),
 }));
 
+// 20 Nov (part 6): the plan check (lib/pricing/plan-required.ts) reads the workspace row; these tests' database mock
+// doesn't answer it. A workspace with a plan, unless a test says otherwise.
+const plan = vi.hoisted(() => ({ needsPlan: false }));
+vi.mock("@/lib/pricing/plan-required", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/pricing/plan-required")>()),
+  workspaceNeedsPlan: async () => plan.needsPlan,
+}));
+
 import { PATCH } from "@/app/api/brands/[brandId]/route";
 import { POST } from "@/app/api/brands/route";
 import { db } from "@/db/client";

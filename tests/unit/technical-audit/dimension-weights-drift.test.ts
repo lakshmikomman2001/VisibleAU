@@ -7,11 +7,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AI_DISCOVERY_WEIGHTS } from "@/lib/ai-discovery/endpoints";
-import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS, brandEntityScore } from "@/lib/brand-entity/score";
+import {
+  BRAND_ENTITY_MAX_SCORE,
+  BRAND_ENTITY_WEIGHTS,
+  brandEntityScore,
+} from "@/lib/brand-entity/score";
 
 describe("⚠️ WW — AI Discovery: weights imported from the scorer", () => {
-  it("AI_DISCOVERY_WEIGHTS is the single source of truth: 3/1/1/1", () => {
-    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 1, aiFaq: 1, aiService: 1 });
+  // 19 Nov (Sri's review): the three /ai/ files weigh 0 -- optional, read by no AI engine we know of.
+  it("AI_DISCOVERY_WEIGHTS is the single source of truth: 3/0/0/0", () => {
+    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 0, aiFaq: 0, aiService: 0 });
   });
 
   it("the display page imports AI_DISCOVERY_WEIGHTS and hand-writes no second copy", () => {
@@ -20,8 +25,12 @@ describe("⚠️ WW — AI Discovery: weights imported from the scorer", () => {
     // on the module + the named import existing, not an exact import list,
     // so an additional legitimate import from the same module can't break
     // this assertion again.
-    expect(src).toMatch(/import\s*\{[^}]*\bAI_DISCOVERY_WEIGHTS\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/);
-    expect(src).toMatch(/import\s*\{[^}]*\btype AiDiscoveryFindings\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/);
+    expect(src).toMatch(
+      /import\s*\{[^}]*\bAI_DISCOVERY_WEIGHTS\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/,
+    );
+    expect(src).toMatch(
+      /import\s*\{[^}]*\btype AiDiscoveryFindings\b[^}]*\}\s*from\s*"@\/lib\/ai-discovery\/endpoints"/,
+    );
     // The old hardcoded literals (2,2,1,1) must be gone -- every weight
     // reference must flow through AI_DISCOVERY_WEIGHTS.
     expect(src).not.toMatch(/pts:\s*\d/);
@@ -43,9 +52,15 @@ describe("⚠️ WW -> Vunnara (21 Oct, 'directory listings... never scraping', 
   });
 
   it("brandEntityScore sums the 3 remaining signals, capped at 8 -- never reaches a directory-shaped 9 or 10", () => {
-    expect(brandEntityScore({ abnVerified: true, wikipediaAuPresent: true, auTldPresent: true })).toBe(8);
-    expect(brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: false })).toBe(0);
-    expect(brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: true })).toBe(2);
+    expect(
+      brandEntityScore({ abnVerified: true, wikipediaAuPresent: true, auTldPresent: true }),
+    ).toBe(8);
+    expect(
+      brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: false }),
+    ).toBe(0);
+    expect(
+      brandEntityScore({ abnVerified: false, wikipediaAuPresent: false, auTldPresent: true }),
+    ).toBe(2);
   });
 
   it("the display page no longer imports scoreDirectoryTier, shows no directory row, and labels the score /8", () => {

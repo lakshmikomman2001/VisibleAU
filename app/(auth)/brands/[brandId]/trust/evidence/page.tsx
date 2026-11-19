@@ -79,7 +79,7 @@ export default function EvidenceArchivePage() {
           snapshots" -- nothing makes them immutable. */}
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
         {EVIDENCE_ARCHIVE_SENTENCE} Answers to questions that named the business are marked: the
-        audit doesn&apos;t count them as everyday answers.
+        audit doesn't count them as everyday answers.
       </p>
 
       {snapshots.length === 0 ? (

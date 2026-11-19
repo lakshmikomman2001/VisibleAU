@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { GoogleAiClaim } from "@/components/domain/google-ai/google-ai-claim";
 import { GoogleAiMethodology } from "@/components/domain/google-ai/google-ai-methodology";
 import { loadGoogleAiClaim } from "@/components/domain/google-ai/load-google-ai-claim";
+import { OPTIONAL_AI_FILES_LABEL } from "@/lib/ai-discovery/endpoints";
 import { CANT_TEST_FROM_OUTSIDE } from "@/lib/crawler/access-copy";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
+import { VERIFIED_CITATIONS } from "@/lib/methodology/verified-citations";
 import { CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
-import { dimensionLabel } from "@/lib/scoring/dimension-labels";
+import { VISITING_AI_CRAWLERS } from "@/lib/robots-txt/evaluate";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { MethodologyContent } from "./methodology-content";
 
@@ -24,31 +26,42 @@ export function generateMetadata(): Metadata {
 // (confirmed: no such study, anywhere), plus three entries (BrightEdge,
 // Onely, AirOps) that no CITABILITY_METHODS entry cites with a verified
 // figure any more. No aggregator-only, secondhand, or unsourced entries.
+// 19 Nov (Sri's review): each source's name and link is lib/methodology/verified-citations.ts's (re-opened that day),
+// every source a method cites is listed, and each says what it measured. "Zyppy / Leapd" went: the 44.2% figure is
+// Kevin Indig's (Leapd credited Zyppy, with no link, and no Zyppy study has it).
 const RESEARCH_SOURCES = [
   {
-    name: "Aggarwal et al., GEO (Princeton, KDD 2024)",
+    ...VERIFIED_CITATIONS.aggarwalGEO,
     description:
       "Generative Engine Optimization — method-level visibility improvements on GEO-bench",
-    url: "https://arxiv.org/abs/2311.09735",
   },
   {
-    name: "Ahrefs Q1-2026 AI Search Benchmark (75K brands)",
+    ...VERIFIED_CITATIONS.ahrefsBenchmark,
     description:
-      "Correlation analysis across 75,000 brands — identifies signals associated with AI visibility",
-    url: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
+      "Correlations between brand signals and how often 75,000 brands are mentioned in AI answers; correlations, not measured lifts, and not Claude, Gemini or Perplexity",
   },
   {
-    name: "Ahrefs — Schema & AI Citations (1,885 pages, Aug 2025–Mar 2026)",
+    ...VERIFIED_CITATIONS.ahrefsSchema,
     description:
-      "Tracked AI citations before/after adding JSON-LD schema; found no statistically significant lift for ChatGPT or Google AI Mode — schema alone doesn't reliably move AI citations",
-    url: "https://ahrefs.com/blog/schema-ai-citations/",
+      "Tracked AI citations for 1,885 pages before and after they added JSON-LD schema (Aug 2025–Mar 2026), against 4,000 control pages; found no statistically significant lift for ChatGPT or Google AI Mode — schema alone doesn't reliably move AI citations",
   },
   {
-    name: "Zyppy / Leapd",
-    description: "Citation position analysis — where on a page LLM citations originate",
-    url: "https://www.leapd.ai/blog/ai-visibility/how-chatgpt-google-ai-overviews-and-perplexity-source-information-in-2026",
+    ...VERIFIED_CITATIONS.indigFrontLoad,
+    description:
+      "Where on a page ChatGPT's citations come from: 18,012 verified citations from about 3 million ChatGPT answers (Gauge's data)",
+  },
+  {
+    ...VERIFIED_CITATIONS.ahrefsMisinformation,
+    description:
+      "A made-up brand tested on 8 AI tools: after fake sources were planted, most of them repeated fabricated claims as fact",
   },
 ] as const;
+
+/** "GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, ..." -- the crawlers and agents the checks read robots.txt for. */
+const crawlerList = VISITING_AI_CRAWLERS.map((c) => c.crawler).join(", ");
+
+/** Google's own page for Gemini model shutdowns (it redirects to aistudio.google.com/docs/deprecations). */
+const GEMINI_DEPRECATIONS_URL = "https://ai.google.dev/gemini-api/docs/deprecations";
 
 export default async function MethodologyPage() {
   const { top10, all, total } = getMethodsData();
@@ -58,12 +71,10 @@ export default async function MethodologyPage() {
   return (
     <article className="max-w-4xl mx-auto px-6 py-16">
       <h1 className="text-3xl font-bold mb-4">{PRODUCT_NAME} Methodology</h1>
+      {/* 19 Nov (Sri's review): it said "10 of the highest-impact methods", but several are directional and there are
+          12 in all. */}
       <p className="text-muted-foreground mb-10">
-        Our recommendations draw on published research into how AI engines choose what to cite —
-        including the Princeton GEO study (KDD 2024) and Ahrefs&apos; large-scale AI citation
-        studies. Below are {top10.length} of the highest-impact methods; effect sizes are reported
-        as measured by each source (some are correlations, not guaranteed lifts, and some methods
-        are directional best practices without a precisely verified figure).
+        {`Our recommendations draw on published research into how AI engines choose what to cite, including the Princeton GEO study (KDD 2024) and Ahrefs' studies of AI answers. Below are ${top10.length} of our ${total} methods, each with how strong its evidence is: an effect measured by the source, a correlation (not a guaranteed lift), or a directional best practice without a verified figure.`}
       </p>
 
       {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the mention
@@ -138,14 +149,27 @@ export default async function MethodologyPage() {
         <h2 className="font-semibold mb-2">What changed</h2>
         {/* Methodology v2.2 (Sri's decision, 7 Nov): version 4, labelled by methodologyLabel(4). One change
             covering the Gemini model, the answer length limit and comparing like with like. */}
+        {/* 19 Nov (Sri's review): which Gemini model answers, and Google's date only as its deprecations page lists it
+            (re-opened 19 Nov: gemini-2.5-flash, shutdown "December 1, 2026", recommended replacement
+            gemini-3.5-flash-lite; "No shutdown date announced" is the next row's, gemini-2.5-flash-lite). "Every engine's
+            answer can now run to 8,192 tokens" was jargon: the limit (lib/llm/output-limit.ts) is well past the longest
+            answers measured, so no answer is cut short -- and none was before either, so not "no longer". */}
         <p className="text-sm text-muted-foreground mb-2" data-methodology-v22>
-          <strong>November 2026: detection updated — {methodologyLabel(4)}.</strong> Gemini&apos;s
-          answers now come from Gemini 3.5 Flash-Lite, the replacement Google names for Gemini 2.5
-          Flash, which it retires on 1 December 2026. Every engine&apos;s answer can now run to
-          8,192 tokens, well above the longest answers we&apos;ve measured. And an audit is compared
-          only with audits that asked the same engines for the same models: a plan change that moves
-          Claude from Haiku to Sonnet, or an engine answering with a different model than the one we
-          asked for, is shown in your trends but never compared.
+          <strong>November 2026: detection updated — {methodologyLabel(4)}.</strong>{" "}
+          {
+            "Gemini's answers now come from Gemini 3.5 Flash-Lite (Google lists 1 December 2026 as Gemini 2.5 Flash's shutdown date on its "
+          }
+          <a
+            href={GEMINI_DEPRECATIONS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            deprecations page
+          </a>
+          {
+            "). Answers aren't cut short: each engine may write well past the longest answer we've measured. And an audit is compared only with audits that asked the same engines for the same models: a plan change that moves Claude from Haiku to Sonnet, or an engine answering with a different model than the one we asked for, is shown in your trends but never compared."
+          }
         </p>
         <p className="text-sm text-muted-foreground mb-2">
           Audits from before this change are still shown in your trends, marked &quot;Detection
@@ -156,8 +180,8 @@ export default async function MethodologyPage() {
           <strong>November 2026: detection improved — {methodologyLabel(3)}.</strong> We now find
           your name when an answer writes it with formatting or invisible characters around it (for
           example in bold, or with a non-breaking hyphen), and keep text written before and after a
-          web search apart. An answer the engine didn&apos;t finish, or that its own filter stopped,
-          is no longer scored. A mention is confirmed by your website only when the answer cited it,
+          web search apart. An answer the engine didn't finish, or that its own filter stopped, is
+          no longer scored. A mention is confirmed by your website only when the answer cited it,
           not when it merely came up in a search.
         </p>
         <p className="text-sm text-muted-foreground">
@@ -195,7 +219,6 @@ export default async function MethodologyPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-3 text-xs text-muted-foreground">
-              <span className="rounded bg-muted px-2 py-0.5">{dimensionLabel(m.dimension)}</span>
               <span className="rounded bg-muted px-2 py-0.5">Effort: {m.effort}</span>
               <span className="rounded bg-muted px-2 py-0.5">
                 {m.citationUrl ? (
@@ -218,18 +241,18 @@ export default async function MethodologyPage() {
 
       {remaining.length > 0 && <MethodologyContent remaining={remaining} total={total} />}
 
-      {/* Task GGG: honest provenance for the AI Discovery technical check --
-          only ai.txt has independent external grounding (verified: the
-          IETF draft below genuinely specifies this path). The three JSON
-          endpoints are Vunnara's own recommended format, not an industry
-          standard -- no fabricated authority, per the NN guardrail. */}
-      <section className="mt-16 border-t pt-10">
+      {/* Task GGG: honest provenance for the AI Discovery technical check. 19 Nov (Sri's review): the IETF draft exists
+          (datatracker.ietf.org, draft-car-ai-txt-wellknown-00, 12 June 2026) but is an individual Internet-Draft "not
+          endorsed by the IETF", so it isn't "an external standard". The three /ai/ files are Vunnara's own format, read
+          by no AI engine we know of: they no longer count toward any score (lib/ai-discovery/endpoints.ts). llms.txt is
+          a proposal (llmstxt.org, Jeremy Howard, Sept 2024) no AI provider has said it reads, and Google's AI features
+          page says no AI text files are needed. */}
+      <section className="mt-16 border-t pt-10" data-methodology-ai-discovery="">
         <h2 className="text-xl font-bold mb-4">AI Discovery Endpoints</h2>
         <p className="text-muted-foreground mb-4 text-sm">
-          Our Technical Audit checks for four endpoints AI crawlers can use to discover a
-          site&apos;s policies and content. Only one is grounded in an external standard; the other
-          three are Vunnara&apos;s own recommended format — most sites don&apos;t have them yet, and
-          adding them is a forward-looking best practice, not a fix for a standards violation.
+          {
+            "Our Technical Audit also looks for four files a site can publish for AI tools. None is a standard that an AI engine is known to read, so treat them as optional."
+          }
         </p>
         <ul className="space-y-3 text-sm text-muted-foreground">
           <li>
@@ -243,44 +266,63 @@ export default async function MethodologyPage() {
                 /.well-known/ai.txt (or root /ai.txt)
               </a>
             </strong>{" "}
-            — Emerging standard: the IETF draft <em>draft-car-ai-txt-wellknown-00</em> specifies a
-            machine-readable AI usage-preferences file served at /.well-known/ai.txt; the older
-            Spawning convention uses root /ai.txt instead. We check both.
+            {
+              "— A proposal, not a standard: the individual Internet-Draft draft-car-ai-txt-wellknown-00 (not endorsed by the IETF) describes an AI usage-preferences file at /.well-known/ai.txt; the older Spawning convention uses root /ai.txt. We check both. It counts toward the AI Discovery score."
+            }
           </li>
           <li>
             <strong className="text-foreground">
               /ai/summary.json, /ai/faq.json, /ai/service.json
             </strong>{" "}
-            — Vunnara-recommended structured endpoints for an AI-ready business summary, FAQ
-            content, and a service API/feed. Not yet an industry standard.
+            {`— ${OPTIONAL_AI_FILES_LABEL}: Vunnara's own format for a business summary, FAQ content and a service feed. We show whether you have them, but they don't count toward any score, and no task asks you to add them.`}
+          </li>
+          <li>
+            <strong className="text-foreground">
+              <a
+                href="https://llmstxt.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                /llms.txt
+              </a>
+            </strong>{" "}
+            {
+              "— A proposed summary of a site for language models. We check for it and can draft one for you; it counts toward the Technical Audit's score. No AI provider has said its engine reads it, and Google says its AI features need no special AI text files."
+            }
           </li>
         </ul>
       </section>
 
       {/* Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: how crawler access is checked, as it is -- every
-          request as us, robots.txt read per crawler, and no CDN test that would mean pretending to be one. */}
+          request as us, robots.txt read per crawler, and no CDN test that would mean pretending to be one. 19 Nov (Sri's
+          review): Google-Extended was listed as a crawler. It's a robots.txt token with no crawler of its own, and
+          Googlebot's rules are what control AI Overviews and AI Mode; the search and answer agents each company
+          documents are read too (lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED, with the links). */}
       <section className="mt-16 border-t pt-10" id="ai-crawler-access">
         <h2 className="text-xl font-bold mb-4">AI Crawler Access</h2>
         <ul className="space-y-3 text-sm text-muted-foreground">
           <li>
-            <strong className="text-foreground">Who we say we are.</strong> Every request{" "}
-            {PRODUCT_NAME} makes to your site identifies itself as <code>{CRAWLER_USER_AGENT}</code>
-            . We never send another company&apos;s crawler name, so your logs and blocks never blame
-            OpenAI, Anthropic, Google or Perplexity for our visits.
+            <strong className="text-foreground">Who we say we are.</strong>{" "}
+            {`Every request ${PRODUCT_NAME} makes to your site identifies itself as `}
+            <code>{CRAWLER_USER_AGENT}</code>
+            {
+              ". We never send another company's crawler name, so your logs and blocks never blame OpenAI, Anthropic, Google or Perplexity for our visits."
+            }
           </li>
           <li>
-            <strong className="text-foreground">robots.txt.</strong> For each AI crawler (GPTBot,
-            ClaudeBot, Google-Extended, PerplexityBot) we read the rules your robots.txt sets for
-            it, as RFC 9309 defines them, and say what they mean: &ldquo;robots.txt allows
-            GPTBot&rdquo;, &ldquo;robots.txt blocks ClaudeBot&rdquo;, or that it has no rules for
-            that crawler.
+            <strong className="text-foreground">robots.txt.</strong>{" "}
+            {`For each AI crawler and agent (${crawlerList}) we read the rules your robots.txt sets for it, as RFC 9309 defines them, and say what they mean: "robots.txt allows GPTBot", "robots.txt blocks ClaudeBot", or that it has no rules for that crawler. Blocking a training crawler (GPTBot, ClaudeBot) keeps your pages out of future training; whether they appear in an assistant's web-search answers is up to its search crawler (OAI-SearchBot, Claude-SearchBot). OpenAI and Perplexity say robots.txt may not stop ChatGPT-User and Perplexity-User, which fetch a page when someone asks.`}
           </li>
           <li>
-            <strong className="text-foreground">CDNs and firewalls.</strong> Whether yours lets an
-            AI crawler through {CANT_TEST_FROM_OUTSIDE} without pretending to be it, so we
-            don&apos;t. Your own server logs, uploaded to {PRODUCT_NAME}, show each crawler&apos;s
-            real visits, each checked against the company&apos;s published IP ranges or reverse DNS;
-            CDN Shield reports those verified visits beside what robots.txt says.
+            <strong className="text-foreground">Google-Extended.</strong>{" "}
+            {
+              "Google-Extended isn't a crawler that visits: it's a robots.txt setting Google reads to decide whether your pages may train Gemini and ground its answers. Google crawls with its usual crawlers, and AI Overviews and AI Mode draw on Googlebot, so allowing Google-Extended doesn't get a site into them and blocking it doesn't keep a site out. We report what your robots.txt sets for it, never visits from it."
+            }
+          </li>
+          <li>
+            <strong className="text-foreground">CDNs and firewalls.</strong>{" "}
+            {`Whether yours lets an AI crawler through ${CANT_TEST_FROM_OUTSIDE} without pretending to be it, so we don't. Your own server logs, uploaded to ${PRODUCT_NAME}, show each crawler's real visits, each checked against the company's published IP ranges or reverse DNS; CDN Shield reports those verified visits beside what robots.txt says.`}
           </li>
         </ul>
       </section>

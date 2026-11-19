@@ -17,8 +17,8 @@ export default async function AboutPage() {
       <div className="space-y-4 text-muted-foreground">
         <p>
           {PRODUCT_NAME} helps Australian service businesses understand how AI search engines
-          describe them when customers ask questions like &ldquo;best plumber in Bondi&rdquo; or
-          &ldquo;recommend a physio in Melbourne.&rdquo;
+          describe them when customers ask questions like “best plumber in Bondi” or “recommend a
+          physio in Melbourne.”
         </p>
         {/* Display-only relabel below ("source citation"): this dimension measures citation rate
         (accuracyDimensionScore), not factual correctness. DB column (score_accuracy) and internal

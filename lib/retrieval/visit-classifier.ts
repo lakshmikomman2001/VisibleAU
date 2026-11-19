@@ -1,16 +1,19 @@
 import { lookupByUserAgent, type RegistryMatch } from "@/lib/agent-analytics/bot-registry";
 import type { VerificationStatus } from "@/lib/agent-analytics/verify-crawler-hits";
 
-// Fallback hardcoded sets used ONLY when registry lookup returns null
+// Fallback hardcoded sets used ONLY when registry lookup returns null. 19 Nov: not Google-Extended -- no visit's user
+// agent ever names it (a robots.txt token only: lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED); Claude-SearchBot
+// and Perplexity-User are their companies' documented agents.
 const MUST_ALLOW_BOTS = new Set([
   "GPTBot",
   "ChatGPT-User",
   "OAI-SearchBot",
   "ClaudeBot",
   "Claude-User",
-  "Google-Extended",
+  "Claude-SearchBot",
   "Googlebot",
   "PerplexityBot",
+  "Perplexity-User",
 ]);
 
 const DATA_BOTS = new Set([

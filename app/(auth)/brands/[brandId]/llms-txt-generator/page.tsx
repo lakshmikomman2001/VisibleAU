@@ -135,18 +135,25 @@ export function buildDiscoveryChecks(
             text: sitemap.reason ? couldntCheck(sitemap.reason) : "Couldn't check",
           };
   // Leftovers task, part 3: a file whose request failed says "Couldn't check (why)" -- it was "Not found".
+  // 19 Nov (Sri's review): the /ai/ files are optional, read by no AI engine we know of, and scored 0
+  // (lib/ai-discovery/endpoints.ts), so they say so instead of "bonus".
   const aiRow = (
     label: string,
     found: boolean | null | undefined,
     failure?: string,
+    optional = false,
   ): DiscoveryCheckRow =>
     failure
       ? { label, state: "unchecked", text: couldntCheck(failure) }
       : typeof found !== "boolean"
         ? { label, state: "unchecked", text: unchecked }
         : found
-          ? { label, state: "yes", text: "Yes · bonus" }
-          : { label, state: "no", text: "Not found" };
+          ? { label, state: "yes", text: optional ? "Yes · optional, not scored" : "Yes · bonus" }
+          : {
+              label,
+              state: "no",
+              text: optional ? "Not found · optional, not scored" : "Not found",
+            };
   return [
     sitemapRow,
     // Task FFF: label sourced from AI_TXT_PATHS, the same list the detector checks (either location) -- a
@@ -160,8 +167,9 @@ export function buildDiscoveryChecks(
       "/ai/summary.json",
       aiDiscovery?.aiSummaryPresent,
       aiDiscovery?.notChecked?.aiSummaryPresent,
+      true,
     ),
-    aiRow("/ai/faq.json", aiDiscovery?.aiFaqPresent, aiDiscovery?.notChecked?.aiFaqPresent),
+    aiRow("/ai/faq.json", aiDiscovery?.aiFaqPresent, aiDiscovery?.notChecked?.aiFaqPresent, true),
   ];
 }
 

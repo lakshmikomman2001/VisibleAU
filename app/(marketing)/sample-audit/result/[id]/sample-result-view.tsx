@@ -289,7 +289,7 @@ export default function SampleResultView({ audit }: Props) {
                   count instead of claiming zero either way. */}
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
                 We only got {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} back
-                this time (need at least 10), so there&apos;s nothing to score yet.
+                this time (need at least 10), so there's nothing to score yet.
               </p>
               <a
                 href="/sample-audit"
@@ -323,8 +323,7 @@ export default function SampleResultView({ audit }: Props) {
               <p className="text-sm mt-3" style={{ color: "var(--text-secondary)" }}>
                 We checked {audit.sampleSize} AI answer{audit.sampleSize === 1 ? "" : "s"} and found
                 zero mentions of {audit.brandName} — common for newer businesses or those with a
-                limited structured web presence. That&apos;s fixable, and here&apos;s where to
-                start.
+                limited structured web presence. That's fixable, and here's where to start.
               </p>
             </div>
           ) : (

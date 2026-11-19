@@ -1,3 +1,4 @@
+import { GOOGLE_ONLINE_ONLY_REASON } from "@/lib/marketing/google-ai";
 import locations from "./data/dataforseo-au-locations.json";
 
 /**
@@ -95,7 +96,7 @@ export function resolveGoogleLocation(brand: {
   if (brand.locationMode === "online_only") {
     return {
       ok: false,
-      reason: "An online-only business has no suburb to locate Google results at.",
+      reason: GOOGLE_ONLINE_ONLY_REASON,
     };
   }
   const state = stateCode(brand.state);

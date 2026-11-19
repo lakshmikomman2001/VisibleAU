@@ -30,9 +30,9 @@ describe("F01: Methodology data integrity", () => {
       "arxiv.org",
       "ahrefs.com",
       "foglift.io",
-      "leapd.ai",
       "superlines.io",
-      "businesswire.com",
+      // 19 Nov: Kevin Indig's front-load study (his Growth Memo post, republished in full there).
+      "searchenginejournal.com",
     ];
     for (const m of CITABILITY_METHODS) {
       if (!m.citationUrl) continue;
@@ -76,10 +76,9 @@ describe("F01: Methodology data integrity", () => {
     expect(top10).toEqual(all.slice(0, 10));
   });
 
-  it("F01-07: every method has valid dimension", () => {
-    const validDimensions = ["frequency", "position", "sentiment", "context", "accuracy"];
+  it("F01-07: no method carries a dimension tag (19 Nov: four said Context, which is Not scored)", () => {
     for (const m of CITABILITY_METHODS) {
-      expect(validDimensions).toContain(m.dimension);
+      expect(Object.keys(m)).not.toContain("dimension");
     }
   });
 

@@ -62,7 +62,7 @@ export default function PrivacyPage() {
             Your information is used solely to run AI visibility audits and deliver reports. We do
             not sell your data. The questions we send to the AI providers, and their answers, are
             saved with your audit results. {AUDIT_RESULTS_DELETED} {KEPT_UNTIL_YOU_ASK} Actions
-            you&apos;ve started or finished stay in your Action Center.
+            you've started or finished stay in your Action Center.
           </p>
         </section>
         <section>
@@ -71,9 +71,9 @@ export default function PrivacyPage() {
               OpenAI, Anthropic, Google and Perplexity, US, per provider API data-usage terms). */}
           <p>
             The questions we send, and the business details above, are processed by{" "}
-            {AUDIT_AI_PROVIDERS} through their APIs, in the United States, under each
-            provider&apos;s API data-usage terms. Payment processing is handled by Stripe. We use
-            these services under their respective data processing agreements.
+            {AUDIT_AI_PROVIDERS} through their APIs, in the United States, under each provider's API
+            data-usage terms. Payment processing is handled by Stripe. We use these services under
+            their respective data processing agreements.
           </p>
           {/* Google AI surfaces (Phase 1, part 3): said only once Google can run for a customer. */}
           {googleSurfacesCanRun() && (

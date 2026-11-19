@@ -30,7 +30,9 @@ export const AI_BOTS = [
     tier: 1,
     tierLabel: "Training",
     defaultAllow: true,
-    description: "Google AI training crawler",
+    // 19 Nov: not a crawler -- Google crawls with Googlebot, and this robots.txt token only says whether pages may
+    // train Gemini and ground its answers; it doesn't affect Google Search or its AI Overviews.
+    description: "Google's robots.txt setting for Gemini training and grounding (not a crawler)",
   },
   {
     userAgent: "CCBot",

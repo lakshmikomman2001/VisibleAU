@@ -129,16 +129,29 @@ describe("deriveVerdict: robots.txt and verified visits, nothing else", () => {
 describe("what CDN Shield shows (the before/after report's two brands)", () => {
   it("a brand with no logs: every crawler 'can't be tested from outside', never 'Not Blocked'", () => {
     const rows = joinCrawlerAccess({ status: "found", text: ALLOW_ALL }, [], false);
+    // 19 Nov: each company's documented search and answer agents too, and Google-Extended as what it is, a robots.txt
+    // setting that never visits ("control_token").
     expect(rows.map((r) => [r.crawlerName, r.verdict])).toEqual([
       ["GPTBot", "not_testable"],
+      ["OAI-SearchBot", "not_testable"],
+      ["ChatGPT-User", "not_testable"],
       ["ClaudeBot", "not_testable"],
-      ["Google-Extended", "not_testable"],
+      ["Claude-SearchBot", "not_testable"],
+      ["Claude-User", "not_testable"],
+      ["Googlebot", "not_testable"],
+      ["Google-Extended", "control_token"],
       ["PerplexityBot", "not_testable"],
+      ["Perplexity-User", "not_testable"],
     ]);
     for (const row of rows) {
       expect(row.sentence).toContain(`robots.txt allows ${row.crawlerName}`);
-      expect(row.sentence).toContain(LOG_UPLOAD_POINTER);
       expect(row.sentence).not.toMatch(/not blocked/i);
+      if (row.verdict === "control_token") {
+        expect(row.sentence).toContain("isn't a crawler that visits");
+        expect(row.verifiedVisits).toBe(0);
+      } else {
+        expect(row.sentence).toContain(LOG_UPLOAD_POINTER);
+      }
     }
   });
 
@@ -151,15 +164,21 @@ describe("what CDN Shield shows (the before/after report's two brands)", () => {
       ],
       true,
     );
-    const by = Object.fromEntries(rows.map((r) => [r.vendor, r]));
-    expect(by.openai.verdict).toBe("healthy");
-    expect(by.anthropic.verdict).toBe("self_blocked");
-    expect(by.anthropic.sentence).toBe(
-      "robots.txt blocks ClaudeBot, so ClaudeBot won't read your site.",
+    // 19 Nov: rows by crawler, each with its own visits (they were by company).
+    const by = Object.fromEntries(rows.map((r) => [r.crawlerName, r]));
+    expect(by.GPTBot?.verdict).toBe("healthy");
+    expect(by.GPTBot?.verifiedVisits).toBe(12);
+    expect(by["OAI-SearchBot"]?.verifiedVisits).toBe(0);
+    // ClaudeBot is Anthropic's training crawler: blocking it is the owner's choice, not "invisible to Claude".
+    expect(by.ClaudeBot?.verdict).toBe("training_blocked");
+    expect(by.ClaudeBot?.sentence).toBe(
+      "robots.txt blocks ClaudeBot, so ClaudeBot won't collect your pages for future training. Whether you appear in its web-search answers is up to the company's search crawler.",
     );
-    expect(by.google.verdict).toBe("healthy");
-    expect(by.google.sentence).toContain("3 verified visits from GeminiBot");
-    expect(by.perplexity.verdict).toBe("not_blocked_never_visited");
+    // A crawler from the logs that isn't one we list: its own row, under its own name.
+    expect(by.GeminiBot?.verdict).toBe("healthy");
+    expect(by.GeminiBot?.sentence).toContain("3 verified visits from GeminiBot");
+    expect(by.Googlebot?.verifiedVisits).toBe(0);
+    expect(by.PerplexityBot?.verdict).toBe("not_blocked_never_visited");
   });
 
   it("no robots.txt: says so, and nothing in it blocks anyone", () => {

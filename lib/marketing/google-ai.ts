@@ -98,6 +98,14 @@ export function googleAiPublicSentence(googleAi: PublicGoogleAi): string {
 export const GOOGLE_AI_LOCATION_TEXT =
   "from your postcode where Google supports it, otherwise your suburb, city or state capital";
 
+/**
+ * 19 Nov: why a business with no fixed location isn't checked on Google -- the reason the audit shows it, word for word
+ * (lib/google-surfaces/location.ts resolveGoogleLocation returns this; lib/audit/google-surfaces/reasons.ts shows it as
+ * it is). Here so the methodology can quote it without loading the location list.
+ */
+export const GOOGLE_ONLINE_ONLY_REASON =
+  "An online-only business has no suburb to locate Google results at.";
+
 /** The comparison table's grey line under the Google row (19 Nov), like the lines under the rows below it. */
 export function googleAiRowDescription(googleAi: PublicGoogleAi): string {
   const score = googleAi.countedInScore

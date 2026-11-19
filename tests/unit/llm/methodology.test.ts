@@ -66,7 +66,9 @@ describe("the Methodology page says what changed", () => {
 
     expect(html).toContain(`detection updated — ${methodologyLabel(4)}`);
     expect(html).toContain("Gemini 3.5 Flash-Lite");
-    expect(html).toContain("8,192 tokens");
+    // 19 Nov (Sri's review): the answer length in plain words, not a token count.
+    expect(html).toContain("Answers aren't cut short");
+    expect(html).not.toContain("8,192");
     expect(html).toContain(
       "compared only with audits that asked the same engines for the same models",
     );

@@ -5,6 +5,7 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
+import { aiDiscoveryMaxFor } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
@@ -12,8 +13,8 @@ import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { crawlReach, isSiteDependentDimension } from "@/lib/technical-audit/crawl-status";
 import {
   comparableCompositeDelta,
+  compositeMaxFor,
   rollupTo5Categories,
-  TECHNICAL_AUDIT_MAX_SCORE,
 } from "@/lib/technical-audit/score-aggregator";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -78,9 +79,8 @@ const DIM_META = [
     max: 6,
     desc: "AI endpoints presence",
     route: "ai-discovery",
-    // Task GGG: label only -- the 6-point contribution to the composite
-    // is unchanged. 3 of its 4 signals trace only to a reference project
-    // the PRD flags as untrustworthy; see ai-discovery/page.tsx.
+    // Task GGG: label only. 19 Nov: out of 3 from then, ai.txt alone -- the three /ai/ files no longer count
+    // (lib/ai-discovery/endpoints.ts); `max` here is an older audit's 6, and maxOf reads each audit's own.
     emerging: true,
   },
 ];
@@ -177,9 +177,21 @@ export default async function TechnicalAuditPage({
   const llmsFullUnchecked =
     allFindings.llmsTxt?.fetchStatus === "found" &&
     allFindings.llmsTxt?.fullFetchStatus === "unreachable";
+  // 19 Nov: from then the /ai/ files don't count (lib/ai-discovery/endpoints.ts), so only ai.txt's failed request leaves
+  // AI Discovery unmeasured; an older audit's files all counted.
+  const aiDiscoveryFindings = allFindings.aiDiscovery as
+    | { notChecked?: Record<string, string>; optionalFilesScored?: boolean }
+    | undefined;
+  const aiNotChecked = aiDiscoveryFindings?.notChecked ?? {};
   const aiDiscoveryUnchecked =
-    Object.keys((allFindings.aiDiscovery?.notChecked as Record<string, string> | undefined) ?? {})
-      .length > 0;
+    aiDiscoveryFindings?.optionalFilesScored === false
+      ? "aiTxtPresent" in aiNotChecked
+      : Object.keys(aiNotChecked).length > 0;
+  const aiDiscoveryMax = aiDiscoveryMaxFor(aiDiscoveryFindings);
+  /** A dimension's maximum on this audit: AI Discovery's is 3 from 19 Nov, 6 before. */
+  const maxOf = (dim: { key: string; max: number }) =>
+    dim.key === "scoreAiDiscovery" ? aiDiscoveryMax : dim.max;
+  const compositeMax = compositeMaxFor(techAudit.createdAt, aiDiscoveryFindings);
   const entityLookupFailed =
     allFindings.brandEntity?.abnStatus === "check_failed" ||
     allFindings.brandEntity?.wikipediaAuStatus === "unavailable";
@@ -195,16 +207,19 @@ export default async function TechnicalAuditPage({
     const m = measured(storedDim(key));
     return m.measured ? m.value : Number.NaN;
   };
-  const rollup = rollupTo5Categories({
-    scoreRobots: dimOrNaN("scoreRobots"),
-    scoreLlmsTxt: dimOrNaN("scoreLlmsTxt"),
-    scoreSchema: dimOrNaN("scoreSchema"),
-    scoreMeta: dimOrNaN("scoreMeta"),
-    scoreContent: dimOrNaN("scoreContent"),
-    scoreBrandEntity: dimOrNaN("scoreBrandEntity"),
-    scoreSignals: dimOrNaN("scoreSignals"),
-    scoreAiDiscovery: dimOrNaN("scoreAiDiscovery"),
-  });
+  const rollup = rollupTo5Categories(
+    {
+      scoreRobots: dimOrNaN("scoreRobots"),
+      scoreLlmsTxt: dimOrNaN("scoreLlmsTxt"),
+      scoreSchema: dimOrNaN("scoreSchema"),
+      scoreMeta: dimOrNaN("scoreMeta"),
+      scoreContent: dimOrNaN("scoreContent"),
+      scoreBrandEntity: dimOrNaN("scoreBrandEntity"),
+      scoreSignals: dimOrNaN("scoreSignals"),
+      scoreAiDiscovery: dimOrNaN("scoreAiDiscovery"),
+    },
+    aiDiscoveryMax,
+  );
 
   // A missing composite (this audit's or the previous one's) gives no comparison, never a change from 0. 17 Nov,
   // part 3: nor does a crawl that never reached the site, or a previous audit on the old /100 scale; the change
@@ -218,11 +233,17 @@ export default async function TechnicalAuditPage({
             composite: latest.value,
             createdAt: techAudit.createdAt,
             siteReached: !unreached,
+            max: compositeMax,
           },
           {
             composite: prev.value,
             createdAt: prevAudit.createdAt,
             siteReached: crawlReach(prevAudit.findings).kind !== "unreached",
+            max: compositeMaxFor(
+              prevAudit.createdAt,
+              (prevAudit.findings as { aiDiscovery?: { optionalFilesScored?: boolean } } | null)
+                ?.aiDiscovery,
+            ),
           },
         )
       : null;
@@ -287,9 +308,7 @@ export default async function TechnicalAuditPage({
               >
                 {latest.value.toFixed(0)}
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                of {TECHNICAL_AUDIT_MAX_SCORE}
-              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>of {compositeMax}</div>
             </>
           ) : (
             <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4 }}>
@@ -409,7 +428,8 @@ export default async function TechnicalAuditPage({
           const notChecked = (unreached && isSiteDependentDimension(dim.key)) || requestFailed;
           const m = measured(storedDim(dim.key));
           const raw = m.measured ? m.value : null;
-          const pct = raw === null ? null : dim.max > 0 ? Math.round((raw / dim.max) * 100) : 0;
+          const max = maxOf(dim);
+          const pct = raw === null ? null : max > 0 ? Math.round((raw / max) * 100) : 0;
           const bandColor =
             pct === null
               ? "var(--text-tertiary)"
@@ -436,7 +456,7 @@ export default async function TechnicalAuditPage({
           const ariaLabel =
             raw === null
               ? `${dim.label}: ${severityLabel}`
-              : `${dim.label}: ${raw} of ${dim.max} — ${severityLabel}`;
+              : `${dim.label}: ${raw} of ${max} — ${severityLabel}`;
           const rowContent = (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -527,7 +547,7 @@ export default async function TechnicalAuditPage({
                       color: isCritical ? "var(--danger)" : "var(--text-primary)",
                     }}
                   >
-                    {raw}/{dim.max}
+                    {raw}/{max}
                   </div>
                 </>
               )}

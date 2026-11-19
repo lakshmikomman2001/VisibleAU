@@ -1,5 +1,6 @@
 import {
   GOOGLE_AI_LOCATION_TEXT,
+  GOOGLE_ONLINE_ONLY_REASON,
   googleAiArrival,
   googleAiSurfacesText,
   type PublicGoogleAi,
@@ -31,7 +32,9 @@ export function GoogleAiMethodology({ googleAi }: { googleAi: PublicGoogleAi }) 
       </p>
       <p className="text-sm text-muted-foreground mb-2">
         {/* 19 Nov: the place in the comparison table's words (GOOGLE_AI_LOCATION_TEXT), one source. */}
-        {`Each result is for one place and one device (${googleAi.device}), checked ${GOOGLE_AI_LOCATION_TEXT} (the audit then says "Results for Sydney NSW, not your suburb"), and never the whole of Australia. Each result is labelled with that place, the device and the date.`}
+        {`Each result is for one place and one device (${googleAi.device}), checked ${GOOGLE_AI_LOCATION_TEXT} (the audit then says "Results for Sydney NSW, not your suburb"), and never the whole of Australia. Each result is labelled with that place, the device and the date.`}{" "}
+        {/* 19 Nov (Sri's review): the reason the audit shows, word for word. */}
+        {`A business with no fixed location (online-only) isn't checked on Google; its audit says: "${GOOGLE_ONLINE_ONLY_REASON}"`}
       </p>
       <p className="text-sm text-muted-foreground mb-2">
         Google&apos;s results arrive {googleAiArrival(googleAi)} and are shown in their own section,{" "}

@@ -43,7 +43,8 @@ describe("llms.txt generator: the discovery rows come from the audit", () => {
       false,
     );
     expect(measured[1]).toMatchObject({ state: "yes" });
-    expect(measured[2]).toMatchObject({ state: "no", text: "Not found" });
+    // 19 Nov: the /ai/ files are optional and scored 0, and say so.
+    expect(measured[2]).toMatchObject({ state: "no", text: "Not found · optional, not scored" });
   });
 
   it("on a crawl that never reached the site, every row says so", () => {

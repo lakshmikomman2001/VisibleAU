@@ -8,12 +8,38 @@ import {
 // Task WW: the single source of truth for AI Discovery weights -- the
 // ai-discovery display page imports this instead of hand-maintaining its own
 // copy, which is how it drifted to 2/2/1/1 against these real weights.
+// 19 Nov (Sri's review): /ai/summary.json, /ai/faq.json and /ai/service.json are Vunnara's own format, and no AI
+// engine is known to read them, so their absence lowers no score: each weighs 0 (they were 1 each, out of 6). They
+// are still checked and shown, labelled OPTIONAL_AI_FILES_LABEL; nothing creates a task or a recommendation from them.
 export const AI_DISCOVERY_WEIGHTS = {
   aiTxt: 3,
-  aiSummary: 1,
-  aiFaq: 1,
-  aiService: 1,
+  aiSummary: 0,
+  aiFaq: 0,
+  aiService: 0,
 } as const;
+
+/** The most the AI Discovery check scores: ai.txt alone (3). An audit from before 19 Nov was scored out of 6. */
+export const AI_DISCOVERY_MAX =
+  AI_DISCOVERY_WEIGHTS.aiTxt +
+  AI_DISCOVERY_WEIGHTS.aiSummary +
+  AI_DISCOVERY_WEIGHTS.aiFaq +
+  AI_DISCOVERY_WEIGHTS.aiService;
+export const AI_DISCOVERY_MAX_BEFORE_19_NOV = 6;
+
+/** How the three /ai/ files are labelled wherever they're shown. */
+export const OPTIONAL_AI_FILES_LABEL = "Optional, not read by any AI engine we know of";
+
+/**
+ * The maximum an audit's AI Discovery score was out of: 3 for one scored without the /ai/ files (its findings say
+ * optionalFilesScored: false), 6 before.
+ */
+export function aiDiscoveryMaxFor(
+  findings: { optionalFilesScored?: boolean } | null | undefined,
+): number {
+  return findings?.optionalFilesScored === false
+    ? AI_DISCOVERY_MAX
+    : AI_DISCOVERY_MAX_BEFORE_19_NOV;
+}
 
 // Task FFF: both locations are real standards in the wild -- the June 2026
 // IETF draft (draft-car-ai-txt-wellknown) standardises /.well-known/ai.txt,
@@ -46,6 +72,8 @@ export interface AiDiscoveryFindings {
   aiServicePresent: boolean | null;
   /** Why a file couldn't be checked, by its field (absent on audits from before 17 Nov). */
   notChecked?: Partial<Record<AiDiscoveryKey, string>>;
+  /** false: the /ai/ files earned nothing (19 Nov on). Absent on audits that scored them, out of 6. */
+  optionalFilesScored?: false;
 }
 
 interface AiDiscoveryResult {
@@ -115,7 +143,9 @@ export async function checkAiDiscovery(domain: string): Promise<AiDiscoveryResul
 
   return {
     score,
-    measured: Object.keys(notChecked).length === 0,
+    // 19 Nov: only a file that counts can leave the score unmeasured; an optional file that couldn't be fetched says
+    // so on its own row.
+    measured: (Object.keys(notChecked) as AiDiscoveryKey[]).every((key) => WEIGHT_OF[key] === 0),
     findings: {
       score,
       aiTxtPresent: present(aiTxt),
@@ -123,6 +153,7 @@ export async function checkAiDiscovery(domain: string): Promise<AiDiscoveryResul
       aiFaqPresent: present(aiFaq),
       aiServicePresent: present(aiService),
       notChecked,
+      optionalFilesScored: false,
     },
   };
 }

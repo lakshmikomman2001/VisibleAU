@@ -83,7 +83,7 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
       {b && notMeasuredPoints > 0 && (
         <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
           Out of the {totalMax} points we could measure. {notMeasuredPoints} of the 100 points
-          weren&apos;t measured, so they aren&apos;t counted either way.
+          weren't measured, so they aren't counted either way.
         </p>
       )}
 

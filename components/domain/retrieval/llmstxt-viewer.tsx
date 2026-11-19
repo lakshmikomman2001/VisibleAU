@@ -56,8 +56,8 @@ export function LlmstxtViewer({ current, history, brandId, onRefresh }: LlmstxtV
                   is lib/retrieval/llmstxt-generator.ts's coverage score for our draft (how many of your pages
                   it lists, plus robots.txt and the about, contact, FAQ and services pages), not the generator
                   page's /18, which scores the file on your site -- it says which. */}
-              Draft coverage: {scoreText(current.depthScore, 18)} (our draft, not your site&apos;s
-              file) &middot; Last generated: {new Date(current.generatedAt).toLocaleDateString()}
+              Draft coverage: {scoreText(current.depthScore, 18)} (our draft, not your site's file)
+              · Last generated: {new Date(current.generatedAt).toLocaleDateString()}
             </p>
           )}
         </div>

@@ -13,7 +13,7 @@ import {
 } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { crawlReach } from "@/lib/technical-audit/crawl-status";
-import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
+import { compositeMaxFor, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
@@ -70,7 +70,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // and when it was checked, so the card can say both.
     return NextResponse.json({
       scoreComposite: siteUnreachable ? null : (latest?.scoreComposite ?? null),
-      maxScore: TECHNICAL_AUDIT_MAX_SCORE,
+      // 19 Nov: the audit's own maximum (95 from 19 Nov, 98 while the /ai/ files counted, 100 before 21 Oct).
+      maxScore: latest
+        ? compositeMaxFor(
+            latest.createdAt,
+            (latest.findings as { aiDiscovery?: { optionalFilesScored?: boolean } } | null)
+              ?.aiDiscovery,
+          )
+        : TECHNICAL_AUDIT_MAX_SCORE,
       checkedAt: latest?.createdAt ?? null,
       siteUnreachable,
     });

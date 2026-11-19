@@ -32,18 +32,23 @@ export async function emitCdnJoinTasks(
 ): Promise<number> {
   let emitted = 0;
 
+  // 19 Nov (Sri's review): a task only where robots.txt really keeps an AI search or answer agent out ("self_blocked"
+  // is now only those: lib/agent-analytics/cdn-shield-join.ts). Never for Google-Extended ("control_token": a
+  // robots.txt setting, not a crawler, and not what puts a site in AI Overviews), nor for a blocked training crawler
+  // ("training_blocked": the owner's choice, and not what decides the answers). Titles name the crawler: they said
+  // "Unblock google retrieval bot" and "google ignores your robots.txt" off a Google-Extended rule.
   for (const row of joinRows) {
     if (row.verdict === "self_blocked") {
       await createTask(
         {
           organizationId: ctx.organizationId,
           brandId: ctx.brandId,
-          title: `Unblock ${row.vendor} retrieval bot — currently invisible`,
+          title: `Unblock ${row.crawlerName} in robots.txt`,
           // Follow-ups from af8de42..d1eb5a1, part 2: the block is robots.txt's own rule for the crawler, read as us
           // (it was a probe sent as the crawler). The visits are verified ones in the brand's crawler logs.
           description:
             `Your robots.txt blocks ${row.crawlerName}, and your crawler logs show no verified visits ` +
-            `from it. Until robots.txt allows it, your content is invisible to this AI engine.`,
+            `from it. Until robots.txt allows it, that AI engine can't read your site for its answers.`,
           dimension: "retrieval",
           recommendationKey: "unblock_retrieval_bot",
           effort: "medium",
@@ -59,7 +64,7 @@ export async function emitCdnJoinTasks(
         {
           organizationId: ctx.organizationId,
           brandId: ctx.brandId,
-          title: `${row.vendor} ignores your robots.txt — consider edge/WAF rule`,
+          title: `${row.crawlerName} visits despite your robots.txt — consider an edge/WAF rule`,
           description:
             `${row.crawlerName} is crawling despite being blocked in your robots.txt. ` +
             `Only an edge-level rule (Cloudflare WAF, Vercel firewall) can enforce blocking.`,

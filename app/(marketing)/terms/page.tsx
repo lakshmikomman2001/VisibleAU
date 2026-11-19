@@ -29,7 +29,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Service description</h2>
           <p>
-            {PRODUCT_NAME} audits your brand&apos;s visibility across AI search engines by sending
+            {PRODUCT_NAME} audits your brand's visibility across AI search engines by sending
             standardised prompts to LLM provider APIs and analysing the responses. Results are
             indicative and may vary between audits.
           </p>

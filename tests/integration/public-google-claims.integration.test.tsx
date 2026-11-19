@@ -37,6 +37,19 @@ const LINE = "Google AI Overviews and AI Mode, checked from your postcode";
 const MENTION = /\bAI Overviews?\b|\bAI Mode\b|\bGoogle(?:'s)? (?:Search )?AI\b/;
 /** The methodology's cited study (not a claim about the product; see the guard). */
 const STUDY = "statistically significant lift for ChatGPT or Google AI Mode";
+/**
+ * 19 Nov: the methodology's other words about Google that aren't claims about the product, true whatever the
+ * setting says -- the cited studies' scope (Ahrefs' 75,000 brands covered ChatGPT, AI Mode and AI Overviews) and a fact
+ * about Google's crawlers (AI Crawler Access, explaining that Google-Extended isn't one).
+ */
+const NOT_CLAIMS = [
+  STUDY,
+  "Ahrefs, 75,000 brands (Dec 2025; ChatGPT, AI Mode and AI Overviews)",
+  "ChatGPT and Google's AI answers",
+  "AI Overviews and AI Mode draw on Googlebot",
+];
+const withoutNotClaims = (text: string) =>
+  NOT_CLAIMS.reduce((out, phrase) => out.split(phrase).join(""), text);
 
 let client: ReturnType<typeof postgres>;
 
@@ -109,7 +122,7 @@ afterAll(async () => {
 describe("the public pages say Google's AI answers only while the global setting has them on", () => {
   it("setting off (env switch on, credentials set): no public page mentions them", async () => {
     for (const page of Object.keys(PAGES) as (keyof typeof PAGES)[]) {
-      const text = (await html(page)).replace(STUDY, "");
+      const text = withoutNotClaims(await html(page));
       expect(text, page).not.toMatch(MENTION);
       expect(text, page).not.toMatch(/data-google-ai-claim|data-methodology-google/);
     }
@@ -154,7 +167,7 @@ describe("the public pages say Google's AI answers only while the global setting
     const pricing = await html("pricing");
     expect(card(pricing, "growth")).toContain("Google AI Overviews, checked from your postcode");
     for (const page of Object.keys(PAGES) as (keyof typeof PAGES)[]) {
-      expect((await html(page)).replace(STUDY, ""), page).not.toMatch(/\bAI Mode\b/);
+      expect(withoutNotClaims(await html(page)), page).not.toMatch(/\bAI Mode\b/);
     }
   });
 
@@ -175,7 +188,7 @@ describe("the public pages say Google's AI answers only while the global setting
     await set("aiOverviewsEnabled", true);
     vi.stubEnv("GOOGLE_AI_SURFACES_ENABLED", "false");
     for (const page of Object.keys(PAGES) as (keyof typeof PAGES)[]) {
-      expect((await html(page)).replace(STUDY, ""), page).not.toMatch(MENTION);
+      expect(withoutNotClaims(await html(page)), page).not.toMatch(MENTION);
     }
   });
 });

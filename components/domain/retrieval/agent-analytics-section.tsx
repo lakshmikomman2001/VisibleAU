@@ -68,6 +68,10 @@ const VERDICT_LABELS: Record<string, { label: string; color: string }> = {
   self_blocked: { label: "Blocked by robots.txt", color: "var(--danger)" },
   robots_violation: { label: "Visits despite robots.txt", color: "var(--danger)" },
   not_testable: { label: "Can't be tested from outside", color: "var(--text-secondary)" },
+  // 19 Nov (Sri's review): a blocked training crawler is the owner's choice, and Google-Extended is a robots.txt
+  // setting that never visits (lib/agent-analytics/cdn-shield-join.ts).
+  training_blocked: { label: "Blocked from training", color: "var(--text-secondary)" },
+  control_token: { label: "A robots.txt setting, not a crawler", color: "var(--text-secondary)" },
 };
 
 export function AgentAnalyticsSection({ overview, brandId }: Props) {
@@ -260,7 +264,7 @@ export function AgentAnalyticsSection({ overview, brandId }: Props) {
                   };
                   return (
                     <tr
-                      key={row.vendor}
+                      key={row.crawlerName}
                       className="border-t"
                       style={{
                         borderColor: "color-mix(in srgb, var(--foreground) 8%, transparent)",
@@ -291,7 +295,7 @@ export function AgentAnalyticsSection({ overview, brandId }: Props) {
                           color: row.hasCrawlActivity ? "var(--success)" : "var(--text-secondary)",
                         }}
                       >
-                        {row.verifiedVisits}
+                        {row.verdict === "control_token" ? "—" : row.verifiedVisits}
                       </td>
                       <td className="py-2">
                         <span className="font-medium" style={{ color: v.color }}>

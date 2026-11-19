@@ -366,9 +366,9 @@ export function AgentAnalyticsSetupPanel({
             style={{ width: 16, height: 16, color: "var(--text-tertiary)", flexShrink: 0 }}
           />
           <div className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-            <strong style={{ color: "var(--text-primary)" }}>Nothing connected</strong> — we
-            haven&apos;t received a single visit for this brand from a log file or the snippet, so
-            there&apos;s nothing to measure. Upload a log file or install the snippet to start.
+            <strong style={{ color: "var(--text-primary)" }}>Nothing connected</strong> — we haven't
+            received a single visit for this brand from a log file or the snippet, so there's
+            nothing to measure. Upload a log file or install the snippet to start.
           </div>
         </div>
       )}

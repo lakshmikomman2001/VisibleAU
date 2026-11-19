@@ -44,7 +44,7 @@ export default function WelcomeModal({ orgName }: Props) {
         </h2>
 
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          {orgName} is all set up. Your first audit is running now — we&apos;ll notify you when the
+          {orgName} is all set up. Your first audit is running now — we'll notify you when the
           results are ready. In the meantime, explore your dashboard.
         </p>
 

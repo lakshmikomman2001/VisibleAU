@@ -264,7 +264,7 @@ export default function JourneysPage() {
                     {t.journeyName}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--text-tertiary)" }}>
-                    {t.buyerStage} &middot; {t.promptSequence.length} turns &middot; template
+                    {t.buyerStage} &middot; {t.promptSequence.length} turns · template
                   </p>
                 </button>
               ))}

@@ -130,8 +130,9 @@ describe("the writer: a crawl that reached nothing stores no site score", () => 
       /result\.unmeasured\.includes\(key\) \? null : result\.dimensions\[key\]\.toFixed\(2\)/,
     );
     // Leftovers task, part 3: and none when the ABN or Wikipedia lookup didn't complete.
+    // 19 Nov: the ternary is written across lines (biome), so any whitespace between its parts.
     expect(src).toMatch(
-      /result\.unmeasured\.length === 0 && !entityLookupFailed \? result\.scoreComposite\.toFixed\(2\) : null/,
+      /result\.unmeasured\.length === 0 && !entityLookupFailed\s+\?\s+result\.scoreComposite\.toFixed\(2\)\s+:\s+null/,
     );
     // Brand & Entity doesn't read the site: it keeps its score -- unless one of its lookups didn't complete.
     expect(src).toMatch(

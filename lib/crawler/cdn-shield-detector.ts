@@ -17,8 +17,12 @@ export interface FirewallDiagnostic {
 
 const BLOCK_CODES = new Set([403, 429, 503]);
 
+// 19 Nov (Sri's review): no Google-Extended here -- it has no user agent of its own ("Crawling is done with existing
+// Google user agent strings", developers.google.com/search/docs/crawling-indexing/google-common-crawlers), so a WAF
+// rule matching it matches nothing. The search and answer agents each company documents are
+// (lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED).
 const AI_UA_LIST =
-  "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|PerplexityBot|Google-Extended|CCBot";
+  "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|PerplexityBot|Perplexity-User|CCBot";
 
 const SNIPPETS: Record<Exclude<DetectedFirewall, "None">, string> = {
   Cloudflare: `Cloudflare refused our site checker on <brand domain>. If it refuses AI search crawlers the same

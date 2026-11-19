@@ -149,13 +149,51 @@ export function evaluateRobotsForAgent(
   );
 }
 
-/** The AI crawlers our checks report robots.txt for, by vendor, with the product token robots.txt uses. */
+/**
+ * What a robots.txt token is for, from its company's own documentation:
+ * - "training": a crawler whose pages may train the company's models;
+ * - "search": a crawler that indexes pages for the company's AI search answers;
+ * - "user": a fetcher that visits a page because a person asked the assistant something;
+ * - "control": a robots.txt token with no crawler of its own (Google-Extended): nothing visits as it.
+ */
+export type CrawlerRole = "training" | "search" | "user" | "control";
+
+/**
+ * The AI crawlers and agents our checks report robots.txt for, by vendor, with the product token robots.txt uses.
+ * 19 Nov (Sri's review): it was GPTBot, ClaudeBot, Google-Extended and PerplexityBot -- the training crawlers plus
+ * Google-Extended, read as if it were a crawler that visits. Each company's own page, checked 19 Nov 2026:
+ * - OpenAI, https://developers.openai.com/api/docs/bots: GPTBot (training), OAI-SearchBot ("used to surface websites
+ *   in search results in ChatGPT's search features"), ChatGPT-User (a user's request; "robots.txt rules may not
+ *   apply").
+ * - Anthropic, https://support.claude.com/en/articles/8896518: ClaudeBot (training), Claude-SearchBot ("navigates the
+ *   web to improve search result quality"), Claude-User ("When individuals ask questions to Claude"); Anthropic's bots
+ *   honour robots.txt.
+ * - Google, https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers: "Google-Extended
+ *   doesn't have a separate HTTP request user agent string. Crawling is done with existing Google user agent strings;
+ *   the robots.txt user-agent token is used in a control capacity", for Gemini's training and grounding, and it "does
+ *   not impact a site's inclusion in Google Search". AI Overviews and AI Mode are Search features, controlled by
+ *   Googlebot's rules (https://developers.google.com/search/docs/appearance/ai-features).
+ * - Perplexity, https://docs.perplexity.ai/guides/bots: PerplexityBot ("designed to surface and link websites in search
+ *   results on Perplexity"), Perplexity-User (a user's request; it "generally ignores robots.txt rules").
+ */
 export const AI_CRAWLERS_CHECKED = [
-  { vendor: "openai", crawler: "GPTBot" },
-  { vendor: "anthropic", crawler: "ClaudeBot" },
-  { vendor: "google", crawler: "Google-Extended" },
-  { vendor: "perplexity", crawler: "PerplexityBot" },
-] as const;
+  { vendor: "openai", crawler: "GPTBot", role: "training" },
+  { vendor: "openai", crawler: "OAI-SearchBot", role: "search" },
+  { vendor: "openai", crawler: "ChatGPT-User", role: "user" },
+  { vendor: "anthropic", crawler: "ClaudeBot", role: "training" },
+  { vendor: "anthropic", crawler: "Claude-SearchBot", role: "search" },
+  { vendor: "anthropic", crawler: "Claude-User", role: "user" },
+  { vendor: "google", crawler: "Googlebot", role: "search" },
+  { vendor: "google", crawler: "Google-Extended", role: "control" },
+  { vendor: "perplexity", crawler: "PerplexityBot", role: "search" },
+  { vendor: "perplexity", crawler: "Perplexity-User", role: "user" },
+] as const satisfies ReadonlyArray<{ vendor: string; crawler: string; role: CrawlerRole }>;
+
+/** The tokens that name a crawler that visits (every one but Google-Extended). */
+export const VISITING_AI_CRAWLERS = AI_CRAWLERS_CHECKED.filter((c) => c.role !== "control");
+
+/** User-initiated fetchers whose company says robots.txt may not stop them (ChatGPT-User, Perplexity-User). */
+export const ROBOTS_MAY_NOT_APPLY: readonly string[] = ["ChatGPT-User", "Perplexity-User"];
 
 /** The two crawlers agent readiness asks robots.txt about. */
 export const READINESS_CRAWLERS = ["GPTBot", "ClaudeBot"] as const;

@@ -222,9 +222,8 @@ export function AcceptInvite({
         {state.kind === "choice" && (state.step === "confirm" || state.step === "switching") && (
           <p style={authTextStyle} data-switch-warning>
             {state.choice.ownWorkspaceName} stays exactly as it is: its brands, audits, team and
-            plan, including billing if it&apos;s on a paid plan. After switching you won&apos;t see
-            it, and switching back isn&apos;t supported yet, so you&apos;d need to contact us to
-            return to it.
+            plan, including billing if it's on a paid plan. After switching you won't see it, and
+            switching back isn't supported yet, so you'd need to contact us to return to it.
           </p>
         )}
         {state.kind === "choice" && state.step === "not_now" && (

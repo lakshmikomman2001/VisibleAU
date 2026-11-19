@@ -509,7 +509,9 @@ const UNIVERSAL_TEMPLATES: RuleTemplate[] = [
   },
   {
     key: "faq-content",
-    dimension: "context",
+    // 19 Nov (Sri's review): grouped as website content, not under "Context", which is "Not scored" everywhere (it
+    // never fires anyway: see reads below). Its reads stay what its threshold reads.
+    dimension: "content",
     title: "Add FAQ schema to your main service page",
     action: (ctx) => `Add a FAQPage schema block answering ${examplesFor(ctx).faq}.`,
     expectedImpactScore: "medium",

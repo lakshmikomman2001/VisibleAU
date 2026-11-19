@@ -121,6 +121,20 @@ describe("AI discovery files (lib/ai-discovery/endpoints.ts)", () => {
     expect(r.findings.aiFaqPresent).toBeNull();
     expect(r.findings.notChecked).toEqual({ aiFaqPresent: "blocked, HTTP 403" });
     expect(r.findings.aiSummaryPresent).toBe(true);
+    // 19 Nov: the /ai/ files earn nothing (lib/ai-discovery/endpoints.ts), so one that couldn't be checked leaves the
+    // score measured; its row says why.
+    expect(r.measured).toBe(true);
+  });
+
+  it("a 403 on ai.txt, the file that counts, leaves the score unmeasured", async () => {
+    stubFetch((url) =>
+      url.endsWith("ai.txt")
+        ? new Response("", { status: 403 })
+        : new Response("", { status: 404 }),
+    );
+    const { checkAiDiscovery } = await import("@/lib/ai-discovery/endpoints");
+    const r = await checkAiDiscovery("example.com.au");
+    expect(r.findings.aiTxtPresent).toBeNull();
     expect(r.measured).toBe(false);
   });
 });
@@ -314,14 +328,23 @@ ${"x".repeat(1600)}`;
     expect(r.unmeasured).toContain("scoreLlmsTxt");
   });
 
-  it("an AI file that timed out leaves the AI-discovery score unmeasured; 404s everywhere measure 0", async () => {
-    stubFetch((url) =>
-      url.endsWith("/ai/faq.json") ? timeout() : new Response("", { status: 404 }),
-    );
+  it("ai.txt timing out leaves the AI-discovery score unmeasured, an optional file doesn't; 404s everywhere measure 0", async () => {
+    stubFetch((url) => (url.endsWith("ai.txt") ? timeout() : new Response("", { status: 404 })));
     const { orchestrateTechnicalAudit } = await import("@/lib/technical-audit/orchestrate");
     const failed = await orchestrateTechnicalAudit("example.com.au", REACHED, 2);
     expect(failed.unmeasured).toContain("scoreAiDiscovery");
     expect((failed.findings.aiDiscovery as { notChecked?: unknown }).notChecked).toEqual({
+      aiTxtPresent: "timed out",
+    });
+
+    // 19 Nov: an optional /ai/ file that timed out is "couldn't check" on its own row, and the score stands.
+    vi.restoreAllMocks();
+    stubFetch((url) =>
+      url.endsWith("/ai/faq.json") ? timeout() : new Response("", { status: 404 }),
+    );
+    const optional = await orchestrateTechnicalAudit("example.com.au", REACHED, 2);
+    expect(optional.unmeasured).not.toContain("scoreAiDiscovery");
+    expect((optional.findings.aiDiscovery as { notChecked?: unknown }).notChecked).toEqual({
       aiFaqPresent: "timed out",
     });
 

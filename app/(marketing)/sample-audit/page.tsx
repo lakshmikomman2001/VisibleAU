@@ -256,7 +256,7 @@ export default function SampleAuditPage() {
               form page's footer never was). */}
           <p className="text-xs text-center" style={{ color: "var(--text-tertiary)" }}>
             {SAMPLE_AUDIT_CONFIG.engines.length} AI engines &middot;{" "}
-            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts &middot; under a minute &middot; 3 per day
+            {SAMPLE_AUDIT_CONFIG.promptsCount} prompts · under a minute · 3 per day
           </p>
         </div>
       </form>

@@ -33,19 +33,26 @@ describe("⚠️ GGG — AI Discovery page: emerging framing + provenance tags p
     expect(src).toMatch(/<strong>emerging<\/strong>(\{" "\}|[ ](?=\S))/);
   });
 
-  it("tags ai.txt as grounded in the IETF draft, the other three as Vunnara-recommended", () => {
-    expect(src).toMatch(/Emerging standard · IETF draft/);
-    const vunnaraTagCount = (src.match(/Vunnara-recommended format/g) ?? []).length;
+  // 19 Nov (Sri's review): ai.txt's draft is an individual Internet-Draft, "not endorsed by the IETF", so it isn't
+  // tagged a standard; the three /ai/ files are Vunnara's own format and optional.
+  it("tags ai.txt as a proposal (an individual Internet-Draft), the other three as Vunnara's own, optional", () => {
+    expect(src).toMatch(/Proposal · individual Internet-Draft/);
+    expect(src).not.toMatch(/Emerging standard/);
+    const vunnaraTagCount = (src.match(/Vunnara's own format · optional/g) ?? []).length;
     expect(vunnaraTagCount).toBe(3);
   });
 
-  it("the score and every denominator are untouched by the framing change", () => {
-    expect(src).toMatch(/\{score\}\/6/);
+  it("the score is out of this audit's own maximum, and every row's points come from the scorer", () => {
+    expect(src).toMatch(/const max = aiDiscoveryMaxFor\(findings\);/);
+    expect(src).toMatch(/`\$\{score\}\/\$\{max\}`/);
     expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiTxt/);
     expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiFaq/);
     expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiSummary/);
     expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiService/);
     expect(src).toMatch(/present \? ep\.weight : 0\}\/\{ep\.weight\}/);
+    // An optional file (weight 0) says it isn't scored, never "0/0".
+    expect(src).toMatch(/checked && ep\.weight === 0/);
+    expect(src).toMatch(/not scored/);
   });
 });
 
@@ -58,8 +65,9 @@ describe("⚠️ GGG — Technical Audit overview: 'emerging' label added, dimen
     expect((src.match(/emerging:\s*true/g) ?? []).length).toBe(1);
   });
 
-  it("the AI Discovery entry's scoring fields (key/max) are unchanged", () => {
+  it("the AI Discovery entry's max is an older audit's 6; each audit's own comes from aiDiscoveryMaxFor", () => {
     expect(src).toMatch(/key:\s*"scoreAiDiscovery"[\s\S]{0,80}max:\s*6/);
+    expect(src).toMatch(/dim\.key === "scoreAiDiscovery" \? aiDiscoveryMax : dim\.max/);
   });
 });
 
@@ -76,15 +84,16 @@ describe("⚠️ GGG — methodology page: honest entry added, no fabricated aut
     expect(src).not.toMatch(/Auriti/i);
   });
 
-  it("states the three JSON endpoints are Vunnara's own recommendation, not a standard", () => {
-    expect(src).toMatch(/Vunnara-recommended/i);
-    expect(src).toMatch(/not yet an industry standard/i);
+  it("states the three JSON endpoints are Vunnara's own format, optional, read by no AI engine we know of", () => {
+    expect(src).toMatch(/Vunnara's own format/);
+    expect(src).toMatch(/OPTIONAL_AI_FILES_LABEL/);
+    expect(src).toMatch(/they don't count toward any score/);
   });
 });
 
-describe("⚠️ GGG — scoring is numerically unchanged (label-only change)", () => {
-  it("AI_DISCOVERY_WEIGHTS is still 3/1/1/1", () => {
-    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 1, aiFaq: 1, aiService: 1 });
+describe("⚠️ GGG — scoring: ai.txt's 3 points; the /ai/ files 0 from 19 Nov", () => {
+  it("AI_DISCOVERY_WEIGHTS is 3/0/0/0 (Sri, 19 Nov: their absence must not lower any score)", () => {
+    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 0, aiFaq: 0, aiService: 0 });
   });
 
   it("computeTechnicalComposite still sums AI Discovery's full contribution, now into /98", () => {

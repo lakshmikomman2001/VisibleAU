@@ -42,12 +42,14 @@ const MENTION = /\bAI Overviews?\b|\bAI Mode\b|\bGoogle(?:'s|&apos;s)? (?:Search
  * - privacy: the processor disclosure. It must name DataForSEO whenever any workspace's questions can go to it -- a
  *   workspace override included, with the global setting off -- so it follows the env switch and the credentials
  *   (googleSurfacesCanRun), not the global setting.
- * - methodology: a cited study's finding ("no statistically significant lift for ChatGPT or Google AI Mode").
+ * - methodology: a cited study's finding ("no statistically significant lift for ChatGPT or Google AI Mode"), and
+ *   (19 Nov) a fact about Google's crawlers in AI Crawler Access: "AI Overviews and AI Mode draw on Googlebot", said to
+ *   explain that Google-Extended isn't a crawler -- true whatever the setting says.
  */
 const NOT_A_CLAIM: Record<string, RegExp> = {
   "app/(marketing)/privacy/page.tsx": /Google Search AI switched on/,
   "app/(marketing)/methodology/page.tsx":
-    /statistically significant lift for ChatGPT or Google AI Mode/,
+    /statistically significant lift for ChatGPT or Google AI Mode|AI Overviews and AI Mode draw on Googlebot/,
 };
 
 readSourcesBeforeAll([...PUBLIC_ROOTS, "components", "app", "lib"]);

@@ -8,6 +8,8 @@ import {
   AI_DISCOVERY_WEIGHTS,
   AI_TXT_PATHS,
   type AiDiscoveryFindings,
+  aiDiscoveryMaxFor,
+  OPTIONAL_AI_FILES_LABEL,
 } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
@@ -32,34 +34,36 @@ import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 // all-mocked test suite). Labelling them "Vunnara-recommended" rather than
 // implying an industry standard is the same unearned-authority fix as the
 // methodology work (tasks MM/NN), applied here.
+// 19 Nov (Sri's review): the three /ai/ files are optional and scored 0 (lib/ai-discovery/endpoints.ts), labelled
+// OPTIONAL_AI_FILES_LABEL; ai.txt's draft is an individual Internet-Draft, not an IETF standard.
 const ENDPOINTS = [
   {
     key: "aiTxtPresent",
     label: "ai.txt",
     weight: AI_DISCOVERY_WEIGHTS.aiTxt,
     desc: `Machine-readable AI policy file at ${AI_TXT_PATHS.join(" or ")}`,
-    provenance: "Emerging standard · IETF draft",
+    provenance: "Proposal · individual Internet-Draft",
   },
   {
     key: "aiFaqPresent",
     label: "AI FAQ / Help Content",
     weight: AI_DISCOVERY_WEIGHTS.aiFaq,
     desc: "Dedicated FAQ or help page mentioning AI assistants",
-    provenance: "Vunnara-recommended format",
+    provenance: "Vunnara's own format · optional",
   },
   {
     key: "aiSummaryPresent",
     label: "AI-Ready Summary",
     weight: AI_DISCOVERY_WEIGHTS.aiSummary,
     desc: "Concise business summary optimised for AI extraction",
-    provenance: "Vunnara-recommended format",
+    provenance: "Vunnara's own format · optional",
   },
   {
     key: "aiServicePresent",
     label: "AI Service Endpoint",
     weight: AI_DISCOVERY_WEIGHTS.aiService,
     desc: "Structured API or feed for AI consumption",
-    provenance: "Vunnara-recommended format",
+    provenance: "Vunnara's own format · optional",
   },
 ] as const;
 
@@ -135,7 +139,12 @@ export default async function AiDiscoveryPage({
   const score = scoreM.measured ? scoreM.value : null;
   // Leftovers task, part 3: a file whose request failed is "Couldn't check (why)", and the score with it.
   const notCheckedFiles = findings?.notChecked ?? {};
-  const someNotChecked = Object.keys(notCheckedFiles).length > 0;
+  // 19 Nov: an optional file that couldn't be fetched doesn't leave the score unmeasured (it earns nothing either way).
+  const scoredFile = (key: string) =>
+    findings?.optionalFilesScored === false ? key === "aiTxtPresent" : true;
+  const someNotChecked = Object.keys(notCheckedFiles).some(scoredFile);
+  /** What this audit's score is out of: 3 from 19 Nov (ai.txt alone), 6 before. */
+  const max = aiDiscoveryMaxFor(findings);
   const notScoredText = unreached
     ? "Not checked"
     : someNotChecked
@@ -169,7 +178,7 @@ export default async function AiDiscoveryPage({
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
             AI endpoint presence &amp; discoverability &middot; Score:{" "}
-            {score === null ? notScoredText : <>{score}/6</>}
+            {score === null ? notScoredText : `${score}/${max}`}
           </p>
           {crawledOn && (
             <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
@@ -188,7 +197,7 @@ export default async function AiDiscoveryPage({
               color: "var(--text-primary)",
             }}
           >
-            {score}/6
+            {`${score}/${max}`}
           </div>
         )}
       </div>
@@ -204,8 +213,8 @@ export default async function AiDiscoveryPage({
           lineHeight: 1.5,
         }}
       >
-        These are <strong>emerging</strong> AI-discovery endpoints — most sites don&apos;t have them
-        yet. Adding them is a forward-looking best practice, not a fix for a standards violation.
+        These are <strong>emerging</strong>{" "}
+        {`AI-discovery endpoints — most sites don't have them yet. Adding them is a forward-looking best practice, not a fix for a standards violation. Only ai.txt counts toward the score; the three /ai/ files are ${OPTIONAL_AI_FILES_LABEL.toLowerCase()}, so having or not having them changes nothing here.`}
       </p>
 
       {reach.kind === "unreached" && (
@@ -280,9 +289,18 @@ export default async function AiDiscoveryPage({
                     {ep.provenance}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{ep.desc}</div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  {ep.weight === 0 ? `${ep.desc}. ${OPTIONAL_AI_FILES_LABEL}.` : ep.desc}
+                </div>
               </div>
-              {checked ? (
+              {checked && ep.weight === 0 ? (
+                <span
+                  style={{ fontSize: 12, color: "var(--text-tertiary)" }}
+                  data-ai-file-optional=""
+                >
+                  {present ? "Found · not scored" : "Not found · not scored"}
+                </span>
+              ) : checked ? (
                 <span
                   style={{
                     fontSize: 13,

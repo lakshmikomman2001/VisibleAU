@@ -12,26 +12,49 @@
  * instead of re-typing the same strings, so a future citation fix (or a
  * future fabrication) can't drift between the two again.
  */
+/*
+ * 19 Nov (Sri's review of /methodology), every source re-opened that day:
+ * - aggarwalGEO: arXiv 2311.09735, "Accepted to KDD 2024"; its HTML version says Cite Sources, Quotation Addition
+ *   and Statistics Addition "achieved a relative improvement of 30-40% on the Position-Adjusted Word Count metric",
+ *   and Fluency Optimization and Easy-to-Understand "a significant visibility boost of 15-30%". The KDD version is
+ *   doi 10.1145/3637528.3671900.
+ * - ahrefsBenchmark: published 12 Dec 2025 (Louise Linehan), "75,000 brands", mentions "in ChatGPT, AI Mode, and AI
+ *   Overviews" -- not Claude, Gemini or Perplexity. "YouTube mentions show the strongest correlation with AI
+ *   visibility (~0.737)"; "Branded web mentions still correlate highly with AI visibility (0.66–0.71)". It was named
+ *   after a Q1 2026 benchmark report, a name the post doesn't use (only a May 2026 press release files the finding
+ *   under one).
+ * - ahrefsSchema: "We Tracked 1,885 Pages Adding Schema. AI Citations Barely Moved." (11 May 2026): 1,885 pages that
+ *   added JSON-LD between August 2025 and March 2026, against 4,000 control pages; ChatGPT +2.2% and Google AI Mode
+ *   +2.4%, each "Statistically indistinguishable from zero".
+ * - indigFrontLoad: "44.2% of all citations come from the first 30% of text (the intro)", Kevin Indig, "The science of
+ *   how AI pays attention" (17 Feb 2026, his Growth Memo post republished in full on Search Engine Journal): "18,012
+ *   verified citations for positional analysis", from Gauge's "roughly 3 million AI answers from ChatGPT". ChatGPT
+ *   only. It was credited to "Zyppy (via Leapd analysis)": Leapd's post names Zyppy with no link, and no Zyppy study
+ *   with the figure could be found.
+ * - ahrefsMisinformation: the experiment itself (Mateusz Makosiewicz, 10 Dec 2025: a made-up brand, 56 questions, 8
+ *   AI tools, fake sources planted, "an official FAQ to fight back"). It was cited by a press release
+ *   (businesswire.com) that gives no figures and refuses automated readers.
+ */
 export const VERIFIED_CITATIONS = {
   aggarwalGEO: {
     name: "Aggarwal et al., GEO (Princeton, KDD 2024)",
     url: "https://arxiv.org/abs/2311.09735",
   },
   ahrefsBenchmark: {
-    name: "Ahrefs Q1-2026 AI Search Benchmark (75K brands)",
+    name: "Ahrefs, 75,000 brands (Dec 2025; ChatGPT, AI Mode and AI Overviews)",
     url: "https://ahrefs.com/blog/ai-brand-visibility-correlations/",
   },
   ahrefsSchema: {
-    name: "Ahrefs",
+    name: "Ahrefs, schema and AI citations (1,885 pages, May 2026)",
     url: "https://ahrefs.com/blog/schema-ai-citations/",
   },
-  zyppyLeapd: {
-    name: "Zyppy (via Leapd analysis)",
-    url: "https://www.leapd.ai/blog/ai-visibility/how-chatgpt-google-ai-overviews-and-perplexity-source-information-in-2026",
+  indigFrontLoad: {
+    name: "Kevin Indig, The science of how AI pays attention (Feb 2026; ChatGPT)",
+    url: "https://www.searchenginejournal.com/the-science-of-how-ai-pays-attention/567597/",
   },
   ahrefsMisinformation: {
-    name: "Ahrefs Q1-2026 AI misinformation experiment",
-    url: "https://www.businesswire.com/news/home/20260526119691/en/",
+    name: "Ahrefs, made-up brand experiment (Dec 2025)",
+    url: "https://ahrefs.com/blog/ai-vs-made-up-brand-experiment/",
   },
 } as const;
 

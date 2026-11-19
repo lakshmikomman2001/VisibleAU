@@ -43,10 +43,12 @@ function crawl(robotsTxt: string | null, extra: Partial<CrawlResult> = {}): Craw
 }
 
 describe("analyzeRobots -- every crawler, one evaluator", () => {
+  // 20 Nov (part 2): 26 -- GeminiBot, Gemini-User and OpenAI-Search are on no page of the company they were credited to;
+  // Claude-SearchBot and Googlebot were missing (db/seed/ai-bots/seed.ts).
   it("stores a verdict for every crawler in the list, not just the 5 tier-1 ones", () => {
     const { findings } = analyzeRobots(crawl("User-agent: *\nAllow: /\n"));
     expect(findings.botVerdicts).toHaveLength(getAllBots().length);
-    expect(getAllBots().length).toBe(27);
+    expect(getAllBots().length).toBe(26);
   });
 
   it("'Disallow: /admin' under GPTBot is not a block of GPTBot (the old regex said it was)", () => {
@@ -133,14 +135,15 @@ describe("the page's matrix (lib/robots-txt/display.ts)", () => {
     );
     expect(botStatusLabel(botRow(findings, "GPTBot"))).toBe("Allowed (rules for every crawler)");
     expect(botStatusLabel(botRow(findings, "CCBot"))).toBe("Blocked");
-    const tier1 = getAllBots()
-      .filter((b) => b.tier === 1)
+    // 20 Nov: grouped by role -- CCBot is a training and dataset crawler.
+    const training = getAllBots()
+      .filter((b) => b.role === "training")
       .map((b) => b.userAgent);
-    expect(tierSummary(findings, tier1)).toEqual({
+    expect(tierSummary(findings, training)).toEqual({
       checked: true,
-      allowed: tier1.length - 1,
+      allowed: training.length - 1,
       blocked: 1,
-      total: tier1.length,
+      total: training.length,
     });
   });
 
@@ -151,13 +154,17 @@ describe("the page's matrix (lib/robots-txt/display.ts)", () => {
     expect(botStatusLabel(botRow(findings, "GPTBot"))).toBe("Allowed (no robots.txt)");
   });
 
-  it("the suggested robots.txt allows the recommended crawlers, less any the site blocks by name -- not 'all 27'", () => {
-    const { findings } = analyzeRobots(crawl("User-agent: GPTBot\nDisallow: /\n"));
+  // 20 Nov (part 2): the search crawlers and user-triggered agents only -- training crawlers are the owner's choice.
+  it("the suggested robots.txt allows the search crawlers and assistants, less any the site blocks by name", () => {
+    const { findings } = analyzeRobots(crawl("User-agent: PerplexityBot\nDisallow: /\n"));
     const agents = snippetAgents(findings);
-    const recommended = getAllBots().filter((b) => b.defaultAllow);
-    expect(agents).not.toContain("GPTBot");
+    const recommended = getAllBots().filter(
+      (b) => (b.role === "search" || b.role === "user") && b.defaultAllow,
+    );
+    expect(agents).not.toContain("PerplexityBot");
     expect(agents).toHaveLength(recommended.length - 1);
-    expect(agents).not.toContain("Bytespider"); // the registry doesn't recommend allowing it
+    expect(agents).not.toContain("Bytespider");
+    expect(agents).not.toContain("GPTBot");
     expect(snippetAgents(undefined)).toHaveLength(recommended.length);
   });
 });

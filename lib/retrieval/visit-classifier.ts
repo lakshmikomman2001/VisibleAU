@@ -45,12 +45,10 @@ export function classifyVisitPurpose(
   return null;
 }
 
-const ACTIVE_AGENT_UA_PATTERNS = [
-  "ChatGPT-User",
-  "Claude-User",
-  "PerplexityBot",
-  "Perplexity-User",
-];
+// 20 Nov (part 2): the user-triggered agents alone -- a visit made because someone asked the assistant. PerplexityBot was
+// here, but Perplexity calls it its search crawler ("designed to surface and link websites in search results"); the
+// one that visits when someone asks is Perplexity-User (lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED).
+const ACTIVE_AGENT_UA_PATTERNS = ["ChatGPT-User", "Claude-User", "Perplexity-User"];
 
 export function isActiveAgentUserAgent(userAgent: string): boolean {
   return ACTIVE_AGENT_UA_PATTERNS.some((p) => userAgent.includes(p));

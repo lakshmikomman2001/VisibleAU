@@ -1,3 +1,4 @@
+import type { BotRole } from "@/db/seed/ai-bots/seed";
 import { getAllBots } from "./ai-bots";
 import type { RobotsBotVerdict, RobotsFindings } from "./analyze";
 
@@ -74,9 +75,11 @@ export function tierSummary(
 }
 
 /**
- * The crawlers the suggested robots.txt allows: the ones the registry recommends allowing (defaultAllow), less
- * any the site's own robots.txt blocks in a group of its own (a choice the owner made on purpose). It used to be
- * "every crawler not in the blocked list", which was all 27 when only 5 had been checked.
+ * The crawlers the suggested robots.txt allows: the search crawlers and the user-triggered agents the registry
+ * recommends allowing (defaultAllow), less any the site's own robots.txt blocks in a group of its own (a choice the
+ * owner made on purpose). It used to be "every crawler not in the blocked list", which was all 27 when only 5 had been
+ * checked. 20 Nov (part 2): no training crawler or control token -- whether pages may train a model is the owner's
+ * choice, and allowing GPTBot or Google-Extended doesn't get a site into AI answers.
  */
 export function snippetAgents(robots: Partial<RobotsFindings> | undefined): string[] {
   const deliberateBlocks = new Set(
@@ -87,6 +90,49 @@ export function snippetAgents(robots: Partial<RobotsFindings> | undefined): stri
       : [],
   );
   return getAllBots()
-    .filter((b) => b.defaultAllow && !deliberateBlocks.has(b.userAgent))
+    .filter((b) => (b.role === "search" || b.role === "user") && b.defaultAllow)
+    .filter((b) => !deliberateBlocks.has(b.userAgent))
     .map((b) => b.userAgent);
+}
+
+/** The robots.txt page's groups, in order, each with what it means for the score (20 Nov, part 2). */
+export const ROBOTS_GROUPS: ReadonlyArray<{ role: BotRole; label: string; note: string }> = [
+  {
+    role: "search",
+    label: "Search crawlers",
+    note: "Scored: these put your site in AI answers, so a block here costs points.",
+  },
+  {
+    role: "user",
+    label: "User-triggered agents",
+    note: "Not scored: they fetch a page when someone asks. OpenAI and Perplexity say robots.txt may not apply to theirs.",
+  },
+  {
+    role: "training",
+    label: "Training and dataset crawlers",
+    note: "Not scored: blocking them is your choice, and doesn't keep you out of AI answers.",
+  },
+  {
+    role: "control",
+    label: "Control tokens",
+    note: "Not scored: a robots.txt setting, not a crawler. Nothing visits as it.",
+  },
+  {
+    role: "other",
+    label: "Other AI crawlers",
+    note: "Not scored. We show what your robots.txt says; we haven't checked what their companies say each one is for.",
+  },
+];
+
+/**
+ * How a crawler's row reads: "blocked" (red) only for a search crawler robots.txt blocks; "choice" for any other block
+ * (the owner's choice, never a problem); "allowed"; or "unchecked".
+ */
+export function robotsRowTone(
+  role: BotRole,
+  row: BotRow,
+): "blocked" | "choice" | "allowed" | "unchecked" {
+  if (!row.checked) return "unchecked";
+  if (row.verdict.verdict === "allowed") return "allowed";
+  return role === "search" ? "blocked" : "choice";
 }

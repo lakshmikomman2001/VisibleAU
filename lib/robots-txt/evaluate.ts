@@ -151,7 +151,7 @@ export function evaluateRobotsForAgent(
 
 /**
  * What a robots.txt token is for, from its company's own documentation:
- * - "training": a crawler whose pages may train the company's models;
+ * - "training": a crawler whose pages may train the company's models (Common Crawl's CCBot: an open dataset);
  * - "search": a crawler that indexes pages for the company's AI search answers;
  * - "user": a fetcher that visits a page because a person asked the assistant something;
  * - "control": a robots.txt token with no crawler of its own (Google-Extended): nothing visits as it.
@@ -159,22 +159,42 @@ export function evaluateRobotsForAgent(
 export type CrawlerRole = "training" | "search" | "user" | "control";
 
 /**
- * The AI crawlers and agents our checks report robots.txt for, by vendor, with the product token robots.txt uses.
- * 19 Nov (Sri's review): it was GPTBot, ClaudeBot, Google-Extended and PerplexityBot -- the training crawlers plus
- * Google-Extended, read as if it were a crawler that visits. Each company's own page, checked 19 Nov 2026:
- * - OpenAI, https://developers.openai.com/api/docs/bots: GPTBot (training), OAI-SearchBot ("used to surface websites
- *   in search results in ChatGPT's search features"), ChatGPT-User (a user's request; "robots.txt rules may not
- *   apply").
- * - Anthropic, https://support.claude.com/en/articles/8896518: ClaudeBot (training), Claude-SearchBot ("navigates the
- *   web to improve search result quality"), Claude-User ("When individuals ask questions to Claude"); Anthropic's bots
- *   honour robots.txt.
- * - Google, https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers: "Google-Extended
- *   doesn't have a separate HTTP request user agent string. Crawling is done with existing Google user agent strings;
- *   the robots.txt user-agent token is used in a control capacity", for Gemini's training and grounding, and it "does
- *   not impact a site's inclusion in Google Search". AI Overviews and AI Mode are Search features, controlled by
- *   Googlebot's rules (https://developers.google.com/search/docs/appearance/ai-features).
- * - Perplexity, https://docs.perplexity.ai/guides/bots: PerplexityBot ("designed to surface and link websites in search
- *   results on Perplexity"), Perplexity-User (a user's request; it "generally ignores robots.txt rules").
+ * The AI crawlers and agents our checks report robots.txt for, by vendor, with the product token robots.txt uses, and
+ * what each is for in its company's own words. 19 Nov (Sri's review): it was GPTBot, ClaudeBot, Google-Extended and
+ * PerplexityBot -- the training crawlers plus Google-Extended, read as if it were a crawler that visits. 20 Nov (part 2):
+ * each page re-opened, and only the search crawlers count toward the robots.txt score (lib/robots-txt/analyze.ts):
+ * - OpenAI, https://developers.openai.com/api/docs/bots:
+ *   - OAI-SearchBot (search): "OAI-SearchBot is for search. OAI-SearchBot is used to surface websites in search results
+ *     in ChatGPT's search features. Sites that are opted out of OAI-SearchBot will not be shown in ChatGPT search
+ *     answers".
+ *   - GPTBot (training): "It is used to crawl content that may be used in training our generative AI foundation
+ *     models".
+ *   - ChatGPT-User (user): "Because these actions are initiated by a user, robots.txt rules may not apply. ChatGPT-User
+ *     is not used to determine whether content may appear in Search."
+ * - Anthropic, https://support.claude.com/en/articles/8896518:
+ *   - Claude-SearchBot (search): "navigates the web to improve search result quality for users"; "Disabling
+ *     Claude-SearchBot on your site prevents our system from indexing your content for search optimization, which may
+ *     reduce your site's visibility and accuracy in user search results."
+ *   - ClaudeBot (training): "collecting web content that could potentially contribute to their training".
+ *   - Claude-User (user): "When individuals ask questions to Claude, it may access websites using a Claude-User agent."
+ *   - All three: "Anthropic's Bots respect "do not crawl" signals by honoring industry standard directives in
+ *     robots.txt."
+ * - Google, https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers:
+ *   - Googlebot (search): "Crawling preferences addressed to the Googlebot user agent affect Google Search (including
+ *     Discover and all Google Search features)". AI Overviews and AI Mode are among them: "To be eligible to be shown as
+ *     a supporting link in AI Overviews or AI Mode, a page must be indexed and eligible to be shown in Google Search"
+ *     (https://developers.google.com/search/docs/appearance/ai-features).
+ *   - Google-Extended (control): "Google-Extended doesn't have a separate HTTP request user agent string. Crawling is
+ *     done with existing Google user agent strings; the robots.txt user-agent token is used in a control capacity";
+ *     "Google-Extended does not impact a site's inclusion in Google Search nor is it used as a ranking signal".
+ * - Perplexity, https://docs.perplexity.ai/guides/bots:
+ *   - PerplexityBot (search): "PerplexityBot is designed to surface and link websites in search results on Perplexity.
+ *     It is not used to crawl content for AI foundation models."
+ *   - Perplexity-User (user): "When users ask Perplexity a question, it might visit a web page"; "Since a user requested
+ *     the fetch, this fetcher generally ignores robots.txt rules."
+ * - Common Crawl, https://commoncrawl.org/ccbot:
+ *   - CCBot (training and dataset): Common Crawl produces "an open repository of web crawl data that is universally
+ *     accessible and analyzable by anyone". Not a search crawler; not scored.
  */
 export const AI_CRAWLERS_CHECKED = [
   { vendor: "openai", crawler: "GPTBot", role: "training" },
@@ -187,21 +207,39 @@ export const AI_CRAWLERS_CHECKED = [
   { vendor: "google", crawler: "Google-Extended", role: "control" },
   { vendor: "perplexity", crawler: "PerplexityBot", role: "search" },
   { vendor: "perplexity", crawler: "Perplexity-User", role: "user" },
+  { vendor: "commoncrawl", crawler: "CCBot", role: "training" },
 ] as const satisfies ReadonlyArray<{ vendor: string; crawler: string; role: CrawlerRole }>;
 
 /** The tokens that name a crawler that visits (every one but Google-Extended). */
 export const VISITING_AI_CRAWLERS = AI_CRAWLERS_CHECKED.filter((c) => c.role !== "control");
 
+/**
+ * 20 Nov (part 2): the crawlers that put a site in AI answers -- OAI-SearchBot, Claude-SearchBot, Googlebot and
+ * PerplexityBot. The robots.txt score counts these alone; blocking one is a real finding, with a task.
+ */
+export const SEARCH_CRAWLERS: readonly string[] = AI_CRAWLERS_CHECKED.filter(
+  (c) => c.role === "search",
+).map((c) => c.crawler);
+
+/** A token's role by its company's page, or null for one we don't list (case-insensitive, as robots.txt reads it). */
+export function crawlerRoleOf(token: string): CrawlerRole | null {
+  const lower = token.toLowerCase();
+  return AI_CRAWLERS_CHECKED.find((c) => c.crawler.toLowerCase() === lower)?.role ?? null;
+}
+
 /** User-initiated fetchers whose company says robots.txt may not stop them (ChatGPT-User, Perplexity-User). */
 export const ROBOTS_MAY_NOT_APPLY: readonly string[] = ["ChatGPT-User", "Perplexity-User"];
 
-/** The two crawlers agent readiness asks robots.txt about. */
-export const READINESS_CRAWLERS = ["GPTBot", "ClaudeBot"] as const;
+/**
+ * The crawlers agent readiness asks robots.txt about. 20 Nov (part 2): the search crawlers -- it asked about GPTBot and
+ * ClaudeBot, the training crawlers, whose block keeps a site out of future training, not out of AI answers.
+ */
+export const READINESS_CRAWLERS = SEARCH_CRAWLERS;
 
 /**
- * Agent readiness's robots.txt check: what robots.txt says for GPTBot and ClaudeBot (the home page), and the
- * gap to show when it blocks either -- "robots.txt blocks GPTBot. Allow it, or OpenAI can't read your site."
- * It used to call any `Disallow: /` line under GPTBot, ClaudeBot or * a block (a `Disallow: /admin` too).
+ * Agent readiness's robots.txt check: what robots.txt says for the search crawlers (the home page), and the gap to
+ * show when it blocks any. It used to call any `Disallow: /` line under GPTBot, ClaudeBot or * a block (a
+ * `Disallow: /admin` too), and its gap told the owner to allow GPTBot to be read.
  */
 export function readinessRobots(robotsTxt: string | null): {
   allowsCrawlers: boolean;
@@ -216,6 +254,12 @@ export function readinessRobots(robotsTxt: string | null): {
     gap:
       blocked.length === 0
         ? null
-        : `robots.txt blocks ${blocked.join(" and ")}. Allow ${blocked.length === 1 ? "it" : "them"} if you want ${blocked.length === 1 ? "that AI engine" : "those AI engines"} to read your site.`,
+        : `robots.txt blocks ${joinNames(blocked)}, ${blocked.length === 1 ? "a search crawler" : "search crawlers"} behind AI answers. Allow ${blocked.length === 1 ? "it" : "them"} if you want to appear in ${blocked.length === 1 ? "that engine's" : "those engines'"} answers.`,
   };
+}
+
+/** "A", "A and B", "A, B and C". */
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }

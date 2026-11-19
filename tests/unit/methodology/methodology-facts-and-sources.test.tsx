@@ -249,6 +249,8 @@ describe("AI crawler access: Google-Extended is a setting, and each company's ag
       "Google-Extended",
       "PerplexityBot",
       "Perplexity-User",
+      // 20 Nov (part 2): Common Crawl's, from its own page.
+      "CCBot",
     ]);
     expect(AI_CRAWLERS_CHECKED.find((c) => c.crawler === "Google-Extended")?.role).toBe("control");
     expect(VISITING_AI_CRAWLERS.map((c) => c.crawler)).not.toContain("Google-Extended");

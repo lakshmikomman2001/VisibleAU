@@ -25,6 +25,19 @@ const UNSCORED_METHOD_KEYS = [
   "ai-service-json",
 ] as const;
 
+/**
+ * 20 Nov (part 2): a seeded row's words, as the seed has them now, for rows seeded before the seed changed (production
+ * keeps its rows; nothing here writes them). "Allow AI crawlers in robots.txt -- Explicitly allow GPTBot, ClaudeBot,
+ * PerplexityBot access" told an owner to unblock training crawlers to be cited.
+ */
+const METHOD_COPY: Record<string, { title: string; description: string }> = {
+  "robots-allow-ai": {
+    title: "Allow the search crawlers in robots.txt",
+    description:
+      "Allow OAI-SearchBot, Claude-SearchBot, PerplexityBot and Googlebot. Blocking a training crawler such as GPTBot or ClaudeBot is your choice.",
+  },
+};
+
 const IMPACT_TONE: Record<string, string> = {
   high: "var(--danger-soft)",
   medium: "var(--warning-soft)",
@@ -51,7 +64,7 @@ export default async function MethodologyPage() {
   const isFree = tier === "free";
   // 20 Nov (Sri's decision): no method that implies an AI engine needs llms.txt, ai.txt or the /ai/ files
   // (UNSCORED_METHOD_KEYS: the seeded rows stay in the table, never shown).
-  const methods = await db
+  const rows = await db
     .select()
     .from(citabilityMethods)
     .where(notInArray(citabilityMethods.methodKey, [...UNSCORED_METHOD_KEYS]))
@@ -60,6 +73,7 @@ export default async function MethodologyPage() {
       citabilityMethods.title,
     )
     .limit(isFree ? 10 : 200);
+  const methods = rows.map((m) => ({ ...m, ...METHOD_COPY[m.methodKey] }));
 
   const total = methods.length;
 

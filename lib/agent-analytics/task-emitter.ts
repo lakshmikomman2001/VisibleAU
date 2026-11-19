@@ -38,7 +38,10 @@ export async function emitCdnJoinTasks(
   // ("training_blocked": the owner's choice, and not what decides the answers). Titles name the crawler: they said
   // "Unblock google retrieval bot" and "google ignores your robots.txt" off a Google-Extended rule.
   for (const row of joinRows) {
-    if (row.verdict === "self_blocked") {
+    // 20 Nov (part 2): only a blocked search crawler (OAI-SearchBot, Claude-SearchBot, Googlebot, PerplexityBot) is a
+    // task -- it's what puts a site in AI answers. A user-triggered agent's block is shown on CDN Shield, not tasked:
+    // OpenAI and Perplexity say robots.txt may not apply to theirs.
+    if (row.verdict === "self_blocked" && row.role === "search") {
       await createTask(
         {
           organizationId: ctx.organizationId,
@@ -47,8 +50,8 @@ export async function emitCdnJoinTasks(
           // Follow-ups from af8de42..d1eb5a1, part 2: the block is robots.txt's own rule for the crawler, read as us
           // (it was a probe sent as the crawler). The visits are verified ones in the brand's crawler logs.
           description:
-            `Your robots.txt blocks ${row.crawlerName}, and your crawler logs show no verified visits ` +
-            `from it. Until robots.txt allows it, that AI engine can't read your site for its answers.`,
+            `Your robots.txt blocks ${row.crawlerName}, the search crawler behind its company's AI answers, and your ` +
+            `crawler logs show no verified visits from it. Until robots.txt allows it, it can't index your site for them.`,
           dimension: "retrieval",
           recommendationKey: "unblock_retrieval_bot",
           effort: "medium",

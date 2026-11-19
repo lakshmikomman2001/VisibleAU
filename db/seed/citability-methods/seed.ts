@@ -201,11 +201,16 @@ export const CITABILITY_METHODS = [
   },
   {
     methodKey: "robots-allow-ai",
-    title: "Allow AI crawlers in robots.txt",
-    description: "Explicitly allow GPTBot, ClaudeBot, PerplexityBot access.",
+    // 20 Nov (part 2): the search crawlers, not GPTBot and ClaudeBot (training crawlers: blocking them keeps pages out
+    // of future training, not out of AI answers). The Methods page shows this wording for a row seeded before then
+    // (app/(auth)/methods/page.tsx METHOD_COPY).
+    title: "Allow the search crawlers in robots.txt",
+    description:
+      "Allow OAI-SearchBot, Claude-SearchBot, PerplexityBot and Googlebot. Blocking a training crawler such as GPTBot or ClaudeBot is your choice.",
     ...ESTIMATE,
     impactTier: "high",
-    effectSizeNotes: "Blocked bots cannot cite you at all",
+    effectSizeNotes:
+      "OpenAI: a site that blocks OAI-SearchBot isn't shown in ChatGPT's search answers",
     appliesTo: ["ChatGPT", "Claude", "Perplexity", "Gemini"],
   },
   {

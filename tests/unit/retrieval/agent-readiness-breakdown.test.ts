@@ -105,7 +105,7 @@ describe("readinessFromStoredRow -- a row the old writer stored", () => {
     expect(b.siteReached).toBe(false);
     expect(b.dimensions.task).toEqual({ points: 0, measuredMax: 0 });
     expect(b.dimensions.tech).toEqual({ points: 0, measuredMax: 4 }); // MCP 4, false (llms.txt: no part since 20 Nov)
-    expect(b.notMeasured.map((p) => p.label)).toContain("robots.txt lets GPTBot and ClaudeBot in");
+    expect(b.notMeasured.map((p) => p.label)).toContain("robots.txt lets the search crawlers in");
   });
 });
 

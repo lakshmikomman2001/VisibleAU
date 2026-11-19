@@ -142,6 +142,8 @@ describe("what CDN Shield shows (the before/after report's two brands)", () => {
       ["Google-Extended", "control_token"],
       ["PerplexityBot", "not_testable"],
       ["Perplexity-User", "not_testable"],
+      // 20 Nov (part 2): Common Crawl's crawler, a training and dataset crawler.
+      ["CCBot", "not_testable"],
     ]);
     for (const row of rows) {
       expect(row.sentence).toContain(`robots.txt allows ${row.crawlerName}`);

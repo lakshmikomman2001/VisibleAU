@@ -298,8 +298,13 @@ describe("P9: isActiveAgentUserAgent — active-agent UA patterns", () => {
   it("detects active-agent UAs", () => {
     expect(isActiveAgentUserAgent("ChatGPT-User")).toBe(true);
     expect(isActiveAgentUserAgent("Mozilla/5.0 (Claude-User)")).toBe(true);
-    expect(isActiveAgentUserAgent("PerplexityBot/1.0")).toBe(true);
     expect(isActiveAgentUserAgent("Perplexity-User")).toBe(true);
+  });
+
+  // 20 Nov (part 2): Perplexity calls PerplexityBot its search crawler; Perplexity-User is the one that visits on a
+  // person's request (lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED).
+  it("PerplexityBot is a search crawler, not an active agent", () => {
+    expect(isActiveAgentUserAgent("PerplexityBot/1.0")).toBe(false);
   });
 
   it("rejects non-active UAs", () => {

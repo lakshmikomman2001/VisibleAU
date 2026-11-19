@@ -998,7 +998,8 @@ export function BrandDetailClient({
               href: `/brands/${brand.id}/robots-txt-config`,
               label: "Robots.txt",
               icon: Bot,
-              desc: "27 AI bot matrix",
+              // 20 Nov (part 2): scored on the search crawlers; the rest shown by role.
+              desc: "AI crawlers by role",
             },
             {
               href: `/brands/${brand.id}/llms-txt-generator`,

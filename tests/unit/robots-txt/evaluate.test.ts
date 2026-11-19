@@ -85,21 +85,26 @@ describe("RFC 9309's rules", () => {
 });
 
 describe("agent readiness's robots check", () => {
-  it("names the crawler robots.txt blocks", () => {
-    const r = readinessRobots("User-agent: ClaudeBot\nDisallow: /\n");
+  // 20 Nov (part 2): the search crawlers -- GPTBot and ClaudeBot are training crawlers, the owner's choice.
+  it("names the search crawler robots.txt blocks; a training crawler's block isn't a gap", () => {
+    const r = readinessRobots("User-agent: Claude-SearchBot\nDisallow: /\n");
     expect(r.allowsCrawlers).toBe(false);
     expect(r.gap).toBe(
-      "robots.txt blocks ClaudeBot. Allow it if you want that AI engine to read your site.",
+      "robots.txt blocks Claude-SearchBot, a search crawler behind AI answers. Allow it if you want to appear in that engine's answers.",
     );
+    expect(readinessRobots("User-agent: ClaudeBot\nDisallow: /\n")).toMatchObject({
+      allowsCrawlers: true,
+      gap: null,
+    });
   });
 
   it("a Disallow: /admin under * isn't a block (it was)", () => {
     expect(readinessRobots("User-agent: *\nDisallow: /admin\n").allowsCrawlers).toBe(true);
   });
 
-  it("both blocked, and none", () => {
+  it("all blocked, and none", () => {
     expect(readinessRobots("User-agent: *\nDisallow: /\n").gap).toBe(
-      "robots.txt blocks GPTBot and ClaudeBot. Allow them if you want those AI engines to read your site.",
+      "robots.txt blocks OAI-SearchBot, Claude-SearchBot, Googlebot and PerplexityBot, search crawlers behind AI answers. Allow them if you want to appear in those engines' answers.",
     );
     expect(readinessRobots(null)).toMatchObject({ allowsCrawlers: true, gap: null });
   });

@@ -11,7 +11,7 @@ import {
   VERIFIED_CITATIONS,
 } from "@/lib/methodology/verified-citations";
 import { CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
-import { VISITING_AI_CRAWLERS } from "@/lib/robots-txt/evaluate";
+import { SEARCH_CRAWLERS, VISITING_AI_CRAWLERS } from "@/lib/robots-txt/evaluate";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 import { MethodologyContent } from "./methodology-content";
@@ -63,6 +63,9 @@ const RESEARCH_SOURCES = [
 
 /** "GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, ..." -- the crawlers and agents the checks read robots.txt for. */
 const crawlerList = VISITING_AI_CRAWLERS.map((c) => c.crawler).join(", ");
+
+/** "OAI-SearchBot, Claude-SearchBot, Googlebot and PerplexityBot": the only crawlers the robots.txt score counts. */
+const searchCrawlerList = `${SEARCH_CRAWLERS.slice(0, -1).join(", ")} and ${SEARCH_CRAWLERS[SEARCH_CRAWLERS.length - 1]}`;
 
 /** Google's own page for Gemini model shutdowns (it redirects to aistudio.google.com/docs/deprecations). */
 const GEMINI_DEPRECATIONS_URL = "https://ai.google.dev/gemini-api/docs/deprecations";
@@ -183,7 +186,7 @@ export default async function MethodologyPage() {
           >
             {"says"}
           </a>
-          {` its AI features need no special AI text files. We still check for both and show what we find. A new Technical Audit is out of ${TECHNICAL_AUDIT_MAX_SCORE}, and it's compared only with audits scored the same way: where an older score meets a newer one, both are shown, with "Scoring updated on" the date of the first new one. Your Visibility score isn't affected.`}
+          {` its AI features need no special AI text files. We still check for both and show what we find. robots.txt is now scored on the search crawlers that put a site in AI answers (${searchCrawlerList}), not the training crawlers: blocking GPTBot, ClaudeBot or Google-Extended is your choice and costs nothing. A new Technical Audit is out of ${TECHNICAL_AUDIT_MAX_SCORE}, and it's compared only with audits scored the same way: where an older score meets a newer one, both are shown, with "Scoring updated on" the date of the first new one. Your Visibility score isn't affected.`}
         </p>
         {/* Methodology v2.2 (Sri's decision, 7 Nov): version 4, labelled by methodologyLabel(4). One change
             covering the Gemini model, the answer length limit and comparing like with like. */}
@@ -350,7 +353,7 @@ export default async function MethodologyPage() {
           </li>
           <li>
             <strong className="text-foreground">robots.txt.</strong>{" "}
-            {`For each AI crawler and agent (${crawlerList}) we read the rules your robots.txt sets for it, as RFC 9309 defines them, and say what they mean: "robots.txt allows GPTBot", "robots.txt blocks ClaudeBot", or that it has no rules for that crawler. Blocking a training crawler (GPTBot, ClaudeBot) keeps your pages out of future training; whether they appear in an assistant's web-search answers is up to its search crawler (OAI-SearchBot, Claude-SearchBot). OpenAI and Perplexity say robots.txt may not stop ChatGPT-User and Perplexity-User, which fetch a page when someone asks.`}
+            {`For each AI crawler and agent (${crawlerList}) we read the rules your robots.txt sets for it, as RFC 9309 defines them, and say what they mean: "robots.txt allows GPTBot", "robots.txt blocks ClaudeBot", or that it has no rules for that crawler. Blocking a training crawler (GPTBot, ClaudeBot) keeps your pages out of future training; whether they appear in an assistant's web-search answers is up to its search crawler (OAI-SearchBot, Claude-SearchBot). OpenAI and Perplexity say robots.txt may not stop ChatGPT-User and Perplexity-User, which fetch a page when someone asks. The Technical score's robots.txt check counts only the search crawlers (${searchCrawlerList}): blocking one costs points and makes a task, and blocking a training crawler or Google-Extended costs nothing.`}
           </li>
           <li>
             <strong className="text-foreground">Google-Extended.</strong>{" "}

@@ -27,8 +27,9 @@ import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
 import { readinessRobots } from "@/lib/robots-txt/evaluate";
 
-// Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: robots.txt's own rules for GPTBot and ClaudeBot (RFC 9309,
-// lib/robots-txt/evaluate.ts). This read any "disallow: /" under them or * as a block -- "Disallow: /admin" too.
+// Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: robots.txt's own rules (RFC 9309, lib/robots-txt/evaluate.ts). This
+// read any "disallow: /" under them or * as a block -- "Disallow: /admin" too. 20 Nov: for the search crawlers, not
+// GPTBot and ClaudeBot (READINESS_CRAWLERS).
 const robotsAllowsCrawlers = (robotsTxt: string | null) =>
   readinessRobots(robotsTxt).allowsCrawlers;
 

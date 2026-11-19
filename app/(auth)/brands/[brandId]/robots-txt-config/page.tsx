@@ -9,15 +9,14 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import type { RobotsFindings } from "@/lib/robots-txt/analyze";
-import {
+import { 
   botRow,
   botStatusLabel,
   matrixNotCheckedSentence,
-  NOT_CHECKED_BOT,
-  robotsMatrixState,
+  NOT_CHECKED_BOT,ROBOTS_GROUPS, 
+  robotsMatrixState,robotsRowTone, 
   snippetAgents,
-  tierSummary,
-} from "@/lib/robots-txt/display";
+  tierSummary,} from "@/lib/robots-txt/display";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { crawlReach } from "@/lib/technical-audit/crawl-status";
 import { isUuid } from "@/lib/validation/uuid";
@@ -98,12 +97,6 @@ export default async function RobotsTxtConfigPage({
   // evaluate is "Not checked", never a green tick.
   const matrix = robotsMatrixState(robots);
   const matrixNote = matrixNotCheckedSentence(matrix);
-
-  const tiers = [
-    { tier: 1, label: "Training" },
-    { tier: 2, label: "Search-AI" },
-    { tier: 3, label: "User-agent" },
-  ] as const;
 
   const allowedBotAgents = snippetAgents(robots);
 
@@ -219,7 +212,7 @@ export default async function RobotsTxtConfigPage({
         }}
       >
         <h2 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-          {AI_BOTS.length} AI bots tracked across 3 tiers
+          {`${AI_BOTS.length} AI crawlers and robots.txt tokens, by what each is for`}
         </h2>
         <span
           style={{
@@ -231,7 +224,7 @@ export default async function RobotsTxtConfigPage({
             color: "var(--accent-blue)",
           }}
         >
-          Reference: Auriti-Labs (MIT)
+          Roles from each company's own page
         </span>
       </div>
 
@@ -241,9 +234,10 @@ export default async function RobotsTxtConfigPage({
         </p>
       )}
 
-      {/* 27-Bot Matrix — with FIX 2 per-tier allowed count */}
-      {tiers.map(({ tier, label }) => {
-        const bots = AI_BOTS.filter((b) => b.tier === tier);
+      {/* 20 Nov (part 2): grouped by what each is for, from its company's page (db/seed/ai-bots/seed.ts). Only the
+          search crawlers are scored; a block there is red, a blocked training crawler or token is the owner's choice. */}
+      {ROBOTS_GROUPS.map(({ role, label, note }) => {
+        const bots = AI_BOTS.filter((b) => b.role === role);
         const summary = tierSummary(
           robots,
           bots.map((b) => b.userAgent),
@@ -251,7 +245,8 @@ export default async function RobotsTxtConfigPage({
         const allAllowed = summary.checked && summary.blocked === 0;
         return (
           <div
-            key={tier}
+            key={role}
+            data-robots-group={role}
             style={{
               borderRadius: 8,
               background: "var(--bg-elevated)",
@@ -273,8 +268,11 @@ export default async function RobotsTxtConfigPage({
                 <h3
                   style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}
                 >
-                  Tier {tier} — {label}
+                  {label}
                 </h3>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
+                  {note}
+                </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
                   {!summary.checked
                     ? NOT_CHECKED_BOT
@@ -299,8 +297,10 @@ export default async function RobotsTxtConfigPage({
             </div>
             {bots.map((bot) => {
               const row = botRow(robots, bot.userAgent);
-              const isBlocked = row.checked && row.verdict.verdict === "blocked";
-              const isAllowed = row.checked && row.verdict.verdict === "allowed";
+              // Red only for a blocked search crawler; any other block is neutral -- the owner's choice.
+              const tone = robotsRowTone(role, row);
+              const isBlocked = tone === "blocked";
+              const isAllowed = tone === "allowed";
               return (
                 <div
                   key={bot.userAgent}
@@ -323,7 +323,7 @@ export default async function RobotsTxtConfigPage({
                           : "var(--text-tertiary)",
                     }}
                   >
-                    {isBlocked ? "✗" : isAllowed ? "✓" : "–"}
+                    {isBlocked || tone === "choice" ? "✗" : isAllowed ? "✓" : "–"}
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
@@ -351,7 +351,9 @@ export default async function RobotsTxtConfigPage({
                           : "var(--text-tertiary)",
                     }}
                   >
-                    {botStatusLabel(row)}
+                    {tone === "choice"
+                      ? `${botStatusLabel(row)} · your choice`
+                      : botStatusLabel(row)}
                   </span>
                 </div>
               );

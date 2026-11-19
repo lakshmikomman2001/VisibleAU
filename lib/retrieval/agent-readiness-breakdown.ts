@@ -79,7 +79,9 @@ const PARTS: PartDef[] = [
   // engine reads llms.txt (lib/retrieval/agent-readiness.ts computeTechScore), so they're not parts of the score.
   part(
     "tech",
-    "robots.txt lets GPTBot and ClaudeBot in",
+    // 20 Nov (part 2): the search crawlers (lib/robots-txt/evaluate.ts READINESS_CRAWLERS); rows scored before then
+    // checked GPTBot and ClaudeBot.
+    "robots.txt lets the search crawlers in",
     3,
     (r) => flag(r.techRobotsAllowsCrawlers, 3),
     SITE,

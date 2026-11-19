@@ -31,7 +31,7 @@ export const NOT_MEASURED_YET = "Not measured yet";
  * eight are scored (lib/technical-audit/scoring-version.ts); an audit from before then scored all eight.
  */
 export const SITE_READINESS_METHOD =
-  "Six scored checks of your site: robots.txt, schema, meta tags, content, brand entity and signals. llms.txt and the AI discovery files are checked too, and not scored.";
+  "Six scored checks of your site: robots.txt (for the search crawlers behind AI answers), schema, meta tags, content, brand entity and signals. llms.txt and the AI discovery files are checked too, and not scored.";
 export const SITE_READINESS_METHOD_BEFORE_20_NOV =
   "Eight checks of your site: robots.txt, llms.txt, schema, meta tags, content, brand entity, signals and AI discovery.";
 

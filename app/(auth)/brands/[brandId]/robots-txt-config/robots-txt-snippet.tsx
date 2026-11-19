@@ -9,7 +9,12 @@ interface RobotsTxtSnippetProps {
 }
 
 function generateSnippet(domain: string, agents: string[]): string {
-  const lines = [`# AI-crawler-friendly robots.txt (${agents.length} bots allowed)`];
+  // 20 Nov (part 2): the search crawlers and user-triggered agents behind AI answers (lib/robots-txt/display.ts
+  // snippetAgents). Training crawlers are the owner's choice, so the suggestion says so rather than allowing them.
+  const lines = [
+    `# Search crawlers and AI assistants allowed (${agents.length})`,
+    "# Training crawlers (GPTBot, ClaudeBot, CCBot) and Google-Extended are your choice: add rules for them if you want.",
+  ];
   for (const agent of agents) {
     lines.push("", `User-agent: ${agent}`, "Allow: /");
   }

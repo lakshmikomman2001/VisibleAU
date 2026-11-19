@@ -1,223 +1,226 @@
+/**
+ * The AI crawlers and robots.txt tokens the robots.txt page shows, each with what it's for.
+ *
+ * 20 Nov (Sri's decision, part 2): every token from OpenAI, Anthropic, Google, Perplexity and Common Crawl has the role
+ * its owner's own page gives it (quoted, with the links, in lib/robots-txt/evaluate.ts AI_CRAWLERS_CHECKED). Only the
+ * search crawlers count toward the robots.txt score; blocking a training crawler or a control token is the owner's
+ * choice. Three names this list carried appear on no page of the company they were credited to, so they're gone:
+ * GeminiBot, Gemini-User (Google) and OpenAI-Search (OpenAI). Claude-SearchBot and Googlebot were missing. Crawlers
+ * from other companies are shown as "other": what robots.txt says for each, never scored, and no claim about what it's
+ * for that we haven't checked. The list used to be credited to Auriti-Labs' reference project.
+ */
+export type BotRole = "search" | "user" | "training" | "control" | "other";
+
+export const BOT_ROLE_LABELS: Record<BotRole, string> = {
+  search: "Search crawler",
+  user: "User-triggered agent",
+  training: "Training and dataset crawler",
+  control: "Control token",
+  other: "Other AI crawler",
+};
+
 export const AI_BOTS = [
-  // Tier 1 — Training crawlers
-  {
-    userAgent: "GPTBot",
-    displayName: "GPTBot",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: true,
-    description: "OpenAI training data crawler",
-  },
-  {
-    userAgent: "ClaudeBot",
-    displayName: "ClaudeBot",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: true,
-    description: "Anthropic training data crawler",
-  },
-  {
-    userAgent: "anthropic-ai",
-    displayName: "Anthropic AI",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: true,
-    description: "Anthropic general AI crawler",
-  },
-  {
-    userAgent: "Google-Extended",
-    displayName: "Google Extended",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: true,
-    // 19 Nov: not a crawler -- Google crawls with Googlebot, and this robots.txt token only says whether pages may
-    // train Gemini and ground its answers; it doesn't affect Google Search or its AI Overviews.
-    description: "Google's robots.txt setting for Gemini training and grounding (not a crawler)",
-  },
-  {
-    userAgent: "CCBot",
-    displayName: "CCBot",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: true,
-    description: "Common Crawl bot",
-  },
-  {
-    userAgent: "FacebookBot",
-    displayName: "FacebookBot",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: false,
-    description: "Meta AI training crawler",
-  },
-  {
-    userAgent: "Bytespider",
-    displayName: "Bytespider",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: false,
-    description: "ByteDance training crawler",
-  },
-  {
-    userAgent: "Diffbot",
-    displayName: "Diffbot",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: false,
-    description: "Diffbot knowledge graph crawler",
-  },
-  {
-    userAgent: "cohere-ai",
-    displayName: "Cohere AI",
-    tier: 1,
-    tierLabel: "Training",
-    defaultAllow: false,
-    description: "Cohere training data crawler",
-  },
-  // Tier 2 — Search-AI crawlers
+  // Search crawlers: what puts a site in AI answers. The only ones the robots.txt score counts.
   {
     userAgent: "OAI-SearchBot",
-    displayName: "OAI SearchBot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    displayName: "OAI-SearchBot",
+    role: "search",
     defaultAllow: true,
-    description: "OpenAI search results crawler",
+    description:
+      "OpenAI's search crawler: surfaces websites in ChatGPT's search answers. Sites that block it aren't shown there.",
+  },
+  {
+    userAgent: "Claude-SearchBot",
+    displayName: "Claude-SearchBot",
+    role: "search",
+    defaultAllow: true,
+    description:
+      "Anthropic's search crawler: indexes pages for Claude's search results. Blocking it may reduce your visibility there.",
   },
   {
     userAgent: "PerplexityBot",
     displayName: "PerplexityBot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "search",
     defaultAllow: true,
-    description: "Perplexity AI search crawler",
+    description:
+      "Perplexity's search crawler: surfaces and links websites in Perplexity's answers. Not used for training.",
   },
   {
-    userAgent: "GeminiBot",
-    displayName: "GeminiBot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    userAgent: "Googlebot",
+    displayName: "Googlebot",
+    role: "search",
     defaultAllow: true,
-    description: "Google Gemini search crawler",
+    description:
+      "Google Search's crawler. Its rules apply to Google Search and all its features, AI Overviews and AI Mode included.",
+  },
+  // User-triggered agents: fetch a page when someone asks the assistant. Shown, not scored.
+  {
+    userAgent: "ChatGPT-User",
+    displayName: "ChatGPT-User",
+    role: "user",
+    defaultAllow: true,
+    description:
+      "Visits a page when a ChatGPT user asks. OpenAI says robots.txt rules may not apply to it.",
+  },
+  {
+    userAgent: "Claude-User",
+    displayName: "Claude-User",
+    role: "user",
+    defaultAllow: true,
+    description:
+      "Visits a page when someone asks Claude a question. Anthropic says its bots honour robots.txt.",
+  },
+  {
+    userAgent: "Perplexity-User",
+    displayName: "Perplexity-User",
+    role: "user",
+    defaultAllow: true,
+    description:
+      "Visits a page when someone asks Perplexity. Perplexity says it generally ignores robots.txt rules.",
+  },
+  // Training and dataset crawlers: blocking them is the owner's choice, and doesn't keep a site out of AI answers.
+  {
+    userAgent: "GPTBot",
+    displayName: "GPTBot",
+    role: "training",
+    defaultAllow: true,
+    description:
+      "Collects pages that may be used to train OpenAI's models. ChatGPT's search uses OAI-SearchBot.",
+  },
+  {
+    userAgent: "ClaudeBot",
+    displayName: "ClaudeBot",
+    role: "training",
+    defaultAllow: true,
+    description: "Collects pages that could contribute to training Anthropic's models.",
+  },
+  {
+    userAgent: "CCBot",
+    displayName: "CCBot",
+    role: "training",
+    defaultAllow: true,
+    description:
+      "Common Crawl's crawler, for its open archive of web pages that anyone can analyse.",
+  },
+  // Control tokens: a robots.txt setting, not a crawler. Nothing visits as it.
+  {
+    userAgent: "Google-Extended",
+    displayName: "Google-Extended",
+    role: "control",
+    defaultAllow: true,
+    description:
+      "Not a crawler: Google's robots.txt setting for whether pages may train Gemini and ground its answers. It doesn't affect Google Search.",
+  },
+  // Other AI crawlers: their owners' pages aren't checked here, so they're shown and never scored.
+  {
+    userAgent: "anthropic-ai",
+    displayName: "anthropic-ai",
+    role: "other",
+    defaultAllow: true,
+    description: "An older Anthropic name, not on Anthropic's current list of its bots.",
+  },
+  {
+    userAgent: "FacebookBot",
+    displayName: "FacebookBot",
+    role: "other",
+    defaultAllow: false,
+    description: "Meta's crawler.",
+  },
+  {
+    userAgent: "Bytespider",
+    displayName: "Bytespider",
+    role: "other",
+    defaultAllow: false,
+    description: "ByteDance's crawler.",
+  },
+  {
+    userAgent: "Diffbot",
+    displayName: "Diffbot",
+    role: "other",
+    defaultAllow: false,
+    description: "Diffbot's crawler.",
+  },
+  {
+    userAgent: "cohere-ai",
+    displayName: "cohere-ai",
+    role: "other",
+    defaultAllow: false,
+    description: "Cohere's crawler.",
   },
   {
     userAgent: "AppleBot-Extended",
-    displayName: "AppleBot Extended",
-    tier: 2,
-    tierLabel: "Search-AI",
+    displayName: "Applebot-Extended",
+    role: "other",
     defaultAllow: true,
-    description: "Apple AI search crawler",
+    description: "An Apple robots.txt name.",
   },
   {
     userAgent: "bingbot",
     displayName: "Bingbot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "other",
     defaultAllow: true,
-    description: "Microsoft Bing crawler",
+    description: "Microsoft Bing's crawler.",
   },
   {
     userAgent: "YouBot",
     displayName: "YouBot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "other",
     defaultAllow: true,
-    description: "You.com AI search crawler",
+    description: "You.com's crawler.",
   },
   {
     userAgent: "Amazonbot",
     displayName: "Amazonbot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "other",
     defaultAllow: false,
-    description: "Amazon AI search crawler",
+    description: "Amazon's crawler.",
   },
   {
     userAgent: "Applebot",
     displayName: "Applebot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "other",
     defaultAllow: true,
-    description: "Apple general crawler",
+    description: "Apple's crawler.",
   },
   {
     userAgent: "DuckAssistBot",
     displayName: "DuckAssistBot",
-    tier: 2,
-    tierLabel: "Search-AI",
+    role: "other",
     defaultAllow: true,
-    description: "DuckDuckGo AI assistant crawler",
-  },
-  // Tier 3 — User-agent crawlers
-  {
-    userAgent: "ChatGPT-User",
-    displayName: "ChatGPT User",
-    tier: 3,
-    tierLabel: "User-agent",
-    defaultAllow: true,
-    description: "ChatGPT user-initiated browsing",
-  },
-  {
-    userAgent: "Claude-User",
-    displayName: "Claude User",
-    tier: 3,
-    tierLabel: "User-agent",
-    defaultAllow: true,
-    description: "Claude user-initiated browsing",
-  },
-  {
-    userAgent: "Perplexity-User",
-    displayName: "Perplexity User",
-    tier: 3,
-    tierLabel: "User-agent",
-    defaultAllow: true,
-    description: "Perplexity user-initiated browsing",
-  },
-  {
-    userAgent: "Gemini-User",
-    displayName: "Gemini User",
-    tier: 3,
-    tierLabel: "User-agent",
-    defaultAllow: true,
-    description: "Gemini user-initiated browsing",
-  },
-  {
-    userAgent: "OpenAI-Search",
-    displayName: "OpenAI Search",
-    tier: 3,
-    tierLabel: "User-agent",
-    defaultAllow: true,
-    description: "OpenAI search browsing agent",
+    description: "DuckDuckGo's crawler.",
   },
   {
     userAgent: "AndiBot",
     displayName: "AndiBot",
-    tier: 3,
-    tierLabel: "User-agent",
+    role: "other",
     defaultAllow: false,
-    description: "Andi search AI crawler",
+    description: "Andi's crawler.",
   },
   {
     userAgent: "Bingbot-AI-Tool",
     displayName: "Bingbot AI Tool",
-    tier: 3,
-    tierLabel: "User-agent",
+    role: "other",
     defaultAllow: true,
-    description: "Bing AI tool browsing",
+    description: "A name some robots.txt files use.",
   },
   {
     userAgent: "Cotoyogi",
     displayName: "Cotoyogi",
-    tier: 3,
-    tierLabel: "User-agent",
+    role: "other",
     defaultAllow: false,
-    description: "Cotoyogi AI crawler",
+    description: "Cotoyogi's crawler.",
   },
   {
     userAgent: "PetalBot",
     displayName: "PetalBot",
-    tier: 3,
-    tierLabel: "User-agent",
+    role: "other",
     defaultAllow: false,
-    description: "Petal search AI crawler",
+    description: "Petal Search's crawler.",
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  userAgent: string;
+  displayName: string;
+  role: BotRole;
+  defaultAllow: boolean;
+  description: string;
+}>;

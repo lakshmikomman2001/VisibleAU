@@ -15,6 +15,9 @@ const ORG_ID = randomUUID();
 const BRAND_ID = randomUUID();
 const LOGIN_AUDIT_ID = randomUUID();
 const TIMEOUT_AUDIT_ID = randomUUID();
+// 19 Nov: two later Google runs -- #45 clean (every question checked), #46 newer but with a failed question.
+const CLEAN_AUDIT_ID = randomUUID();
+const DIRTY_AUDIT_ID = randomUUID();
 const ORG_NAME = `Error Groups ${ORG_ID.slice(0, 8)}`;
 const RAW_40100 =
   "The provider refused the question: 40100 You are not authorized to access this resource.";
@@ -43,6 +46,19 @@ async function failure(
   `;
 }
 
+/** A question Google answered (or showed nothing for): checked. */
+async function outcome(auditId: string, index: number, result: "shown" | "not_shown") {
+  await client`
+    INSERT INTO google_surface_results (audit_id, organization_id, surface, prompt, prompt_index,
+      is_branded_prompt, outcome, provider, attempts, answer_text, cited_links, google_link_count,
+      brand_mentioned, mention_verification, cost_usd, cost_source, location_code, location_label,
+      device, se_domain, language_code, queue_mode, fetched_at, provider_status_code, outcome_reason)
+    VALUES (${auditId}, ${ORG_ID}, 'google_ai_mode', ${`Best plumber question ${index}?`}, ${index}, false,
+      ${result}, 'dataforseo', 1, null, ${client.json([])}, 0, null, null, 0, 'provider_reported',
+      9071744, '2153 NSW', 'desktop', 'google.com.au', 'en', 'standard', now(), 20000, null)
+  `;
+}
+
 beforeAll(async () => {
   const url = getTestDatabaseUrl();
   process.env.DATABASE_URL = url;
@@ -60,8 +76,23 @@ beforeAll(async () => {
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, total_calls)
     VALUES
       (${LOGIN_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 44, 'complete', ${["chatgpt"]}, 13, 1, 13),
-      (${TIMEOUT_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 43, 'complete', ${["chatgpt"]}, 13, 1, 13)
+      (${TIMEOUT_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 43, 'complete', ${["chatgpt"]}, 13, 1, 13),
+      (${CLEAN_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 45, 'complete', ${["chatgpt"]}, 13, 1, 13),
+      (${DIRTY_AUDIT_ID}, ${BRAND_ID}, ${ORG_ID}, 46, 'complete', ${["chatgpt"]}, 13, 1, 13)
   `;
+  // In the future, so they're the latest runs in the shared test DB whatever else is in it.
+  await client`
+    INSERT INTO audit_google_surfaces (audit_id, organization_id, surfaces, settings, status, created_at, completed_at)
+    VALUES
+      (${CLEAN_AUDIT_ID}, ${ORG_ID}, ${["google_ai_mode"]}, ${client.json({})}, 'complete',
+        now() + interval '20 days', now() + interval '20 days 10 minutes'),
+      (${DIRTY_AUDIT_ID}, ${ORG_ID}, ${["google_ai_mode"]}, ${client.json({})}, 'complete',
+        now() + interval '21 days', now() + interval '21 days 10 minutes')
+  `;
+  for (let i = 0; i < 2; i++) await outcome(CLEAN_AUDIT_ID, i, i === 0 ? "shown" : "not_shown");
+  await outcome(DIRTY_AUDIT_ID, 0, "shown");
+  // Its failure the oldest of the fixtures, so audits #44 and #43 stay the latest groups below.
+  await failure(DIRTY_AUDIT_ID, "google_ai_mode", 1, null, "No answer from the provider", 1);
   // Audit #44: the login refused on all 13 questions, both answers -- 26 identical failures.
   for (let i = 0; i < 13; i++) {
     await failure(LOGIN_AUDIT_ID, "google_ai_mode", i, 40100, RAW_40100, 10);
@@ -120,6 +151,22 @@ describe("Provider errors: one line per audit and answer", () => {
       category: "timed out",
       surfaces: [{ surface: "AI Overviews", count: 2 }],
     });
+  });
+
+  it("19 Nov: the last clean run is the latest with every question checked -- not a newer one that failed one", async () => {
+    const { loadLastCleanGoogleRun } = await import("@/lib/audit/google-surfaces/operator");
+    const run = await loadLastCleanGoogleRun();
+    expect(run).toMatchObject({
+      auditNumber: 45,
+      brand: "Omega Services",
+      questions: 2,
+      checked: 2,
+    });
+    const [stored] = await client`
+      SELECT created_at, completed_at FROM audit_google_surfaces WHERE audit_id = ${CLEAN_AUDIT_ID}
+    `;
+    expect(run?.startedAt).toBe(new Date(stored.created_at).toISOString());
+    expect(run?.at).toBe(new Date(stored.completed_at).toISOString());
   });
 
   it("capped, and it says so: the latest group of at least 2, with the total", async () => {

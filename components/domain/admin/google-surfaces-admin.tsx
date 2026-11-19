@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { type CSSProperties, useState } from "react";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
+import { collapseNoChangeSaves, noChangeText } from "@/lib/admin/settings-history-view";
 import type { GoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
+import {
+  type CleanGoogleRun,
+  splitProviderErrors,
+} from "@/lib/audit/google-surfaces/provider-errors-view";
 import type {
   GoogleSurface,
   GoogleSurfaceAdminView,
@@ -20,7 +25,29 @@ import { LOW_BALANCE_USD, type TestConnectionResult } from "@/lib/serp/test-conn
  * /api/admin/settings), says so ("Saving…", "Saved", or why not: 12 Nov, part 5), and the page reloads
  * what the server now has. The env kill switch is shown but
  * can't be changed here: it's GOOGLE_AI_SURFACES_ENABLED in Vercel, and needs a redeploy.
+ *
+ * 19 Nov (Sri's review): the tick boxes and dropdowns save the moment they change, and "Count Google in the headline"
+ * was ticked by accident (on for 2 minutes). It asks first now (COUNT_IN_HEADLINE_CONFIRM), every control says how it
+ * saves, the Changes log folds runs of identical saves that changed nothing ("13 saves, no change"), and Provider
+ * errors says when the last one was, from the data, with the ones before the last clean run folded away.
  */
+
+/** What "Count Google in the headline" asks before it saves, either way. */
+export const COUNT_IN_HEADLINE_CONFIRM =
+  "This changes how every new audit's score is calculated, and those scores won't compare with earlier audits.";
+
+/** Beside a control that saves the moment it changes (a typed value has its own Save instead). */
+function SavesOnChange({ asksFirst = false }: { asksFirst?: boolean }) {
+  return (
+    <span
+      className="px-1.5 py-0.5 rounded text-[11px]"
+      style={{ border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
+      data-admin-saves={asksFirst ? "asks-first" : "on-change"}
+    >
+      {asksFirst ? "Asks first, then saves" : "Saves when changed"}
+    </span>
+  );
+}
 
 const SURFACES: {
   surface: GoogleSurface;
@@ -171,7 +198,61 @@ function SydneyTime({ iso, timeOnly = false }: { iso: string; timeOnly?: boolean
  * #44 · Omega Services · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with each
  * question behind it, and how many are shown (it listed 10 identical rows, silently capped).
  */
-function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErrorGroups"] }) {
+/** One audit's identical failures: a line, with each question behind it. */
+function ProviderErrorGroupRow({
+  g,
+}: {
+  g: GoogleOperatorHealth["providerErrorGroups"]["groups"][number];
+}) {
+  return (
+    <details className="text-[12px]" style={muted} data-admin-provider-error={g.code ?? "none"}>
+      <summary style={{ cursor: "pointer", wordBreak: "break-word" }}>
+        <SydneyTime iso={g.at} /> · Audit {g.auditNumber !== null ? `#${g.auditNumber}` : "—"}
+        {g.brand ? ` · ${g.brand}` : ""}
+        {g.workspace ? ` (${g.workspace})` : ""} ·{" "}
+        {g.surfaces.map((x) => `${x.surface} ×${x.count}`).join(", ")} ·{" "}
+        <span style={label}>
+          {g.code !== null ? `${g.code} ` : ""}
+          {g.category}
+        </span>{" "}
+        · {g.message ?? "—"}
+      </summary>
+      <div style={{ overflowX: "auto", marginTop: 6 }}>
+        <table className="text-[12px] w-full">
+          <thead>
+            <tr style={label}>
+              <th className="text-left pr-3 pb-1">When (Sydney time)</th>
+              <th className="text-left pr-3 pb-1">Surface</th>
+              <th className="text-left pb-1">Question</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.rows.map((r) => (
+              <tr key={r.id}>
+                <td className="pr-3 py-1 whitespace-nowrap">
+                  <SydneyTime iso={r.at} />
+                </td>
+                <td className="pr-3 py-1 whitespace-nowrap">{r.surface}</td>
+                <td className="py-1">{r.prompt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function ProviderErrors({
+  errors,
+  lastCleanRun,
+}: {
+  errors: GoogleOperatorHealth["providerErrorGroups"];
+  lastCleanRun: CleanGoogleRun | null;
+}) {
+  // 19 Nov: errors from before the last clean run are history, folded away; "No provider errors since ..." when no
+  // error is newer (lib/audit/google-surfaces/provider-errors-view.ts).
+  const { summary, recent, older } = splitProviderErrors(errors.groups, lastCleanRun);
   return (
     <section className="mb-6 p-5 rounded-xl" style={card} data-admin-provider-errors="">
       <h2 className="text-sm font-semibold mb-1" style={label}>
@@ -181,6 +262,15 @@ function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErro
         The latest Google questions the provider failed, with its code and its own message.
         Customers are shown only a plain reason (for example "a problem on our side").
       </p>
+      {summary ? (
+        <p
+          className="text-[13px] mb-2"
+          style={{ color: "var(--success)" }}
+          data-admin-provider-errors-summary=""
+        >
+          {summary}
+        </p>
+      ) : null}
       {errors.total > errors.groups.length && (
         <p className="text-[12px] mb-2" style={muted} data-admin-provider-errors-shown="">
           Showing the latest {errors.groups.length} of {errors.total}.
@@ -192,78 +282,98 @@ function ProviderErrors({ errors }: { errors: GoogleOperatorHealth["providerErro
         </p>
       ) : (
         <div className="flex flex-col gap-2">
-          {errors.groups.map((g) => (
-            <details
-              key={g.key}
-              className="text-[12px]"
-              style={muted}
-              data-admin-provider-error={g.code ?? "none"}
-            >
-              <summary style={{ cursor: "pointer", wordBreak: "break-word" }}>
-                <SydneyTime iso={g.at} /> · Audit{" "}
-                {g.auditNumber !== null ? `#${g.auditNumber}` : "—"}
-                {g.brand ? ` · ${g.brand}` : ""}
-                {g.workspace ? ` (${g.workspace})` : ""} ·{" "}
-                {g.surfaces.map((x) => `${x.surface} ×${x.count}`).join(", ")} ·{" "}
-                <span style={label}>
-                  {g.code !== null ? `${g.code} ` : ""}
-                  {g.category}
-                </span>{" "}
-                · {g.message ?? "—"}
+          {recent.map((g) => (
+            <ProviderErrorGroupRow key={g.key} g={g} />
+          ))}
+          {older.length > 0 ? (
+            <details className="text-[12px]" style={muted} data-admin-provider-errors-older="">
+              <summary style={{ cursor: "pointer" }}>
+                {`${older.length} older ${older.length === 1 ? "error" : "errors"}, from before the last clean Google run`}
               </summary>
-              <div style={{ overflowX: "auto", marginTop: 6 }}>
-                <table className="text-[12px] w-full">
-                  <thead>
-                    <tr style={label}>
-                      <th className="text-left pr-3 pb-1">When (Sydney time)</th>
-                      <th className="text-left pr-3 pb-1">Surface</th>
-                      <th className="text-left pb-1">Question</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="pr-3 py-1 whitespace-nowrap">
-                          <SydneyTime iso={r.at} />
-                        </td>
-                        <td className="pr-3 py-1 whitespace-nowrap">{r.surface}</td>
-                        <td className="py-1">{r.prompt}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex flex-col gap-2 mt-2">
+                {older.map((g) => (
+                  <ProviderErrorGroupRow key={g.key} g={g} />
+                ))}
               </div>
             </details>
-          ))}
+          ) : null}
         </div>
       )}
     </section>
   );
 }
 
-/** A checkbox that saves when it's ticked or unticked. */
+/**
+ * A checkbox that saves when it's ticked or unticked -- or, given `confirm`, says what the change does and saves
+ * only once that's accepted (the box keeps the saved value until then).
+ */
 function SettingCheckbox({
   name,
   checked,
+  confirm,
   children,
 }: {
   name: "aiOverviewsEnabled" | "aiModeEnabled" | "countInHeadline";
   checked: boolean;
+  confirm?: string;
   children: string;
 }) {
   const s = useSave("/api/admin/settings");
+  const [pending, setPending] = useState<boolean | null>(null);
+  const change = (value: boolean) => {
+    if (confirm) setPending(value);
+    else void s.save({ kind: "setting", name, value });
+  };
   return (
-    <div className="flex flex-wrap items-center gap-2" data-admin-setting={name}>
-      <label className="flex items-center gap-2 text-[13px]" style={label}>
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={s.saving}
-          onChange={(e) => s.save({ kind: "setting", name, value: e.target.checked })}
-        />
-        {children}
-      </label>
-      <SaveFeedback status={s.status} error={s.error} />
+    <div className="flex flex-col gap-2" data-admin-setting={name}>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-[13px]" style={label}>
+          <input
+            type="checkbox"
+            checked={checked}
+            disabled={s.saving || pending !== null}
+            onChange={(e) => change(e.target.checked)}
+          />
+          {children}
+        </label>
+        <SavesOnChange asksFirst={Boolean(confirm)} />
+        <SaveFeedback status={s.status} error={s.error} />
+      </div>
+      {confirm && pending !== null ? (
+        <div
+          role="alertdialog"
+          aria-labelledby={`confirm-${name}`}
+          className="p-3 rounded-md flex flex-col gap-2"
+          style={{ border: "1px solid var(--warning)", background: "var(--bg-base)" }}
+          data-admin-confirm={name}
+        >
+          <p id={`confirm-${name}`} className="text-[13px]" style={{ color: "var(--warning)" }}>
+            {confirm}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="px-3 py-1 rounded-md text-[13px]"
+              style={field}
+              onClick={() => {
+                const value = pending;
+                setPending(null);
+                void s.save({ kind: "setting", name, value });
+              }}
+            >
+              {pending ? "Yes, turn it on" : "Yes, turn it off"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-1 rounded-md text-[13px]"
+              style={field}
+              onClick={() => setPending(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -303,6 +413,7 @@ function SavingSelect({
           ))}
         </select>
       </label>
+      <SavesOnChange />
       <SaveFeedback status={s.status} error={s.error} />
     </div>
   );
@@ -427,9 +538,13 @@ export function GoogleSurfacesAdmin({
         </section>
 
         <section className="mb-6 p-5 rounded-xl" style={card} data-admin-global="">
-          <h2 className="text-sm font-semibold mb-3" style={label}>
+          <h2 className="text-sm font-semibold mb-1" style={label}>
             Global settings
           </h2>
+          <p className="text-[12px] mb-3" style={muted} data-admin-saving-note="">
+            Tick boxes and dropdowns save as soon as you change them; counting Google in the
+            headline asks first. A typed value saves when you press its Save.
+          </p>
           <div className="flex flex-col gap-3">
             {SURFACES.map(({ name, settingName }) => (
               <SettingCheckbox
@@ -438,7 +553,11 @@ export function GoogleSurfacesAdmin({
                 checked={view.settings[settingName]}
               >{`${name} on for every eligible workspace (Growth and up)`}</SettingCheckbox>
             ))}
-            <SettingCheckbox name="countInHeadline" checked={view.settings.countInHeadline}>
+            <SettingCheckbox
+              name="countInHeadline"
+              checked={view.settings.countInHeadline}
+              confirm={COUNT_IN_HEADLINE_CONFIRM}
+            >
               Count Google in the headline Visibility % (off: shown in its own block)
             </SettingCheckbox>
             <SavingSelect
@@ -595,7 +714,7 @@ export function GoogleSurfacesAdmin({
           )}
         </section>
 
-        <ProviderErrors errors={health.providerErrorGroups} />
+        <ProviderErrors errors={health.providerErrorGroups} lastCleanRun={health.lastCleanRun} />
 
         <section className="p-5 rounded-xl" style={card} data-admin-history="">
           <h2 className="text-sm font-semibold mb-3" style={label}>
@@ -618,15 +737,20 @@ export function GoogleSurfacesAdmin({
                   </tr>
                 </thead>
                 <tbody>
-                  {view.history.map((h) => (
-                    <tr key={`${h.at}-${h.setting}-${h.target ?? "global"}`}>
+                  {/* 19 Nov: a run of identical saves that changed nothing is one row, "13 saves, no change (2153)";
+                      the rows themselves stay in the history. */}
+                  {collapseNoChangeSaves(view.history).map((h) => (
+                    <tr
+                      key={`${h.at}-${h.firstAt}-${h.setting}-${h.target ?? "global"}`}
+                      data-admin-history-row={h.noChange ? "no-change" : "change"}
+                    >
                       <td className="pr-3 py-1 whitespace-nowrap">
                         <SydneyTime iso={h.at} />
                       </td>
                       <td className="pr-3 py-1">{h.setting}</td>
                       <td className="pr-3 py-1">{h.target ?? "Global"}</td>
                       <td className="pr-3 py-1">
-                        {shown(h.from)} → {shown(h.to)}
+                        {noChangeText(h, shown(h.to)) ?? `${shown(h.from)} → ${shown(h.to)}`}
                       </td>
                       <td className="py-1">{h.by ?? "unknown"}</td>
                     </tr>

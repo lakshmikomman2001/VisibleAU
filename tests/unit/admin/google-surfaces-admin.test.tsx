@@ -61,6 +61,7 @@ function view(overrides: Partial<GoogleSurfaceAdminView> = {}): GoogleSurfaceAdm
 const HEALTH: GoogleOperatorHealth = {
   lastRun: null,
   providerErrorGroups: { groups: [], total: 0 },
+  lastCleanRun: null,
 };
 
 let Admin: typeof import("@/components/domain/admin/google-surfaces-admin").GoogleSurfacesAdmin;
@@ -274,12 +275,13 @@ describe("every Save says what happened (part 5)", () => {
   it("a global checkbox: disabled and 'Saving…', then 'Saved'", async () => {
     const held = heldFetch(ok());
     render(createElement(Admin, { view: view(), health: HEALTH }));
+    // 19 Nov: a box that saves at once (the headline box asks first: settings-page-confirm-and-history.test.tsx).
     const box = screen.getByLabelText(
-      "Count Google in the headline Visibility % (off: shown in its own block)",
+      "AI Overviews on for every eligible workspace (Growth and up)",
     );
     fireEvent.click(box);
     expect(box).toBeDisabled();
-    const row = box.closest('[data-admin-setting="countInHeadline"]') as HTMLElement;
+    const row = box.closest('[data-admin-setting="aiOverviewsEnabled"]') as HTMLElement;
     expect(row).toHaveTextContent("Saving…");
     held.release();
     await waitFor(() => expect(row).toHaveTextContent("Saved"));

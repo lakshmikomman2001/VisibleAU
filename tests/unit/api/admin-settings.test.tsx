@@ -96,6 +96,8 @@ const HEALTH = {
     ],
     total: 3,
   },
+  // 19 Nov: no clean run yet, so nothing is folded and no "No provider errors since" line.
+  lastCleanRun: null,
 };
 const { loadHealth } = vi.hoisted(() => ({ loadHealth: vi.fn() }));
 vi.mock("@/lib/audit/google-surfaces/operator", () => ({ loadGoogleOperatorHealth: loadHealth }));

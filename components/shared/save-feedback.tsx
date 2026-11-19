@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActionError } from "@/components/shared/load-error";
 import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
 
@@ -21,7 +21,12 @@ export function useSave(
   const router = useRouter();
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  // 19 Nov (Sri's review of /admin/settings): one save at a time. The controls are disabled while `saving`, but two
+  // clicks before React re-renders both got through; a save already on its way makes the next one a no-op.
+  const inFlight = useRef(false);
   const save = async (change: Record<string, unknown>): Promise<boolean> => {
+    if (inFlight.current) return false;
+    inFlight.current = true;
     setStatus("saving");
     setError(null);
     try {
@@ -43,6 +48,8 @@ export function useSave(
           : "The change couldn't be saved. Check your connection and try again.",
       );
       return false;
+    } finally {
+      inFlight.current = false;
     }
   };
   /** Typing again clears the last "Saved" / error. */

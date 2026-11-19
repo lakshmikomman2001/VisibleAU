@@ -19,6 +19,7 @@ import {
   type GoogleProviderErrorCategory,
   stopsTheRun,
 } from "@/lib/serp/dataforseo-errors";
+import type { CleanGoogleRun } from "./provider-errors-view";
 import { GOOGLE_STORED_REASON, googleRowErrorCategory } from "./reasons";
 
 /**
@@ -77,14 +78,71 @@ export interface GoogleOperatorHealth {
    * was one row per question).
    */
   providerErrorGroups: GoogleProviderErrorGroups;
+  /**
+   * 19 Nov (Sri's review): the latest run that went cleanly, so the page can say "No provider errors since ..." and
+   * fold away the errors from before it (lib/audit/google-surfaces/provider-errors-view.ts). Null when none has.
+   */
+  lastCleanRun: CleanGoogleRun | null;
 }
 
 export async function loadGoogleOperatorHealth(): Promise<GoogleOperatorHealth> {
-  const [lastRun, providerErrorGroups] = await Promise.all([
+  const [lastRun, providerErrorGroups, lastCleanRun] = await Promise.all([
     loadLastGoogleRun(),
     loadGoogleProviderErrorGroups(),
+    loadLastCleanGoogleRun(),
   ]);
-  return { lastRun, providerErrorGroups };
+  return { lastRun, providerErrorGroups, lastCleanRun };
+}
+
+/** A Google result row's outcome that means the question was checked: Google answered, with or without an Overview. */
+const CHECKED = sql`('shown', 'not_shown')`;
+/** One that means it wasn't: the provider failed, or the run stopped before it. */
+const NOT_CHECKED = sql`('failed', 'not_completed')`;
+
+/**
+ * 19 Nov: the latest audit whose Google part finished with at least one question checked and none failed or stopped
+ * -- a clean run, every workspace. Its start (audit_google_surfaces.created_at) is the line before which an error is
+ * older than it.
+ */
+export async function loadLastCleanGoogleRun(): Promise<CleanGoogleRun | null> {
+  const [run] = await serviceDb
+    .select({
+      auditId: auditGoogleSurfaces.auditId,
+      startedAt: auditGoogleSurfaces.createdAt,
+      completedAt: auditGoogleSurfaces.completedAt,
+      auditNumber: audits.auditNumber,
+      brand: brands.name,
+      questions:
+        sql<number>`(SELECT count(*) FROM ${googleSurfaceResults} r WHERE r.audit_id = ${auditGoogleSurfaces.auditId})`.mapWith(
+          Number,
+        ),
+      checked:
+        sql<number>`(SELECT count(*) FROM ${googleSurfaceResults} r WHERE r.audit_id = ${auditGoogleSurfaces.auditId} AND r.outcome IN ${CHECKED})`.mapWith(
+          Number,
+        ),
+    })
+    .from(auditGoogleSurfaces)
+    .leftJoin(audits, eq(audits.id, auditGoogleSurfaces.auditId))
+    .leftJoin(brands, eq(brands.id, audits.brandId))
+    .where(
+      and(
+        eq(auditGoogleSurfaces.status, "complete"),
+        sql`${auditGoogleSurfaces.completedAt} IS NOT NULL`,
+        sql`EXISTS (SELECT 1 FROM ${googleSurfaceResults} r WHERE r.audit_id = ${auditGoogleSurfaces.auditId} AND r.outcome IN ${CHECKED})`,
+        sql`NOT EXISTS (SELECT 1 FROM ${googleSurfaceResults} r WHERE r.audit_id = ${auditGoogleSurfaces.auditId} AND r.outcome IN ${NOT_CHECKED})`,
+      ),
+    )
+    .orderBy(desc(auditGoogleSurfaces.completedAt))
+    .limit(1);
+  if (!run?.completedAt) return null;
+  return {
+    startedAt: run.startedAt.toISOString(),
+    at: run.completedAt.toISOString(),
+    auditNumber: run.auditNumber ?? null,
+    brand: run.brand ?? null,
+    questions: run.questions,
+    checked: run.checked,
+  };
 }
 
 /** One audit's identical failures: the same code and the same message, counted per surface. */

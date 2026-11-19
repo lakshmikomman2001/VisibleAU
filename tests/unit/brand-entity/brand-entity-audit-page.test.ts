@@ -13,6 +13,8 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
+import { DIMENSION_MAXIMA, TECHNICAL_SCORING_VERSION } from "@/lib/technical-audit/scoring-version";
 
 // Comments in this file (and the page's own) legitimately mention the
 // removed feature's old names in prose explaining why it's gone --
@@ -36,9 +38,15 @@ describe("Vunnara (21 Oct, Part A3) — the directory row and its scorer import 
     expect(code).not.toMatch(/AU Directory Presence/);
   });
 
-  it("the score is labelled via the shared BRAND_ENTITY_MAX_SCORE constant, not a hardcoded /10", () => {
-    expect(code).toMatch(/BRAND_ENTITY_MAX_SCORE/);
-    expect(code).not.toMatch(/\{score\}\/10\b/);
+  // 20 Nov (part 7): out of the audit's own maximum -- 10 before 21 Oct, 8 since (lib/technical-audit/scoring-version.ts)
+  // -- whose current value is BRAND_ENTITY_MAX_SCORE; never a written-in /10 or /8.
+  it("the score is labelled with its audit's own maximum, today's being BRAND_ENTITY_MAX_SCORE, never a hardcoded /10", () => {
+    expect(code).toMatch(/technicalScoringOf\(techAudit\)\.dimensionMax\.scoreBrandEntity/);
+    expect(code).not.toMatch(/\{score\}\/(10|8)\b/);
+    expect(DIMENSION_MAXIMA[TECHNICAL_SCORING_VERSION].scoreBrandEntity).toBe(
+      BRAND_ENTITY_MAX_SCORE,
+    );
+    expect(DIMENSION_MAXIMA[1].scoreBrandEntity).toBe(10);
   });
 });
 

@@ -5,9 +5,10 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { BRAND_ENTITY_MAX_SCORE, BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
+import { BRAND_ENTITY_WEIGHTS } from "@/lib/brand-entity/score";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
+import { technicalScoringOf } from "@/lib/technical-audit/scoring-version";
 import { isUuid } from "@/lib/validation/uuid";
 
 // Task RRR: the real, live-verified public ABR Lookup page -- confirmed
@@ -69,6 +70,7 @@ export default async function BrandEntityAuditPage({
           findings: technicalAudits.findings,
           scoreBrandEntity: technicalAudits.scoreBrandEntity,
           crawledAt: technicalAudits.crawledAt,
+          createdAt: technicalAudits.createdAt,
         })
         .from(technicalAudits)
         .where(eq(technicalAudits.brandId, brandId))
@@ -118,6 +120,9 @@ export default async function BrandEntityAuditPage({
     | BrandEntityFindings
     | undefined;
   // 9 Nov (part 9): a missing sub-score is "Not measured yet", never a red 0/8 (lib/scoring/measured.ts).
+  // 20 Nov (part 7): what this audit's score is out of -- 8 since 21 Oct, 10 before (lib/technical-audit/
+  // scoring-version.ts), not today's 8 for every audit.
+  const entityMax = technicalScoringOf(techAudit).dimensionMax.scoreBrandEntity;
   const scoreM = measured(techAudit.scoreBrandEntity);
   const score = scoreM.measured ? scoreM.value : null;
 
@@ -252,7 +257,7 @@ export default async function BrandEntityAuditPage({
               )
             ) : (
               <>
-                {score}/{BRAND_ENTITY_MAX_SCORE}
+                {score}/{entityMax}
               </>
             )}
           </p>
@@ -281,7 +286,7 @@ export default async function BrandEntityAuditPage({
                 score >= 6 ? "var(--success)" : score >= 4 ? "var(--warning)" : "var(--danger)",
             }}
           >
-            {score}/{BRAND_ENTITY_MAX_SCORE}
+            {score}/{entityMax}
           </div>
         )}
       </div>

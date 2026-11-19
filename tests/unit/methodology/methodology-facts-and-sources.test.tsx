@@ -25,14 +25,14 @@ import { joinCrawlerAccess } from "@/lib/agent-analytics/cdn-shield-join";
 import {
   AI_DISCOVERY_MAX,
   AI_DISCOVERY_WEIGHTS,
-  aiDiscoveryMaxFor,
+  AI_DISCOVERY_WEIGHTS_BY_VERSION,
   checkAiDiscovery,
   OPTIONAL_AI_FILES_LABEL,
 } from "@/lib/ai-discovery/endpoints";
+import { resolveGoogleLocation } from "@/lib/google-surfaces/location";
 import { GOOGLE_ONLINE_ONLY_REASON, type PublicGoogleAi } from "@/lib/marketing/google-ai";
 import { CITABILITY_METHODS, getMethodsData } from "@/lib/methodology/methods";
 import { VERIFIED_CITATIONS } from "@/lib/methodology/verified-citations";
-import { resolveGoogleLocation } from "@/lib/google-surfaces/location";
 import { AI_CRAWLERS_CHECKED, VISITING_AI_CRAWLERS } from "@/lib/robots-txt/evaluate";
 import { compositeMaxFor, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 import { listFiles } from "@/tests/helpers/source-files";
@@ -296,15 +296,22 @@ describe("AI Discovery: the three /ai/ files are optional and lower no score", (
       return new Response("x".repeat(200), { status: 200, headers: { "content-type": type } });
     });
 
-  it("weights 0, the maximum ai.txt's 3, and the composite's 95 for a new audit", () => {
-    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 0, aiFaq: 0, aiService: 0 });
-    expect(AI_DISCOVERY_MAX).toBe(3);
-    expect(TECHNICAL_AUDIT_MAX_SCORE).toBe(95);
-    expect(aiDiscoveryMaxFor({ optionalFilesScored: false })).toBe(3);
-    expect(aiDiscoveryMaxFor({})).toBe(6);
-    expect(compositeMaxFor("2026-11-20T00:00:00Z", { optionalFilesScored: false })).toBe(95);
-    expect(compositeMaxFor("2026-11-10T00:00:00Z", {})).toBe(98);
-    expect(compositeMaxFor("2026-10-01T00:00:00Z", {})).toBe(100);
+  // 20 Nov: ai.txt weighs 0 too (tests/unit/technical-audit/scoring-version.test.ts); a 19 Nov audit keeps its 95.
+  it("weights 0, the maximum 0 for a new audit, and the composite's own maximum for each older one", () => {
+    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 0, aiSummary: 0, aiFaq: 0, aiService: 0 });
+    expect(AI_DISCOVERY_WEIGHTS_BY_VERSION[3]).toEqual({
+      aiTxt: 3,
+      aiSummary: 0,
+      aiFaq: 0,
+      aiService: 0,
+    });
+    expect(AI_DISCOVERY_MAX).toBe(0);
+    expect(TECHNICAL_AUDIT_MAX_SCORE).toBe(74);
+    const at = (createdAt: string, findings: unknown) => compositeMaxFor({ createdAt, findings });
+    expect(at("2026-11-20T00:00:00Z", { scoringVersion: 4 })).toBe(74);
+    expect(at("2026-11-19T12:00:00Z", { aiDiscovery: { optionalFilesScored: false } })).toBe(95);
+    expect(at("2026-11-10T00:00:00Z", {})).toBe(98);
+    expect(at("2026-10-01T00:00:00Z", {})).toBe(100);
   });
 
   it("with or without the /ai/ files, the same score; an unfetchable optional file leaves it measured", async () => {
@@ -313,8 +320,8 @@ describe("AI Discovery: the three /ai/ files are optional and lower no score", (
     vi.restoreAllMocks();
     respond(["/.well-known/ai.txt", "/ai/summary.json", "/ai/faq.json", "/ai/service.json"]);
     const withAll = await checkAiDiscovery("example.com.au");
-    expect(without.score).toBe(3);
-    expect(withAll.score).toBe(3);
+    expect(without.score).toBe(0);
+    expect(withAll.score).toBe(0);
     expect(withAll.findings.aiSummaryPresent).toBe(true);
     expect(without.findings.optionalFilesScored).toBe(false);
     vi.restoreAllMocks();
@@ -329,7 +336,7 @@ describe("AI Discovery: the three /ai/ files are optional and lower no score", (
       return new Response("", { status: 404 });
     });
     const flaky = await checkAiDiscovery("example.com.au");
-    expect(flaky.score).toBe(3);
+    expect(flaky.score).toBe(0);
     expect(flaky.measured).toBe(true);
   });
 

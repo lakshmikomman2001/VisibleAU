@@ -6,10 +6,14 @@ import { OPTIONAL_AI_FILES_LABEL } from "@/lib/ai-discovery/endpoints";
 import { CANT_TEST_FROM_OUTSIDE } from "@/lib/crawler/access-copy";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { getMethodsData } from "@/lib/methodology/methods";
-import { VERIFIED_CITATIONS } from "@/lib/methodology/verified-citations";
+import {
+  TECHNICAL_SCORING_SOURCES,
+  VERIFIED_CITATIONS,
+} from "@/lib/methodology/verified-citations";
 import { CRAWLER_USER_AGENT, PRODUCT_NAME } from "@/lib/product";
 import { VISITING_AI_CRAWLERS } from "@/lib/robots-txt/evaluate";
 import { buildMetadata } from "@/lib/seo/metadata";
+import { TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
 import { MethodologyContent } from "./methodology-content";
 
 export function generateMetadata(): Metadata {
@@ -147,6 +151,40 @@ export default async function MethodologyPage() {
           methodologyLabel(3), never spelled out here. */}
       <section className="rounded-xl border p-5 mb-10 bg-muted/30" data-methodology-changes>
         <h2 className="font-semibold mb-2">What changed</h2>
+        {/* 20 Nov (Sri's decision): the Technical score's scoring version 4 (lib/technical-audit/scoring-version.ts), with
+            its sources (lib/methodology/verified-citations.ts TECHNICAL_SCORING_SOURCES). The Visibility score is not
+            touched by it, and the entry says so. */}
+        <p className="text-sm text-muted-foreground mb-2" data-methodology-scoring-20nov="">
+          <strong>{"20 November 2026: Technical score updated."}</strong>{" "}
+          {"llms.txt and ai.txt no longer count toward the Technical score. llms.txt is a "}
+          <a
+            href={TECHNICAL_SCORING_SOURCES.llmsTxt.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            {"proposal"}
+          </a>
+          {" that no AI provider has said its engine reads; the only document for ai.txt is an "}
+          <a
+            href={TECHNICAL_SCORING_SOURCES.aiTxtDraft.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            {"individual Internet-Draft"}
+          </a>
+          {" the IETF hasn't endorsed; and Google "}
+          <a
+            href={TECHNICAL_SCORING_SOURCES.googleAiFeatures.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            {"says"}
+          </a>
+          {` its AI features need no special AI text files. We still check for both and show what we find. A new Technical Audit is out of ${TECHNICAL_AUDIT_MAX_SCORE}, and it's compared only with audits scored the same way: where an older score meets a newer one, both are shown, with "Scoring updated on" the date of the first new one. Your Visibility score isn't affected.`}
+        </p>
         {/* Methodology v2.2 (Sri's decision, 7 Nov): version 4, labelled by methodologyLabel(4). One change
             covering the Gemini model, the answer length limit and comparing like with like. */}
         {/* 19 Nov (Sri's review): which Gemini model answers, and Google's date only as its deprecations page lists it
@@ -267,7 +305,7 @@ export default async function MethodologyPage() {
               </a>
             </strong>{" "}
             {
-              "— A proposal, not a standard: the individual Internet-Draft draft-car-ai-txt-wellknown-00 (not endorsed by the IETF) describes an AI usage-preferences file at /.well-known/ai.txt; the older Spawning convention uses root /ai.txt. We check both. It counts toward the AI Discovery score."
+              "— A proposal, not a standard: the individual Internet-Draft draft-car-ai-txt-wellknown-00 (not endorsed by the IETF) describes an AI usage-preferences file at /.well-known/ai.txt; the older Spawning convention uses root /ai.txt. We check both and show what we find. From 20 November 2026 it doesn't count toward any score."
             }
           </li>
           <li>
@@ -288,7 +326,7 @@ export default async function MethodologyPage() {
               </a>
             </strong>{" "}
             {
-              "— A proposed summary of a site for language models. We check for it and can draft one for you; it counts toward the Technical Audit's score. No AI provider has said its engine reads it, and Google says its AI features need no special AI text files."
+              "— A proposed summary of a site for language models. We check for it and can draft one for you. No AI provider has said its engine reads it, and Google says its AI features need no special AI text files, so from 20 November 2026 it doesn't count toward any score."
             }
           </li>
         </ul>

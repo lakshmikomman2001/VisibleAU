@@ -84,8 +84,9 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       scoreBrandEntity: entityLookupFailed ? null : result.dimensions.scoreBrandEntity.toFixed(2),
       scoreSignals: siteScore("scoreSignals"),
       scoreAiDiscovery: siteScore("scoreAiDiscovery"),
+      // 20 Nov: only a scored check that couldn't be measured holds the composite back (unmeasuredScored).
       scoreComposite:
-        result.unmeasured.length === 0 && !entityLookupFailed
+        result.unmeasuredScored.length === 0 && !entityLookupFailed
           ? result.scoreComposite.toFixed(2)
           : null,
       findings: Object.assign({}, result.findings, {

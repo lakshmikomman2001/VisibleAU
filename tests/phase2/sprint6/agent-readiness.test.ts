@@ -8,7 +8,8 @@ import {
   computeVerifyScore,
 } from "@/lib/retrieval/agent-readiness";
 
-describe("computeTechScore — /20", () => {
+// 20 Nov (Sri's decision): an llms.txt draft earns nothing (lib/retrieval/agent-readiness.ts), so the most is 14.
+describe("computeTechScore — /20, at most 14 since llms.txt stopped counting", () => {
   it("returns 0 when all false", () => {
     expect(
       computeTechScore({
@@ -25,7 +26,7 @@ describe("computeTechScore — /20", () => {
     ).toBe(0);
   });
 
-  it("returns 20 when all true", () => {
+  it("returns 14 when all true", () => {
     expect(
       computeTechScore({
         llmstxtPresent: true,
@@ -38,10 +39,10 @@ describe("computeTechScore — /20", () => {
         mcpEndpointValid: true,
         mcpToolsCount: 5,
       }),
-    ).toBe(20);
+    ).toBe(14);
   });
 
-  it("llmstxt present+valid = 6", () => {
+  it("llmstxt present+valid = 0", () => {
     expect(
       computeTechScore({
         llmstxtPresent: true,
@@ -54,7 +55,7 @@ describe("computeTechScore — /20", () => {
         mcpEndpointValid: false,
         mcpToolsCount: 0,
       }),
-    ).toBe(6);
+    ).toBe(0);
   });
 });
 

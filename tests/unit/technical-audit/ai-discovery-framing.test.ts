@@ -42,17 +42,20 @@ describe("⚠️ GGG — AI Discovery page: emerging framing + provenance tags p
     expect(vunnaraTagCount).toBe(3);
   });
 
-  it("the score is out of this audit's own maximum, and every row's points come from the scorer", () => {
-    expect(src).toMatch(/const max = aiDiscoveryMaxFor\(findings\);/);
+  // 20 Nov: each audit's own scoring version decides its maximum and each file's points
+  // (lib/technical-audit/scoring-version.ts, AI_DISCOVERY_WEIGHTS_BY_VERSION): 0 from 20 Nov, "Not scored".
+  it("the score is out of this audit's own maximum, and every row's points come from its version's weights", () => {
+    expect(src).toMatch(/const max = scoring\.dimensionMax\.scoreAiDiscovery;/);
     expect(src).toMatch(/`\$\{score\}\/\$\{max\}`/);
-    expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiTxt/);
-    expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiFaq/);
-    expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiSummary/);
-    expect(src).toMatch(/AI_DISCOVERY_WEIGHTS\.aiService/);
-    expect(src).toMatch(/present \? ep\.weight : 0\}\/\{ep\.weight\}/);
-    // An optional file (weight 0) says it isn't scored, never "0/0".
-    expect(src).toMatch(/checked && ep\.weight === 0/);
+    expect(src).toMatch(/AI_DISCOVERY_WEIGHTS_BY_VERSION\[scoring\.version\]/);
+    for (const key of ["aiTxt", "aiFaq", "aiSummary", "aiService"]) {
+      expect(src).toContain(`weight: "${key}"`);
+    }
+    expect(src).toMatch(/present \? weightOf\(ep\) : 0\}\/\{weightOf\(ep\)\}/);
+    // A file that earns nothing says it isn't scored, never "0/0"; a version-4 audit's header says "Not scored".
+    expect(src).toMatch(/checked && weightOf\(ep\) === 0/);
     expect(src).toMatch(/not scored/);
+    expect(src).toMatch(/notScored = max === 0/);
   });
 });
 
@@ -65,9 +68,12 @@ describe("⚠️ GGG — Technical Audit overview: 'emerging' label added, dimen
     expect((src.match(/emerging:\s*true/g) ?? []).length).toBe(1);
   });
 
-  it("the AI Discovery entry's max is an older audit's 6; each audit's own comes from aiDiscoveryMaxFor", () => {
-    expect(src).toMatch(/key:\s*"scoreAiDiscovery"[\s\S]{0,80}max:\s*6/);
-    expect(src).toMatch(/dim\.key === "scoreAiDiscovery" \? aiDiscoveryMax : dim\.max/);
+  // 20 Nov: no maximum written in DIM_META -- each check's is the audit's own (scoring.dimensionMax).
+  it("each check's maximum is the audit's own, from its scoring version", () => {
+    expect(src).not.toMatch(/key:\s*"scoreAiDiscovery"[\s\S]{0,80}max:\s*\d/);
+    expect(src).toMatch(
+      /const maxOf = \(dim: \{ key: TechnicalDimensionKey \}\) => scoring\.dimensionMax\[dim\.key\]/,
+    );
   });
 });
 
@@ -91,9 +97,9 @@ describe("⚠️ GGG — methodology page: honest entry added, no fabricated aut
   });
 });
 
-describe("⚠️ GGG — scoring: ai.txt's 3 points; the /ai/ files 0 from 19 Nov", () => {
-  it("AI_DISCOVERY_WEIGHTS is 3/0/0/0 (Sri, 19 Nov: their absence must not lower any score)", () => {
-    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 3, aiSummary: 0, aiFaq: 0, aiService: 0 });
+describe("⚠️ GGG — scoring: the /ai/ files 0 from 19 Nov, ai.txt 0 from 20 Nov", () => {
+  it("AI_DISCOVERY_WEIGHTS is 0/0/0/0 (Sri, 19 and 20 Nov: their absence must not lower any score)", () => {
+    expect(AI_DISCOVERY_WEIGHTS).toEqual({ aiTxt: 0, aiSummary: 0, aiFaq: 0, aiService: 0 });
   });
 
   it("computeTechnicalComposite still sums AI Discovery's full contribution, now into /98", () => {

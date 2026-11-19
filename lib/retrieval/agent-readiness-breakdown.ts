@@ -75,11 +75,8 @@ const OLD = { hardCodedBefore17Nov: true } as const;
 const SITE = { needsSite: true } as const;
 
 const PARTS: PartDef[] = [
-  // Technical /20. The two llms.txt parts are our own generated draft, not a file on the site.
-  part("tech", `llms.txt draft generated in ${PRODUCT_NAME}`, 3, (r) =>
-    flag(r.techLlmstxtPresent, 3),
-  ),
-  part("tech", "llms.txt draft depth 6 or more", 3, (r) => flag(r.techLlmstxtValid, 3)),
+  // Technical. 20 Nov: the two llms.txt draft parts (3 each) earn nothing, on every row: no AI provider has said its
+  // engine reads llms.txt (lib/retrieval/agent-readiness.ts computeTechScore), so they're not parts of the score.
   part(
     "tech",
     "robots.txt lets GPTBot and ClaudeBot in",
@@ -144,6 +141,12 @@ const PARTS: PartDef[] = [
   part("task", "service area", 5, (r) => flag(r.taskServiceAreaDefined, 5), SITE),
   part("task", "question headings answered", 5, (r) => count(r.taskFaqDirectAnswers, 5), SITE),
 ];
+
+/**
+ * 20 Nov: what every part together is out of -- 94 since the two llms.txt draft parts (3 each) stopped counting; it was
+ * 100. The card says "N of the 94 points weren't measured".
+ */
+export const READINESS_POINTS_TOTAL = PARTS.reduce((sum, p) => sum + p.max, 0);
 
 /**
  * A row the old writer stored: it always wrote page load fast true, name consistent true, review citations 0,
@@ -220,11 +223,21 @@ export function readinessFromStoredRow(row: StoredReadinessParts): ReadinessBrea
 
 /**
  * The old writer's llms.txt gap said "No llms.txt file detected", but what it checked was whether we had
- * generated a draft -- not the site's own file. Stored rows keep the old wording; this is what the card shows.
+ * generated a draft -- not the site's own file. 20 Nov: neither is a gap any more -- llms.txt isn't scored, and no task
+ * or gap implies an AI engine needs it. Stored rows keep them; the card leaves them out (readinessGapText: null).
  */
 export const LEGACY_LLMSTXT_GAP = "No llms.txt file detected — generate and host one.";
 export const LLMSTXT_DRAFT_GAP = `No llms.txt draft generated in ${PRODUCT_NAME} yet: generate one, then host it on your site.`;
 
-export function readinessGapText(gap: string): string {
-  return gap === LEGACY_LLMSTXT_GAP ? LLMSTXT_DRAFT_GAP : gap;
+/** The gap as the card shows it, or null for one it no longer shows (the llms.txt gaps). */
+export function readinessGapText(gap: string): string | null {
+  return gap === LEGACY_LLMSTXT_GAP || gap === LLMSTXT_DRAFT_GAP ? null : gap;
+}
+
+/** The gaps the card shows, in order. */
+export function shownReadinessGaps(gaps: readonly string[]): string[] {
+  return gaps.flatMap((gap) => {
+    const text = readinessGapText(gap);
+    return text === null ? [] : [text];
+  });
 }

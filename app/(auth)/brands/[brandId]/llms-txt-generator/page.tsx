@@ -6,15 +6,17 @@ import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import { AI_TXT_PATHS } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 import type { CrawlSitemapOutcome } from "@/lib/crawler/types";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { type CrawlFindings, crawlReach } from "@/lib/technical-audit/crawl-status";
+import { LLMS_TXT_WHAT_IT_IS, llmsTxtNotScoredText } from "@/lib/technical-audit/not-scored";
+import { isScoredCheck, technicalScoringOf } from "@/lib/technical-audit/scoring-version";
 import { isUuid } from "@/lib/validation/uuid";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
 import { LlmsTxtPreview } from "./llms-txt-preview";
-import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 
 interface LlmsTxtComponents {
   present: boolean;
@@ -91,17 +93,20 @@ export function buildLlmsTxtChecklist(
   components: LlmsTxtComponents | undefined,
   /** Why llms-full.txt couldn't be checked, when its request failed. */
   fullUnchecked?: string | null,
+  /** 20 Nov: false from scoring version 4 -- the checklist is shown, and each item earns 0 (no points shown). */
+  scored = true,
 ): LlmsTxtChecklistRow[] | null {
   if (!components) return null;
+  const pts = scored ? 3 : 0;
   return [
-    { label: "llms.txt present", pass: components.present, pts: 3 },
-    { label: "H1 + blockquote intro", pass: components.h1Blockquote, pts: 3 },
-    { label: "Sections (## headings)", pass: components.sections, pts: 3 },
-    { label: "Links to canonical pages", pass: components.links, pts: 3 },
-    { label: "Content depth (≥1500 chars)", pass: components.depth, pts: 3 },
+    { label: "llms.txt present", pass: components.present, pts },
+    { label: "H1 + blockquote intro", pass: components.h1Blockquote, pts },
+    { label: "Sections (## headings)", pass: components.sections, pts },
+    { label: "Links to canonical pages", pass: components.links, pts },
+    { label: "Content depth (≥1500 chars)", pass: components.depth, pts },
     fullUnchecked
-      ? { label: "llms-full.txt companion", pass: null, pts: 3, note: couldntCheck(fullUnchecked) }
-      : { label: "llms-full.txt companion", pass: components.fullTxt, pts: 3 },
+      ? { label: "llms-full.txt companion", pass: null, pts, note: couldntCheck(fullUnchecked) }
+      : { label: "llms-full.txt companion", pass: components.fullTxt, pts },
   ];
 }
 
@@ -121,6 +126,8 @@ export function buildDiscoveryChecks(
   sitemap: CrawlSitemapOutcome | null | undefined,
   aiDiscovery: Partial<AiDiscoveryFindings> | undefined,
   siteUnreached: boolean,
+  /** 20 Nov: false from scoring version 4 -- ai.txt is "not scored" too, like the /ai/ files. */
+  aiTxtScored = true,
 ): DiscoveryCheckRow[] {
   const unchecked = siteUnreached ? "Not checked: site not reached" : "Not checked on this audit";
   const sitemapRow: DiscoveryCheckRow = !sitemap
@@ -148,11 +155,23 @@ export function buildDiscoveryChecks(
       : typeof found !== "boolean"
         ? { label, state: "unchecked", text: unchecked }
         : found
-          ? { label, state: "yes", text: optional ? "Yes · optional, not scored" : "Yes · bonus" }
+          ? {
+              label,
+              state: "yes",
+              text: optional
+                ? "Yes · optional, not scored"
+                : aiTxtScored
+                  ? "Yes · bonus"
+                  : "Yes · not scored",
+            }
           : {
               label,
               state: "no",
-              text: optional ? "Not found · optional, not scored" : "Not found",
+              text: optional
+                ? "Not found · optional, not scored"
+                : aiTxtScored
+                  ? "Not found"
+                  : "Not found · not scored",
             };
   return [
     sitemapRow,
@@ -198,6 +217,7 @@ export default async function LlmsTxtGeneratorPage({
       .select({
         findings: technicalAudits.findings,
         scoreLlmsTxt: technicalAudits.scoreLlmsTxt,
+        createdAt: technicalAudits.createdAt,
         crawledAt: technicalAudits.crawledAt,
       })
       .from(technicalAudits)
@@ -257,22 +277,34 @@ export default async function LlmsTxtGeneratorPage({
         timeZone: getOrgTimezone(currentUser.organizationId),
       })
     : null;
+  // 20 Nov: from scoring version 4 llms.txt and ai.txt are checked and shown, never scored
+  // (lib/technical-audit/scoring-version.ts): no "/18", no depth tier, no points.
+  const scoring = technicalScoringOf(techAudit);
+  const scored = isScoredCheck(scoring, "scoreLlmsTxt");
+  const aiTxtScored = isScoredCheck(scoring, "scoreAiDiscovery");
   // 9 Nov (part 9): a missing depth score is "Not measured yet" -- no number and no "Not started" tier
   // badge (lib/scoring/measured.ts).
-  const scoreM = measured(llmsUnchecked || fullUnchecked ? null : techAudit.scoreLlmsTxt);
+  const scoreM = measured(
+    !scored || llmsUnchecked || fullUnchecked ? null : techAudit.scoreLlmsTxt,
+  );
   const score = scoreM.measured ? scoreM.value : null;
   const tier = score === null ? null : getDepthTier(score);
   const toneColors = tier === null ? null : TONE_COLORS[tier.tone];
-  const notScoredText = llmsUnchecked || fullUnchecked ? "Couldn't check" : NOT_MEASURED;
+  const notScoredText = !scored
+    ? llmsTxtNotScoredText(findings?.fetchStatus, siteUnreached)
+    : llmsUnchecked || fullUnchecked
+      ? "Couldn't check"
+      : NOT_MEASURED;
 
   const components = llmsUnchecked
     ? null
-    : buildLlmsTxtChecklist(findings?.components, fullUnchecked);
+    : buildLlmsTxtChecklist(findings?.components, fullUnchecked, scored);
 
   const discoveryChecks = buildDiscoveryChecks(
     siteUnreached ? undefined : crawl?.sitemap,
     siteUnreached ? undefined : aiDiscovery,
     siteUnreached,
+    aiTxtScored,
   );
 
   const regions = brand.primaryRegions
@@ -315,12 +347,18 @@ export default async function LlmsTxtGeneratorPage({
               lineHeight: 1.5,
             }}
           >
-            Generate a structured llms.txt for {brand.domain}. Helps LLM crawlers find your
-            most-citable content.
+            {scored
+              ? `Generate a structured llms.txt for ${brand.domain}. Helps LLM crawlers find your most-citable content.`
+              : `Draft an llms.txt for ${brand.domain}, if you'd like to publish one. It doesn't count toward any score.`}
           </p>
         </div>
         {score === null ? (
-          <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
+          <div
+            style={{ fontSize: 14, color: "var(--text-tertiary)" }}
+            {...(scored ? {} : { "data-llms-txt-not-scored": "" })}
+          >
+            {notScoredText}
+          </div>
         ) : (
           <div
             style={{
@@ -390,7 +428,9 @@ export default async function LlmsTxtGeneratorPage({
                   marginTop: 2,
                 }}
               >
-                {score === null ? (
+                {!scored ? (
+                  "depth checklist · not scored"
+                ) : score === null ? (
                   `depth score: ${notScoredText}`
                 ) : (
                   <>depth score {score}/18 · graduated</>
@@ -421,7 +461,11 @@ export default async function LlmsTxtGeneratorPage({
                 return (
                   <div
                     key={c.label}
-                    title={`${c.label}: ${c.pass ? "passing" : "failing"}, ${scoreVal} of ${c.pts}`}
+                    title={
+                      scored
+                        ? `${c.label}: ${c.pass ? "passing" : "failing"}, ${scoreVal} of ${c.pts}`
+                        : `${c.label}: ${c.pass ? "yes" : "no"} (not scored)`
+                    }
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
@@ -433,14 +477,22 @@ export default async function LlmsTxtGeneratorPage({
                       style={{
                         fontFamily: "var(--font-mono)",
                         fontVariantNumeric: "tabular-nums",
-                        color: failing ? "var(--danger)" : "var(--success)",
+                        color: !scored
+                          ? "var(--text-secondary)"
+                          : failing
+                            ? "var(--danger)"
+                            : "var(--success)",
                       }}
                     >
                       {c.pass === null
                         ? c.note
-                        : failing
-                          ? `No · ${scoreVal}/${c.pts}`
-                          : `Yes · ${scoreVal}/${c.pts}`}
+                        : !scored
+                          ? failing
+                            ? "No"
+                            : "Yes"
+                          : failing
+                            ? `No · ${scoreVal}/${c.pts}`
+                            : `Yes · ${scoreVal}/${c.pts}`}
                     </span>
                   </div>
                 );
@@ -513,12 +565,15 @@ export default async function LlmsTxtGeneratorPage({
               margin: "0 0 12px",
             }}
           >
-            Why this matters
+            What llms.txt is
           </h3>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>
-            llms.txt is an emerging standard (think robots.txt for LLMs). Anthropic, Perplexity, and
-            others are starting to honour it. A well-structured llms.txt boosts the chance your
-            most-citable pages are found and used in answers.
+          {/* 20 Nov: it said "Anthropic, Perplexity, and others are starting to honour it", which no source says
+              (lib/technical-audit/not-scored.ts LLMS_TXT_WHAT_IT_IS, from the methodology's sources). */}
+          <p
+            style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}
+            data-llms-txt-what-it-is=""
+          >
+            {LLMS_TXT_WHAT_IT_IS}
           </p>
         </div>
       </div>

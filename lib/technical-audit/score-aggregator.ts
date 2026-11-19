@@ -1,18 +1,34 @@
-import { AI_DISCOVERY_MAX_BEFORE_19_NOV, aiDiscoveryMaxFor } from "@/lib/ai-discovery/endpoints";
 import { BRAND_ENTITY_MAX_SCORE } from "@/lib/brand-entity/score";
+import {
+  MAX_98_FROM,
+  scoringForVersion,
+  TECHNICAL_SCORING_VERSION,
+  type TechnicalAuditScoringRow,
+  type TechnicalScoring,
+  type TechnicalScoringVersion,
+  technicalScoringOf,
+} from "./scoring-version";
 import type { CategoryRollup, TechnicalAuditDimensions } from "./types";
 
+export { MAX_98_FROM };
+
 /**
- * `aiDiscoveryMax`: what the audit's AI Discovery was out of (aiDiscoveryMaxFor: 3 from 19 Nov, 6 before), so the
- * Technical category's percentage is of its own maximum (45, or 48 before).
+ * `scoring`: the rules the audit was scored under (lib/technical-audit/scoring-version.ts), so the Technical category's
+ * percentage is of its own maximum: robots.txt, llms.txt, AI Discovery and Signals as that version scored them (48
+ * before 19 Nov, 45 to 20 Nov, 24 since -- robots.txt and Signals; llms.txt and AI Discovery aren't scored). Version 2's
+ * when not given.
  */
 export function rollupTo5Categories(
   dims: TechnicalAuditDimensions,
-  aiDiscoveryMax: number = AI_DISCOVERY_MAX_BEFORE_19_NOV,
+  scoring: TechnicalScoring = scoringForVersion(2),
 ): CategoryRollup {
-  const techRaw = dims.scoreRobots + dims.scoreLlmsTxt + dims.scoreAiDiscovery + dims.scoreSignals;
+  const max = scoring.dimensionMax;
+  // A check that isn't scored (out of 0) adds nothing, whatever it stored.
+  const part = (key: keyof TechnicalAuditDimensions) => (max[key] > 0 ? dims[key] : 0);
+  const techRaw =
+    part("scoreRobots") + part("scoreLlmsTxt") + part("scoreAiDiscovery") + part("scoreSignals");
   const contentRaw = dims.scoreContent + dims.scoreMeta;
-  const technicalMax = 48 - (AI_DISCOVERY_MAX_BEFORE_19_NOV - aiDiscoveryMax);
+  const technicalMax = max.scoreRobots + max.scoreLlmsTxt + max.scoreAiDiscovery + max.scoreSignals;
   return {
     technical: techRaw,
     technicalPct: Math.round((techRaw / technicalMax) * 100),
@@ -63,57 +79,51 @@ export function rollupTo5Categories(
 // brandEntity points it always earned flow through unchanged). Every
 // reader that displays this as "X of 100" needs updating to "of 98" --
 // see app/(auth)/brands/[brandId]/technical-audit/page.tsx.
-// 19 Nov (Sri's review): 95 for a new audit -- the three /ai/ files no longer earn up to 3 (lib/ai-discovery/
-// endpoints.ts). An audit's own maximum is compositeMaxFor below; this is the most a new one can score.
-export const TECHNICAL_AUDIT_MAX_SCORE = 95;
+// 19 Nov (Sri's review): 95 for a new audit -- the three /ai/ files no longer earned up to 3. 20 Nov: 74 -- llms.txt (18)
+// and ai.txt (3) don't count either (lib/technical-audit/scoring-version.ts). An audit's own maximum is compositeMaxFor
+// below; this is the most a new one can score.
+export const TECHNICAL_AUDIT_MAX_SCORE = scoringForVersion(TECHNICAL_SCORING_VERSION).compositeMax;
 
-/**
- * 17 Nov, part 3: when the maximum dropped from 100 to 98 (b828203, 21 Oct 2026 11:37 Sydney). A row from
- * before then could score up to 100 (Brand & Entity was out of 10), so a change between it and a later row
- * compares two different scales.
- */
-export const MAX_98_FROM = new Date("2026-10-21T00:37:14Z");
-
+/** 17 Nov, part 3: 100 before 21 Oct, 98 after -- by date alone, for a row with no other sign of its rules. */
 export function compositeMaxAt(createdAt: Date | string): 98 | 100 {
   return new Date(createdAt).getTime() < MAX_98_FROM.getTime() ? 100 : 98;
 }
 
 /**
- * 19 Nov: what an audit's composite is out of -- 100 before 21 Oct, 98 while the /ai/ files counted, 95 since
- * (TECHNICAL_AUDIT_MAX_SCORE), read from the audit's own AI Discovery findings (lib/ai-discovery/endpoints.ts
- * aiDiscoveryMaxFor) rather than a deploy date nobody knows in advance.
+ * What an audit's composite is out of -- 100 before 21 Oct, 98 to 19 Nov, 95 to 20 Nov, 74 since -- from the scoring
+ * version it stored or shows (lib/technical-audit/scoring-version.ts), never a deploy date nobody knows in advance.
  */
-export function compositeMaxFor(
-  createdAt: Date | string,
-  aiDiscovery: { optionalFilesScored?: boolean } | null | undefined,
-): number {
-  const base = compositeMaxAt(createdAt);
-  return base - (AI_DISCOVERY_MAX_BEFORE_19_NOV - aiDiscoveryMaxFor(aiDiscovery));
+export function compositeMaxFor(row: TechnicalAuditScoringRow): number {
+  return technicalScoringOf(row).compositeMax;
+}
+
+/** One side of a comparison: a technical audit's composite and what it was scored under. */
+export interface CompositeSide {
+  composite: number | null;
+  createdAt: Date | string;
+  siteReached: boolean;
+  /** The scoring version (technicalScoringVersionOf); by date alone when not given. */
+  version?: TechnicalScoringVersion;
+  max?: number;
 }
 
 /**
  * The change in the composite from the previous technical audit, only when the two can be compared: both
- * measured, both on the same maximum, and both crawls reached the site. Otherwise null (no "vs last" at all).
+ * measured, both scored under the same rules, and both crawls reached the site. Otherwise null (no "vs last" at all):
+ * across a scoring change the page shows both scores with "Scoring updated on <date>" instead.
  */
 export function comparableCompositeDelta(
-  latest: {
-    composite: number | null;
-    createdAt: Date | string;
-    siteReached: boolean;
-    max?: number;
-  },
-  previous: {
-    composite: number | null;
-    createdAt: Date | string;
-    siteReached: boolean;
-    max?: number;
-  } | null,
+  latest: CompositeSide,
+  previous: CompositeSide | null,
 ): number | null {
   if (!previous) return null;
   if (latest.composite === null || previous.composite === null) return null;
   if (!latest.siteReached || !previous.siteReached) return null;
-  // 19 Nov: each side's own maximum (compositeMaxFor) when the caller knows it: a 98-point audit isn't compared with
-  // a 95-point one.
+  // 20 Nov: the same scoring version (lib/technical-audit/scoring-version.ts) -- the same maximum isn't enough, since
+  // robots.txt kept its 18 when its rules changed. 19 Nov: and each side's own maximum, when the caller knows it.
+  if (latest.version !== undefined && previous.version !== undefined) {
+    if (latest.version !== previous.version) return null;
+  }
   const latestMax = latest.max ?? compositeMaxAt(latest.createdAt);
   const previousMax = previous.max ?? compositeMaxAt(previous.createdAt);
   if (latestMax !== previousMax) return null;
@@ -123,8 +133,8 @@ export function comparableCompositeDelta(
 /**
  * Methodology v2.2 (Sri's decision, 7 Nov), part 5 -- the checks the site-readiness score adds up, in the
  * order it always added them: robots.txt, llms.txt, schema, meta tags, content, brand entity, signals and
- * AI discovery. The Health Check says "35 of 98 points across 8 checks" from this list, so the count can't
- * drift from the sum.
+ * AI discovery. The Health Check counts the ones its audit scored (scoredChecksOf: 6 from 20 Nov, when llms.txt and
+ * AI Discovery stopped counting), so the count can't drift from the sum.
  */
 export const TECHNICAL_AUDIT_CHECKS = [
   "scoreRobots",
@@ -140,4 +150,9 @@ export const TECHNICAL_AUDIT_CHECKS = [
 export function computeTechnicalComposite(dims: TechnicalAuditDimensions): number {
   // Left to right from 0, as the sum always ran: 0 + x is x exactly, so stored composites don't move.
   return Number(TECHNICAL_AUDIT_CHECKS.reduce((sum, key) => sum + dims[key], 0).toFixed(2));
+}
+
+/** The checks that earned points under an audit's rules (all 8 before 20 Nov; 6 since). */
+export function scoredChecksOf(scoring: TechnicalScoring): Array<keyof TechnicalAuditDimensions> {
+  return TECHNICAL_AUDIT_CHECKS.filter((key) => scoring.dimensionMax[key] > 0);
 }

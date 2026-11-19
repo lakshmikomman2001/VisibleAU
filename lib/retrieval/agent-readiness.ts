@@ -17,10 +17,13 @@ export interface TechInputs {
   mcpToolsCount: number;
 }
 
+/**
+ * 20 Nov (Sri's decision): an llms.txt draft earns nothing -- no AI provider has said its engine reads llms.txt
+ * (lib/methodology/verified-citations.ts TECHNICAL_SCORING_SOURCES), so neither having a draft nor its depth is
+ * scored (they were 3 each). The inputs are still taken and stored.
+ */
 export function computeTechScore(inputs: TechInputs): number {
   let score = 0;
-  if (inputs.llmstxtPresent) score += 3;
-  if (inputs.llmstxtValid) score += 3;
   if (inputs.robotsAllowsCrawlers) score += 3;
   if (inputs.ssrPasses) score += 3;
   if (inputs.aiDiscoveryEndpoints) score += 2;

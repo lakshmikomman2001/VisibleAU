@@ -59,8 +59,9 @@ describe("readinessFromStoredRow -- a row the old writer stored", () => {
 
   it("drops the free points and the unmeasured zeros: each dimension is out of what was measured", () => {
     const b = readinessFromStoredRow(LEGACY_ROW);
-    // Technical: robots 3 + SSR 3 + sitemap 2 = 8, out of 18 (page speed's 2 not measured).
-    expect(b.dimensions.tech).toEqual({ points: 8, measuredMax: 18 });
+    // Technical: robots 3 + SSR 3 + sitemap 2 = 8, out of 12 (page speed's 2 not measured; 20 Nov: the two llms.txt
+    // draft parts, 3 each, aren't parts of the score).
+    expect(b.dimensions.tech).toEqual({ points: 8, measuredMax: 12 });
     // Entity: LocalBusiness 4 + services 3 = 7, out of 16 (name consistency's 4 not measured).
     expect(b.dimensions.entity).toEqual({ points: 7, measuredMax: 16 });
     // Verify: ABN 5, out of 5 -- Wikipedia, directories, reviews and expert quotes weren't measured.
@@ -69,7 +70,7 @@ describe("readinessFromStoredRow -- a row the old writer stored", () => {
     expect(b.dimensions.authority).toEqual({ points: 5, measuredMax: 8 });
     // Task: pricing 5 + service area 5 + 2 headings = 12, out of 20.
     expect(b.dimensions.task).toEqual({ points: 12, measuredMax: 20 });
-    expect(b.total).toEqual({ points: 37, measuredMax: 67 });
+    expect(b.total).toEqual({ points: 37, measuredMax: 61 });
     expect(b.notMeasured.map((p) => p.label)).toEqual([
       "page load speed",
       "name consistent across the web",
@@ -103,7 +104,7 @@ describe("readinessFromStoredRow -- a row the old writer stored", () => {
     const b = readinessFromStoredRow(down);
     expect(b.siteReached).toBe(false);
     expect(b.dimensions.task).toEqual({ points: 0, measuredMax: 0 });
-    expect(b.dimensions.tech).toEqual({ points: 0, measuredMax: 10 }); // llms draft 6 + MCP 4, all false
+    expect(b.dimensions.tech).toEqual({ points: 0, measuredMax: 4 }); // MCP 4, false (llms.txt: no part since 20 Nov)
     expect(b.notMeasured.map((p) => p.label)).toContain("robots.txt lets GPTBot and ClaudeBot in");
   });
 });
@@ -201,9 +202,10 @@ describe("the writer (in-step logic only)", () => {
   });
 });
 
-describe("the llms.txt gap names what was checked: our draft, not the site's file", () => {
-  it("an old row's 'No llms.txt file detected' reads as the draft gap", () => {
-    expect(readinessGapText(LEGACY_LLMSTXT_GAP)).toBe(LLMSTXT_DRAFT_GAP);
+describe("no llms.txt gap: llms.txt isn't scored (20 Nov)", () => {
+  it("a stored llms.txt gap, old wording or new, isn't shown; other gaps are", () => {
+    expect(readinessGapText(LEGACY_LLMSTXT_GAP)).toBeNull();
+    expect(readinessGapText(LLMSTXT_DRAFT_GAP)).toBeNull();
     // 17 Nov (part 3 follow-up): the product's name, never the old one (tests/unit/brand/no-old-brand-name.test.ts).
     expect(LLMSTXT_DRAFT_GAP).toContain("No llms.txt draft generated in Vunnara yet");
     expect(readinessGapText("No MCP endpoint found.")).toBe("No MCP endpoint found.");

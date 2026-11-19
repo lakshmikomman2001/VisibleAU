@@ -26,8 +26,13 @@ export const HEALTH_CHECK_TITLE = "Health Check: AI presence, site readiness and
 
 export const NOT_MEASURED_YET = "Not measured yet";
 
-/** The technical audit's own description of what it checks (lib/technical-audit/score-aggregator.ts). */
+/**
+ * The technical audit's own description of what it checks (lib/technical-audit/score-aggregator.ts). 20 Nov: six of the
+ * eight are scored (lib/technical-audit/scoring-version.ts); an audit from before then scored all eight.
+ */
 export const SITE_READINESS_METHOD =
+  "Six scored checks of your site: robots.txt, schema, meta tags, content, brand entity and signals. llms.txt and the AI discovery files are checked too, and not scored.";
+export const SITE_READINESS_METHOD_BEFORE_20_NOV =
   "Eight checks of your site: robots.txt, llms.txt, schema, meta tags, content, brand entity, signals and AI discovery.";
 
 /** What the local trust score is built from (lib/platform/local-ai-trust-scorer.ts). */
@@ -61,6 +66,8 @@ export interface MeasuredScore {
   max: number;
   /** When it was measured, e.g. "3 Nov". */
   on: string;
+  /** 20 Nov: the number of checks the score adds up (6 from 20 Nov, 8 before); all of them when not given. */
+  checks?: number;
 }
 
 export interface HealthCheckData {
@@ -134,14 +141,19 @@ export function buildHealthCheckCards(data: HealthCheckData): HealthCard[] {
           ? { label: HEADLINE_BAND_LABELS[presence.band], color: visibilityColorVar(presence.band) }
           : null,
     },
-    // Methodology v2.2 (7 Nov), part 5: what the number counts -- "35 of 98 points across 8 checks".
+    // Methodology v2.2 (7 Nov), part 5: what the number counts -- "35 of 98 points across 8 checks". 20 Nov: across the
+    // checks that audit scored -- "30 of 74 points across 6 scored checks".
     scoreCard(
       "site_readiness",
       "Site readiness (technical checks)",
-      SITE_READINESS_METHOD,
+      (data.siteReadiness?.checks ?? TECHNICAL_AUDIT_CHECKS.length) < TECHNICAL_AUDIT_CHECKS.length
+        ? SITE_READINESS_METHOD
+        : SITE_READINESS_METHOD_BEFORE_20_NOV,
       data.siteReadiness,
       "Checked",
-      ` points across ${TECHNICAL_AUDIT_CHECKS.length} checks`,
+      (data.siteReadiness?.checks ?? TECHNICAL_AUDIT_CHECKS.length) < TECHNICAL_AUDIT_CHECKS.length
+        ? ` points across ${data.siteReadiness?.checks} scored checks`
+        : ` points across ${TECHNICAL_AUDIT_CHECKS.length} checks`,
     ),
   ];
   if (!data.isSaas) {

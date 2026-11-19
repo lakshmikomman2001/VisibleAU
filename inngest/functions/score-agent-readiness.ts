@@ -8,6 +8,7 @@ import {
   technicalAudits,
 } from "@/db/schema";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
+import { abnWasChecked } from "@/lib/brand-entity/score";
 import { wikipediaStatusFromFindings } from "@/lib/brand-entity/wikipedia-au";
 import { crawlSite } from "@/lib/crawler";
 import type { CrawlPage } from "@/lib/crawler/types";
@@ -22,11 +23,9 @@ import {
   computeTotalScore,
   computeVerifyScore,
 } from "@/lib/retrieval/agent-readiness";
-import { LLMSTXT_DRAFT_GAP } from "@/lib/retrieval/agent-readiness-breakdown";
 import { auditEntityHome } from "@/lib/retrieval/entity-home-auditor";
 import { checkMcpEndpoint } from "@/lib/retrieval/mcp-checker";
 import { readinessRobots } from "@/lib/robots-txt/evaluate";
-import { abnWasChecked } from "@/lib/brand-entity/score";
 
 // Follow-ups from af8de42..d1eb5a1 (10 Nov), part 2: robots.txt's own rules for GPTBot and ClaudeBot (RFC 9309,
 // lib/robots-txt/evaluate.ts). This read any "disallow: /" under them or * as a block -- "Disallow: /admin" too.
@@ -273,9 +272,8 @@ export const scoreAgentReadinessFn = inngest.createFunction(
           `Local AI Trust isn't scored yet: ${localTrust.measuredParts.join(", ")} checked; still to check: ${localTrust.notMeasuredParts.join(", ")}.`,
         );
       }
-      // 17 Nov, part 3: this checks VisibleAU's own draft (llmstxt_versions), not the site's file; it said
-      // "No llms.txt file detected". A gap is only for a part that was measured (false, never null).
-      if (!techSignals.llmstxtPresent) gaps.push(LLMSTXT_DRAFT_GAP);
+      // 20 Nov: no llms.txt gap -- llms.txt isn't scored, and nothing implies an AI engine needs it
+      // (lib/retrieval/agent-readiness-breakdown.ts readinessGapText).
       // Which crawler it blocks, from the crawl-site step's robots.txt (that step's output is unchanged, so a run
       // in flight across a deploy reads the same shape).
       const robotsGap = readinessRobots(crawlResult.robotsTxt).gap;

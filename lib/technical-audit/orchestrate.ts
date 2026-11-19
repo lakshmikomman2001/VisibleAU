@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { checkAiDiscovery } from "@/lib/ai-discovery/endpoints";
 import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
+import { outcomeForError, outcomeForStatus } from "@/lib/crawler/fetch-outcome";
 import type { CrawlResult } from "@/lib/crawler/types";
 import { isPlainTextLlmsFile, scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
 import { aggregateNegativeScore, detectNegativeSignals } from "@/lib/negative-signals/detect";
@@ -18,8 +19,8 @@ import {
   type SiteDependentDimension,
 } from "./crawl-status";
 import { computeTechnicalComposite } from "./score-aggregator";
+import { isScoredCheck, scoringForVersion, TECHNICAL_SCORING_VERSION } from "./scoring-version";
 import type { TechnicalAuditDimensions } from "./types";
-import { outcomeForError, outcomeForStatus } from "@/lib/crawler/fetch-outcome";
 
 interface OrchestrateResult {
   dimensions: TechnicalAuditDimensions;
@@ -37,6 +38,8 @@ interface OrchestrateResult {
    * failed. The writer stores no score for these, and no composite when there are any.
    */
   unmeasured: SiteDependentDimension[];
+  /** The unmeasured checks that are scored (20 Nov): only these leave the composite unstored. */
+  unmeasuredScored: SiteDependentDimension[];
 }
 
 function deduplicateInjections(all: PromptInjection[]): PromptInjection[] {
@@ -245,9 +248,12 @@ export async function orchestrateTechnicalAudit(
 
   const brandEntityScore = brandEntityScoreOverride ?? 0;
 
+  // 20 Nov (Sri's decision): scored under TECHNICAL_SCORING_VERSION. llms.txt and ai.txt are checked and shown, and earn
+  // nothing (lib/technical-audit/scoring-version.ts): llms.txt's depth checklist is kept in its findings, its score is 0.
+  const scoring = scoringForVersion(TECHNICAL_SCORING_VERSION);
   const dimensions: TechnicalAuditDimensions = {
     scoreRobots: robots.score,
-    scoreLlmsTxt: llmsTxt.score,
+    scoreLlmsTxt: isScoredCheck(scoring, "scoreLlmsTxt") ? llmsTxt.score : 0,
     scoreSchema: schemaScore,
     scoreMeta: meta.score,
     scoreContent: Math.min(12, contentScore),
@@ -259,6 +265,9 @@ export async function orchestrateTechnicalAudit(
   const scoreComposite = computeTechnicalComposite(dimensions);
 
   const findings = {
+    // 20 Nov: which scoring rules this audit was scored under, so it's only ever compared with audits scored the same
+    // way (lib/technical-audit/scoring-version.ts).
+    scoringVersion: TECHNICAL_SCORING_VERSION,
     // 17 Nov, part 3: whether the crawl reached the site (lib/technical-audit/crawl-status.ts).
     crawl: crawlFindings(crawl),
     robots: robots.findings,
@@ -269,6 +278,7 @@ export async function orchestrateTechnicalAudit(
       ...(llmsFullFetchReason ? { fullFetchReason: llmsFullFetchReason } : {}),
       present: !!llmsTxtContent,
       url: llmsTxtContent ? `https://${domain}/llms.txt` : null,
+      // The depth checklist's points, kept for the checklist: from 20 Nov they're not part of any score.
       depthScore: llmsTxt.score,
       // The real 6 per-component booleans (task GG) -- previously only the
       // summed score was kept, forcing the generator page to guess the
@@ -324,6 +334,9 @@ export async function orchestrateTechnicalAudit(
         // Leftovers task, part 3: an AI-discovery file that couldn't be checked leaves that score unmeasured.
         ...(aiDiscovery.measured ? [] : (["scoreAiDiscovery"] as const)),
       ];
+  // 20 Nov: a check that isn't scored can't leave the composite unmeasured -- a failed llms.txt or ai.txt request says
+  // so on its own row ("Couldn't check · not scored"), and the score stands.
+  const unmeasuredScored = unmeasured.filter((key) => isScoredCheck(scoring, key));
 
-  return { dimensions, scoreComposite, findings, siteReached, unmeasured };
+  return { dimensions, scoreComposite, findings, siteReached, unmeasured, unmeasuredScored };
 }

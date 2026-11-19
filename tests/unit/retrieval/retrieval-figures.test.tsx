@@ -91,11 +91,12 @@ describe("AgentReadinessCard with the stored row's parts", () => {
         breakdown={readinessFromStoredRow(LEGACY_ROW)}
       />,
     );
-    expect(screen.getByText("37/67")).toBeInTheDocument();
+    // 20 Nov: the two llms.txt draft parts (6 points) aren't parts of the score, so 61 measured, 94 in all.
+    expect(screen.getByText("37/61")).toBeInTheDocument();
     expect(screen.queryByText("43/100")).not.toBeInTheDocument();
-    expect(screen.getByText("8/18")).toBeInTheDocument(); // Technical
+    expect(screen.getByText("8/12")).toBeInTheDocument(); // Technical
     expect(
-      screen.getByText(/Out of the 67 points we could measure\. 33 of the 100 points/),
+      screen.getByText(/Out of the 61 points we could measure\. 33 of the 94 points/),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/page load speed \(2\), name consistent across the web \(4\)/),
@@ -103,11 +104,8 @@ describe("AgentReadinessCard with the stored row's parts", () => {
     expect(
       screen.getByText("llms.txt draft coverage (ours, not your site's file): 12/18"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "No llms.txt draft generated in Vunnara yet: generate one, then host it on your site.",
-      ),
-    ).toBeInTheDocument();
+    // 20 Nov: no llms.txt gap, in either wording.
+    expect(screen.queryByText(/No llms\.txt draft generated/)).not.toBeInTheDocument();
     expect(screen.queryByText(/No llms\.txt file detected/)).not.toBeInTheDocument();
   });
 

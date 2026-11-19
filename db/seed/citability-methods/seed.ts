@@ -30,8 +30,16 @@
 // and rationale table.
 import { VERIFIED_CITATIONS } from "@/lib/methodology/verified-citations";
 
-const AGGARWAL = { source: VERIFIED_CITATIONS.aggarwalGEO.name, citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url, sourceType: "research" as const };
-const ESTIMATE = { source: "VisibleAU Original", citationUrl: null, sourceType: "vunnara_estimate" as const };
+const AGGARWAL = {
+  source: VERIFIED_CITATIONS.aggarwalGEO.name,
+  citationUrl: VERIFIED_CITATIONS.aggarwalGEO.url,
+  sourceType: "research" as const,
+};
+const ESTIMATE = {
+  source: "VisibleAU Original",
+  citationUrl: null,
+  sourceType: "vunnara_estimate" as const,
+};
 
 export const CITABILITY_METHODS = [
   {
@@ -40,7 +48,8 @@ export const CITABILITY_METHODS = [
     description: "Include verifiable statistics with attribution from authoritative sources.",
     ...AGGARWAL,
     impactTier: "high",
-    effectSizeNotes: "One of three top-performing GEO methods in the Princeton study (+30–40% Position-Adjusted Word Count)",
+    effectSizeNotes:
+      "One of three top-performing GEO methods in the Princeton study (+30–40% Position-Adjusted Word Count)",
     appliesTo: ["ChatGPT", "Perplexity", "Gemini"],
   },
   {
@@ -49,7 +58,8 @@ export const CITABILITY_METHODS = [
     description: "Include direct quotes from named industry experts with credentials.",
     ...AGGARWAL,
     impactTier: "high",
-    effectSizeNotes: "One of three top-performing GEO methods in the Princeton study (+30–40% Position-Adjusted Word Count)",
+    effectSizeNotes:
+      "One of three top-performing GEO methods in the Princeton study (+30–40% Position-Adjusted Word Count)",
     appliesTo: ["ChatGPT", "Claude", "Perplexity", "Gemini"],
   },
   {
@@ -58,7 +68,8 @@ export const CITABILITY_METHODS = [
     description: "Link to government, academic, or industry body sources.",
     ...AGGARWAL,
     impactTier: "high",
-    effectSizeNotes: "Citing authoritative sources is part of the Princeton GEO study's citation-addition method (+30–40% Position-Adjusted Word Count)",
+    effectSizeNotes:
+      "Citing authoritative sources is part of the Princeton GEO study's citation-addition method (+30–40% Position-Adjusted Word Count)",
     appliesTo: ["ChatGPT", "Perplexity"],
   },
   {
@@ -67,7 +78,8 @@ export const CITABILITY_METHODS = [
     description: "Create or improve a neutral, well-sourced Wikipedia article.",
     ...ESTIMATE,
     impactTier: "high",
-    effectSizeNotes: "Vunnara estimate — Wikipedia pages are frequently cited by ChatGPT for factual and informational queries",
+    effectSizeNotes:
+      "Vunnara estimate — Wikipedia pages are frequently cited by ChatGPT for factual and informational queries",
     appliesTo: ["ChatGPT"],
   },
   {
@@ -76,7 +88,8 @@ export const CITABILITY_METHODS = [
     description: "Place FAQ content in the main body, not just schema markup.",
     ...ESTIMATE,
     impactTier: "medium",
-    effectSizeNotes: "Vunnara estimate — FAQ content in the main body is more quotable than schema-only",
+    effectSizeNotes:
+      "Vunnara estimate — FAQ content in the main body is more quotable than schema-only",
     appliesTo: ["ChatGPT", "Gemini"],
   },
   {
@@ -94,7 +107,8 @@ export const CITABILITY_METHODS = [
     description: "Contribute helpful answers in relevant subreddits.",
     ...ESTIMATE,
     impactTier: "medium",
-    effectSizeNotes: "Vunnara estimate — Perplexity frequently draws on Reddit discussions for real-world opinions and experiences",
+    effectSizeNotes:
+      "Vunnara estimate — Perplexity frequently draws on Reddit discussions for real-world opinions and experiences",
     appliesTo: ["Perplexity"],
   },
   {
@@ -103,7 +117,8 @@ export const CITABILITY_METHODS = [
     description: "Write practical guides linking back to service pages.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Vunnara estimate — Gemini appears to favour accessible, first-party publishing platforms like Medium",
+    effectSizeNotes:
+      "Vunnara estimate — Gemini appears to favour accessible, first-party publishing platforms like Medium",
     appliesTo: ["Gemini"],
   },
   {
@@ -112,7 +127,8 @@ export const CITABILITY_METHODS = [
     description: "Complete all sections and post regularly.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Vunnara estimate — active company pages support entity recognition and professional credibility signals",
+    effectSizeNotes:
+      "Vunnara estimate — active company pages support entity recognition and professional credibility signals",
     appliesTo: ["ChatGPT"],
   },
   {
@@ -121,7 +137,8 @@ export const CITABILITY_METHODS = [
     description: "Pitch newsworthy stories to industry publications.",
     ...ESTIMATE,
     impactTier: "medium",
-    effectSizeNotes: "Vunnara estimate — earned media mentions create independent corroboration that can survive citation drift",
+    effectSizeNotes:
+      "Vunnara estimate — earned media mentions create independent corroboration that can survive citation drift",
     appliesTo: ["ChatGPT", "Claude", "Perplexity", "Gemini"],
   },
   {
@@ -130,7 +147,8 @@ export const CITABILITY_METHODS = [
     description: "Create detailed comparison pages for high-intent queries.",
     ...ESTIMATE,
     impactTier: "high",
-    effectSizeNotes: "Vunnara estimate — comparison and \"best for\" queries are frequently answered by LLMs",
+    effectSizeNotes:
+      'Vunnara estimate — comparison and "best for" queries are frequently answered by LLMs',
     appliesTo: ["ChatGPT", "Perplexity"],
   },
   {
@@ -172,10 +190,13 @@ export const CITABILITY_METHODS = [
   {
     methodKey: "llms-txt-file",
     title: "Create and serve llms.txt",
-    description: "Provide a structured llms.txt file for AI crawler consumption.",
+    // 20 Nov: no AI provider has said its engine reads it, so it isn't described as something AI crawlers consume.
+    // The Methods page doesn't show it (app/(auth)/methods/page.tsx UNSCORED_METHOD_KEYS).
+    description:
+      "A proposed plain-text summary of a site for language models; no AI provider has said its engine reads it.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Emerging standard; early adoption signal",
+    effectSizeNotes: "A proposal (llmstxt.org); not scored",
     appliesTo: ["ChatGPT", "Claude", "Perplexity", "Gemini"],
   },
   {
@@ -202,7 +223,8 @@ export const CITABILITY_METHODS = [
     description: "Follow question headings with a 20-25 word direct answer.",
     ...ESTIMATE,
     impactTier: "high",
-    effectSizeNotes: "Vunnara estimate — direct, well-formed answers are more likely to be quoted verbatim by AI engines",
+    effectSizeNotes:
+      "Vunnara estimate — direct, well-formed answers are more likely to be quoted verbatim by AI engines",
     appliesTo: ["ChatGPT", "Perplexity", "Gemini"],
   },
   {
@@ -283,7 +305,8 @@ export const CITABILITY_METHODS = [
     description: "Link between related service pages with descriptive anchor text.",
     ...ESTIMATE,
     impactTier: "medium",
-    effectSizeNotes: "Vunnara estimate — internal links help AI engines understand site structure and topical relationships",
+    effectSizeNotes:
+      "Vunnara estimate — internal links help AI engines understand site structure and topical relationships",
     appliesTo: ["ChatGPT", "Perplexity", "Gemini"],
   },
   {
@@ -292,7 +315,8 @@ export const CITABILITY_METHODS = [
     description: "Reference government, academic, and industry body websites.",
     ...AGGARWAL,
     impactTier: "high",
-    effectSizeNotes: "Citing authoritative external sources is part of the Princeton GEO study's citation-addition method (+30–40% Position-Adjusted Word Count)",
+    effectSizeNotes:
+      "Citing authoritative external sources is part of the Princeton GEO study's citation-addition method (+30–40% Position-Adjusted Word Count)",
     appliesTo: ["ChatGPT", "Perplexity"],
   },
   {
@@ -301,7 +325,8 @@ export const CITABILITY_METHODS = [
     description: "Include named authors with credentials on articles and guides.",
     ...ESTIMATE,
     impactTier: "medium",
-    effectSizeNotes: "Vunnara estimate — named author attribution signals expertise and accountability",
+    effectSizeNotes:
+      "Vunnara estimate — named author attribution signals expertise and accountability",
     appliesTo: ["ChatGPT", "Claude"],
   },
   {
@@ -310,7 +335,8 @@ export const CITABILITY_METHODS = [
     description: "Show when content was last reviewed or updated.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Vunnara estimate — visible freshness signals support content recency assessment",
+    effectSizeNotes:
+      "Vunnara estimate — visible freshness signals support content recency assessment",
     appliesTo: ["ChatGPT", "Perplexity", "Gemini"],
   },
   {
@@ -379,37 +405,40 @@ export const CITABILITY_METHODS = [
   {
     methodKey: "ai-txt-endpoint",
     title: "Create .well-known/ai.txt endpoint",
-    description: "Publish machine-readable AI metadata at the emerging standard endpoint.",
+    // 20 Nov: its only document is an individual Internet-Draft the IETF hasn't endorsed; not shown on the Methods page.
+    description:
+      "An AI usage-preferences file proposed in an individual Internet-Draft; no AI provider has said its engine reads it.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Emerging standard; early adoption advantage",
+    effectSizeNotes: "A proposal, not a standard; not scored",
     appliesTo: ["ChatGPT", "Claude", "Perplexity", "Gemini"],
   },
   {
     methodKey: "ai-summary-json",
     title: "Create /ai/summary.json endpoint",
-    description: "Publish structured brand summary for AI systems.",
+    // 20 Nov: Vunnara's own format, read by no AI engine we know of; not shown on the Methods page.
+    description: "A brand summary in Vunnara's own format; no AI engine is known to read it.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Structured data for AI consumption",
+    effectSizeNotes: "Optional; not scored",
     appliesTo: ["ChatGPT", "Perplexity"],
   },
   {
     methodKey: "ai-faq-json",
     title: "Create /ai/faq.json endpoint",
-    description: "Publish FAQ data in machine-readable format for AI Q&A.",
+    description: "FAQ data in Vunnara's own format; no AI engine is known to read it.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Structured FAQ for AI systems",
+    effectSizeNotes: "Optional; not scored",
     appliesTo: ["ChatGPT", "Perplexity"],
   },
   {
     methodKey: "ai-service-json",
     title: "Create /ai/service.json endpoint",
-    description: "Publish service catalogue for local AI search.",
+    description: "A service catalogue in Vunnara's own format; no AI engine is known to read it.",
     ...ESTIMATE,
     impactTier: "low",
-    effectSizeNotes: "Service data for local AI queries",
+    effectSizeNotes: "Optional; not scored",
     appliesTo: ["ChatGPT", "Perplexity", "Gemini"],
   },
   {

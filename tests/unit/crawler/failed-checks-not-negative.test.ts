@@ -19,6 +19,7 @@ const dns = vi.hoisted(() => ({
 }));
 vi.mock("dns", () => ({ promises: dns }));
 vi.mock("@/db/client", () => ({ serviceDb: {} }));
+
 import {
   combineOutcomes,
   couldntCheck,
@@ -93,7 +94,8 @@ describe("AI discovery files (lib/ai-discovery/endpoints.ts)", () => {
       aiFaqPresent: "timed out",
       aiServicePresent: "timed out",
     });
-    expect(r.measured).toBe(false);
+    // 20 Nov: none of the four files is scored, so the timeouts leave no score unmeasured.
+    expect(r.measured).toBe(true);
   });
 
   it("404s are a measured absence (false), 0 points", async () => {
@@ -126,7 +128,8 @@ describe("AI discovery files (lib/ai-discovery/endpoints.ts)", () => {
     expect(r.measured).toBe(true);
   });
 
-  it("a 403 on ai.txt, the file that counts, leaves the score unmeasured", async () => {
+  // 20 Nov: ai.txt doesn't count either now, so its 403 is "couldn't check" on its row, and the score stands.
+  it("a 403 on ai.txt: couldn't check, and -- ai.txt being unscored since 20 Nov -- the score stays measured", async () => {
     stubFetch((url) =>
       url.endsWith("ai.txt")
         ? new Response("", { status: 403 })
@@ -135,7 +138,7 @@ describe("AI discovery files (lib/ai-discovery/endpoints.ts)", () => {
     const { checkAiDiscovery } = await import("@/lib/ai-discovery/endpoints");
     const r = await checkAiDiscovery("example.com.au");
     expect(r.findings.aiTxtPresent).toBeNull();
-    expect(r.measured).toBe(false);
+    expect(r.measured).toBe(true);
   });
 });
 
@@ -328,11 +331,12 @@ ${"x".repeat(1600)}`;
     expect(r.unmeasured).toContain("scoreLlmsTxt");
   });
 
-  it("ai.txt timing out leaves the AI-discovery score unmeasured, an optional file doesn't; 404s everywhere measure 0", async () => {
+  it("ai.txt timing out is couldn't check on its row and -- unscored since 20 Nov -- holds no score back; 404s everywhere measure 0", async () => {
     stubFetch((url) => (url.endsWith("ai.txt") ? timeout() : new Response("", { status: 404 })));
     const { orchestrateTechnicalAudit } = await import("@/lib/technical-audit/orchestrate");
     const failed = await orchestrateTechnicalAudit("example.com.au", REACHED, 2);
-    expect(failed.unmeasured).toContain("scoreAiDiscovery");
+    expect(failed.unmeasured).not.toContain("scoreAiDiscovery");
+    expect(failed.unmeasuredScored).toEqual([]);
     expect((failed.findings.aiDiscovery as { notChecked?: unknown }).notChecked).toEqual({
       aiTxtPresent: "timed out",
     });

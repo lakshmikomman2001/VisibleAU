@@ -991,7 +991,8 @@ export function BrandDetailClient({
               href: `/brands/${brand.id}/technical-audit`,
               label: "Technical Audit",
               icon: Activity,
-              desc: "8-dimension score",
+              // 20 Nov: six of the eight checks are scored (lib/technical-audit/scoring-version.ts).
+              desc: "8 checks, 6 scored",
             },
             {
               href: `/brands/${brand.id}/robots-txt-config`,
@@ -1003,7 +1004,8 @@ export function BrandDetailClient({
               href: `/brands/${brand.id}/llms-txt-generator`,
               label: "llms.txt",
               icon: FileText,
-              desc: "Depth scoring",
+              // 20 Nov: checked and drafted, not scored.
+              desc: "Check and draft · not scored",
             },
             {
               href: `/brands/${brand.id}/schema-audit`,

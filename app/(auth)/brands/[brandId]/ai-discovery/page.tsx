@@ -5,19 +5,21 @@ import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreac
 import { withRlsContext } from "@/db/client";
 import { brands, technicalAudits } from "@/db/schema";
 import {
-  AI_DISCOVERY_WEIGHTS,
+  AI_DISCOVERY_WEIGHTS_BY_VERSION,
+  AI_TXT_LABEL,
   AI_TXT_PATHS,
   type AiDiscoveryFindings,
-  aiDiscoveryMaxFor,
+  type AiDiscoveryWeights,
   OPTIONAL_AI_FILES_LABEL,
 } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { crawlReach } from "@/lib/technical-audit/crawl-status";
+import { technicalScoringOf } from "@/lib/technical-audit/scoring-version";
 import { isUuid } from "@/lib/validation/uuid";
-import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 
 // Task WW: weights come from the scorer (lib/ai-discovery/endpoints.ts) --
 // do not re-hardcode a second copy here, that's how this page's weights
@@ -36,36 +38,47 @@ import { couldntCheck } from "@/lib/crawler/fetch-outcome";
 // methodology work (tasks MM/NN), applied here.
 // 19 Nov (Sri's review): the three /ai/ files are optional and scored 0 (lib/ai-discovery/endpoints.ts), labelled
 // OPTIONAL_AI_FILES_LABEL; ai.txt's draft is an individual Internet-Draft, not an IETF standard.
-const ENDPOINTS = [
+// 20 Nov: ai.txt is scored 0 too. Each row's points are what the audit's own scoring version gave that file
+// (AI_DISCOVERY_WEIGHTS_BY_VERSION), so an older audit still shows the points it earned.
+const ENDPOINTS: ReadonlyArray<{
+  key: keyof Pick<
+    AiDiscoveryFindings,
+    "aiTxtPresent" | "aiFaqPresent" | "aiSummaryPresent" | "aiServicePresent"
+  >;
+  label: string;
+  weight: keyof AiDiscoveryWeights;
+  desc: string;
+  provenance: string;
+}> = [
   {
     key: "aiTxtPresent",
     label: "ai.txt",
-    weight: AI_DISCOVERY_WEIGHTS.aiTxt,
+    weight: "aiTxt",
     desc: `Machine-readable AI policy file at ${AI_TXT_PATHS.join(" or ")}`,
     provenance: "Proposal · individual Internet-Draft",
   },
   {
     key: "aiFaqPresent",
     label: "AI FAQ / Help Content",
-    weight: AI_DISCOVERY_WEIGHTS.aiFaq,
+    weight: "aiFaq",
     desc: "Dedicated FAQ or help page mentioning AI assistants",
     provenance: "Vunnara's own format · optional",
   },
   {
     key: "aiSummaryPresent",
     label: "AI-Ready Summary",
-    weight: AI_DISCOVERY_WEIGHTS.aiSummary,
+    weight: "aiSummary",
     desc: "Concise business summary optimised for AI extraction",
     provenance: "Vunnara's own format · optional",
   },
   {
     key: "aiServicePresent",
     label: "AI Service Endpoint",
-    weight: AI_DISCOVERY_WEIGHTS.aiService,
+    weight: "aiService",
     desc: "Structured API or feed for AI consumption",
     provenance: "Vunnara's own format · optional",
   },
-] as const;
+];
 
 export default async function AiDiscoveryPage({
   params,
@@ -87,6 +100,7 @@ export default async function AiDiscoveryPage({
         findings: technicalAudits.findings,
         scoreAiDiscovery: technicalAudits.scoreAiDiscovery,
         crawledAt: technicalAudits.crawledAt,
+        createdAt: technicalAudits.createdAt,
       })
       .from(technicalAudits)
       .where(eq(technicalAudits.brandId, brandId))
@@ -139,12 +153,19 @@ export default async function AiDiscoveryPage({
   const score = scoreM.measured ? scoreM.value : null;
   // Leftovers task, part 3: a file whose request failed is "Couldn't check (why)", and the score with it.
   const notCheckedFiles = findings?.notChecked ?? {};
-  // 19 Nov: an optional file that couldn't be fetched doesn't leave the score unmeasured (it earns nothing either way).
-  const scoredFile = (key: string) =>
-    findings?.optionalFilesScored === false ? key === "aiTxtPresent" : true;
+  // 20 Nov: what each file earned under this audit's scoring version (lib/technical-audit/scoring-version.ts).
+  const scoring = technicalScoringOf(techAudit);
+  const weights = AI_DISCOVERY_WEIGHTS_BY_VERSION[scoring.version];
+  const weightOf = (ep: (typeof ENDPOINTS)[number]) => weights[ep.weight];
+  // 19 Nov: a file that earns nothing and couldn't be fetched doesn't leave the score unmeasured.
+  const scoredFile = (key: string) => {
+    const ep = ENDPOINTS.find((e) => e.key === key);
+    return ep ? weightOf(ep) > 0 : true;
+  };
   const someNotChecked = Object.keys(notCheckedFiles).some(scoredFile);
-  /** What this audit's score is out of: 3 from 19 Nov (ai.txt alone), 6 before. */
-  const max = aiDiscoveryMaxFor(findings);
+  /** What this audit's score is out of: 6 before 19 Nov, 3 (ai.txt alone) to 20 Nov, 0 since -- not scored. */
+  const max = scoring.dimensionMax.scoreAiDiscovery;
+  const notScored = max === 0;
   const notScoredText = unreached
     ? "Not checked"
     : someNotChecked
@@ -177,8 +198,10 @@ export default async function AiDiscoveryPage({
             AI Discovery Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            AI endpoint presence &amp; discoverability &middot; Score:{" "}
-            {score === null ? notScoredText : `${score}/${max}`}
+            AI endpoint presence &amp; discoverability &middot;{" "}
+            {notScored
+              ? "Not scored"
+              : `Score: ${score === null ? notScoredText : `${score}/${max}`}`}
           </p>
           {crawledOn && (
             <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "4px 0 0" }}>
@@ -186,7 +209,14 @@ export default async function AiDiscoveryPage({
             </p>
           )}
         </div>
-        {score === null ? (
+        {notScored ? (
+          <div
+            style={{ fontSize: 14, color: "var(--text-tertiary)" }}
+            data-ai-discovery-not-scored=""
+          >
+            Not scored
+          </div>
+        ) : score === null ? (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{notScoredText}</div>
         ) : (
           <div
@@ -214,7 +244,9 @@ export default async function AiDiscoveryPage({
         }}
       >
         These are <strong>emerging</strong>{" "}
-        {`AI-discovery endpoints — most sites don't have them yet. Adding them is a forward-looking best practice, not a fix for a standards violation. Only ai.txt counts toward the score; the three /ai/ files are ${OPTIONAL_AI_FILES_LABEL.toLowerCase()}, so having or not having them changes nothing here.`}
+        {notScored
+          ? `AI-discovery files — most sites don't have them, and none of them counts toward any score: ai.txt is ${AI_TXT_LABEL.charAt(0).toLowerCase()}${AI_TXT_LABEL.slice(1)}, and the three /ai/ files are ${OPTIONAL_AI_FILES_LABEL.toLowerCase()}. We check for them and show what we find; having them or not changes nothing here.`
+          : `AI-discovery endpoints — most sites don't have them yet. Adding them is a forward-looking best practice, not a fix for a standards violation. Only ai.txt counts toward the score; the three /ai/ files are ${OPTIONAL_AI_FILES_LABEL.toLowerCase()}, so having or not having them changes nothing here.`}
       </p>
 
       {reach.kind === "unreached" && (
@@ -290,10 +322,12 @@ export default async function AiDiscoveryPage({
                   </span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                  {ep.weight === 0 ? `${ep.desc}. ${OPTIONAL_AI_FILES_LABEL}.` : ep.desc}
+                  {weightOf(ep) > 0
+                    ? ep.desc
+                    : `${ep.desc}. ${ep.key === "aiTxtPresent" ? AI_TXT_LABEL : OPTIONAL_AI_FILES_LABEL}.`}
                 </div>
               </div>
-              {checked && ep.weight === 0 ? (
+              {checked && weightOf(ep) === 0 ? (
                 <span
                   style={{ fontSize: 12, color: "var(--text-tertiary)" }}
                   data-ai-file-optional=""
@@ -308,11 +342,12 @@ export default async function AiDiscoveryPage({
                     color: present ? "var(--success)" : "var(--text-tertiary)",
                   }}
                 >
-                  {present ? ep.weight : 0}/{ep.weight}
+                  {present ? weightOf(ep) : 0}/{weightOf(ep)}
                 </span>
               ) : (
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                   {failure ? couldntCheck(failure) : "Not checked"}
+                  {weightOf(ep) === 0 ? " · not scored" : ""}
                 </span>
               )}
             </div>

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { notInArray, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { VerifiedSource } from "@/components/domain/brand-entity/verified-source";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -13,6 +13,18 @@ import { effectiveTier } from "@/lib/pricing/effective-tier";
 // and docs/ops/post-launch-db-hardening.md section 32. Same tone mapping as
 // components/domain/action-center/recommendation-card.tsx's impact badge,
 // for visual consistency with the rest of the app.
+/**
+ * 20 Nov: seeded methods that are never shown -- llms.txt, ai.txt and the three /ai/ files aren't read by any AI engine
+ * we know of (lib/methodology/verified-citations.ts TECHNICAL_SCORING_SOURCES), so no method asks for them.
+ */
+const UNSCORED_METHOD_KEYS = [
+  "llms-txt-file",
+  "ai-txt-endpoint",
+  "ai-summary-json",
+  "ai-faq-json",
+  "ai-service-json",
+] as const;
+
 const IMPACT_TONE: Record<string, string> = {
   high: "var(--danger-soft)",
   medium: "var(--warning-soft)",
@@ -37,9 +49,12 @@ export default async function MethodologyPage() {
     effectiveTier(tx, currentUser.organizationId),
   );
   const isFree = tier === "free";
+  // 20 Nov (Sri's decision): no method that implies an AI engine needs llms.txt, ai.txt or the /ai/ files
+  // (UNSCORED_METHOD_KEYS: the seeded rows stay in the table, never shown).
   const methods = await db
     .select()
     .from(citabilityMethods)
+    .where(notInArray(citabilityMethods.methodKey, [...UNSCORED_METHOD_KEYS]))
     .orderBy(
       sql`CASE impact_tier WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END`,
       citabilityMethods.title,

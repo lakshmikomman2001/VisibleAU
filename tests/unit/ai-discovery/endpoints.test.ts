@@ -82,7 +82,8 @@ describe("⚠️ FFF — checkAiDiscovery: ai.txt accepts either standard locati
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network error"));
     const result = await checkAiDiscovery("example.com.au");
     expect(result.score).toBe(0);
-    expect(result.measured).toBe(false);
+    // 20 Nov: no file is scored any more, so a failed request leaves nothing unmeasured -- it says so on its row.
+    expect(result.measured).toBe(true);
     expect(result.findings.aiTxtPresent).toBeNull();
     expect(result.findings.notChecked?.aiTxtPresent).toBe("no answer");
   });

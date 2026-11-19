@@ -5,41 +5,51 @@ import {
   outcomeForStatus,
 } from "@/lib/crawler/fetch-outcome";
 
+import type { TechnicalScoringVersion } from "@/lib/technical-audit/scoring-version";
+
 // Task WW: the single source of truth for AI Discovery weights -- the
 // ai-discovery display page imports this instead of hand-maintaining its own
 // copy, which is how it drifted to 2/2/1/1 against these real weights.
 // 19 Nov (Sri's review): /ai/summary.json, /ai/faq.json and /ai/service.json are Vunnara's own format, and no AI
-// engine is known to read them, so their absence lowers no score: each weighs 0 (they were 1 each, out of 6). They
-// are still checked and shown, labelled OPTIONAL_AI_FILES_LABEL; nothing creates a task or a recommendation from them.
+// engine is known to read them, so their absence lowers no score: each weighs 0 (they were 1 each, out of 6).
+// 20 Nov (Sri's decision): ai.txt weighs 0 too -- the only document for it is an individual Internet-Draft, not a
+// standard, and no AI provider has said its engine reads it (lib/methodology/verified-citations.ts). All four are
+// still checked and shown ("Found / Not found · not scored"); nothing creates a task or a recommendation from them.
 export const AI_DISCOVERY_WEIGHTS = {
-  aiTxt: 3,
+  aiTxt: 0,
   aiSummary: 0,
   aiFaq: 0,
   aiService: 0,
 } as const;
 
-/** The most the AI Discovery check scores: ai.txt alone (3). An audit from before 19 Nov was scored out of 6. */
+export type AiDiscoveryWeights = Record<keyof typeof AI_DISCOVERY_WEIGHTS, number>;
+
+/**
+ * What each file earned under each scoring version (lib/technical-audit/scoring-version.ts), so an older audit's
+ * rows show the points it was scored with: ai.txt 3 and the /ai/ files 1 each until 19 Nov, ai.txt alone until 20 Nov,
+ * nothing since.
+ */
+export const AI_DISCOVERY_WEIGHTS_BY_VERSION: Record<TechnicalScoringVersion, AiDiscoveryWeights> =
+  {
+    1: { aiTxt: 3, aiSummary: 1, aiFaq: 1, aiService: 1 },
+    2: { aiTxt: 3, aiSummary: 1, aiFaq: 1, aiService: 1 },
+    3: { aiTxt: 3, aiSummary: 0, aiFaq: 0, aiService: 0 },
+    4: AI_DISCOVERY_WEIGHTS,
+  };
+
+/** The most the AI Discovery check scores now: 0 (it's checked, not scored). An older audit's is its version's. */
 export const AI_DISCOVERY_MAX =
   AI_DISCOVERY_WEIGHTS.aiTxt +
   AI_DISCOVERY_WEIGHTS.aiSummary +
   AI_DISCOVERY_WEIGHTS.aiFaq +
   AI_DISCOVERY_WEIGHTS.aiService;
-export const AI_DISCOVERY_MAX_BEFORE_19_NOV = 6;
 
 /** How the three /ai/ files are labelled wherever they're shown. */
 export const OPTIONAL_AI_FILES_LABEL = "Optional, not read by any AI engine we know of";
 
-/**
- * The maximum an audit's AI Discovery score was out of: 3 for one scored without the /ai/ files (its findings say
- * optionalFilesScored: false), 6 before.
- */
-export function aiDiscoveryMaxFor(
-  findings: { optionalFilesScored?: boolean } | null | undefined,
-): number {
-  return findings?.optionalFilesScored === false
-    ? AI_DISCOVERY_MAX
-    : AI_DISCOVERY_MAX_BEFORE_19_NOV;
-}
+/** How ai.txt is labelled wherever it's shown, from 20 Nov. */
+export const AI_TXT_LABEL =
+  "A proposal, not a standard, and no AI provider has said its engine reads it";
 
 // Task FFF: both locations are real standards in the wild -- the June 2026
 // IETF draft (draft-car-ai-txt-wellknown) standardises /.well-known/ai.txt,

@@ -5,52 +5,62 @@ import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SiteUnreachableNotice } from "@/components/domain/technical/site-unreachable-notice";
 import { withRlsContext } from "@/db/client";
 import { brandEntityScores, brands, technicalAudits } from "@/db/schema";
-import { aiDiscoveryMaxFor } from "@/lib/ai-discovery/endpoints";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandCrumb, CRUMB } from "@/lib/navigation/breadcrumbs";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { measured, NOT_MEASURED } from "@/lib/scoring/measured";
 import { crawlReach, isSiteDependentDimension } from "@/lib/technical-audit/crawl-status";
+import { aiDiscoveryNotScoredText, llmsTxtNotScoredText } from "@/lib/technical-audit/not-scored";
 import {
   comparableCompositeDelta,
-  compositeMaxFor,
   rollupTo5Categories,
+  scoredChecksOf,
 } from "@/lib/technical-audit/score-aggregator";
+import {
+  isScoredCheck,
+  scoringChangeNote,
+  type TechnicalDimensionKey,
+  technicalScoringOf,
+  VISIBILITY_SCORE_NOT_AFFECTED,
+} from "@/lib/technical-audit/scoring-version";
 import { isUuid } from "@/lib/validation/uuid";
 
-const DIM_META = [
+// 20 Nov: each check's maximum is the audit's own (lib/technical-audit/scoring-version.ts DIMENSION_MAXIMA): llms.txt and
+// AI Discovery are out of 0 from version 4 -- checked and shown, not scored.
+const DIM_META: Array<{
+  key: TechnicalDimensionKey;
+  label: string;
+  desc: string;
+  route: string;
+  emerging?: boolean;
+}> = [
   {
     key: "scoreRobots",
     label: "Robots.txt",
-    max: 18,
-    desc: "AI crawler access configuration",
+    desc: "Search crawlers' access, for AI answers",
     route: "robots-txt-config",
   },
   {
     key: "scoreLlmsTxt",
     label: "llms.txt",
-    max: 18,
     desc: "Structured AI content file",
     route: "llms-txt-generator",
   },
   {
     key: "scoreSchema",
     label: "Schema markup",
-    max: 16,
     desc: "JSON-LD richness and completeness",
     route: "schema-audit",
   },
   {
     key: "scoreMeta",
     label: "Meta tags",
-    max: 14,
     desc: "Title, description, OG, canonical, hreflang",
     route: "meta-tags",
   },
   {
     key: "scoreContent",
     label: "Content quality",
-    max: 12,
     desc: "SSR + answer capsule pattern",
     route: "ssr-check",
   },
@@ -60,14 +70,12 @@ const DIM_META = [
     // Vunnara (21 Oct, "directory listings... never scraping", Part A3):
     // was 10 -- the directory signal is removed from this score
     // entirely (lib/brand-entity/score.ts), not just hidden.
-    max: 8,
     desc: "ABN, Wikipedia AU",
     route: "brand-entity-audit",
   },
   {
     key: "scoreSignals",
     label: "Signals",
-    max: 6,
     // 17 Nov, part 3: the score is lib/negative-signals aggregateNegativeScore alone; prompt injection is listed
     // on the Signals page but never changes it. It said "Negative signals + prompt injection".
     desc: "Negative signals (prompt injection is listed, not scored)",
@@ -76,17 +84,16 @@ const DIM_META = [
   {
     key: "scoreAiDiscovery",
     label: "AI Discovery",
-    max: 6,
     desc: "AI endpoints presence",
     route: "ai-discovery",
-    // Task GGG: label only. 19 Nov: out of 3 from then, ai.txt alone -- the three /ai/ files no longer count
-    // (lib/ai-discovery/endpoints.ts); `max` here is an older audit's 6, and maxOf reads each audit's own.
+    // Task GGG: label only. 19 Nov: out of 3, ai.txt alone; 20 Nov: not scored (lib/ai-discovery/endpoints.ts).
     emerging: true,
   },
 ];
 
 const CAT_META = [
   { key: "technicalPct", label: "Technical", desc: "Robots + llms.txt + AI Discovery + Signals" },
+  // 20 Nov: from scoring version 4 the Technical category is robots.txt and Signals (see technicalDesc below).
   { key: "contentPct", label: "Content", desc: "Content quality + Meta tags" },
   { key: "authorityPct", label: "Authority", desc: "Brand & Entity AU presence" },
   { key: "schemaPct", label: "Schema", desc: "JSON-LD markup richness" },
@@ -179,19 +186,36 @@ export default async function TechnicalAuditPage({
     allFindings.llmsTxt?.fullFetchStatus === "unreachable";
   // 19 Nov: from then the /ai/ files don't count (lib/ai-discovery/endpoints.ts), so only ai.txt's failed request leaves
   // AI Discovery unmeasured; an older audit's files all counted.
+  // 20 Nov: the rules this audit was scored under (lib/technical-audit/scoring-version.ts) -- each check's maximum and
+  // the composite's -- and the previous audit's, which it's only compared with under the same rules.
+  const scoring = technicalScoringOf(techAudit);
+  const prevScoring = prevAudit ? technicalScoringOf(prevAudit) : null;
+  const scoredCount = scoredChecksOf(scoring).length;
   const aiDiscoveryFindings = allFindings.aiDiscovery as
-    | { notChecked?: Record<string, string>; optionalFilesScored?: boolean }
+    | {
+        notChecked?: Record<string, string>;
+        aiTxtPresent?: boolean | null;
+        aiSummaryPresent?: boolean | null;
+        aiFaqPresent?: boolean | null;
+        aiServicePresent?: boolean | null;
+      }
     | undefined;
   const aiNotChecked = aiDiscoveryFindings?.notChecked ?? {};
+  // Only a file that earned points can leave AI Discovery unmeasured: all four before 19 Nov, ai.txt until 20 Nov.
   const aiDiscoveryUnchecked =
-    aiDiscoveryFindings?.optionalFilesScored === false
-      ? "aiTxtPresent" in aiNotChecked
-      : Object.keys(aiNotChecked).length > 0;
-  const aiDiscoveryMax = aiDiscoveryMaxFor(aiDiscoveryFindings);
-  /** A dimension's maximum on this audit: AI Discovery's is 3 from 19 Nov, 6 before. */
-  const maxOf = (dim: { key: string; max: number }) =>
-    dim.key === "scoreAiDiscovery" ? aiDiscoveryMax : dim.max;
-  const compositeMax = compositeMaxFor(techAudit.createdAt, aiDiscoveryFindings);
+    scoring.version >= 3 ? "aiTxtPresent" in aiNotChecked : Object.keys(aiNotChecked).length > 0;
+  /** A check's maximum on this audit (0: checked, not scored). */
+  const maxOf = (dim: { key: TechnicalDimensionKey }) => scoring.dimensionMax[dim.key];
+  const compositeMax = scoring.compositeMax;
+  /** "Found · not scored", from what the check stored, for a check this audit didn't score. */
+  const notScoredState = (key: TechnicalDimensionKey): string =>
+    key === "scoreLlmsTxt"
+      ? llmsTxtNotScoredText(allFindings.llmsTxt?.fetchStatus, unreached)
+      : aiDiscoveryNotScoredText(aiDiscoveryFindings, unreached);
+  const technicalDesc = (desc: string) =>
+    isScoredCheck(scoring, "scoreLlmsTxt")
+      ? desc
+      : "Robots + Signals (llms.txt and AI Discovery aren't scored)";
   const entityLookupFailed =
     allFindings.brandEntity?.abnStatus === "check_failed" ||
     allFindings.brandEntity?.wikipediaAuStatus === "unavailable";
@@ -218,34 +242,39 @@ export default async function TechnicalAuditPage({
       scoreSignals: dimOrNaN("scoreSignals"),
       scoreAiDiscovery: dimOrNaN("scoreAiDiscovery"),
     },
-    aiDiscoveryMax,
+    scoring,
   );
 
   // A missing composite (this audit's or the previous one's) gives no comparison, never a change from 0. 17 Nov,
   // part 3: nor does a crawl that never reached the site, or a previous audit on the old /100 scale; the change
   // says the date of the audit it compares with ("+3.0 vs 2 Nov").
   const latest = unreached ? measured(null) : measured(techAudit.scoreComposite);
-  const prev = prevAudit ? measured(prevAudit.scoreComposite) : null;
+  const prevReached = prevAudit ? crawlReach(prevAudit.findings).kind !== "unreached" : false;
+  const prev = prevAudit && prevReached ? measured(prevAudit.scoreComposite) : null;
   const delta =
-    prevAudit && latest.measured && prev?.measured
+    prevAudit && prevScoring && latest.measured && prev?.measured
       ? comparableCompositeDelta(
           {
             composite: latest.value,
             createdAt: techAudit.createdAt,
             siteReached: !unreached,
+            version: scoring.version,
             max: compositeMax,
           },
           {
             composite: prev.value,
             createdAt: prevAudit.createdAt,
-            siteReached: crawlReach(prevAudit.findings).kind !== "unreached",
-            max: compositeMaxFor(
-              prevAudit.createdAt,
-              (prevAudit.findings as { aiDiscovery?: { optionalFilesScored?: boolean } } | null)
-                ?.aiDiscovery,
-            ),
+            siteReached: prevReached,
+            version: prevScoring.version,
+            max: prevScoring.compositeMax,
           },
         )
+      : null;
+  // 20 Nov: across a scoring change, no "vs last": both scores, each out of its own maximum, and the date of this
+  // audit -- the first under the new rules -- as "Detection updated" does for the Visibility score.
+  const scoringChange =
+    prevAudit && prevScoring
+      ? scoringChangeNote(prevScoring.version, scoring.version, techAudit.createdAt, timeZone)
       : null;
 
   return (
@@ -276,7 +305,11 @@ export default async function TechnicalAuditPage({
             Technical AI Audit
           </h1>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>
-            {brand.name} &middot; 8 dimensions &middot;{" "}
+            {brand.name} &middot;{" "}
+            {scoredCount === DIM_META.length
+              ? `${DIM_META.length} dimensions`
+              : `${DIM_META.length} checks, ${scoredCount} scored`}{" "}
+            &middot;{" "}
             {crawledOn
               ? // "Dates show in Sydney time" (23 Oct), item 3
                 `Crawled ${crawledOn}`
@@ -348,6 +381,27 @@ export default async function TechnicalAuditPage({
                   : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} vs ${dayOf(prevAudit.createdAt)}`)}
             </div>
           )}
+          {scoringChange && prevAudit && prevScoring && (
+            <div
+              data-technical-scoring-change=""
+              style={{
+                marginTop: 6,
+                maxWidth: 260,
+                marginLeft: "auto",
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: "var(--text-tertiary)",
+              }}
+            >
+              <div style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{scoringChange}</div>
+              <div>
+                {prev?.measured
+                  ? `Before: ${prev.value.toFixed(0)} of ${prevScoring.compositeMax} on ${dayOf(prevAudit.createdAt)}, under the earlier rules.`
+                  : `Before: not measured on ${dayOf(prevAudit.createdAt)}.`}{" "}
+                {VISIBILITY_SCORE_NOT_AFFECTED}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -397,7 +451,9 @@ export default async function TechnicalAuditPage({
                   {`${val}%`}
                 </div>
               )}
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{cat.desc}</div>
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                {cat.key === "technicalPct" ? technicalDesc(cat.desc) : cat.desc}
+              </div>
             </div>
           );
         })}
@@ -414,7 +470,9 @@ export default async function TechnicalAuditPage({
       >
         <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", margin: 0 }}>
-            8-Dimension Breakdown
+            {scoredCount === DIM_META.length
+              ? `${DIM_META.length}-Dimension Breakdown`
+              : `${DIM_META.length} checks, ${scoredCount} scored`}
           </h3>
         </div>
         {DIM_META.map((dim) => {
@@ -427,9 +485,11 @@ export default async function TechnicalAuditPage({
             (dim.key === "scoreBrandEntity" && entityLookupFailed);
           const notChecked = (unreached && isSiteDependentDimension(dim.key)) || requestFailed;
           const m = measured(storedDim(dim.key));
-          const raw = m.measured ? m.value : null;
           const max = maxOf(dim);
-          const pct = raw === null ? null : max > 0 ? Math.round((raw / max) * 100) : 0;
+          // 20 Nov: a check out of 0 isn't scored -- its row says what was found, never a 0 or a red dot.
+          const scored = max > 0;
+          const raw = m.measured && scored ? m.value : null;
+          const pct = raw === null ? null : Math.round((raw / max) * 100);
           const bandColor =
             pct === null
               ? "var(--text-tertiary)"
@@ -439,11 +499,13 @@ export default async function TechnicalAuditPage({
                   ? "var(--warning)"
                   : "var(--danger)";
           const isCritical = pct !== null && pct < 30;
-          const notScoredText = requestFailed
-            ? "Couldn't check"
-            : notChecked
-              ? "Not checked"
-              : NOT_MEASURED;
+          const notScoredText = !scored
+            ? notScoredState(dim.key)
+            : requestFailed
+              ? "Couldn't check"
+              : notChecked
+                ? "Not checked"
+                : NOT_MEASURED;
           const severityLabel = isCritical
             ? "critical"
             : pct === null
@@ -471,7 +533,7 @@ export default async function TechnicalAuditPage({
                   }}
                 >
                   {dim.label}
-                  {"emerging" in dim && dim.emerging && (
+                  {dim.emerging && (
                     <span
                       style={{
                         fontSize: 9,

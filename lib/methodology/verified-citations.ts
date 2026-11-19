@@ -60,6 +60,33 @@ export const VERIFIED_CITATIONS = {
 
 export type VerifiedCitationKey = keyof typeof VERIFIED_CITATIONS;
 
+/*
+ * 20 Nov (Sri's decision: llms.txt and ai.txt stop counting toward the Technical score), each re-opened that day:
+ * - llmsTxt: "The /llms.txt file, v2. A proposal to standardise on using an /llms.txt file to provide information to
+ *   help agents use a website. Author Jeremy Howard. Published September 3, 2024" -- a proposal; it names no AI
+ *   provider that reads it.
+ * - aiTxtDraft: "AI.TXT: A Declaration File for AI Usage Preferences, Licensing, and Policy", draft-car-ai-txt-
+ *   wellknown-00, published 12 June 2026, expires 14 December 2026: "This I-D is not endorsed by the IETF and has no
+ *   formal standing in the IETF standards process."
+ * - googleAiFeatures: "You don't need to create new machine readable files, AI text files, or markup to appear in these
+ *   features" (AI Overviews and AI Mode).
+ * Not research citations (deriveSourceType reads VERIFIED_CITATIONS alone): the sources for a scoring rule.
+ */
+export const TECHNICAL_SCORING_SOURCES = {
+  llmsTxt: {
+    name: "llms.txt proposal (Jeremy Howard, September 2024)",
+    url: "https://llmstxt.org/",
+  },
+  aiTxtDraft: {
+    name: "ai.txt Internet-Draft (individual, not endorsed by the IETF)",
+    url: "https://datatracker.ietf.org/doc/html/draft-car-ai-txt-wellknown-00",
+  },
+  googleAiFeatures: {
+    name: "Google Search Central, AI features and your website",
+    url: "https://developers.google.com/search/docs/appearance/ai-features",
+  },
+} as const;
+
 /**
  * Strings that have already been proven, by direct investigation, to cite a
  * study that doesn't exist (task NN: "SE Ranking Dec 2025", confirmed to

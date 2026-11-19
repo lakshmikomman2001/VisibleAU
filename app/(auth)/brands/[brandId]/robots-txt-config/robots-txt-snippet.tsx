@@ -13,11 +13,9 @@ function generateSnippet(domain: string, agents: string[]): string {
   for (const agent of agents) {
     lines.push("", `User-agent: ${agent}`, "Allow: /");
   }
-  lines.push(
-    "",
-    `Sitemap: https://${domain}/sitemap.xml`,
-    `LLM-Content: https://${domain}/llms.txt`,
-  );
+  // 20 Nov: no `LLM-Content:` line -- it isn't a robots.txt directive any crawler documents, and llms.txt isn't read by
+  // any AI engine we know of (lib/technical-audit/not-scored.ts).
+  lines.push("", `Sitemap: https://${domain}/sitemap.xml`);
   return lines.join("\n");
 }
 

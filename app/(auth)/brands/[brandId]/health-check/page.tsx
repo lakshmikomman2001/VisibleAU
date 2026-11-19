@@ -25,10 +25,14 @@ function measured(
   score: string | number | null | undefined,
   max: number | null | undefined,
   on: string | null | undefined,
+  /** 20 Nov: how many checks the score adds up (the site-readiness route's scoredChecks). */
+  checks?: number | null,
 ): MeasuredScore | null {
   if (score === null || score === undefined || score === "" || !max) return null;
   const value = Number(score);
-  return Number.isFinite(value) ? { score: value, max, on: shortDate(on) } : null;
+  return Number.isFinite(value)
+    ? { score: value, max, on: shortDate(on), ...(checks ? { checks } : {}) }
+    : null;
 }
 
 export default function HealthCheckPage() {
@@ -108,7 +112,12 @@ export default function HealthCheckPage() {
                   ? { lower: Number(ciLow), upper: Number(ciHigh) }
                   : null,
             },
-            siteReadiness: measured(site?.scoreComposite, site?.maxScore, site?.checkedAt),
+            siteReadiness: measured(
+              site?.scoreComposite,
+              site?.maxScore,
+              site?.checkedAt,
+              site?.scoredChecks,
+            ),
             localAuthority: measured(agent?.localAiTrustScore, 100, agent?.scoredAt),
             topAction: topTask
               ? {

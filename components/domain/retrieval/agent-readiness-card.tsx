@@ -1,9 +1,10 @@
 "use client";
 
 import {
+  READINESS_POINTS_TOTAL,
   type ReadinessBreakdown,
   type ReadinessDimension,
-  readinessGapText,
+  shownReadinessGaps,
 } from "@/lib/retrieval/agent-readiness-breakdown";
 import { checkText, measured, NOT_MEASURED, scoreText } from "@/lib/scoring/measured";
 
@@ -82,8 +83,7 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
       </div>
       {b && notMeasuredPoints > 0 && (
         <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-          Out of the {totalMax} points we could measure. {notMeasuredPoints} of the 100 points
-          weren't measured, so they aren't counted either way.
+          {`Out of the ${totalMax} points we could measure. ${notMeasuredPoints} of the ${READINESS_POINTS_TOTAL} points weren't measured, so they aren't counted either way.`}
         </p>
       )}
 
@@ -164,23 +164,25 @@ export function AgentReadinessCard(props: AgentReadinessCardProps) {
         </div>
       )}
 
-      {props.gaps.length > 0 && (
+      {shownReadinessGaps(props.gaps).length > 0 && (
         <div className="mt-4 space-y-1">
           <div className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
             Top Gaps
           </div>
-          {props.gaps.slice(0, 3).map((gap, i) => (
-            <div
-              key={i}
-              className="text-sm rounded px-2 py-1"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--warning) 10%, transparent)",
-                color: "var(--foreground)",
-              }}
-            >
-              {readinessGapText(gap)}
-            </div>
-          ))}
+          {shownReadinessGaps(props.gaps)
+            .slice(0, 3)
+            .map((gap) => (
+              <div
+                key={gap}
+                className="text-sm rounded px-2 py-1"
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--warning) 10%, transparent)",
+                  color: "var(--foreground)",
+                }}
+              >
+                {gap}
+              </div>
+            ))}
         </div>
       )}
     </div>

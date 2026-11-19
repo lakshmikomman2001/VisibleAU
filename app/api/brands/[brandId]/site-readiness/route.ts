@@ -13,7 +13,12 @@ import {
 } from "@/lib/governance";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { crawlReach } from "@/lib/technical-audit/crawl-status";
-import { compositeMaxFor, TECHNICAL_AUDIT_MAX_SCORE } from "@/lib/technical-audit/score-aggregator";
+import {
+  scoredChecksOf,
+  TECHNICAL_AUDIT_CHECKS,
+  TECHNICAL_AUDIT_MAX_SCORE,
+} from "@/lib/technical-audit/score-aggregator";
+import { technicalScoringOf } from "@/lib/technical-audit/scoring-version";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const { brandId } = await params;
@@ -68,16 +73,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     // Health Check (7 Nov): the score on its own scale (out of TECHNICAL_AUDIT_MAX_SCORE, not 100)
     // and when it was checked, so the card can say both.
+    // 20 Nov: the audit's own scoring rules (lib/technical-audit/scoring-version.ts) -- its maximum (74 from 20 Nov, 95
+    // from 19 Nov, 98 from 21 Oct, 100 before) and how many checks it scored (6 from 20 Nov, 8 before).
+    const scoring = latest ? technicalScoringOf(latest) : null;
     return NextResponse.json({
       scoreComposite: siteUnreachable ? null : (latest?.scoreComposite ?? null),
-      // 19 Nov: the audit's own maximum (95 from 19 Nov, 98 while the /ai/ files counted, 100 before 21 Oct).
-      maxScore: latest
-        ? compositeMaxFor(
-            latest.createdAt,
-            (latest.findings as { aiDiscovery?: { optionalFilesScored?: boolean } } | null)
-              ?.aiDiscovery,
-          )
-        : TECHNICAL_AUDIT_MAX_SCORE,
+      maxScore: scoring ? scoring.compositeMax : TECHNICAL_AUDIT_MAX_SCORE,
+      scoredChecks: scoring ? scoredChecksOf(scoring).length : TECHNICAL_AUDIT_CHECKS.length,
+      scoringVersion: scoring?.version ?? null,
       checkedAt: latest?.createdAt ?? null,
       siteUnreachable,
     });

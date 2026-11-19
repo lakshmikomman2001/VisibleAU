@@ -71,7 +71,9 @@ export const KEPT_UNTIL_YOU_ASK = `Two copies are kept until you ask us to delet
  * Uploaded server logs (the Agent Analytics upload, inngest/functions/parse-crawler-log.ts): only the lines from a
  * known AI crawler are saved (lib/agent-analytics/parse-crawler-log.ts discards the rest), each with the crawler's
  * name, the page, the response code, the time, the size and the IP address it came from (crawler_visit_logs), and the
- * weekly job deletes them CRAWLER_LOG_RETENTION_DAYS after the visit. Not "nothing else is kept": the upload route
- * sends the whole file to the background-job service (Inngest) in its event, which keeps events for its own period.
+ * weekly job deletes them CRAWLER_LOG_RETENTION_DAYS after the visit. 20 Nov (part 5): the file itself waits in private
+ * storage only until it's read, and is deleted then (or when reading it fails for the last time); it went into the
+ * background-job service's (Inngest's) event, which keeps events for its own period
+ * (lib/agent-analytics/log-upload-storage.ts).
  */
-export const SERVER_LOGS_KEPT = `If you upload your server logs, we keep the AI crawlers' visits from them (the crawler, the page, the time, the response code and the IP address it came from) for ${CRAWLER_LOG_RETENTION_DAYS} days.`;
+export const SERVER_LOGS_KEPT = `If you upload your server logs, we keep the AI crawlers' visits from them (the crawler, the page, the time, the response code and the IP address it came from) for ${CRAWLER_LOG_RETENTION_DAYS} days. The file itself is deleted once we've read it.`;

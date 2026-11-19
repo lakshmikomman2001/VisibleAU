@@ -3,6 +3,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
+import {
+  CRAWLER_LOG_BUCKET,
+  type CrawlerLogUploadedEvent,
+  crawlerLogContentType,
+  crawlerLogExtension,
+  crawlerLogPath,
+  MAX_CRAWLER_LOG_BYTES,
+  sha256Hex,
+} from "@/lib/agent-analytics/log-upload-storage";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   assertBrandAccess,
@@ -14,8 +23,7 @@ import {
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+import { getStorage } from "@/lib/storage";
 
 export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -53,6 +61,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
 
   if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // A body that says it's over the limit is refused before it's read.
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (declared > MAX_CRAWLER_LOG_BYTES + 64 * 1024)
+    return NextResponse.json({ error: "File too large (50 MB max)" }, { status: 400 });
+
   const formData = await req.formData().catch(() => null);
   if (!formData)
     return NextResponse.json({ error: "Expected multipart form data" }, { status: 400 });
@@ -60,30 +73,53 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
-  const filename = file.name.toLowerCase();
-  if (!filename.endsWith(".log") && !filename.endsWith(".gz") && !filename.endsWith(".csv"))
+  if (!crawlerLogExtension(file.name))
     return NextResponse.json(
       { error: "Unsupported file type. Accepts .log, .gz, .csv" },
       { status: 400 },
     );
 
-  if (file.size > MAX_FILE_SIZE)
+  if (file.size > MAX_CRAWLER_LOG_BYTES)
     return NextResponse.json({ error: "File too large (50 MB max)" }, { status: 400 });
 
+  // 20 Nov (part 5): the file goes to private storage, under this workspace's and brand's folder -- the path is built
+  // here from the signed-in workspace and the brand it owns, never from the request -- and the event carries only that
+  // reference (lib/agent-analytics/log-upload-storage.ts). It went base64 into the event, every visitor's IP with it.
   const buffer = Buffer.from(await file.arrayBuffer());
-  const content = buffer.toString("base64");
+  const storagePath = crawlerLogPath(currentUser.organizationId, brand.id, file.name);
+  const storage = getStorage(CRAWLER_LOG_BUCKET);
+  try {
+    await storage.upload(storagePath, buffer, crawlerLogContentType(file.name));
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "crawler_log_store_failed",
+        error: err instanceof Error ? err.name : "unknown",
+      }),
+    );
+    return NextResponse.json(
+      { error: "We couldn't store your log file. Try again in a minute." },
+      { status: 503 },
+    );
+  }
 
-  await inngest.send({
-    name: "crawler-log/uploaded",
-    data: {
-      brandId: brand.id,
-      organizationId: brand.organizationId,
-      domain: brand.domain,
-      filename: file.name,
-      contentBase64: content,
-      uploadedBy: currentUser.id,
-    },
-  });
+  const data: CrawlerLogUploadedEvent = {
+    brandId: brand.id,
+    organizationId: currentUser.organizationId,
+    domain: brand.domain,
+    filename: file.name,
+    storagePath,
+    sizeBytes: buffer.length,
+    sha256: sha256Hex(buffer),
+    uploadedBy: currentUser.id,
+  };
+  try {
+    await inngest.send({ name: "crawler-log/uploaded", data });
+  } catch (err) {
+    // Nothing will read it: don't keep it.
+    await storage.delete([storagePath]).catch(() => {});
+    throw err;
+  }
 
   return NextResponse.json(
     { status: "accepted", message: "Log file queued for processing" },

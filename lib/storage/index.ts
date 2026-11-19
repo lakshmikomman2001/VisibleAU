@@ -5,10 +5,12 @@ export type { StorageAdapter };
 /**
  * "reports" (the default) holds report PDFs and accepts only PDFs; "logos"
  * holds uploaded logos and accepts only PNG and JPEG, up to 2 MB
- * (scripts/ensure-logo-storage-bucket.ts). Both private. The local driver
- * has one folder for both; a logo's path has its own branding/ folder.
+ * (scripts/ensure-logo-storage-bucket.ts); "crawler-logs" holds an uploaded
+ * server log until it's parsed, up to 50 MB (scripts/ensure-crawler-log-storage-bucket.ts,
+ * 20 Nov). All private. The local driver has one folder for all three; a logo's
+ * path has its own branding/ folder, a log's its crawler-logs/ folder.
  */
-export type StorageBucket = "reports" | "logos";
+export type StorageBucket = "reports" | "logos" | "crawler-logs";
 
 export function getStorage(bucket: StorageBucket = "reports"): StorageAdapter {
   const driver = (process.env.STORAGE_DRIVER ?? "local").trim().toLowerCase();

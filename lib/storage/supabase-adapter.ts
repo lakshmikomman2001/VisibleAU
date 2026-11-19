@@ -9,7 +9,7 @@ const DELETE_BATCH = 100;
 
 export class SupabaseStorageAdapter implements StorageAdapter {
   /** "reports" accepts only PDFs; "logos" only PNG and JPEG (lib/storage/index.ts). */
-  constructor(private readonly bucket: "reports" | "logos" = "reports") {}
+  constructor(private readonly bucket: "reports" | "logos" | "crawler-logs" = "reports") {}
 
   async upload(path: string, buffer: Buffer, contentType: string): Promise<void> {
     const supabase = getSupabaseAdmin();

@@ -24,7 +24,7 @@ data is kept.
 | PDF reports | When a report is made | Supabase Storage, bucket `reports` (private) | `inngest/functions/render-report-pdf.ts` |
 | Report logos | When uploaded | Supabase Storage, bucket `logos` (private) | `lib/branding/logo.ts` |
 | AI crawlers' visits from uploaded server logs: the crawler, the page, the time, the response code, the size, the IP address it came from | Each log upload | Neon `crawler_visit_logs` | `inngest/functions/parse-crawler-log.ts` |
-| The uploaded log file itself, every line | Each log upload, until it's parsed | From part 5 of this change: Supabase Storage, bucket `crawler-logs` (private), deleted once parsed. Before it: inside the Inngest event | `app/api/brands/[brandId]/crawler-logs/upload/route.ts` |
+| The uploaded log file itself, every line | Each log upload, until it's parsed | Supabase Storage, bucket `crawler-logs` (private), deleted once it's parsed (part 5, 20 Nov). Before then: inside the Inngest event | `app/api/brands/[brandId]/crawler-logs/upload/route.ts`, `inngest/functions/parse-crawler-log.ts` |
 | A free sample audit's website address, kind of business and suburb, its questions and answers | The home page's free sample audit (no sign-up) | Neon, in a system workspace with no members | `lib/sample-audit/run.ts` |
 | A sample visitor's IP address, as a rate-limit key | The free sample audit | Upstash Redis (the raw address), or Neon `rate_limit_counters` (a salted hash) when Redis isn't configured | `lib/sample-audit/rate-limit.ts`, `lib/governance/pg-rate-limit.ts` |
 | An IP address, with its count of sign-in, sign-up, password and email attempts | Those requests | Neon (better-auth's rate-limit table) | `lib/auth/rate-limit-rules.ts` |

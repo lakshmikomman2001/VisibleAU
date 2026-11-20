@@ -56,9 +56,10 @@ test.beforeAll(async () => {
   // Seed agent_readiness_scores. 17 Nov, part 3: the card reads the score back from its stored parts
   // (lib/retrieval/agent-readiness-breakdown.ts), out of the points that were measured -- a row with totals and no
   // parts is "Not measured yet". These parts, as the writer stores them since 17 Nov (an unmeasured part is null):
-  // tech 3+3+3+3+2 of 18 measured (page load null, MCP 0+0) = 14/18; entity 5+4+0+3 = 12/16 (name consistent
-  // null); verify ABN 5 = 5/5 (Wikipedia, directories, reviews, quotes null); authority 50% coverage = 4/8
-  // (citations null); task 5+0+5+3 = 13/20. Total 48 of 67.
+  // tech 3+3+2 of 12 measured (page load null, MCP 0+0) = 8/12 -- 20 Nov, part 1: the two llms.txt draft parts (3
+  // each, both true here) aren't parts of the score; entity 5+4+0+3 = 12/16 (name consistent null); verify ABN 5 =
+  // 5/5 (Wikipedia, directories, reviews, quotes null); authority 50% coverage = 4/8 (citations null); task
+  // 5+0+5+3 = 13/20. Total 42 of 61.
   await db.insert(agentReadinessScores).values({
     brandId,
     organizationId: orgId,
@@ -161,7 +162,7 @@ test.describe("Screen 1 — Retrieval Hub", () => {
     });
     await expect(page.getByText("Avg Citation Prob.")).toBeVisible();
     await expect(page.getByText("Crawler Visits")).toBeVisible();
-    await expect(page.getByText("48/67")).toBeVisible();
+    await expect(page.getByText("42/61")).toBeVisible();
   });
 
   test("NO standalone llms.txt Depth /18 stat card (depth-card fix)", async ({ page }) => {
@@ -213,9 +214,9 @@ test.describe("Screen 1 — Retrieval Hub", () => {
 // ═══════════════════════════════════════════════════════════════
 
 test.describe("Screen 2 — Agent Readiness", () => {
-  test("renders the total score, out of the points measured: 48/67", async ({ page }) => {
+  test("renders the total score, out of the points measured: 42/61", async ({ page }) => {
     await page.goto(`/brands/${brandId}/retrieval/agent-readiness`);
-    await expect(page.getByText("48/67")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("42/61")).toBeVisible({ timeout: 15000 });
   });
 
   test("renders 5 dimension labels", async ({ page }) => {

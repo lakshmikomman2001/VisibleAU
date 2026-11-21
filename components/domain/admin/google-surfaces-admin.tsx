@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { collapseNoChangeSaves, noChangeText } from "@/lib/admin/settings-history-view";
 import type { GoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
@@ -497,9 +497,12 @@ const ceilingProblem = (typed: string) => {
 export function GoogleSurfacesAdmin({
   view,
   health,
+  flags,
 }: {
   view: GoogleSurfaceAdminView;
   health: GoogleOperatorHealth;
+  /** S00 part 2: the Feature flags card, shown above Changes (whose log it writes to). None: the page as before. */
+  flags?: ReactNode;
 }) {
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
@@ -715,6 +718,8 @@ export function GoogleSurfacesAdmin({
         </section>
 
         <ProviderErrors errors={health.providerErrorGroups} lastCleanRun={health.lastCleanRun} />
+
+        {flags}
 
         <section className="p-5 rounded-xl" style={card} data-admin-history="">
           <h2 className="text-sm font-semibold mb-3" style={label}>

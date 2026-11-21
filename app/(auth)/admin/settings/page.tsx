@@ -1,3 +1,4 @@
+import { FeatureFlagsAdmin } from "@/components/domain/admin/feature-flags-admin";
 import { GoogleSurfacesAdmin } from "@/components/domain/admin/google-surfaces-admin";
 import { loadGoogleOperatorHealth } from "@/lib/audit/google-surfaces/operator";
 import { checkPlatformAdmin } from "@/lib/auth/platform-admin";
@@ -35,5 +36,16 @@ export default async function AdminSettingsPage({
     loadGoogleSurfaceAdminView(workspace ?? null),
     loadGoogleOperatorHealth(),
   ]);
-  return <GoogleSurfacesAdmin view={view} health={health} />;
+  // S00 part 2: the feature flags, for the same chosen workspace (a malformed id is no workspace). The card loads
+  // them itself from /api/admin/feature-flags, which checks the operator again.
+  const flagsWorkspace = workspace && UUID.test(workspace) ? workspace : null;
+  return (
+    <GoogleSurfacesAdmin
+      view={view}
+      health={health}
+      flags={<FeatureFlagsAdmin workspaceId={flagsWorkspace} />}
+    />
+  );
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

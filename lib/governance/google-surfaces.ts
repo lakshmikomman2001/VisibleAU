@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
-import { serviceDb } from "@/db/client";
+import { db, serviceDb, type TxClient } from "@/db/client";
 import { notTheSampleWorkspace } from "@/db/open-workspace";
 import {
   brandGoogleLocations,
@@ -358,6 +358,84 @@ export async function operatorProfileId(betterAuthUserId: string | null): Promis
     .from(users)
     .where(eq(users.clerkUserId, betterAuthUserId));
   return row?.id ?? null;
+}
+
+// S00 part 2 (22 Nov; LLD section 17): the client-enhancements feature flags (lib/flags) keep their global values
+// and their history in this same store, and this module stays the one code that touches those two tables
+// (tests/unit/google-surfaces/switch-readers.test.ts). The flags go through the three functions below, by their own
+// keys only: a Google setting's key, or a Google workspace-override key, is refused, so a flag can never change what
+// resolveGoogleSurfaces decides. They use the app's connection (db, not serviceDb): both tables are global, without
+// RLS, and visibleau_app has DML on them.
+
+const GOOGLE_KEYS: ReadonlySet<string> = new Set<string>([
+  ...Object.values(GOOGLE_SETTING_KEYS),
+  ...Object.values(GOOGLE_SURFACE_FLAG_KEYS),
+]);
+
+function featureFlagKeysOnly(keys: readonly string[]): void {
+  const google = keys.filter((key) => GOOGLE_KEYS.has(key));
+  if (google.length > 0)
+    throw new Error(`Not a feature flag: ${google.join(", ")} is a Google AI setting`);
+}
+
+/** The stored global values of these feature-flag keys; a key with no row is absent. */
+export async function readFeatureFlagSettings(
+  keys: readonly string[],
+): Promise<Map<string, unknown>> {
+  featureFlagKeysOnly(keys);
+  const rows = await db
+    .select({ key: featureSettings.key, value: featureSettings.value })
+    .from(featureSettings)
+    .where(inArray(featureSettings.key, [...keys]));
+  return new Map(rows.map((row) => [row.key, row.value]));
+}
+
+/** Sets one feature flag's global value and writes its history row ("before" -> "value"), in one transaction. */
+export async function saveFeatureFlagSetting(
+  key: string,
+  value: boolean,
+  before: boolean,
+  actorUserId: string | null,
+): Promise<void> {
+  featureFlagKeysOnly([key]);
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(featureSettings)
+      .values({ key, value, updatedByUserId: actorUserId })
+      .onConflictDoUpdate({
+        target: featureSettings.key,
+        set: { value, updatedByUserId: actorUserId, updatedAt: new Date() },
+      });
+    await tx.insert(featureSettingChanges).values({
+      scope: "global",
+      settingKey: key,
+      oldValue: before,
+      newValue: value,
+      changedByUserId: actorUserId,
+    });
+  });
+}
+
+/** The history row for one workspace's feature-flag override, on the caller's transaction (its RLS context). */
+export async function logFeatureFlagOverride(
+  tx: TxClient,
+  change: {
+    key: string;
+    orgId: string;
+    before: boolean | null;
+    after: boolean | null;
+    actorUserId: string | null;
+  },
+): Promise<void> {
+  featureFlagKeysOnly([change.key]);
+  await tx.insert(featureSettingChanges).values({
+    scope: "workspace",
+    settingKey: change.key,
+    targetWorkspaceId: change.orgId,
+    oldValue: change.before,
+    newValue: change.after,
+    changedByUserId: change.actorUserId,
+  });
 }
 
 export interface GoogleSurfaceHistoryEntry {

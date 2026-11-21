@@ -328,9 +328,8 @@ export function ScheduleForm({ onSubmit, loading }: ScheduleFormProps) {
             height: 20,
             border: "none",
             cursor: "pointer",
-            backgroundColor: active
-              ? "var(--layer-communication)"
-              : `color-mix(in srgb, var(--text-tertiary) 30%, transparent)`,
+            // S00 part 0b, D-UI1: the off track is a control boundary (3:1, --border-control).
+            backgroundColor: active ? "var(--layer-communication)" : "var(--border-control)",
             padding: 0,
           }}
         >

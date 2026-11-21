@@ -157,6 +157,14 @@ body:has([data-app-shell]) {
   /* Text on a --danger button (part 4 of the af8de42..d1eb5a1 follow-ups): white on it is 3.3:1, this 6.1:1. */
   --danger-fg: #09090b;
   --info: #06b6d4; --info-soft: rgba(6,182,212,0.12);
+  /* S00 part 0b (22 Nov), the UI contract's new tokens (docs/prototypes/vunnara-ui-config.ts, docs/prototypes/
+     token-map.md), named the app's way: a tint is -soft, text on a colour is -fg. --border-control is a form
+     control's boundary (decision D-UI1): 3:1 or more on every surface. --agency marks only what an agency wrote,
+     on its --agency-soft pill. --warning-fg is a glyph on a solid --warning disc (the contract's --on-status;
+     --success-fg and --danger-fg already serve the good and bad discs). */
+  --border-control: #71717a;
+  --agency: #c4b5fd; --agency-soft: #211a3a;
+  --warning-fg: #0a0a0b;
   --gradient-glow: radial-gradient(ellipse at top, rgba(59,130,246,0.08), transparent 50%);
   --gradient-card: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%);
   --gradient-border: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
@@ -184,6 +192,10 @@ body:has([data-app-shell]) {
   --danger: #cf2121; --danger-soft: rgba(207,33,33,0.08);
   --danger-fg: #ffffff;
   --info: #06748f; --info-soft: rgba(6,116,143,0.08);
+  /* S00 part 0b, as in dark. */
+  --border-control: #8a8a93;
+  --agency: #6d28d9; --agency-soft: #f5f3ff;
+  --warning-fg: #ffffff;
   --gradient-glow: radial-gradient(ellipse at top, rgba(37,99,235,0.04), transparent 50%);
   --gradient-card: linear-gradient(180deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0) 100%);
   --gradient-border: linear-gradient(135deg, rgba(0,0,0,0.05), rgba(0,0,0,0.02));
@@ -194,6 +206,20 @@ html, body {
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-display);
+}
+
+/* S00 part 0b (22 Nov), decision D-UI1 (the UI contract's C-11): a form control's boundary is --border-control,
+   3:1 or more on every surface (WCAG 1.4.11); --border-default was about 1.2:1. Text inputs, textareas and
+   selects set their border inline from --border-default, --border-strong or --border-subtle, so on the control
+   itself those three names are --border-control: every form gets it and no screen's markup changes. Decorative
+   borders (cards, rows, dividers) keep their own values; focus and error borders use other tokens and are
+   unchanged. Checkboxes and radios keep the browser's own boundary, which is already above 3:1. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="image"]),
+textarea,
+select {
+  --border-default: var(--border-control);
+  --border-strong: var(--border-control);
+  --border-subtle: var(--border-control);
 }
 
 *, *::before, *::after {

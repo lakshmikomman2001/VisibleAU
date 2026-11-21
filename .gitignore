@@ -85,3 +85,6 @@ dev-test.log
 
 # Handoff bundles — reference material, never source
 vunnara-project-bundle*
+
+# Screenshots and scratch output from QA runs (S00 part 0b) -- never committed
+.qa/

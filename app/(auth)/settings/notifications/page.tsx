@@ -43,7 +43,8 @@ function Toggle({
         opacity: disabled ? 0.6 : 1,
         border: "none",
         transition: "background-color 0.2s",
-        backgroundColor: checked ? "var(--accent-blue)" : "var(--bg-active)",
+        // S00 part 0b, D-UI1: the off track is a control boundary (3:1, --border-control).
+        backgroundColor: checked ? "var(--accent-blue)" : "var(--border-control)",
       }}
     >
       <span

@@ -1,7 +1,8 @@
 import { resolveAudience } from "@/lib/brands/audience";
-import { withIndefiniteArticle } from "@/lib/brands/service-phrase";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import type { Audience, BrandClassification } from "@/lib/types/brand";
+import { toServicePhrase, withArticle } from "./phrasing";
 import { seededShuffle } from "./seeded-random";
 import {
   type BuyerType,
@@ -68,7 +69,9 @@ export function serviceWordFor(
   const key = resolveCategory(category);
   if (!SERVICE_TEMPLATE_CATEGORIES.includes(key)) return null;
   const own = classification.service ? stripPlaceToken(classification.service, region) : "";
-  return own || SERVICE_WORD_FALLBACK[key] || null;
+  // S00 part 3 (T3): the classifier's words are stored lower case; acronyms get their capitals back
+  // ("managed it services" -> "managed IT services").
+  return (own ? toServicePhrase(own) : "") || SERVICE_WORD_FALLBACK[key] || null;
 }
 
 /** "{service} in Parramatta with good reviews?" -> "Dog groomer in Parramatta with good reviews?" */
@@ -164,7 +167,8 @@ export function buildCandidatePoolsByCategory(
     // -- an intentSignal may already carry a place name baked in --
     // stripped before appending the region, so "Best {signal} in
     // {region}?" names the place once, naturally.
-    const cleanedSignal = stripPlaceToken(signal, region);
+    // S00 part 3 (T3): an intent signal's acronyms in their own casing ("it support" -> "IT support").
+    const cleanedSignal = toServicePhrase(stripPlaceToken(signal, region));
     const candidate = `Best ${cleanedSignal} ${businessSuffix}?`;
     const result = validateGeneratedQuestion(candidate, region, audience !== "businesses");
     if (!result.valid) {
@@ -275,9 +279,9 @@ export function buildPromptPack(
   const ownService = classification.service
     ? serviceWordFor(firstCategory, classification, region)
     : null;
-  const servicePhrase = ownService
-    ? withIndefiniteArticle(ownService)
-    : categoryServicePhrase(firstCategory);
+  // S00 part 3 (T3): no "a"/"an" before a plural or uncountable service ("a good choice for managed IT services"),
+  // and "an" by sound ("an IT consultant").
+  const servicePhrase = ownService ? withArticle(ownService) : categoryServicePhrase(firstCategory);
 
   const taggedOrganic = buildTaggedOrganicPrompts(
     classification,
@@ -299,7 +303,9 @@ export function buildPromptPack(
 
   // Vunnara Build 1, Part E.4: the one new branded template this build
   // adds, always extra, on top of the organic budget.
-  const goodChoice = `Is ${brandName} a good choice for ${servicePhrase} in ${region}?`;
+  // S00 part 3: the name as stored, trimmed (a stray space never reaches the question); the seed above keeps the
+  // raw value, so which everyday questions are chosen doesn't change.
+  const goodChoice = `Is ${normalizeBrandName(brandName)} a good choice for ${servicePhrase} in ${region}?`;
 
   return [...organic, goodChoice, ...enriched];
 }
@@ -323,16 +329,18 @@ export function buildEnrichedPrompts(
   audience: Audience = resolveAudience(classification),
 ): string[] {
   const prompts: string[] = [];
+  // S00 part 3: trimmed before it goes into a question.
+  const name = normalizeBrandName(brandName);
 
   for (const competitor of confirmedCompetitors.slice(0, 2)) {
     prompts.push(
       audience === "businesses"
-        ? `${brandName} vs ${competitor} — which is better for Australian businesses?`
-        : `${brandName} vs ${competitor} — which is better?`,
+        ? `${name} vs ${competitor} — which is better for Australian businesses?`
+        : `${name} vs ${competitor} — which is better?`,
     );
   }
 
-  prompts.push(`What are the best alternatives to ${brandName} in ${region}?`);
+  prompts.push(`What are the best alternatives to ${name} in ${region}?`);
 
   // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: the intent-signal-
   // derived prompts moved to buildCandidatePoolsByCategory above --
@@ -341,7 +349,7 @@ export function buildEnrichedPrompts(
   // against the organic budget (tagged per category, hotfix 3) instead
   // of bypassing it from here.
 
-  prompts.push(`Is ${brandName} popular in ${region}?`);
+  prompts.push(`Is ${name} popular in ${region}?`);
 
   // 14 Nov, part 1 (Sri's review of audit #48): "What Australian tech companies are leading in their space in 2025?"
   // was added here for every Australian-founded brand (classification.auRelevance "au_founded"), whatever its

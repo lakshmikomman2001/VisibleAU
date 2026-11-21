@@ -1,4 +1,5 @@
 import type { Brand } from "@/db/schema";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { validateGeneratedQuestion } from "@/lib/prompts/validate-question";
 
 interface ExpandContext {
@@ -25,6 +26,10 @@ export function formatCompetitors(competitors: string[]): string {
 
 export function expandPrompt(template: string, ctx: ExpandContext): string[] {
   const formattedCompetitors = formatCompetitors(ctx.competitors);
+  // S00 part 3: the brand's name trimmed before it goes into a question (a stored " Omega Services" made
+  // "Is  Omega Services…"), and the names in a question are data to the wording checks, not words.
+  const brandName = normalizeBrandName(ctx.brand.name);
+  const names = [brandName, ...ctx.competitors];
 
   if (template.includes("{location}")) {
     if (ctx.locations.length === 0) return [];
@@ -32,7 +37,7 @@ export function expandPrompt(template: string, ctx: ExpandContext): string[] {
     for (const rawLocation of ctx.locations) {
       const formattedLoc = formatLocation(rawLocation);
       const text = template
-        .replace(/\{brand\}/g, ctx.brand.name)
+        .replace(/\{brand\}/g, brandName)
         .replace(/\{domain\}/g, ctx.brand.domain)
         .replace(/\{location\}/g, formattedLoc)
         .replace(/\{competitors\}/g, formattedCompetitors);
@@ -46,7 +51,7 @@ export function expandPrompt(template: string, ctx: ExpandContext): string[] {
       // malformed result rather than ask a visitor a broken question.
       // A curated location's own text always passes this -- it was
       // already proven not to double/misplace itself.
-      if (validateGeneratedQuestion(text, formattedLoc, true).valid) {
+      if (validateGeneratedQuestion(text, formattedLoc, true, names).valid) {
         results.push(text);
       }
     }
@@ -55,7 +60,7 @@ export function expandPrompt(template: string, ctx: ExpandContext): string[] {
 
   return [
     template
-      .replace(/\{brand\}/g, ctx.brand.name)
+      .replace(/\{brand\}/g, brandName)
       .replace(/\{domain\}/g, ctx.brand.domain)
       .replace(/\{competitors\}/g, formattedCompetitors),
   ];

@@ -11,6 +11,8 @@
  * produces on its own.
  */
 
+import { articleBeforePluralProblem, lowerCaseAcronymProblem } from "./phrasing";
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -57,6 +59,39 @@ export function validateGeneratedQuestion(
   text: string,
   region: string,
   requireLocation = true,
+  /**
+   * S00 part 3: names that are data in this question (the brand, its competitors). The wording checks below look
+   * past them and past the place: a business called "Seo Plumbing" or a suburb isn't a lower-case acronym.
+   */
+  names: readonly string[] = [],
+): QuestionValidationResult {
+  const result = validateShape(text, region, requireLocation);
+  if (!result.valid) return result;
+  return validateWording(text, [region.split(",")[0]?.trim() ?? "", ...names]);
+}
+
+/**
+ * S00 part 3 (22 Nov; LLD 8.8.1, T3): a listed acronym written in lower case ("managed it services", "seo"), or
+ * "a"/"an" before a plural ("a managed IT services"). Checked after the place and punctuation rules, so a question
+ * those already refuse keeps its reason. The names in `exempt` are taken out first.
+ */
+function validateWording(text: string, exempt: readonly string[]): QuestionValidationResult {
+  let words = text;
+  for (const name of exempt) {
+    const trimmed = name.trim();
+    if (trimmed) words = words.replace(new RegExp(escapeRegExp(trimmed), "gi"), "Name");
+  }
+  const acronym = lowerCaseAcronymProblem(words);
+  if (acronym) return { valid: false, reason: `acronym in lower case ("${acronym}")` };
+  const plural = articleBeforePluralProblem(words);
+  if (plural) return { valid: false, reason: `"a"/"an" before a plural ("${plural}")` };
+  return { valid: true };
+}
+
+function validateShape(
+  text: string,
+  region: string,
+  requireLocation: boolean,
 ): QuestionValidationResult {
   if (/\s{2,}/.test(text)) {
     return { valid: false, reason: "doubled whitespace" };

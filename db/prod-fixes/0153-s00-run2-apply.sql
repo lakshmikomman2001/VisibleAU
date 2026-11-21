@@ -33,3 +33,18 @@ ALTER TABLE "feature_settings" ADD CONSTRAINT "feature_settings_key_check" CHECK
   'question_packs'));
 
 COMMIT;
+
+-- ==== Brand aliases (db/migrations/0153_brands_aliases.sql, S00 part 4) ====
+-- brands.aliases (other names, '{}' for every existing brand, at most 10) and brands.name_suggestion (the wizard's
+-- suggestion from the site; NULL for every existing brand). Additive; the pushed code selects both with every brand.
+BEGIN;
+
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "aliases" TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE "brands" ADD COLUMN IF NOT EXISTS "name_suggestion" TEXT;
+
+DO $$ BEGIN
+  ALTER TABLE "brands" ADD CONSTRAINT "brands_aliases_at_most_10" CHECK (cardinality("aliases") <= 10);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMIT;

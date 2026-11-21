@@ -43,4 +43,18 @@ SELECT
   pg_has_role(current_user, (SELECT tableowner FROM pg_tables WHERE tablename = 'feature_settings'), 'USAGE')
     AS runner_owns_feature_settings;
 
+-- ==== Brand aliases (db/migrations/0153_brands_aliases.sql, S00 part 4) ====
+
+-- 5. The two columns don't exist yet. Expected: 0 rows (or both, if run2 already ran).
+SELECT column_name, data_type, column_default, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'brands' AND column_name IN ('aliases', 'name_suggestion');
+
+-- 6. How many brands get the defaults (aliases '{}', name_suggestion NULL). Expected: every brand.
+SELECT count(*) AS brands, count(*) FILTER (WHERE deleted_at IS NULL) AS live_brands FROM brands;
+
+-- 7. The app role can already write brands' new columns once they exist (prod-fix 0052 grants table-wide DML).
+--    Expected: t.
+SELECT has_table_privilege('visibleau_app', 'brands', 'SELECT,INSERT,UPDATE') AS app_brands;
+
 ROLLBACK;

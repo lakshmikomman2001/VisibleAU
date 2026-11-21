@@ -48,4 +48,28 @@ SELECT
   has_table_privilege('visibleau_app', 'org_feature_flags', 'SELECT,INSERT,UPDATE,DELETE') AS app_org_feature_flags,
   has_table_privilege('visibleau_app', 'audit_trail', 'INSERT') AS app_audit_trail;
 
+-- ==== Brand aliases (db/migrations/0153_brands_aliases.sql, S00 part 4) ====
+
+-- 5. Both columns, with their defaults. Expected: aliases ARRAY '{}'::text[] NO; name_suggestion text (null) YES.
+SELECT column_name, data_type, column_default, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'brands' AND column_name IN ('aliases', 'name_suggestion')
+ORDER BY column_name;
+
+-- 6. Every existing brand has no alias and no suggestion. Expected: with_aliases = 0, with_suggestion = 0.
+SELECT
+  count(*) FILTER (WHERE cardinality(aliases) > 0) AS with_aliases,
+  count(*) FILTER (WHERE name_suggestion IS NOT NULL) AS with_suggestion
+FROM brands;
+
+-- 7. The CHECK holds the count. Expected: one row, brands_aliases_at_most_10.
+SELECT conname FROM pg_constraint WHERE conrelid = 'brands'::regclass AND conname = 'brands_aliases_at_most_10';
+
+-- 8. The app role reads and writes the new columns. Expected: t, t, t, t.
+SELECT
+  has_column_privilege('visibleau_app', 'brands', 'aliases', 'SELECT') AS app_reads_aliases,
+  has_column_privilege('visibleau_app', 'brands', 'aliases', 'UPDATE') AS app_writes_aliases,
+  has_column_privilege('visibleau_app', 'brands', 'name_suggestion', 'SELECT') AS app_reads_suggestion,
+  has_column_privilege('visibleau_app', 'brands', 'name_suggestion', 'INSERT') AS app_writes_suggestion;
+
 ROLLBACK;

@@ -2,11 +2,12 @@
 
 import { Info, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { BusinessKindPicker } from "@/components/domain/vertical/business-kind-picker";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
+import { suggestAliases } from "@/lib/brands/aliases";
 import { VERTICAL_LABELS } from "@/lib/brands/business-label";
 import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
 import { isRunTogetherDomainName, readableNameFromDomain } from "@/lib/brands/name-from-domain";
@@ -38,16 +39,45 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   // 13 Nov (part 2): the name the wizard suggested from the domain, while the owner hasn't changed it, and
   // whether they chose to keep a run-together domain label as the name.
   const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  // S00 part 4 (LLD 8.8.2): the name the business's own site gives (og:site_name, its title, JSON-LD), asked for
+  // when the domain is entered; null while there's none (the domain's words above are the suggestion then).
+  const [siteSuggestion, setSiteSuggestion] = useState<string | null>(null);
   const [keepRunTogether, setKeepRunTogether] = useState(false);
   const runTogether = isRunTogetherDomainName(name, domain) && !keepRunTogether;
+  // The other names saved with the brand, shown under the name so none is added silently.
+  const aliasesToSave = name.trim() && domain.trim() ? suggestAliases(name, domain) : [];
   const onDomainChange = (value: string) => {
     setDomain(value);
+    setSiteSuggestion(null);
     // Suggest a readable name where the domain shows the words ("hero-home-services" -> "Hero Home
     // Services"), only while the name is empty or still the wizard's own suggestion.
     if (name === "" || name === suggestedName) {
       const readable = readableNameFromDomain(value);
       setSuggestedName(readable);
       setName(readable ?? "");
+    }
+  };
+  // What the fields hold now, for an answer that arrives after the owner has typed on.
+  const latest = useRef({ name, domain, suggestedName });
+  latest.current = { name, domain, suggestedName };
+  /** The site's own name for the domain just entered; it replaces the name only while that is still a suggestion. */
+  const askSiteForName = async () => {
+    const host = domain.trim();
+    if (!host.includes(".")) return;
+    try {
+      const res = await fetch(`/api/brands/name-suggestion?domain=${encodeURIComponent(host)}`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { name: string | null; source: string | null };
+      if (!body.name || body.source === "domain") return;
+      const now = latest.current;
+      if (now.domain.trim() !== host) return;
+      setSiteSuggestion(body.name);
+      if (now.name === "" || now.name === now.suggestedName) {
+        setSuggestedName(body.name);
+        setName(body.name);
+      }
+    } catch {
+      // No suggestion: the owner types the name, as before.
     }
   };
   const [vertical, setVertical] = useState("");
@@ -123,6 +153,10 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          // S00 part 4: the other names shown under the name, and the site's suggestion (brand settings says
+          // "Suggested from your website's name" while the name still equals it).
+          aliases: aliasesToSave,
+          nameSuggestion: siteSuggestion,
           domain: domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, ""),
           vertical,
           primaryRegions: isOnlineOnly ? [] : suburbs,
@@ -310,10 +344,20 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
               />
               {suggestedName && name === suggestedName && (
                 <p
-                  data-name-suggested=""
+                  data-name-suggested={siteSuggestion === suggestedName ? "site" : ""}
                   style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
                 >
-                  From your web address. Change it if customers write it differently.
+                  {siteSuggestion === suggestedName
+                    ? "Suggested from your website's name. Edit if it's different."
+                    : "From your web address. Change it if customers write it differently."}
+                </p>
+              )}
+              {aliasesToSave.length > 0 && (
+                <p
+                  data-name-aliases=""
+                  style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
+                >
+                  {`Also recognised as ${aliasesToSave.join(" and ")} in AI answers. You can change these in Brand settings.`}
                 </p>
               )}
               {runTogether && (
@@ -387,6 +431,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   id="wiz-domain"
                   value={domain}
                   onChange={(e) => onDomainChange(e.target.value)}
+                  onBlur={() => void askSiteForName()}
                   placeholder="example.com.au"
                   style={{ ...inputStyle, borderRadius: "0 6px 6px 0" }}
                 />

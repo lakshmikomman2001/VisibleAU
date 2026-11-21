@@ -28,9 +28,13 @@ import { brandNamePattern, domainStem } from "@/lib/brands/normalize";
  */
 export function isBrandedPrompt(
   promptText: string,
-  brand: { name: string; domain: string },
+  brand: { name: string; domain: string; aliases?: readonly string[] },
 ): boolean {
   if (brandNamePattern(brand.name).test(promptText)) return true;
+  // S00 part 4 (22 Nov; LLD 8.8.2): a question that names the business by one of its other names (brands.aliases)
+  // names the business. A brand without aliases is checked exactly as before.
+  for (const alias of brand.aliases ?? [])
+    if (brandNamePattern(alias).test(promptText)) return true;
 
   const stem = domainStem(brand.domain);
   if (stem.length < 4) return false;

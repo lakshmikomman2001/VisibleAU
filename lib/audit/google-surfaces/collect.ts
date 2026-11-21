@@ -3,6 +3,7 @@ import { serviceDb } from "@/db/client";
 import { auditCostSnapshots, auditGoogleSurfaces, brands, googleSurfaceResults } from "@/db/schema";
 import { answerMention } from "@/lib/audit/answer-mention";
 import { GOOGLE_COST_SOURCE } from "@/lib/audit/answered-count";
+import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 import { usdToAudCents } from "@/lib/constants/currency";
 import type { GoogleLocation } from "@/lib/google-surfaces/location";
 import {
@@ -22,7 +23,6 @@ import type { GoogleSurfaceProvider, SurfaceTarget, TaskPoll } from "@/lib/serp/
 import type { GoogleCollectEventData, StoredGoogleSettings } from "./dispatch";
 import { alertOperatorsOnAccountProblem } from "./operator";
 import { GOOGLE_STORED_REASON } from "./reasons";
-import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 
 /**
  * Google AI surfaces, Phase 1, part 2 -- collecting one audit's Google AI Overviews and AI Mode answers,
@@ -132,6 +132,8 @@ async function loadBrand(brandId: string) {
     .select({
       name: brands.name,
       domain: brands.domain,
+      // S00 part 4: its other names, so Google's answers are checked exactly as the four engines' are.
+      aliases: brands.aliases,
       suburb: brands.suburb,
       city: brands.city,
       state: brands.state,

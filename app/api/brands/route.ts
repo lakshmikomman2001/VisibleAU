@@ -6,6 +6,7 @@ import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isOwnStoredLogo } from "@/lib/branding/logo";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
+import { checkAliases, MAX_ALIASES } from "@/lib/brands/aliases";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
@@ -71,6 +72,15 @@ const createBrandSchema = z.object({
   // 2 Nov: a logo uploaded through POST /api/branding/logo -- checked
   // below to be this workspace's own; never a URL from elsewhere.
   logoUrl: z.string().max(200).nullable().optional(),
+  // S00 part 4 (LLD 8.8.2): the other names the wizard pre-filled ("techcoreit", "TechCoreIT"), checked below
+  // (lib/brands/aliases.ts), and the name it suggested from the site, so brand settings can say so.
+  aliases: z.array(z.string().max(200)).max(MAX_ALIASES).optional().default([]),
+  nameSuggestion: z
+    .string()
+    .transform(normalizeBrandName)
+    .pipe(z.string().min(1).max(100))
+    .nullable()
+    .optional(),
 });
 
 function cleanDomain(raw: string): string {
@@ -132,6 +142,8 @@ export async function POST(req: Request) {
   if (logoUrl !== null && !isOwnStoredLogo(logoUrl, currentUser.organizationId)) {
     return NextResponse.json({ error: "logoUrl: upload the logo first" }, { status: 400 });
   }
+  const aliases = checkAliases(parsed.data.aliases, parsed.data.name);
+  if (!aliases.ok) return NextResponse.json({ error: aliases.error }, { status: 400 });
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const [existing] = await tx
@@ -155,6 +167,8 @@ export async function POST(req: Request) {
       .values({
         organizationId: currentUser.organizationId,
         name: parsed.data.name,
+        aliases: aliases.aliases,
+        nameSuggestion: parsed.data.nameSuggestion ?? null,
         domain: cleanDomain(parsed.data.domain),
         vertical: parsed.data.vertical,
         region,

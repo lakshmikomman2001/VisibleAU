@@ -6,6 +6,7 @@ import { auditSchedules, brands, reportDeliverySchedules } from "@/db/schema";
 import { verticalEnum } from "@/db/schema/enums";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
+import { checkAliases, MAX_ALIASES } from "@/lib/brands/aliases";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { competitorWebsitesToStore } from "@/lib/brands/competitor-websites";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
@@ -63,6 +64,9 @@ const updateBrandSchema = z.object({
   // Fair competitor counting (7 Nov): { "<competitor name>": "<website>" }; an empty value removes
   // it. Normalised and kept to this brand's competitors below (lib/brands/competitor-websites.ts).
   competitorWebsites: z.record(z.string().max(100), z.string().max(253)).optional(),
+  // S00 part 4 (LLD 8.8.2): "Also known as" -- the whole list, checked against the name the brand will have
+  // (lib/brands/aliases.ts: up to 10, 2-60 characters, unique as written, never the name itself).
+  aliases: z.array(z.string().max(200)).max(MAX_ALIASES).optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -134,7 +138,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
 
     // Websites are kept for the competitors the brand has after this change: a removed or renamed
     // competitor's website goes with it.
-    const { competitorWebsites: websiteChanges, ...fields } = parsed.data;
+    const { competitorWebsites: websiteChanges, aliases: sentAliases, ...fields } = parsed.data;
     const websites = competitorWebsitesToStore(
       fields.competitors ?? existing.competitors,
       existing.competitorWebsites,
@@ -144,10 +148,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       return NextResponse.json({ error: `competitorWebsites: ${websites.error}` }, { status: 400 });
     }
 
+    // The aliases as sent, or (a rename without them) the stored ones less any that is now the name itself.
+    // Written only when they change, so every other save leaves the column as it was.
+    const finalName = fields.name ?? existing.name;
+    const storedAliases = existing.aliases ?? [];
+    const aliasList =
+      sentAliases ?? storedAliases.filter((a) => a.toLowerCase() !== finalName.toLowerCase());
+    let aliasUpdate: { aliases?: string[] } = {};
+    if (sentAliases !== undefined || aliasList.length !== storedAliases.length) {
+      const aliases = checkAliases(aliasList, finalName);
+      if (!aliases.ok) return NextResponse.json({ error: aliases.error }, { status: 400 });
+      aliasUpdate = { aliases: aliases.aliases };
+    }
+
     const [updated] = await tx
       .update(brands)
       .set({
         ...fields,
+        ...aliasUpdate,
         competitorWebsites: websites.websites,
         // Confirming a location (fixed or online-only) is what makes
         // it count as confirmed -- set once here, next to the fields

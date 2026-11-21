@@ -10,6 +10,12 @@ export const brands = pgTable("brands", {
     .references(() => organizations.id)
     .notNull(),
   name: text("name").notNull(),
+  // S00 part 4 (22 Nov; migration 0153, brand aliases): other names AI might write the business under
+  // ("techcoreit", "TechCoreIT"). Mention detection and the branded-question rule read them with the name.
+  aliases: text("aliases").array().default([]).notNull(),
+  // The name the add-brand wizard suggested from the site (lib/brands/name-suggestion.ts); brand settings says
+  // "Suggested from your website's name" while the name still equals it. Null when there was none.
+  nameSuggestion: text("name_suggestion"),
   domain: text("domain").notNull(),
   vertical: verticalEnum("vertical").notNull(),
   region: regionEnum("region").notNull(),

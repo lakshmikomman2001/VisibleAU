@@ -1214,6 +1214,8 @@
           "id": "<uuid>",
           "organizationId": "<uuid>",
           "name": "Bondi Plumbing",
+          "aliases": [],
+          "nameSuggestion": null,
           "domain": "bondiplumbing.com.au",
           "vertical": "tradies",
           "region": "au",

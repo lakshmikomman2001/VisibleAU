@@ -114,12 +114,17 @@ function foundAt(
  */
 export async function detectBrandMention(
   response: string,
-  brand: { name: string; domain: string },
+  brand: { name: string; domain: string; aliases?: readonly string[] },
 ): Promise<MentionResult> {
   const text = detectionText(response);
+  // S00 part 4 (22 Nov; LLD 8.8.2): the brand's other names (brands.aliases) are its name too, matched by the same
+  // two patterns; the earliest of any of them counts. A brand without aliases is matched exactly as before.
+  const names = [brand.name, ...(brand.aliases ?? [])];
   const nameAt = earliest(
-    firstMatch(text, brandNamePattern(brand.name)),
-    firstMatch(text, spacingFreeNamePattern(brand.name)),
+    ...names.flatMap((name) => [
+      firstMatch(text, brandNamePattern(name)),
+      firstMatch(text, spacingFreeNamePattern(name)),
+    ]),
   );
   if (nameAt !== null) return foundAt(text, nameAt, "regex", "high");
   const stem = domainStem(brand.domain);

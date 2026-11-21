@@ -5,6 +5,8 @@ import { type MentionVerification, verifyMention } from "@/lib/audit/verify-ment
 export interface MentionBrand {
   name: string;
   domain: string;
+  /** S00 part 4: the brand's other names (brands.aliases); absent or empty matches the name alone, as before. */
+  aliases?: readonly string[];
   suburb: string | null;
   city: string | null;
   state: string | null;

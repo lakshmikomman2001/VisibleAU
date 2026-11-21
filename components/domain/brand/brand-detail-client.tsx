@@ -38,6 +38,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
+import { aliasProblem, MAX_ALIASES } from "@/lib/brands/aliases";
 import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import { brandBusinessLabel } from "@/lib/brands/business-label";
@@ -54,9 +55,10 @@ import {
 } from "@/lib/brands/first-audit-notice";
 import { isOnHistoryChart } from "@/lib/brands/history-chart";
 import { locationNeed } from "@/lib/brands/location-need";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import { brandLocationLabel } from "@/lib/brands/region-label";
 import { pluralise } from "@/lib/format/pluralise";
-import { refusalMessage } from "@/lib/governance/permissions";
+import { refusalMessage, rolesAllowed } from "@/lib/governance/permissions";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote } from "@/lib/llm/methodology";
 import { type AuditModelSet, modelSetChangeNote } from "@/lib/llm/model-set";
@@ -81,10 +83,31 @@ import { formatLocation } from "@/lib/verticals/expand-prompt";
 // (lib/llm/interface.ts) rather than casting at every call site.
 const ENGINE_DISPLAY: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
+/**
+ * S00 part 4 (UI contract P01 noPermission): "View only. Owners and admins can change these settings." -- from the
+ * roles that may change a brand's settings (lib/governance/permissions.ts), so it stays true if they change.
+ */
+function viewOnlyNote(): string {
+  const roles = rolesAllowed("manage_brands").map((r) => `${r}s`);
+  const who =
+    roles.length < 2
+      ? (roles[0] ?? "")
+      : `${roles.slice(0, -1).join(", ")} and ${roles[roles.length - 1]}`;
+  return `View only. ${who.charAt(0).toUpperCase()}${who.slice(1)} can change these settings.`;
+}
+
+/** UI contract P01: "Suggested from your website's name" while the name still equals the wizard's suggestion. */
+const NAME_SUGGESTED_HELP = "Suggested from your website's name. Edit if it's different.";
+const ALIASES_HELP = "Other ways AI might write your name. Used to recognise mentions.";
+
 interface BrandDetailClientProps {
   brand: {
     id: string;
     name: string;
+    /** S00 part 4: "Also known as" (brands.aliases); optional for callers that don't pass it. */
+    aliases?: string[];
+    /** The name the wizard suggested from the site; the help line shows while the name still equals it. */
+    nameSuggestion?: string | null;
     domain: string;
     vertical: string;
     region: string;
@@ -247,6 +270,12 @@ export function BrandDetailClient({
   const [competitorList, setCompetitorList] = useState<string[]>(brand.competitors);
   const [competitorInput, setCompetitorInput] = useState("");
   const [competitorError, setCompetitorError] = useState<string | null>(null);
+  // S00 part 4 (UI contract P01.aliases): the brand's other names, edited like the competitors and saved with
+  // the form; "+ Add a name" opens an inline field (Enter adds, Esc cancels).
+  const [aliasList, setAliasList] = useState<string[]>(brand.aliases ?? []);
+  const [aliasInput, setAliasInput] = useState("");
+  const [addingAlias, setAddingAlias] = useState(false);
+  const [aliasError, setAliasError] = useState<string | null>(null);
   const [changingLocation, setChangingLocation] = useState(false);
 
   // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
@@ -401,12 +430,24 @@ export function BrandDetailClient({
     const competitorsChanged =
       competitorList.length !== brand.competitors.length ||
       competitorList.some((c, i) => c !== brand.competitors[i]);
+    const savedAliases = brand.aliases ?? [];
+    const aliasesChanged =
+      aliasList.length !== savedAliases.length || aliasList.some((a, i) => a !== savedAliases[i]);
     void brandSave.save({
       name,
       domain,
       vertical,
       ...(competitorsChanged ? { competitors: competitorList } : {}),
+      ...(aliasesChanged ? { aliases: aliasList } : {}),
     });
+  };
+  const addAlias = () => {
+    const problem = aliasProblem(aliasInput, aliasList, name);
+    setAliasError(problem);
+    if (problem) return;
+    setAliasList([...aliasList, normalizeBrandName(aliasInput)]);
+    setAliasInput("");
+    setAddingAlias(false);
   };
   const addCompetitor = () => {
     const added = withCompetitorAdded(competitorList, competitorInput);
@@ -1634,8 +1675,25 @@ export function BrandDetailClient({
         >
           Brand settings
         </h3>
+        {/* S00 part 4 (UI contract P01 noPermission): someone who can't change these settings is told so. */}
+        {!canEditBrand && (
+          <p
+            data-testid="p01-no-permission"
+            style={{
+              margin: "-12px 0 20px",
+              padding: "12px 14px",
+              borderRadius: 8,
+              fontSize: 13,
+              background: "var(--bg-subtle)",
+              border: "1px solid var(--border-default)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            {viewOnlyNote()}
+          </p>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div>
+          <div data-testid="p01-identity-name">
             {/* Playwright-run follow-ups (10 Nov): the labels weren't tied to their fields, so a screen
                 reader announced three unnamed fields (and the e2e specs couldn't find them by label). */}
             <label
@@ -1655,8 +1713,23 @@ export function BrandDetailClient({
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={!editMode}
+              aria-describedby={
+                brand.nameSuggestion && name === brand.nameSuggestion
+                  ? "brand-settings-name-help"
+                  : undefined
+              }
               style={inputStyle(editMode)}
             />
+            {/* UI contract P01.identity.name, C-21: only while the name still equals the site's suggestion. */}
+            {brand.nameSuggestion && name === brand.nameSuggestion && (
+              <p
+                id="brand-settings-name-help"
+                data-name-suggested="site"
+                style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
+              >
+                {NAME_SUGGESTED_HELP}
+              </p>
+            )}
           </div>
           <div>
             <label
@@ -1679,6 +1752,127 @@ export function BrandDetailClient({
               style={inputStyle(editMode)}
             />
           </div>
+          {/* S00 part 4 (UI contract P01.aliases): the brand's other names. Up to 10, each 2-60 characters,
+              unique as written, never the brand's name (lib/brands/aliases.ts, the API's own rules). */}
+          <fieldset data-testid="p01-aliases" style={{ border: "none", margin: 0, padding: 0 }}>
+            <legend
+              style={{
+                display: "block",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+                marginBottom: 6,
+                padding: 0,
+              }}
+            >
+              Also known as
+            </legend>
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}
+              data-brand-aliases=""
+            >
+              {aliasList.length === 0 && !editMode && (
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>No other names</span>
+              )}
+              {aliasList.map((a) => (
+                <span
+                  key={a}
+                  data-testid="p01-aliases-chip"
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 10px",
+                    borderRadius: 9999,
+                    background: "var(--bg-subtle)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  {a}
+                  {editMode && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${a}`}
+                      onClick={() => {
+                        setAliasList(aliasList.filter((x) => x !== a));
+                        setAliasError(null);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        width: 16,
+                        height: 16,
+                        cursor: "pointer",
+                        color: "var(--text-tertiary)",
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
+              ))}
+              {editMode && !addingAlias && aliasList.length < MAX_ALIASES && (
+                <button
+                  type="button"
+                  data-testid="p01-aliases-add"
+                  onClick={() => {
+                    setAddingAlias(true);
+                    setAliasError(null);
+                  }}
+                  style={{
+                    height: 28,
+                    padding: "0 10px",
+                    borderRadius: 6,
+                    fontSize: 12.5,
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                  }}
+                >
+                  + Add a name
+                </button>
+              )}
+            </div>
+            {editMode && addingAlias && (
+              <input
+                // biome-ignore lint/a11y/noAutofocus: the field opens because "+ Add a name" was pressed
+                autoFocus
+                data-testid="p01-aliases-input"
+                aria-label="Another name for this brand"
+                value={aliasInput}
+                onChange={(e) => {
+                  setAliasInput(e.target.value);
+                  setAliasError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addAlias();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setAddingAlias(false);
+                    setAliasInput("");
+                    setAliasError(null);
+                  }
+                }}
+                placeholder="Another name, then Enter"
+                style={{ ...inputStyle(true), height: 36, marginTop: 8 }}
+              />
+            )}
+            {aliasError ? (
+              <p role="alert" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>
+                {aliasError}
+              </p>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}>
+                {ALIASES_HELP}
+              </p>
+            )}
+          </fieldset>
           <div>
             <label
               htmlFor="brand-settings-vertical"

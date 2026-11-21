@@ -4,6 +4,17 @@
 -- PRODUCTION branch (Neon; the URL contains br-ancient-tooth). Check the connection URL before running.
 -- WRITES. Sri runs it; NOT run from Claude Code.
 
+-- ==== Brand aliases (db/migrations/0153_brands_aliases.sql, S00 part 4) ====
+-- The two columns go (any aliases owners added, and the wizard's suggestions, with them: pg_dump brands first if
+-- they should be kept). The old code never reads them.
+BEGIN;
+
+ALTER TABLE "brands" DROP CONSTRAINT IF EXISTS "brands_aliases_at_most_10";
+ALTER TABLE "brands" DROP COLUMN IF EXISTS "name_suggestion";
+ALTER TABLE "brands" DROP COLUMN IF EXISTS "aliases";
+
+COMMIT;
+
 -- ==== Flag keys (db/migrations/0153_feature_flag_keys.sql, S00 part 2) ====
 -- Every flag goes back to off (its feature_settings rows deleted; with the old code nothing reads them), then the
 -- six-key constraint returns. The Changes log rows (feature_setting_changes) and any workspace overrides

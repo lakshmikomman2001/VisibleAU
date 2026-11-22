@@ -1216,6 +1216,7 @@
           "name": "Bondi Plumbing",
           "aliases": [],
           "nameSuggestion": null,
+          "abnSuggestion": null,
           "domain": "bondiplumbing.com.au",
           "vertical": "tradies",
           "region": "au",

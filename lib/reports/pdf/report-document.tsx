@@ -20,6 +20,7 @@ import type { ReactNode } from "react";
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { BRAND_MARK } from "@/lib/brand";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
+import { DIRECTORY_KIND_LABELS } from "@/lib/directories/registry";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { PRODUCT_NAME } from "@/lib/product";
 import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/headline-color";
@@ -1702,7 +1703,10 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
                 }}
               >
                 <Text style={{ width: col.name, fontSize: px(11.5), fontWeight: 600 }}>
-                  {r.name}
+                  {/* S00 part 5: a directory shown only because this audit cited it says what it is. */}
+                  {r.relevantToBrand === false && r.kind
+                    ? `${r.name} · ${DIRECTORY_KIND_LABELS[r.kind]}`
+                    : r.name}
                 </Text>
                 <View style={{ flex: 1, ...s.bar }}>
                   <View

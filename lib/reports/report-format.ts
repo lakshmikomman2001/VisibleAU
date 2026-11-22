@@ -101,6 +101,17 @@ export function citedDirectories(data: Pick<ReportData, "directories">): ReportD
     .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name));
 }
 
+/**
+ * S00 part 5 (LLD 8.8.3): the cited directories of the brand's own type, most-cited first -- what the findings rules
+ * read, as before. A directory shown only because this audit cited it (relevantToBrand false) is in the directory
+ * table, not in the advice (T7, S01, decides when such a citation is evidence).
+ */
+export function relevantCitedDirectories(
+  data: Pick<ReportData, "directories">,
+): ReportDirectoryRow[] {
+  return citedDirectories(data).filter((r) => r.relevantToBrand !== false);
+}
+
 /** A failure reason inside a sentence: "provider spend limit reached" (its parenthetical dropped). */
 function reasonInSentence(label: string): string {
   const short = label.replace(/\s*\([^)]*\)\s*$/, "");

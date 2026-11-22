@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 import {
   DIRECTORY_REGISTRY,
   findDirectoryByDomain,
@@ -7,6 +6,7 @@ import {
   getDirectoriesForMarket,
   marketCodeForRegion,
 } from "@/lib/directories/registry";
+import { CATEGORY_KEYS } from "@/lib/prompts/templates";
 
 describe("DIRECTORY_REGISTRY -- shape", () => {
   it("every entry's categories are real CATEGORY_KEYS, not guessed strings", () => {
@@ -55,6 +55,20 @@ describe("DIRECTORY_REGISTRY -- shape", () => {
       "product_review",
       "word_of_mouth",
       "google_business_profile",
+      // S00 part 5 (LLD 8.8.3, appendix B): the directories recent audits cited, shown only when cited.
+      "local_business_guide",
+      "directso",
+      "whereis",
+      "cylex",
+      "nextdoor_au",
+      "birdeye",
+      "linkedin",
+      "hotfrog",
+      "startlocal",
+      "aussieweb",
+      "yelp_au",
+      "healthengine",
+      "hotdoc",
     ]);
   });
 
@@ -85,10 +99,12 @@ describe("getDirectoriesForMarket", () => {
 describe("DirectoryEntry.profileUrlPattern", () => {
   it("hipages: the verified real shape (diag-0082's own cited competitor URL) matches", () => {
     const hipages = DIRECTORY_REGISTRY.AU_EN.find((d) => d.key === "hipages")!;
-    expect(hipages.profileUrlPattern.test("https://hipages.com.au/connect/norwestelectricalgroup")).toBe(
+    expect(
+      hipages.profileUrlPattern.test("https://hipages.com.au/connect/norwestelectricalgroup"),
+    ).toBe(true);
+    expect(hipages.profileUrlPattern.test("http://www.hipages.com.au/connect/some-business")).toBe(
       true,
     );
-    expect(hipages.profileUrlPattern.test("http://www.hipages.com.au/connect/some-business")).toBe(true);
   });
 
   it("hipages: a category/find page is NOT a valid profile link -- that's the exact bug Part A removed", () => {
@@ -98,14 +114,19 @@ describe("DirectoryEntry.profileUrlPattern", () => {
 
   it("hipages: a link to a different domain entirely never matches, even with /connect/ in the path", () => {
     const hipages = DIRECTORY_REGISTRY.AU_EN.find((d) => d.key === "hipages")!;
-    expect(hipages.profileUrlPattern.test("https://evil.example.com/connect/hipages.com.au")).toBe(false);
+    expect(hipages.profileUrlPattern.test("https://evil.example.com/connect/hipages.com.au")).toBe(
+      false,
+    );
   });
 
   it("every other AU directory's generic pattern accepts a plausible profile URL and rejects a bare homepage", () => {
     for (const entry of DIRECTORY_REGISTRY.AU_EN) {
       if (entry.key === "hipages") continue;
       const domain = entry.domains[0];
-      expect(entry.profileUrlPattern.test(`https://${domain}/some-business-profile`)).toBe(true);
+      // S00 part 5 (appendix B: "linkedin.com/company"): a directory that is only some pages of its site has its
+      // profiles under that path.
+      const base = `https://${domain}${entry.pathPrefix ?? ""}`;
+      expect(entry.profileUrlPattern.test(`${base}/some-business-profile`)).toBe(true);
       expect(entry.profileUrlPattern.test(`https://${domain}`)).toBe(false);
       expect(entry.profileUrlPattern.test(`https://${domain}/`)).toBe(false);
     }
@@ -114,9 +135,9 @@ describe("DirectoryEntry.profileUrlPattern", () => {
   it("no directory's pattern matches a link to an unrelated host", () => {
     for (const entries of Object.values(DIRECTORY_REGISTRY)) {
       for (const entry of entries) {
-        expect(entry.profileUrlPattern.test("https://totally-unrelated-site.example.com/profile")).toBe(
-          false,
-        );
+        expect(
+          entry.profileUrlPattern.test("https://totally-unrelated-site.example.com/profile"),
+        ).toBe(false);
       }
     }
   });
@@ -146,7 +167,11 @@ describe("getDirectoriesForBrand", () => {
 
   it("a brand with no confirmed categories yet sees every enabled directory for its market, not zero", () => {
     const result = getDirectoriesForBrand("au", []);
-    expect(result.length).toBe(getDirectoriesForMarket("AU_EN").length);
+    // S00 part 5 (LLD 8.8.3): every one but the directories shown only when an audit cites them.
+    expect(result.length).toBe(
+      getDirectoriesForMarket("AU_EN").filter((d) => d.relevance !== "cited").length,
+    );
+    expect(result.length).toBe(10);
   });
 
   it("a US-region brand sees nothing today (every US directory is disabled)", () => {

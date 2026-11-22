@@ -72,4 +72,34 @@ SELECT
   has_column_privilege('visibleau_app', 'brands', 'name_suggestion', 'SELECT') AS app_reads_suggestion,
   has_column_privilege('visibleau_app', 'brands', 'name_suggestion', 'INSERT') AS app_writes_suggestion;
 
+-- ==== Directory registry (db/migrations/0153_directory_registry.sql, S00 part 5) ====
+
+-- 9. The seed. Expected: rows 35, directories 30, cited_directories 13, au_active 28, us_inactive 7.
+SELECT
+  count(*) AS rows,
+  count(DISTINCT directory_key) AS directories,
+  count(DISTINCT directory_key) FILTER (WHERE applies_to = 'cited') AS cited_directories,
+  count(*) FILTER (WHERE market = 'au' AND active) AS au_active,
+  count(*) FILTER (WHERE market = 'us' AND NOT active) AS us_inactive
+FROM directory_registry;
+
+-- 10. The directories audit #52 cited are there with their kinds. Expected: 7 rows (LinkedIn's company pages,
+--     Local Business Guide, Directso, Whereis, Cylex, Nextdoor, Birdeye).
+SELECT directory_key, name, kind, string_agg(domain_pattern, ', ' ORDER BY sort_order) AS patterns
+FROM directory_registry
+WHERE directory_key IN ('local_business_guide', 'directso', 'whereis', 'linkedin', 'nextdoor_au', 'birdeye', 'cylex')
+GROUP BY directory_key, name, kind
+ORDER BY min(sort_order);
+
+-- 11. Global: no RLS. The app role reads it (and has every table's DML, prod-fix 0052). Expected: f, f, t, t.
+SELECT
+  c.relrowsecurity AS rls_enabled,
+  c.relforcerowsecurity AS rls_forced,
+  has_table_privilege('visibleau_app', 'directory_registry', 'SELECT') AS app_reads,
+  has_table_privilege('visibleau_app', 'directory_registry', 'SELECT,INSERT,UPDATE,DELETE') AS app_has_dml
+FROM pg_class c WHERE c.relname = 'directory_registry';
+
+-- 12. Its checks. Expected: 6 check constraints.
+SELECT count(*) AS check_constraints FROM pg_constraint WHERE conrelid = 'directory_registry'::regclass AND contype = 'c';
+
 ROLLBACK;

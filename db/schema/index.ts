@@ -41,6 +41,7 @@ export * from "./content-structure-audits";
 export * from "./conversation-journeys";
 export * from "./crawler-visit-logs";
 export * from "./data-residency-log";
+export * from "./directory-registry";
 export * from "./drift-alerts";
 export * from "./enums";
 export * from "./evidence-snapshots";

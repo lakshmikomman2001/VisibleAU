@@ -6,6 +6,7 @@ import { brandDirectoryListings } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
 import { getDirectoriesForBrand, getDirectoriesForMarket } from "@/lib/directories/registry";
+import { loadDirectoryRegistry } from "@/lib/directories/registry-store";
 import { assertBrandAccess, brandAccessErrorResponse, roleRefusal } from "@/lib/governance";
 import { recordAction } from "@/lib/governance/audit-trail";
 import { isUuid } from "@/lib/validation/uuid";
@@ -48,6 +49,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // S00 part 5: the directory_registry table (cached per process).
+    await loadDirectoryRegistry();
     const relevant = getDirectoriesForBrand(brand.region, brand.categories);
 
     const existing = await tx
@@ -100,6 +103,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ brandId:
   // Vunnara: checked against the registry, not trusted as a free
   // string -- an unknown or disabled key is never silently accepted
   // (there would be nothing to validate a profile link's host against).
+  await loadDirectoryRegistry();
   const directory = getDirectoriesForMarket("AU_EN", { enabledOnly: false })
     .concat(getDirectoriesForMarket("US_EN", { enabledOnly: false }))
     .find((d) => d.key === directoryKey);

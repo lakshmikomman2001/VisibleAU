@@ -3,8 +3,8 @@ import type { DbClient } from "@/db/client";
 import { contentStructureAudits } from "@/db/schema";
 import { checkWikipediaAuStatus, type WikipediaAuStatus } from "@/lib/brand-entity/wikipedia-au";
 import {
-  getDirectoryCitationsForAudit,
   type AuditDirectoryCitations,
+  getDirectoryCitationsForAudit,
 } from "@/lib/directories/citation-counts";
 import { classifyFreshness } from "@/lib/retrieval/content-auditor";
 import type {
@@ -146,7 +146,9 @@ export function toDirectoryVisibility(
     data: {
       computedAt: raw.computedAt,
       findings: raw.results
-        .filter((r) => r.citedCount > 0)
+        // S00 part 5 (LLD 8.8.3): a directory shown only because it was cited (not one of the brand's own types'
+        // directories) isn't advice yet; T7 (S01) decides when such a citation is evidence.
+        .filter((r) => r.relevantToBrand !== false && r.citedCount > 0)
         .map((r) => ({
           key: r.directory.key,
           name: r.directory.name,
@@ -221,6 +223,7 @@ export function productionCheckers(dbClient: DbClient): EvidenceCheckers {
   return {
     checkWikipediaAuStatus,
     loadCrawledPages: defaultCrawledPagesLoader(dbClient),
-    getDirectoryCitations: (auditId, brand) => getDirectoryCitationsForAudit(dbClient, auditId, brand),
+    getDirectoryCitations: (auditId, brand) =>
+      getDirectoryCitationsForAudit(dbClient, auditId, brand),
   };
 }

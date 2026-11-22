@@ -1,7 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema";
-import { findDirectoryByDomain } from "@/lib/directories/registry";
+import { findDirectoryForSource } from "@/lib/directories/registry";
+import { loadDirectoryRegistry } from "@/lib/directories/registry-store";
 import type { GoogleLocation } from "@/lib/google-surfaces/location";
 import { GOOGLE_SURFACE_NAMES, type GoogleSurface } from "@/lib/governance/google-surfaces";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
@@ -185,6 +186,7 @@ export async function loadGoogleSurfaceSummary(
     .from(auditGoogleSurfaces)
     .where(eq(auditGoogleSurfaces.auditId, auditId));
   if (!snap) return null;
+  await loadDirectoryRegistry();
   const rows = await db
     .select({
       surface: googleSurfaceResults.surface,
@@ -233,7 +235,8 @@ export async function loadGoogleSurfaceSummary(
     for (const r of mine.filter((x) => x.outcome === "shown")) {
       for (const link of (r.citedLinks as CitedLink[] | null) ?? []) {
         if (link.googleLink) continue;
-        const dir = findDirectoryByDomain(link.domain);
+        // S00 part 5: the directory_registry table (by host, and by path for LinkedIn's company pages).
+        const dir = findDirectoryForSource(link.domain, link.url);
         if (dir) directories.add(dir.name);
       }
     }

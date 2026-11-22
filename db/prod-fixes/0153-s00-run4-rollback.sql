@@ -4,6 +4,14 @@
 -- PRODUCTION branch (Neon; the URL contains br-ancient-tooth). Check the connection URL before running.
 -- WRITES. Sri runs it; NOT run from Claude Code.
 
+-- ==== Directory registry (db/migrations/0153_directory_registry.sql, S00 part 5) ====
+-- The table goes. The old code has the same list in code and never reads it.
+BEGIN;
+
+DROP TABLE IF EXISTS "directory_registry";
+
+COMMIT;
+
 -- ==== Brand aliases (db/migrations/0153_brands_aliases.sql, S00 part 4) ====
 -- The two columns go (any aliases owners added, and the wizard's suggestions, with them: pg_dump brands first if
 -- they should be kept). The old code never reads them.

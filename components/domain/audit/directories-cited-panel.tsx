@@ -20,6 +20,7 @@ import { LinkSuggestedProfile } from "@/components/domain/audit/link-suggested-p
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
 import { citedInAnswers } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus, LINK_PROFILES_HINT } from "@/lib/directories/profile-status";
+import { DIRECTORY_KIND_LABELS, type DirectoryKind } from "@/lib/directories/registry";
 import { LINK_MAY_NOT_WORK, type LinkDoubt, linkDoubtReason } from "@/lib/urls/link-doubt";
 
 const MAX_INLINE_URLS = 3;
@@ -47,6 +48,11 @@ export interface DirectoryCitedPanelRow {
   /** 13 Nov (part 9): a cited page that looks like the brand's own profile, offered to link; never linked
    * by itself (lib/directories/own-profile.ts). */
   suggestedProfileUrl?: string | null;
+  /** S00 part 5 (LLD 8.8.3): what sort of directory it is, said beside a directory shown only because this
+   * audit's answers cited it ("Local Business Guide · general directory"). */
+  kind?: DirectoryKind;
+  /** False for such a directory; the brand's own type's directories show as before. */
+  relevantToBrand?: boolean;
 }
 
 const status = (r: DirectoryCitedPanelRow) => directoryProfileStatus(r);
@@ -122,6 +128,14 @@ export function DirectoriesCitedPanel({
                   <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
                     {r.name} {citedInAnswers(r.citedCount, totalAnswers)}
                   </span>
+                  {r.relevantToBrand === false && r.kind && (
+                    <span
+                      data-directory-kind={r.kind}
+                      style={{ fontSize: 12, color: "var(--text-tertiary)" }}
+                    >
+                      {DIRECTORY_KIND_LABELS[r.kind]}
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: 12,

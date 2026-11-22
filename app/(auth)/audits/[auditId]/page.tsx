@@ -1666,6 +1666,8 @@ export default async function AuditPage({
               ownerProfileLinked: r.ownerProfileLinked,
               ownerProfileCitedCount: r.ownerProfileCitedCount,
               suggestedProfileUrl: r.suggestedProfileUrl,
+              kind: r.directory.kind,
+              relevantToBrand: r.relevantToBrand,
             }))}
             totalAnswers={directoryCitations.totalAnswers}
             brandId={brand.id}

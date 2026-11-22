@@ -16,6 +16,7 @@ import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { loadPrintableAgencyAssets } from "@/lib/branding/agency-assets";
 import type { ReportSection } from "@/lib/communication/types";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
+import type { DirectoryKind } from "@/lib/directories/registry";
 import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
@@ -117,6 +118,10 @@ export interface ReportDirectoryRow {
   ownerStatus: "listed" | "not_listed" | "unsure" | null;
   /** 13 Nov (part 9): a cited page that looks like the brand's own profile here (only while none is linked). */
   suggestedProfileUrl?: string | null;
+  /** S00 part 5 (LLD 8.8.3): what sort of directory it is (lib/directories/registry.ts). */
+  kind?: DirectoryKind;
+  /** False for a directory shown only because this audit cited it (not one of the brand's own type's). */
+  relevantToBrand?: boolean;
 }
 
 export interface ReportTrendPoint {
@@ -620,6 +625,8 @@ export function evidenceFields(
         ownerProfileCitedCount: r.ownerProfileCitedCount,
         ownerStatus: r.ownerStatus,
         suggestedProfileUrl: r.suggestedProfileUrl,
+        kind: r.directory.kind,
+        relevantToBrand: r.relevantToBrand,
       })),
     },
     sources: evidence.sources,

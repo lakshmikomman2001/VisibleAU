@@ -21,9 +21,10 @@
  * module -- so this fails on ANY new code path that requests one of
  * these domains, not just a reintroduction of the one deleted today.
  */
+
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { beforeAll, describe, expect, it } from "vitest";
 import { DIRECTORY_REGISTRY } from "@/lib/directories/registry";
 
@@ -47,10 +48,16 @@ const SCAN_DIRS = ["app", "components", "lib", "inngest", "scripts"];
 // place, and Part C never fetches an owner-pasted link regardless of
 // which directory it's for.
 const GOOGLE_KEYS = new Set(["google_business_profile"]);
+// S00 part 5 (22 Nov; LLD appendix B: "linkedin.com/company, au.linkedin.com/company | LinkedIn | professional"):
+// LinkedIn joined the registry for its company pages AI cites. Like Google's, its bare domain is used legitimately
+// elsewhere for a reason unrelated to directories (lib/trust/youtube-channel-lookup.ts's list of generic platforms a
+// channel's links can point at); nothing fetches it. au.linkedin.com stays guarded.
+const GENERIC_PLATFORM_DOMAINS = new Set(["linkedin.com"]);
 const BANNED_DOMAINS = Object.values(DIRECTORY_REGISTRY)
   .flat()
   .filter((entry) => !GOOGLE_KEYS.has(entry.key))
-  .flatMap((entry) => entry.domains);
+  .flatMap((entry) => entry.domains)
+  .filter((domain) => !GENERIC_PLATFORM_DOMAINS.has(domain));
 const ALLOWED_FILES = new Set(["lib/directories/registry.ts"]);
 
 function gitLsFiles(dir: string): string[] {

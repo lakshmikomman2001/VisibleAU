@@ -9,7 +9,14 @@ import {
   isGoogleGroundingRedirect,
 } from "@/lib/llm/web-search-config";
 import { type LinkDoubt, linkDoubt } from "@/lib/urls/link-doubt";
-import { type DirectoryEntry, findDirectoryByDomain, getDirectoriesForBrand } from "./registry";
+import {
+  type DirectoryEntry,
+  findDirectoryForSource,
+  getDirectoriesForBrand,
+  getDirectoriesForMarket,
+  marketCodeForRegion,
+} from "./registry";
+import { loadDirectoryRegistry } from "./registry-store";
 
 /**
  * Vunnara (21 Oct, "directory listings... never scraping", Part D) --
@@ -151,6 +158,12 @@ export interface DirectoryCitationResult {
    * only a suggestion: nothing is linked until the owner confirms it. Null otherwise.
    */
   suggestedProfileUrl: string | null;
+  /**
+   * S00 part 5 (LLD 8.8.3): one of this brand's relevant directories (shown with its count, cited or not, as
+   * before), or a registry directory only shown because this audit's answers cited it. Only the relevant ones feed
+   * the recommendation rules (lib/recommendations/gather-evidence.ts), as before. Absent: relevant.
+   */
+  relevantToBrand?: boolean;
 }
 
 export interface AuditDirectoryCitations {
@@ -200,8 +213,14 @@ export async function getDirectoryCitationsForAudit(
   now: Date = new Date(),
 ): Promise<AuditDirectoryCitations> {
   const computedAt = now.toISOString();
+  // S00 part 5 (LLD 8.8.3): the registry is the directory_registry table (cached per process).
+  await loadDirectoryRegistry();
   const relevant = getDirectoriesForBrand(brand.region, brand.categories);
-  if (relevant.length === 0) {
+  // Every enabled directory of the brand's market: one that isn't relevant to its type still shows when cited.
+  const inMarket = new Map(
+    getDirectoriesForMarket(marketCodeForRegion(brand.region)).map((d) => [d.key, d]),
+  );
+  if (inMarket.size === 0) {
     return { totalAnswers: 0, computedAt, results: [] };
   }
   const relevantKeys = new Set(relevant.map((d) => d.key));
@@ -256,10 +275,22 @@ export async function getDirectoryCitationsForAudit(
       const url = typeof entry.url === "string" ? entry.url : null;
       if (!domain || !url || isUnresolvableGeminiRedirect(domain)) continue;
 
-      const directory = findDirectoryByDomain(domain);
-      if (!directory || !relevantKeys.has(directory.key)) continue;
-      const bucket = buckets.get(directory.key);
-      if (!bucket) continue;
+      // S00 part 5: by host, and by path for a directory that is only some pages of its site (LinkedIn company
+      // pages). Any enabled directory of the brand's market counts; a domain the registry doesn't know never does.
+      const found = findDirectoryForSource(domain, url);
+      const directory = found ? inMarket.get(found.key) : undefined;
+      if (!directory) continue;
+      let bucket = buckets.get(directory.key);
+      if (!bucket) {
+        bucket = {
+          directory,
+          citedCount: 0,
+          citedUrls: [],
+          seenPages: new Map(),
+          ownerProfileCitedCount: 0,
+        };
+        buckets.set(directory.key, bucket);
+      }
 
       citedKeysThisRow.add(directory.key);
       // Part 5: a Gemini grounding link names the site, not the page.
@@ -305,7 +336,14 @@ export async function getDirectoryCitationsForAudit(
     }
   }
 
-  const results: DirectoryCitationResult[] = relevant.map((directory) => {
+  // The relevant directories in registry order (cited or not, as before), then any other one this audit cited.
+  const shown = [
+    ...relevant,
+    ...[...inMarket.values()].filter(
+      (d) => !relevantKeys.has(d.key) && (buckets.get(d.key)?.citedCount ?? 0) > 0,
+    ),
+  ];
+  const results: DirectoryCitationResult[] = shown.map((directory) => {
     const bucket = buckets.get(directory.key);
     const confirmed = confirmedByKey.get(directory.key);
     return {
@@ -334,6 +372,7 @@ export async function getDirectoryCitationsForAudit(
               },
             )
           : null,
+      relevantToBrand: relevantKeys.has(directory.key),
     };
   });
 
@@ -348,8 +387,13 @@ export async function getCitedDirectoryNames(
   brand: BrandForCitationCounts,
 ): Promise<string[]> {
   const { results } = await getDirectoryCitationsForAudit(tx, auditId, brand);
-  return results
-    .filter((r) => r.citedCount > 0)
-    .sort((a, b) => b.citedCount - a.citedCount || a.directory.name.localeCompare(b.directory.name))
-    .map((r) => r.directory.name);
+  return (
+    results
+      // S00 part 5: the recommendation rules read the brand's relevant directories only, as before.
+      .filter((r) => r.relevantToBrand !== false && r.citedCount > 0)
+      .sort(
+        (a, b) => b.citedCount - a.citedCount || a.directory.name.localeCompare(b.directory.name),
+      )
+      .map((r) => r.directory.name)
+  );
 }

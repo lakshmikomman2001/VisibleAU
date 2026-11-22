@@ -6,7 +6,7 @@ import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
 import type { FindingsData, ReportEngineRow } from "./report-data";
-import { citedDirectories, plural } from "./report-format";
+import { plural, relevantCitedDirectories } from "./report-format";
 import { countWord } from "./report-narrative";
 import {
   competitorAhead,
@@ -91,7 +91,8 @@ function padded(labels: string[]): string[] {
 function directoryFinding(data: FindingsData): Finding | null {
   const gaps = directoryGaps(data);
   if (gaps.length === 0) return null;
-  const cited = citedDirectories(data);
+  // S00 part 5: the brand's own type's directories, as before (a directory only cited isn't advice yet).
+  const cited = relevantCitedDirectories(data);
   const total = cited.reduce((s, r) => s + r.citedCount, 0);
   // 13 Nov, part 3: the recommendation names each directory its title names, with its own count.
   const gapCited = namedCitedInAnswersList(gaps, data.directories.totalAnswers);

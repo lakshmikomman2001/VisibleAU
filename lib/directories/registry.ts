@@ -1,78 +1,187 @@
 import { type CategoryKey, LOCAL_CATEGORY_KEYS } from "@/lib/prompts/templates";
 
 /**
- * Vunnara (21 Oct, "directory listings... never scraping", Part B) --
- * the one place every directory this product recognises is declared.
- * Nothing here is fetched automatically (Part A deleted the last
- * checker that did); a directory's presence/absence comes only from
- * the owner's own confirmation (brand_directory_listings, Part C) or
- * from counting what AI answers actually cited (Part D).
+ * Vunnara (21 Oct, "directory listings... never scraping", Part B) -- the one place every directory this product
+ * recognises is declared. Nothing here is fetched automatically; a directory's presence comes only from the owner's
+ * own confirmation (brand_directory_listings) or from counting what AI answers actually cited.
  *
- * Shape chosen to be absorbed UNCHANGED by Build 2's planned
- * market_packs table (docs/latets/Phase4/Multi-Region-US-Expansion/
- * visibleau-multiregion-visibleus-assessment-and-prd-2026-07.md:152 --
- * "market_packs -- market_code, ..., directory_sources (jsonb), ..."):
- * DIRECTORY_REGISTRY[marketCode] IS the intended directory_sources
- * value for that market_pack row, entry-for-entry. Migrating this
- * registry into that table is then just: one row per MARKET_CODES
- * entry, with directory_sources = JSON.stringify(DIRECTORY_REGISTRY[
- * code]) -- no reshaping -- and every reader (getDirectoriesForMarket
- * below, and everything that calls it) swaps its one lookup from this
- * static object to a query against the tenant's own market_pack row,
- * against the exact same per-entry TypeScript shape.
+ * S00 part 5 (22 Nov; LLD 7.7, 8.8.3, appendix B, T6): the list lives in the directory_registry table (migration
+ * 0153, directory registry), one row per domain pattern, and is read through lib/directories/registry-store.ts
+ * (server code, cached per process). This module is what every caller reads, server or browser, with the same
+ * functions and output shape as before: the rows the table was seeded with are DIRECTORY_REGISTRY_SEED below, used
+ * until the table has been read in this process (and in the browser, which never reads it), and a test holds the
+ * seed and the migration's rows identical. TechCore IT's audit #52 cited Local Business Guide, Directso, Whereis,
+ * LinkedIn, Nextdoor, Birdeye and Cylex, which the list didn't know; appendix B adds them.
+ *
+ * Each directory has a `kind` (trades, general, health, professional, reviews, social, maps) and a `relevance`:
+ * "trades" and "local" directories are the ones a brand's Directory Listings card offers and the audit's directory
+ * panel counts for every brand of those types (as before); a "cited" directory shows only when an audit's answers
+ * cite it. A domain the registry doesn't have is never called a directory.
  */
 
-// Matches the market_code convention already used elsewhere (e.g.
-// lib/platform/config-bundle.service.ts's "AU_EN") -- COUNTRY_LANGUAGE,
-// not a new scheme.
+// Matches the market_code convention already used elsewhere (lib/platform/config-bundle.service.ts's "AU_EN").
 export type MarketCode = "AU_EN" | "US_EN";
+
+export const DIRECTORY_KINDS = [
+  "trades",
+  "general",
+  "health",
+  "professional",
+  "reviews",
+  "social",
+  "maps",
+] as const;
+export type DirectoryKind = (typeof DIRECTORY_KINDS)[number];
+
+/** How a kind is said beside a directory's name: "Local Business Guide · general directory". */
+export const DIRECTORY_KIND_LABELS: Record<DirectoryKind, string> = {
+  trades: "trades marketplace",
+  general: "general directory",
+  health: "health directory",
+  professional: "professional network",
+  reviews: "review site",
+  social: "community network",
+  maps: "maps",
+};
+
+/** "trades": the four trades types; "local": every local business type; "cited": shown only when cited. */
+export type DirectoryRelevance = "trades" | "local" | "cited";
 
 export interface DirectoryEntry {
   key: string;
   name: string;
-  /** Registrable domains this directory is reachable at -- an owner-
-   * pasted profile link's host must match one of these (Part C), and
-   * a cited source's host is matched against these too (Part D). The
-   * first entry is the canonical one shown in copy. */
+  /** Registrable domains this directory is reachable at; the first is the canonical one shown in copy. */
   domains: readonly string[];
   /**
-   * Validates an owner-pasted profile URL -- checked host-first (the
-   * domain must be one of `domains`, which alone stops a link to an
-   * unrelated site), then this pattern for the path shape. Only
-   * hipages' pattern is independently verified (robots.txt documents
-   * /connect/{slug} as its real profile path, confirmed live against
-   * a real listing -- diag-0082's own cited URL,
-   * hipages.com.au/connect/norwestelectricalgroup). Every other
-   * directory uses a deliberately permissive fallback (host + a
-   * non-empty path) rather than a guessed-at specific structure that
-   * could wrongly reject a real profile link -- tighten each as its
-   * real format is confirmed.
+   * Validates an owner-pasted profile URL -- host first (one of `domains`), then the path shape. Only hipages'
+   * pattern is independently verified (/connect/{slug}); every other directory uses a permissive host + path.
    */
   profileUrlPattern: RegExp;
-  /** Which of lib/prompts/templates.ts's CATEGORY_KEYS this directory
-   * is relevant to -- gates which rows the brand page's Directory
-   * Listings card (Part C) and the audit page's Directories AI Cited
-   * panel (Part D) show for a given brand. */
+  /** The CATEGORY_KEYS this directory is relevant to (from `relevance`; none for a "cited" directory). */
   categories: readonly CategoryKey[];
   enabled: boolean;
+  /** S00 part 5: what sort of directory it is. */
+  kind: DirectoryKind;
+  market: MarketCode;
+  relevance: DirectoryRelevance;
+  /** Only pages under this path are this directory ("/company" for LinkedIn: not a person's profile). */
+  pathPrefix: string | null;
 }
 
-function hostPattern(domain: string): string {
-  return `(?:[a-z0-9-]+\\.)?${domain.replace(/\./g, "\\.")}`;
-}
-
-/** Host + a non-empty path -- the permissive default for every
- * directory whose real profile-URL structure isn't independently
- * confirmed yet (see DirectoryEntry.profileUrlPattern's own comment). */
-function genericProfilePattern(domain: string): RegExp {
-  return new RegExp(`^https?://${hostPattern(domain)}/.+$`, "i");
+/** One directory_registry row (db/schema/directory-registry.ts), in the shape the table has. */
+export interface DirectoryRegistryRow {
+  domainPattern: string;
+  directoryKey: string;
+  name: string;
+  kind: DirectoryKind;
+  market: "au" | "us";
+  appliesTo: DirectoryRelevance;
+  profileUrlHint: string | null;
+  active: boolean;
+  sortOrder: number;
 }
 
 /**
- * The tradie directories (hipages, ServiceSeeking, Oneflare, Airtasker): the four trades types only. 16 Nov, part 1:
- * the general type left this list -- it's a local business the classifier couldn't place (a dog groomer, a bike
- * shop), and was matched against hipages and Airtasker. It's in LOCAL_SERVICE_CATEGORIES below.
+ * The rows migration 0153 (directory registry) seeds, in order: the list as it was (AU, then US, all US disabled),
+ * then appendix B's additions, each "cited" so that no brand's card or count changes unless an answer cites it.
+ * tests/unit/directories/registry-seed.test.ts fails if these and the migration's rows differ.
  */
+export const DIRECTORY_REGISTRY_SEED: readonly DirectoryRegistryRow[] = [
+  row(
+    "hipages.com.au",
+    "hipages",
+    "hipages",
+    "trades",
+    "au",
+    "trades",
+    10,
+    "hipages.com.au/connect/{slug}",
+  ),
+  row("serviceseeking.com.au", "serviceseeking", "ServiceSeeking", "trades", "au", "trades", 20),
+  row("oneflare.com.au", "oneflare", "Oneflare", "trades", "au", "trades", 30),
+  row("airtasker.com", "airtasker", "Airtasker", "trades", "au", "trades", 40),
+  row("yellowpages.com.au", "yellow_pages_au", "Yellow Pages", "general", "au", "local", 50),
+  row("truelocal.com.au", "true_local", "True Local", "general", "au", "local", 60),
+  row("localsearch.com.au", "localsearch", "Localsearch", "general", "au", "local", 70),
+  row("productreview.com.au", "product_review", "ProductReview", "reviews", "au", "local", 80),
+  row("wordofmouth.com.au", "word_of_mouth", "Word of Mouth", "general", "au", "local", 90),
+  row("womo.com.au", "word_of_mouth", "Word of Mouth", "general", "au", "local", 91),
+  row(
+    "google.com",
+    "google_business_profile",
+    "Google Business Profile",
+    "maps",
+    "au",
+    "local",
+    100,
+  ),
+  row(
+    "business.google.com",
+    "google_business_profile",
+    "Google Business Profile",
+    "maps",
+    "au",
+    "local",
+    101,
+  ),
+  row("g.page", "google_business_profile", "Google Business Profile", "maps", "au", "local", 102),
+  row(
+    "localbusinessguide.com.au",
+    "local_business_guide",
+    "Local Business Guide",
+    "general",
+    "au",
+    "cited",
+    200,
+  ),
+  row("directso.com.au", "directso", "Directso", "general", "au", "cited", 210),
+  row("whereis.com", "whereis", "Whereis", "maps", "au", "cited", 220),
+  row("cylex-australia.com", "cylex", "Cylex", "general", "au", "cited", 230),
+  row("au.nextdoor.com", "nextdoor_au", "Nextdoor", "social", "au", "cited", 240),
+  row("reviews.birdeye.com", "birdeye", "Birdeye", "reviews", "au", "cited", 250),
+  row("birdeye.com", "birdeye", "Birdeye", "reviews", "au", "cited", 251),
+  row("linkedin.com/company", "linkedin", "LinkedIn", "professional", "au", "cited", 260),
+  row("au.linkedin.com/company", "linkedin", "LinkedIn", "professional", "au", "cited", 261),
+  row("hotfrog.com.au", "hotfrog", "Hotfrog", "general", "au", "cited", 270),
+  row("startlocal.com.au", "startlocal", "StartLocal", "general", "au", "cited", 280),
+  row("aussieweb.com.au", "aussieweb", "AussieWeb", "general", "au", "cited", 290),
+  row("yelp.com.au", "yelp_au", "Yelp", "reviews", "au", "cited", 300),
+  row("healthengine.com.au", "healthengine", "HealthEngine", "health", "au", "cited", 310),
+  row("hotdoc.com.au", "hotdoc", "HotDoc", "health", "au", "cited", 320),
+  row("yelp.com", "yelp", "Yelp", "reviews", "us", "local", 1010, null, false),
+  row("angi.com", "angi", "Angi", "trades", "us", "trades", 1020, null, false),
+  row("thumbtack.com", "thumbtack", "Thumbtack", "trades", "us", "trades", 1030, null, false),
+  row("homeadvisor.com", "homeadvisor", "HomeAdvisor", "trades", "us", "trades", 1040, null, false),
+  row("bbb.org", "bbb", "Better Business Bureau", "reviews", "us", "local", 1050, null, false),
+  row("nextdoor.com", "nextdoor", "Nextdoor", "social", "us", "local", 1060, null, false),
+  row("houzz.com", "houzz", "Houzz", "trades", "us", "trades", 1070, null, false),
+];
+
+function row(
+  domainPattern: string,
+  directoryKey: string,
+  name: string,
+  kind: DirectoryKind,
+  market: "au" | "us",
+  appliesTo: DirectoryRelevance,
+  sortOrder: number,
+  profileUrlHint: string | null = null,
+  active = true,
+): DirectoryRegistryRow {
+  return {
+    domainPattern,
+    directoryKey,
+    name,
+    kind,
+    market,
+    appliesTo,
+    profileUrlHint,
+    active,
+    sortOrder,
+  };
+}
+
+/** The four trades types (16 Nov, part 1: the general type left this list). */
 const TRADE_CATEGORIES: readonly CategoryKey[] = [
   "trades_plumbing",
   "trades_electrical",
@@ -80,183 +189,102 @@ const TRADE_CATEGORIES: readonly CategoryKey[] = [
   "trades_general",
 ];
 
-// General local-business directories -- relevant to every category this
-// product serves that corresponds to a real-world, physically-located
-// business (trades, allied health, legal, real estate, hospitality),
-// never the SaaS/software categories (a design-tools startup doesn't
-// get listed on Yellow Pages).
-// 17 Nov, part 1: the one definition of a local business type (a type whose questions name the suburb), not a list
-// kept here by hand -- every local type is checked against these six directories, every software type against none.
+/** 17 Nov, part 1: every local business type (lib/prompts/templates.ts), never a software type. */
 const LOCAL_SERVICE_CATEGORIES: readonly CategoryKey[] = LOCAL_CATEGORY_KEYS;
 
-export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> = {
-  AU_EN: [
-    {
-      key: "hipages",
-      // Sri, 21 Oct follow-up: "the way the brand writes it" -- hipages
-      // brands itself lowercase (its own logo/marketing, not just the
-      // URL slug), never "Hipages".
-      name: "hipages",
-      domains: ["hipages.com.au"],
-      // Verified: robots.txt's own AI-crawler comment names /connect/
-      // as the profile path ("Directory (/find) and profile (/connect)
-      // pages"); diag-0082's real cited URL for a competitor confirms
-      // the live shape, hipages.com.au/connect/{slug}.
-      profileUrlPattern: new RegExp(
-        `^https?://${hostPattern("hipages.com.au")}/connect/[a-z0-9-]+/?$`,
-        "i",
-      ),
-      categories: TRADE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "serviceseeking",
-      name: "ServiceSeeking",
-      domains: ["serviceseeking.com.au"],
-      profileUrlPattern: genericProfilePattern("serviceseeking.com.au"),
-      categories: TRADE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "oneflare",
-      name: "Oneflare",
-      domains: ["oneflare.com.au"],
-      profileUrlPattern: genericProfilePattern("oneflare.com.au"),
-      categories: TRADE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "airtasker",
-      name: "Airtasker",
-      domains: ["airtasker.com"],
-      profileUrlPattern: genericProfilePattern("airtasker.com"),
-      categories: TRADE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "yellow_pages_au",
-      name: "Yellow Pages",
-      domains: ["yellowpages.com.au"],
-      profileUrlPattern: genericProfilePattern("yellowpages.com.au"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "true_local",
-      name: "True Local",
-      domains: ["truelocal.com.au"],
-      profileUrlPattern: genericProfilePattern("truelocal.com.au"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "localsearch",
-      name: "Localsearch",
-      domains: ["localsearch.com.au"],
-      profileUrlPattern: genericProfilePattern("localsearch.com.au"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "product_review",
-      name: "ProductReview",
-      domains: ["productreview.com.au"],
-      profileUrlPattern: genericProfilePattern("productreview.com.au"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "word_of_mouth",
-      name: "Word of Mouth",
-      // Both domains the platform goes by -- lib/visibility/
-      // citation-source-classifier.ts already treats these as the same
-      // au_directory source for citation classification (task #46, 3rd
-      // follow-up); this registry agrees.
-      domains: ["wordofmouth.com.au", "womo.com.au"],
-      profileUrlPattern: genericProfilePattern("wordofmouth.com.au"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-    {
-      key: "google_business_profile",
-      name: "Google Business Profile",
-      domains: ["google.com", "business.google.com", "g.page"],
-      // Google's own profile/maps URLs vary widely (g.page/..., maps
-      // short links, business.google.com/...) -- intentionally the
-      // loosest pattern here, host-matched only.
-      profileUrlPattern: new RegExp(
-        `^https?://${hostPattern("google.com")}/.+$|^https?://${hostPattern("business.google.com")}/.+$|^https?://${hostPattern("g.page")}/.+$`,
-        "i",
-      ),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: true,
-    },
-  ],
-  US_EN: [
-    {
-      key: "yelp",
-      name: "Yelp",
-      domains: ["yelp.com"],
-      profileUrlPattern: genericProfilePattern("yelp.com"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "angi",
-      name: "Angi",
-      domains: ["angi.com"],
-      profileUrlPattern: genericProfilePattern("angi.com"),
-      categories: TRADE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "thumbtack",
-      name: "Thumbtack",
-      domains: ["thumbtack.com"],
-      profileUrlPattern: genericProfilePattern("thumbtack.com"),
-      categories: TRADE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "homeadvisor",
-      name: "HomeAdvisor",
-      domains: ["homeadvisor.com"],
-      profileUrlPattern: genericProfilePattern("homeadvisor.com"),
-      categories: TRADE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "bbb",
-      name: "Better Business Bureau",
-      domains: ["bbb.org"],
-      profileUrlPattern: genericProfilePattern("bbb.org"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "nextdoor",
-      name: "Nextdoor",
-      domains: ["nextdoor.com"],
-      profileUrlPattern: genericProfilePattern("nextdoor.com"),
-      categories: LOCAL_SERVICE_CATEGORIES,
-      enabled: false,
-    },
-    {
-      key: "houzz",
-      name: "Houzz",
-      domains: ["houzz.com"],
-      profileUrlPattern: genericProfilePattern("houzz.com"),
-      categories: TRADE_CATEGORIES,
-      enabled: false,
-    },
-  ],
-};
+function categoriesFor(relevance: DirectoryRelevance): readonly CategoryKey[] {
+  if (relevance === "trades") return TRADE_CATEGORIES;
+  if (relevance === "local") return LOCAL_SERVICE_CATEGORIES;
+  return [];
+}
 
-/** Maps a brand's `region` (db/schema/enums.ts's regionEnum) to the
- * directory registry's own market keying -- this product is AU-first
- * (AGENTS.md), so every region other than "us" resolves to AU_EN today;
- * this is the one place that mapping lives, so Part D's citation
- * counting and this file's own API route can't drift from each other. */
+function hostPattern(domain: string): string {
+  return `(?:[a-z0-9-]+\\.)?${domain.replace(/\./g, "\\.")}`;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * hipages' profile path is verified (robots.txt documents /connect/{slug}; diag-0082's own cited URL); Google's
+ * profile URLs vary so widely it's host-matched only; every other directory gets the permissive host + a non-empty
+ * path (under its path prefix, if it has one) rather than a guessed structure that could reject a real profile.
+ */
+function profileUrlPatternFor(
+  key: string,
+  domains: readonly string[],
+  pathPrefix: string | null,
+): RegExp {
+  if (key === "hipages")
+    return new RegExp(`^https?://${hostPattern("hipages.com.au")}/connect/[a-z0-9-]+/?$`, "i");
+  if (key === "google_business_profile")
+    return new RegExp(domains.map((d) => `^https?://${hostPattern(d)}/.+$`).join("|"), "i");
+  const path = pathPrefix ? `${escapeRegExp(pathPrefix)}/` : "/";
+  return new RegExp(`^https?://${hostPattern(domains[0] ?? "")}${path}.+$`, "i");
+}
+
+function splitPattern(pattern: string): { host: string; path: string | null } {
+  const slash = pattern.indexOf("/");
+  return slash < 0
+    ? { host: pattern, path: null }
+    : { host: pattern.slice(0, slash), path: pattern.slice(slash).replace(/\/+$/, "") || null };
+}
+
+/** The registry, by market, from its rows (the table's, or the seed): one entry per directory, in row order. */
+export function buildDirectoryRegistry(
+  rows: readonly DirectoryRegistryRow[],
+): Record<MarketCode, readonly DirectoryEntry[]> {
+  const byKey = new Map<string, DirectoryRegistryRow[]>();
+  for (const r of [...rows].sort((a, b) => a.sortOrder - b.sortOrder)) {
+    const list = byKey.get(r.directoryKey);
+    if (list) list.push(r);
+    else byKey.set(r.directoryKey, [r]);
+  }
+  const out: Record<MarketCode, DirectoryEntry[]> = { AU_EN: [], US_EN: [] };
+  for (const [key, group] of byKey) {
+    const first = group[0];
+    const parts = group.map((g) => splitPattern(g.domainPattern));
+    const domains = [...new Set(parts.map((p) => p.host))];
+    const pathPrefix = parts[0]?.path ?? null;
+    const market: MarketCode = first.market === "us" ? "US_EN" : "AU_EN";
+    out[market].push({
+      key,
+      name: first.name,
+      domains,
+      profileUrlPattern: profileUrlPatternFor(key, domains, pathPrefix),
+      categories: categoriesFor(first.appliesTo),
+      enabled: group.some((g) => g.active),
+      kind: first.kind,
+      market,
+      relevance: first.appliesTo,
+      pathPrefix,
+    });
+  }
+  return out;
+}
+
+/** The registry as the migration seeded it. */
+export const DIRECTORY_REGISTRY: Record<MarketCode, readonly DirectoryEntry[]> =
+  buildDirectoryRegistry(DIRECTORY_REGISTRY_SEED);
+
+let current: Record<MarketCode, readonly DirectoryEntry[]> = DIRECTORY_REGISTRY;
+
+/**
+ * Replaces what every function below reads with the table's rows (lib/directories/registry-store.ts, server only).
+ * An empty list is ignored: the registry is never emptied by a read that found nothing.
+ */
+export function applyDirectoryRegistryRows(rows: readonly DirectoryRegistryRow[]): void {
+  if (rows.length === 0) return;
+  current = buildDirectoryRegistry(rows);
+}
+
+/** Back to the seed (tests). */
+export function resetDirectoryRegistry(): void {
+  current = DIRECTORY_REGISTRY;
+}
+
+/** Maps a brand's `region` to the registry's market keying: AU-first, every region but "us" is AU_EN. */
 export function marketCodeForRegion(region: string): MarketCode {
   return region === "us" ? "US_EN" : "AU_EN";
 }
@@ -265,24 +293,22 @@ export function getDirectoriesForMarket(
   marketCode: MarketCode,
   opts: { enabledOnly?: boolean } = {},
 ): readonly DirectoryEntry[] {
-  const all = DIRECTORY_REGISTRY[marketCode] ?? [];
+  const all = current[marketCode] ?? [];
   return opts.enabledOnly === false ? all : all.filter((d) => d.enabled);
 }
 
-/** The enabled directories relevant to a specific brand -- its market
- * (via `region`) and at least one of its confirmed `categories`
- * overlapping the directory's own `categories`. A brand with no
- * confirmed categories yet sees every enabled directory for its
- * market, never zero -- there's nothing to narrow by, not a reason to
- * hide the card entirely. The one shared filter the brand page's
- * Directory Listings card (Part C) and its own API route use, so they
- * can't drift into two different ideas of "relevant to this brand". */
+/**
+ * The enabled directories relevant to a specific brand -- its market and at least one of its confirmed categories
+ * overlapping the directory's own. A brand with no confirmed categories yet sees every enabled trades and local
+ * directory for its market, never zero. A "cited" directory is never "relevant": it shows only when cited.
+ */
 export function getDirectoriesForBrand(
   region: string,
   categories: readonly string[],
 ): readonly DirectoryEntry[] {
-  const market = marketCodeForRegion(region);
-  const all = getDirectoriesForMarket(market);
+  const all = getDirectoriesForMarket(marketCodeForRegion(region)).filter(
+    (d) => d.relevance !== "cited",
+  );
   if (categories.length === 0) return all;
   return all.filter((d) => d.categories.some((c) => categories.includes(c)));
 }
@@ -290,28 +316,60 @@ export function getDirectoriesForBrand(
 /** Every directory, in any market, whose display name appears in `text` as a whole phrase. */
 export function directoriesNamedIn(text: string): DirectoryEntry[] {
   const named: DirectoryEntry[] = [];
-  for (const entries of Object.values(DIRECTORY_REGISTRY)) {
+  for (const entries of Object.values(current)) {
     for (const entry of entries) {
-      const escaped = entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escaped = escapeRegExp(entry.name);
       if (new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`).test(text)) named.push(entry);
     }
   }
   return named;
 }
 
-/** Every directory across every market whose `domains` includes the
- * given registrable domain (or a subdomain of it) -- the one shared
- * lookup Part D's citation counting needs, host-matched the same way
- * the rest of this codebase matches a brand's own domain
- * (lib/audit/extract-citations.ts's isBrandDomain). */
+function hostMatches(host: string, domain: string): boolean {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+/**
+ * Every directory across every market whose `domains` includes the given registrable domain (or a subdomain of
+ * it) -- host-matched the way lib/audit/extract-citations.ts matches a brand's own domain. A directory that is only
+ * some paths of its site (LinkedIn's company pages) is never matched by the host alone.
+ */
 export function findDirectoryByDomain(domain: string): DirectoryEntry | null {
   const needle = domain.toLowerCase().replace(/^www\./, "");
-  for (const entries of Object.values(DIRECTORY_REGISTRY)) {
+  for (const entries of Object.values(current)) {
     for (const entry of entries) {
-      if (entry.domains.some((d) => needle === d || needle.endsWith(`.${d}`))) {
-        return entry;
-      }
+      if (entry.pathPrefix) continue;
+      if (entry.domains.some((d) => hostMatches(needle, d))) return entry;
     }
   }
   return null;
+}
+
+/**
+ * The directory a cited source belongs to: its host, and, for a directory that is only some paths of its site,
+ * the page's path ("linkedin.com/company/techcore-it" is LinkedIn; "linkedin.com/in/someone" isn't). Without a
+ * usable URL, the host alone, as findDirectoryByDomain.
+ */
+export function findDirectoryForSource(domain: string, url: string | null): DirectoryEntry | null {
+  let path: string | null = null;
+  let host = domain.toLowerCase().replace(/^www\./, "");
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      path = parsed.pathname.toLowerCase();
+      if (parsed.hostname) host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+      path = null;
+    }
+  }
+  if (path !== null) {
+    for (const entries of Object.values(current)) {
+      for (const entry of entries) {
+        const prefix = entry.pathPrefix;
+        if (!prefix || !entry.domains.some((d) => hostMatches(host, d))) continue;
+        if (path === prefix || path.startsWith(`${prefix}/`)) return entry;
+      }
+    }
+  }
+  return findDirectoryByDomain(domain);
 }

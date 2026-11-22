@@ -1,5 +1,5 @@
 import type { FindingsData, ReportDirectoryRow, ReportEngineRow } from "./report-data";
-import { citedDirectories } from "./report-format";
+import { relevantCitedDirectories } from "./report-format";
 
 /**
  * DEMO-BLOCKER (1 Nov), parts 3 and 4 -- the rules that decide what the
@@ -21,7 +21,7 @@ export const STRENGTH_MAX_RANK = 3;
  * because it isn't linked so it can't be checked -- most-cited first (top 3).
  */
 export function directoryGaps(data: FindingsData): ReportDirectoryRow[] {
-  return citedDirectories(data)
+  return relevantCitedDirectories(data)
     .filter(
       (r) =>
         r.citedCount >= DIRECTORY_GAP_MIN_CITATIONS &&

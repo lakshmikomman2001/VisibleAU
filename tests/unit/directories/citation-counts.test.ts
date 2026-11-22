@@ -57,20 +57,32 @@ describe("getDirectoryCitationsForAudit", () => {
     expect(hipages?.citedCount).toBe(2); // 2 answers, not 3 citations
   });
 
-  it("a directory not relevant to the brand's confirmed categories never appears in results at all", async () => {
+  // S00 part 5 (LLD 8.8.3: "The directories card shows any cited registry directory with its kind"): a directory
+  // not relevant to the brand's confirmed categories appears only when this audit's answers cite it, marked so.
+  it("a directory not relevant to the brand's confirmed categories appears only when cited, marked not relevant", async () => {
     const saasBrand = { id: "brand-2", region: "au", categories: ["crm_software"] };
     const tx = mockTx(
       [{ citedSources: [citedSource("hipages.com.au", "https://hipages.com.au/connect/x")] }],
       [],
     );
     const { results } = await getDirectoryCitationsForAudit(tx, "audit-1", saasBrand);
-    expect(results).toEqual([]);
+    expect(results.map((r) => [r.directory.key, r.citedCount, r.relevantToBrand])).toEqual([
+      ["hipages", 1, false],
+    ]);
+    const none = await getDirectoryCitationsForAudit(
+      mockTx([{ citedSources: [] }], []),
+      "audit-1",
+      saasBrand,
+    );
+    expect(none.results).toEqual([]);
   });
 
-  it("short-circuits to zero queries when the brand has no relevant directories at all", async () => {
-    const saasBrand = { id: "brand-2", region: "au", categories: ["crm_software"] };
+  // S00 part 5: a brand with no relevant directories still has its citations read (a cited directory shows); only
+  // a market with no directories at all (US today) reads nothing.
+  it("short-circuits to zero queries when the brand's market has no directories at all", async () => {
+    const usBrand = { id: "brand-3", region: "us", categories: ["trades_general"] };
     const tx = mockTx([], []);
-    await getDirectoryCitationsForAudit(tx, "audit-1", saasBrand);
+    await getDirectoryCitationsForAudit(tx, "audit-1", usBrand);
     expect(tx._select).not.toHaveBeenCalled();
   });
 

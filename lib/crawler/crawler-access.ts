@@ -1,10 +1,11 @@
-import { CDN_UNTESTABLE_SENTENCE } from "./access-copy";
+import { guardedFetch } from "@/lib/fetch/guarded-fetch";
 import { CRAWLER_USER_AGENT } from "@/lib/product";
 import {
   AI_CRAWLERS_CHECKED,
   evaluateRobotsForAgent,
   type RobotsAgentResult,
 } from "@/lib/robots-txt/evaluate";
+import { CDN_UNTESTABLE_SENTENCE } from "./access-copy";
 import { CdnShieldDetector, type DetectedFirewall } from "./cdn-shield-detector";
 import { fetchRobotsTxt, type RobotsTxtFetch } from "./index";
 
@@ -46,12 +47,15 @@ export async function checkCrawlerAccess(domain: string): Promise<CrawlerAccessC
   let checkerRefused = false;
   let remediationSnippet: string | null = null;
   try {
-    const res = await fetch(`https://${domain}`, {
+    // S00B part 3: through the guarded fetcher (an internal domain is refused: the "no answer" path below), with
+    // the probe's own options as before: our user agent, no redirect followed, 5 s; the body is never read.
+    const res = await guardedFetch(`https://${domain}`, {
       method: "GET",
       headers: { "User-Agent": CRAWLER_USER_AGENT },
       redirect: "manual",
-      signal: AbortSignal.timeout(5000),
+      timeoutMs: 5000,
     });
+    void res.body?.cancel().catch(() => {});
     const headers: Record<string, string> = {};
     res.headers.forEach((value, key) => {
       headers[key] = value;

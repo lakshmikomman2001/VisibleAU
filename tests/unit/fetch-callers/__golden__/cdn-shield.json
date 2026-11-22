@@ -1,0 +1,617 @@
+{
+  "fixture-plumbing.com.au": {
+    "brandDomain": "fixture-plumbing.com.au",
+    "robotsTxt": "found",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows GPTBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows OAI-SearchBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows ChatGPT-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows ClaudeBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows Claude-SearchBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows Claude-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows Googlebot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows Google-Extended (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows PerplexityBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows Perplexity-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": "Allow: /",
+        "sentence": "robots.txt allows CCBot (its rules for every crawler, User-agent: *, don't block it)"
+      }
+    ],
+    "robotsBlocks": [],
+    "checkerRefused": false,
+    "probeStatus": 200,
+    "detectedFirewall": "None",
+    "remediationSnippet": null,
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-blocked.com.au": {
+    "brandDomain": "fixture-blocked.com.au",
+    "robotsTxt": "unreachable",
+    "robots": null,
+    "robotsBlocks": [],
+    "checkerRefused": true,
+    "probeStatus": 403,
+    "detectedFirewall": "Cloudflare",
+    "remediationSnippet": "Cloudflare refused our site checker on <brand domain>. If it refuses AI search crawlers the same\nway, allow them: Cloudflare dashboard -> Security -> WAF -> Custom rules -> Create rule.\nField: User-Agent  |  Operator: contains  |  Value: (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|PerplexityBot|Perplexity-User|CCBot)\nAction: Allow (Skip remaining custom rules).\nAlso: Security -> Bots -> set \"AI Scrapers and Crawlers\" to Allow (if present on your plan).",
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-soft.com.au": {
+    "brandDomain": "fixture-soft.com.au",
+    "robotsTxt": "absent",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks GPTBot"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks OAI-SearchBot"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks ChatGPT-User"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks ClaudeBot"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Claude-SearchBot"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Claude-User"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Googlebot"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Google-Extended"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks PerplexityBot"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Perplexity-User"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks CCBot"
+      }
+    ],
+    "robotsBlocks": [],
+    "checkerRefused": false,
+    "probeStatus": 200,
+    "detectedFirewall": "None",
+    "remediationSnippet": null,
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-cdn.com.au": {
+    "brandDomain": "fixture-cdn.com.au",
+    "robotsTxt": "found",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "blocked",
+        "basis": "agent-group",
+        "rule": "Disallow: /",
+        "sentence": "robots.txt blocks GPTBot"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for OAI-SearchBot, so it doesn't block it"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for ChatGPT-User, so it doesn't block it"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for ClaudeBot, so it doesn't block it"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Claude-SearchBot, so it doesn't block it"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Claude-User, so it doesn't block it"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Googlebot, so it doesn't block it"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Google-Extended, so it doesn't block it"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for PerplexityBot, so it doesn't block it"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Perplexity-User, so it doesn't block it"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for CCBot, so it doesn't block it"
+      }
+    ],
+    "robotsBlocks": [
+      "GPTBot"
+    ],
+    "checkerRefused": false,
+    "probeStatus": 302,
+    "detectedFirewall": "None",
+    "remediationSnippet": null,
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-akamai.com.au": {
+    "brandDomain": "fixture-akamai.com.au",
+    "robotsTxt": "found",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows GPTBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows OAI-SearchBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows ChatGPT-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows ClaudeBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows Claude-SearchBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows Claude-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows Googlebot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows Google-Extended (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows PerplexityBot (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows Perplexity-User (its rules for every crawler, User-agent: *, don't block it)"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "wildcard-group",
+        "rule": null,
+        "sentence": "robots.txt allows CCBot (its rules for every crawler, User-agent: *, don't block it)"
+      }
+    ],
+    "robotsBlocks": [],
+    "checkerRefused": true,
+    "probeStatus": 503,
+    "detectedFirewall": "Akamai",
+    "remediationSnippet": "Akamai Bot Manager refused our site checker on <brand domain>. If it refuses AI search crawlers the\nsame way, allow them: Akamai Control Center -> Bot Manager -> add these AI user-agents to an Allow/Monitor\ncategory (not Deny): (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|PerplexityBot|Perplexity-User|CCBot)",
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-sucuri.com.au": {
+    "brandDomain": "fixture-sucuri.com.au",
+    "robotsTxt": "absent",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks GPTBot"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks OAI-SearchBot"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks ChatGPT-User"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks ClaudeBot"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Claude-SearchBot"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Claude-User"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Googlebot"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Google-Extended"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks PerplexityBot"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks Perplexity-User"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-robots-txt",
+        "rule": null,
+        "sentence": "No robots.txt was found, so nothing in it blocks CCBot"
+      }
+    ],
+    "robotsBlocks": [],
+    "checkerRefused": true,
+    "probeStatus": 429,
+    "detectedFirewall": "Unknown",
+    "remediationSnippet": "An edge security layer refused our site checker on <brand domain>. If it refuses AI search crawlers\nthe same way, allow them: in your CDN/WAF/firewall, allow these user-agents:\n(GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|Claude-SearchBot|PerplexityBot|Perplexity-User|CCBot)",
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  },
+  "fixture-open.com.au": {
+    "brandDomain": "fixture-open.com.au",
+    "robotsTxt": "found",
+    "robots": [
+      {
+        "agent": "GPTBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for GPTBot, so it doesn't block it"
+      },
+      {
+        "agent": "OAI-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for OAI-SearchBot, so it doesn't block it"
+      },
+      {
+        "agent": "ChatGPT-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for ChatGPT-User, so it doesn't block it"
+      },
+      {
+        "agent": "ClaudeBot",
+        "path": "/",
+        "verdict": "blocked",
+        "basis": "agent-group",
+        "rule": "Disallow: /",
+        "sentence": "robots.txt blocks ClaudeBot"
+      },
+      {
+        "agent": "Claude-SearchBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Claude-SearchBot, so it doesn't block it"
+      },
+      {
+        "agent": "Claude-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Claude-User, so it doesn't block it"
+      },
+      {
+        "agent": "Googlebot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Googlebot, so it doesn't block it"
+      },
+      {
+        "agent": "Google-Extended",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Google-Extended, so it doesn't block it"
+      },
+      {
+        "agent": "PerplexityBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for PerplexityBot, so it doesn't block it"
+      },
+      {
+        "agent": "Perplexity-User",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for Perplexity-User, so it doesn't block it"
+      },
+      {
+        "agent": "CCBot",
+        "path": "/",
+        "verdict": "allowed",
+        "basis": "no-matching-group",
+        "rule": null,
+        "sentence": "robots.txt has no rules for CCBot, so it doesn't block it"
+      }
+    ],
+    "robotsBlocks": [
+      "ClaudeBot"
+    ],
+    "checkerRefused": false,
+    "probeStatus": 200,
+    "detectedFirewall": "None",
+    "remediationSnippet": null,
+    "untestable": "Whether your CDN or firewall lets AI crawlers through can't be tested from outside without pretending to be them, which we don't do: upload your server logs on the Agent Analytics page (Connect your logs → Upload a log file) to see their real visits."
+  }
+}

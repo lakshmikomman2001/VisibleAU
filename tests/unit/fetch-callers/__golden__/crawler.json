@@ -1,0 +1,427 @@
+{
+  "fixture-plumbing.com.au crawl 20": {
+    "domain": "fixture-plumbing.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-plumbing.com.au",
+        "statusCode": 200,
+        "title": "Fixture Plumbing | Sydney plumbers",
+        "textContent": "Fixture PlumbingBlocked drains, hot water and gas fitting across Sydney. Our services Services again About Old page Blog Contact Elsewhere Mail Top",
+        "wordCount": 22,
+        "excerpt": "Licensed plumbers in Sydney since 1998.",
+        "byline": null,
+        "html": "<!doctype html><html><head><title>Fixture Plumbing | Sydney plumbers</title>\n<meta name=\"description\" content=\"Licensed plumbers in Sydney since 1998.\"></head>\n<body><header>Top bar</header><nav><a href=\"/services\">Services</a></nav>\n<main><h1>Fixture Plumbing</h1><p>Blocked drains, hot water and gas fitting across Sydney.</p>\n<a href=\"/services\">Our services</a> <a href=\"/services/\">Services again</a> <a href=\"/about\">About</a>\n<a href=\"/old-page\">Old page</a> <a href=\"http://fixture-plumbing.com.au/blog\">Blog</a>\n<a href=\"/contact\">Contact</a> <a href=\"https://other.example/x\">Elsewhere</a> <a href=\"mailto:hi@x.au\">Mail</a>\n<a href=\"#top\">Top</a></main><footer>Footer</footer></body></html>",
+        "headers": {
+          "cache-control": "max-age=60",
+          "content-type": "text/html; charset=utf-8",
+          "set-cookie": "a=1",
+          "x-served-by": "fixture"
+        }
+      },
+      {
+        "url": "https://fixture-plumbing.com.au/services",
+        "statusCode": 200,
+        "title": "Services",
+        "textContent": "ServicesServices text for the crawl.Jo FixtureHot water",
+        "wordCount": 7,
+        "excerpt": "ServicesServices text for the crawl.Jo FixtureHot water",
+        "byline": "Jo Fixture",
+        "html": "<html><head><title>Services</title></head><body><main><h1>Services</h1><p>Services text for the crawl.</p><span class=\"author\">Jo Fixture</span><a href=\"/services/hot-water\">Hot water</a></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      },
+      {
+        "url": "https://fixture-plumbing.com.au/about",
+        "statusCode": 200,
+        "title": "About us",
+        "textContent": "About usAbout us text for the crawl.",
+        "wordCount": 7,
+        "excerpt": "About usAbout us text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>About us</title></head><body><main><h1>About us</h1><p>About us text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      },
+      {
+        "url": "https://fixture-plumbing.com.au/old-page",
+        "statusCode": 200,
+        "title": "About us, moved",
+        "textContent": "About us, movedAbout us, moved text for the crawl.",
+        "wordCount": 9,
+        "excerpt": "About us, movedAbout us, moved text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>About us, moved</title></head><body><main><h1>About us, moved</h1><p>About us, moved text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      },
+      {
+        "url": "http://fixture-plumbing.com.au/blog",
+        "statusCode": 200,
+        "title": "Blog",
+        "textContent": "BlogBlog text for the crawl.",
+        "wordCount": 5,
+        "excerpt": "BlogBlog text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>Blog</title></head><body><main><h1>Blog</h1><p>Blog text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      },
+      {
+        "url": "https://fixture-plumbing.com.au/services/hot-water",
+        "statusCode": 200,
+        "title": "Hot water",
+        "textContent": "Hot waterHot water text for the crawl.",
+        "wordCount": 7,
+        "excerpt": "Hot waterHot water text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>Hot water</title></head><body><main><h1>Hot water</h1><p>Hot water text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": "User-agent: *\nAllow: /\n\nSitemap: https://fixture-plumbing.com.au/sitemap.xml\n",
+    "sitemapXml": "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://fixture-plumbing.com.au/</loc></url></urlset>",
+    "errors": [
+      "Failed to fetch https://fixture-plumbing.com.au/contact (HTTP 404)",
+      "Failed to fetch https://fixture-plumbing.com.au/#top (HTTP 404)"
+    ],
+    "homepage": {
+      "url": "https://fixture-plumbing.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://fixture-plumbing.com.au/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-plumbing.com.au crawl 1": {
+    "domain": "fixture-plumbing.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-plumbing.com.au",
+        "statusCode": 200,
+        "title": "Fixture Plumbing | Sydney plumbers",
+        "textContent": "Fixture PlumbingBlocked drains, hot water and gas fitting across Sydney. Our services Services again About Old page Blog Contact Elsewhere Mail Top",
+        "wordCount": 22,
+        "excerpt": "Licensed plumbers in Sydney since 1998.",
+        "byline": null,
+        "html": "<!doctype html><html><head><title>Fixture Plumbing | Sydney plumbers</title>\n<meta name=\"description\" content=\"Licensed plumbers in Sydney since 1998.\"></head>\n<body><header>Top bar</header><nav><a href=\"/services\">Services</a></nav>\n<main><h1>Fixture Plumbing</h1><p>Blocked drains, hot water and gas fitting across Sydney.</p>\n<a href=\"/services\">Our services</a> <a href=\"/services/\">Services again</a> <a href=\"/about\">About</a>\n<a href=\"/old-page\">Old page</a> <a href=\"http://fixture-plumbing.com.au/blog\">Blog</a>\n<a href=\"/contact\">Contact</a> <a href=\"https://other.example/x\">Elsewhere</a> <a href=\"mailto:hi@x.au\">Mail</a>\n<a href=\"#top\">Top</a></main><footer>Footer</footer></body></html>",
+        "headers": {
+          "cache-control": "max-age=60",
+          "content-type": "text/html; charset=utf-8",
+          "set-cookie": "a=1",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": "User-agent: *\nAllow: /\n\nSitemap: https://fixture-plumbing.com.au/sitemap.xml\n",
+    "sitemapXml": "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://fixture-plumbing.com.au/</loc></url></urlset>",
+    "errors": [],
+    "homepage": {
+      "url": "https://fixture-plumbing.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://fixture-plumbing.com.au/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-plumbing.com.au crawl 0": {
+    "domain": "fixture-plumbing.com.au",
+    "pages": [],
+    "robotsTxt": "User-agent: *\nAllow: /\n\nSitemap: https://fixture-plumbing.com.au/sitemap.xml\n",
+    "sitemapXml": "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://fixture-plumbing.com.au/</loc></url></urlset>",
+    "errors": [],
+    "sitemap": {
+      "url": "https://fixture-plumbing.com.au/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-plumbing.com.au robots": {
+    "status": "found",
+    "text": "User-agent: *\nAllow: /\n\nSitemap: https://fixture-plumbing.com.au/sitemap.xml\n"
+  },
+  "fixture-blocked.com.au crawl 20": {
+    "domain": "fixture-blocked.com.au",
+    "pages": [],
+    "robotsTxt": null,
+    "sitemapXml": null,
+    "errors": [
+      "Failed to fetch https://fixture-blocked.com.au (HTTP 403)"
+    ],
+    "homepage": {
+      "url": "https://fixture-blocked.com.au",
+      "reached": false,
+      "httpStatus": 403
+    },
+    "sitemap": {
+      "url": "https://fixture-blocked.com.au/sitemap.xml",
+      "status": "unreachable",
+      "httpStatus": 503,
+      "reason": "HTTP 503"
+    },
+    "robotsTxtFetch": {
+      "status": "unreachable",
+      "httpStatus": 403,
+      "reason": "blocked, HTTP 403"
+    }
+  },
+  "fixture-blocked.com.au crawl 1": {
+    "domain": "fixture-blocked.com.au",
+    "pages": [],
+    "robotsTxt": null,
+    "sitemapXml": null,
+    "errors": [
+      "Failed to fetch https://fixture-blocked.com.au (HTTP 403)"
+    ],
+    "homepage": {
+      "url": "https://fixture-blocked.com.au",
+      "reached": false,
+      "httpStatus": 403
+    },
+    "sitemap": {
+      "url": "https://fixture-blocked.com.au/sitemap.xml",
+      "status": "unreachable",
+      "httpStatus": 503,
+      "reason": "HTTP 503"
+    },
+    "robotsTxtFetch": {
+      "status": "unreachable",
+      "httpStatus": 403,
+      "reason": "blocked, HTTP 403"
+    }
+  },
+  "fixture-blocked.com.au crawl 0": {
+    "domain": "fixture-blocked.com.au",
+    "pages": [],
+    "robotsTxt": null,
+    "sitemapXml": null,
+    "errors": [],
+    "sitemap": {
+      "url": "https://fixture-blocked.com.au/sitemap.xml",
+      "status": "unreachable",
+      "httpStatus": 503,
+      "reason": "HTTP 503"
+    },
+    "robotsTxtFetch": {
+      "status": "unreachable",
+      "httpStatus": 403,
+      "reason": "blocked, HTTP 403"
+    }
+  },
+  "fixture-blocked.com.au robots": {
+    "status": "unreachable",
+    "httpStatus": 403
+  },
+  "fixture-soft.com.au crawl 20": {
+    "domain": "fixture-soft.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-soft.com.au",
+        "statusCode": 200,
+        "title": "Soft",
+        "textContent": "SoftSoft text for the crawl.",
+        "wordCount": 5,
+        "excerpt": "SoftSoft text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>Soft</title></head><body><main><h1>Soft</h1><p>Soft text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": null,
+    "sitemapXml": "<html><body>Not a sitemap</body></html>",
+    "errors": [],
+    "homepage": {
+      "url": "https://fixture-soft.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://fixture-soft.com.au/sitemap.xml",
+      "status": "absent",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "absent",
+      "httpStatus": 404
+    }
+  },
+  "fixture-soft.com.au crawl 1": {
+    "domain": "fixture-soft.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-soft.com.au",
+        "statusCode": 200,
+        "title": "Soft",
+        "textContent": "SoftSoft text for the crawl.",
+        "wordCount": 5,
+        "excerpt": "SoftSoft text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>Soft</title></head><body><main><h1>Soft</h1><p>Soft text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": null,
+    "sitemapXml": "<html><body>Not a sitemap</body></html>",
+    "errors": [],
+    "homepage": {
+      "url": "https://fixture-soft.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://fixture-soft.com.au/sitemap.xml",
+      "status": "absent",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "absent",
+      "httpStatus": 404
+    }
+  },
+  "fixture-soft.com.au crawl 0": {
+    "domain": "fixture-soft.com.au",
+    "pages": [],
+    "robotsTxt": null,
+    "sitemapXml": "<html><body>Not a sitemap</body></html>",
+    "errors": [],
+    "sitemap": {
+      "url": "https://fixture-soft.com.au/sitemap.xml",
+      "status": "absent",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "absent",
+      "httpStatus": 404
+    }
+  },
+  "fixture-soft.com.au robots": {
+    "status": "absent",
+    "httpStatus": 404
+  },
+  "fixture-cdn.com.au crawl 20": {
+    "domain": "fixture-cdn.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-cdn.com.au",
+        "statusCode": 200,
+        "title": "CDN home",
+        "textContent": "CDN homeCDN home text for the crawl.",
+        "wordCount": 7,
+        "excerpt": "CDN homeCDN home text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>CDN home</title></head><body><main><h1>CDN home</h1><p>CDN home text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": "User-agent: GPTBot\nDisallow: /\nSitemap: https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+    "sitemapXml": "<sitemapindex><sitemap><loc>https://fixture-cdn.com.au/s1.xml</loc></sitemap></sitemapindex>",
+    "errors": [],
+    "homepage": {
+      "url": "https://fixture-cdn.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-cdn.com.au crawl 1": {
+    "domain": "fixture-cdn.com.au",
+    "pages": [
+      {
+        "url": "https://fixture-cdn.com.au",
+        "statusCode": 200,
+        "title": "CDN home",
+        "textContent": "CDN homeCDN home text for the crawl.",
+        "wordCount": 7,
+        "excerpt": "CDN homeCDN home text for the crawl.",
+        "byline": null,
+        "html": "<html><head><title>CDN home</title></head><body><main><h1>CDN home</h1><p>CDN home text for the crawl.</p></main></body></html>",
+        "headers": {
+          "content-type": "text/html; charset=utf-8",
+          "x-served-by": "fixture"
+        }
+      }
+    ],
+    "robotsTxt": "User-agent: GPTBot\nDisallow: /\nSitemap: https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+    "sitemapXml": "<sitemapindex><sitemap><loc>https://fixture-cdn.com.au/s1.xml</loc></sitemap></sitemapindex>",
+    "errors": [],
+    "homepage": {
+      "url": "https://fixture-cdn.com.au",
+      "reached": true,
+      "httpStatus": 200
+    },
+    "sitemap": {
+      "url": "https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-cdn.com.au crawl 0": {
+    "domain": "fixture-cdn.com.au",
+    "pages": [],
+    "robotsTxt": "User-agent: GPTBot\nDisallow: /\nSitemap: https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+    "sitemapXml": "<sitemapindex><sitemap><loc>https://fixture-cdn.com.au/s1.xml</loc></sitemap></sitemapindex>",
+    "errors": [],
+    "sitemap": {
+      "url": "https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+      "status": "found",
+      "httpStatus": 200
+    },
+    "robotsTxtFetch": {
+      "status": "found",
+      "httpStatus": 200
+    }
+  },
+  "fixture-cdn.com.au robots": {
+    "status": "found",
+    "text": "User-agent: GPTBot\nDisallow: /\nSitemap: https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml"
+  }
+}

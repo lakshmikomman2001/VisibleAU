@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
+import { guardedFetch, HARD_MAX_BYTES, HARD_TIMEOUT_MS } from "@/lib/fetch/guarded-fetch";
 import { CRAWLER_USER_AGENT } from "@/lib/product";
+import { outcomeForError, outcomeForStatus } from "./fetch-outcome";
 import type {
   CrawlHomepageOutcome,
   CrawlOptions,
@@ -8,7 +10,6 @@ import type {
   CrawlRobotsOutcome,
   CrawlSitemapOutcome,
 } from "./types";
-import { outcomeForError, outcomeForStatus } from "./fetch-outcome";
 
 // "Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)" (lib/product.ts). The "+URL" is where a site owner
 // who sees this bot in their logs reads what it is and how to reach us: the About page says (9 Nov; it named
@@ -20,20 +21,32 @@ export const FILE_FETCH_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_PAGES = 20;
 const DEFAULT_TIMEOUT = 15000;
 
+// S00B part 3: every request below goes through the guarded fetcher (lib/fetch/guarded-fetch.ts), which refuses
+// internal addresses -- a brand domain, a link, a redirect or a robots.txt Sitemap: line that points inside the
+// network -- through the same "no answer" path as a site that is down. Each request keeps its own user agent,
+// timeout and redirect-following; where it had no limit, it has one now (docs/lld/fetch-inventory.md, F1-F4):
+/** A page body (F1): none before S00B. HTML pages above this are vanishingly rare; cheerio reads the whole body. */
+export const PAGE_MAX_BYTES = 10 * 1024 * 1024;
+/** robots.txt (F2, F4): none before. Google reads 500 KiB; ten times that keeps every real file as found. */
+export const ROBOTS_MAX_BYTES = 5 * 1024 * 1024;
+/** A sitemap (F3): none before; the sitemap protocol allows 50 MB uncompressed. */
+export const SITEMAP_MAX_BYTES = HARD_MAX_BYTES;
+
 // 17 Nov, part 3: a page that couldn't be fetched says why -- the status it answered with, or null for no
 // answer -- so a crawl that never reached the site is recorded as that, not as a site with nothing on it.
 type FetchPageResult = { page: CrawlPage } | { page: null; httpStatus: number | null };
 
 async function fetchPage(url: string, ua: string, timeout: number): Promise<FetchPageResult> {
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    const res = await fetch(url, {
+    // The page timeout covers the answer's headers, as it always did; the body, which had no time limit, has the
+    // guarded fetcher's hard one.
+    const res = await guardedFetch(url, {
       headers: { "User-Agent": ua },
-      signal: controller.signal,
+      headersTimeoutMs: timeout,
+      timeoutMs: HARD_TIMEOUT_MS,
       redirect: "follow",
+      maxBytes: PAGE_MAX_BYTES,
     });
-    clearTimeout(timer);
     if (!res.ok) return { page: null, httpStatus: res.status };
 
     const html = await res.text();
@@ -102,9 +115,10 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   // 429 was read as absent ("No robots.txt found -- AI crawler access is undeclared"). And a timeout: it had none.
   let robotsTxtFetch: CrawlRobotsOutcome = { status: "unreachable", httpStatus: null };
   try {
-    const r = await fetch(`${baseUrl}/robots.txt`, {
+    const r = await guardedFetch(`${baseUrl}/robots.txt`, {
       headers: { "User-Agent": ua },
-      signal: AbortSignal.timeout(FILE_FETCH_TIMEOUT_MS),
+      timeoutMs: FILE_FETCH_TIMEOUT_MS,
+      maxBytes: ROBOTS_MAX_BYTES,
     });
     if (r.ok) {
       robotsTxt = await r.text();
@@ -129,9 +143,10 @@ export async function crawlSite(domain: string, opts?: CrawlOptions): Promise<Cr
   const sitemapUrl = robotsTxt?.match(/Sitemap:\s*(.+)/i)?.[1]?.trim() ?? `${baseUrl}/sitemap.xml`;
   let sitemap: CrawlSitemapOutcome = { url: sitemapUrl, status: "unreachable", httpStatus: null };
   try {
-    const s = await fetch(sitemapUrl, {
+    const s = await guardedFetch(sitemapUrl, {
       headers: { "User-Agent": ua },
-      signal: AbortSignal.timeout(FILE_FETCH_TIMEOUT_MS),
+      timeoutMs: FILE_FETCH_TIMEOUT_MS,
+      maxBytes: SITEMAP_MAX_BYTES,
     });
     if (s.ok) {
       sitemapXml = await s.text();
@@ -225,9 +240,10 @@ export type RobotsTxtFetch =
 
 export async function fetchRobotsTxt(domain: string, timeoutMs = 5000): Promise<RobotsTxtFetch> {
   try {
-    const res = await fetch(`https://${domain}/robots.txt`, {
+    const res = await guardedFetch(`https://${domain}/robots.txt`, {
       headers: { "User-Agent": DEFAULT_UA },
-      signal: AbortSignal.timeout(timeoutMs),
+      timeoutMs,
+      maxBytes: ROBOTS_MAX_BYTES,
     });
     if (res.ok) return { status: "found", text: await res.text() };
     // Leftovers task, part 3: only a 404 or 410 is "no robots.txt" -- a 403 or 429 read as absent made every

@@ -459,7 +459,10 @@ export async function guardedFetch(
 
       let res: Response;
       try {
-        res = await fetch(url.href, {
+        // The caller's own string on the first hop, as it called fetch before S00B (fetch parses it with the same
+        // URL parser as the checks above, so it's the same URL); each redirect's resolved URL after that.
+        const target = redirects === 0 && typeof input === "string" ? input : url.href;
+        res = await fetch(target, {
           method: hop.method,
           headers: hop.headers,
           ...(hop.body !== undefined ? { body: hop.body } : {}),

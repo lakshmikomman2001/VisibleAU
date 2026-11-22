@@ -4,6 +4,12 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { crawlSite } from "@/lib/crawler";
 import { roleRefusal } from "@/lib/governance";
 
+/**
+ * POST /api/crawl -- crawls any domain a signed-in member with run_audit gives it. S00B part 3: crawlSite fetches
+ * through the guarded fetcher (lib/fetch/guarded-fetch.ts), so an internal domain, or a site that redirects to an
+ * internal address, is refused and answered as "0 pages" with the crawl's own error. Its auth is unchanged; it
+ * can't be called anonymously, so no rate limiter was added (docs/lld/fetch-inventory.md, section 3).
+ */
 const crawlSchema = z.object({
   domain: z.string().min(3),
   maxPages: z.number().int().min(1).max(20).optional(),

@@ -1,0 +1,89 @@
+{
+  "fixture-plumbing.com.au 20": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-plumbing.com.au",
+      "pagesCount": 6,
+      "robotsTxtPresent": true,
+      "sitemapPresent": true,
+      "errors": [
+        "Failed to fetch https://fixture-plumbing.com.au/contact (HTTP 404)",
+        "Failed to fetch https://fixture-plumbing.com.au/#top (HTTP 404)"
+      ]
+    }
+  },
+  "fixture-plumbing.com.au 2": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-plumbing.com.au",
+      "pagesCount": 2,
+      "robotsTxtPresent": true,
+      "sitemapPresent": true,
+      "errors": []
+    }
+  },
+  "fixture-blocked.com.au 20": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-blocked.com.au",
+      "pagesCount": 0,
+      "robotsTxtPresent": false,
+      "sitemapPresent": false,
+      "errors": [
+        "Failed to fetch https://fixture-blocked.com.au (HTTP 403)"
+      ]
+    }
+  },
+  "fixture-blocked.com.au 2": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-blocked.com.au",
+      "pagesCount": 0,
+      "robotsTxtPresent": false,
+      "sitemapPresent": false,
+      "errors": [
+        "Failed to fetch https://fixture-blocked.com.au (HTTP 403)"
+      ]
+    }
+  },
+  "fixture-soft.com.au 20": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-soft.com.au",
+      "pagesCount": 1,
+      "robotsTxtPresent": false,
+      "sitemapPresent": true,
+      "errors": []
+    }
+  },
+  "fixture-soft.com.au 2": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-soft.com.au",
+      "pagesCount": 1,
+      "robotsTxtPresent": false,
+      "sitemapPresent": true,
+      "errors": []
+    }
+  },
+  "fixture-cdn.com.au 20": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-cdn.com.au",
+      "pagesCount": 1,
+      "robotsTxtPresent": true,
+      "sitemapPresent": true,
+      "errors": []
+    }
+  },
+  "fixture-cdn.com.au 2": {
+    "status": 200,
+    "body": {
+      "domain": "fixture-cdn.com.au",
+      "pagesCount": 1,
+      "robotsTxtPresent": true,
+      "sitemapPresent": true,
+      "errors": []
+    }
+  }
+}

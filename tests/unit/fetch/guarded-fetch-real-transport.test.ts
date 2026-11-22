@@ -1,20 +1,21 @@
 /**
  * S00B part 2: the real transport (no vi.mock). The guarded fetcher refuses loopback through production code too,
- * and the pinned connection never asks DNS again: a name that doesn't exist reaches the address it was given.
+ * and the production dispatcher connects to what its lookup hands it, never asking DNS itself: a name that doesn't
+ * exist reaches the address it was given.
  */
 import { once } from "node:events";
 import http from "node:http";
-import type { AddressInfo } from "node:net";
+import type { AddressInfo, LookupFunction } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { GuardedFetchError, guardedFetch } from "@/lib/fetch/guarded-fetch";
-import { connectPinned, resolveHost } from "@/lib/fetch/transport";
+import { createDispatcher, resolveHost } from "@/lib/fetch/transport";
 
 let server: http.Server;
 let port: number;
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
-    res.writeHead(200, { "content-type": "text/plain" });
+    res.writeHead(200, { "content-type": "text/plain", connection: "close" });
     res.end(`host=${req.headers.host}`);
   });
   server.listen(0, "127.0.0.1");
@@ -46,23 +47,17 @@ describe("the production transport", () => {
     expect(answers.every((a) => a.address === "127.0.0.1" || a.address === "::1")).toBe(true);
   });
 
-  it("connectPinned connects to the pinned address and never resolves the name (it doesn't exist)", async () => {
-    const socket = connectPinned({
-      protocol: "http:",
-      hostname: "pinned.does-not-exist.invalid",
-      port,
-      addresses: [{ address: "127.0.0.1", family: 4 }],
-      sendServerName: true,
-    });
-    await once(socket, "connect");
-    socket.write(
-      "GET / HTTP/1.1\r\nHost: pinned.does-not-exist.invalid\r\nConnection: close\r\n\r\n",
-    );
-    let reply = "";
-    socket.on("data", (d) => {
-      reply += d;
-    });
-    await once(socket, "end");
-    expect(reply).toContain("host=pinned.does-not-exist.invalid");
+  it("the dispatcher connects to the address its lookup gives and keeps the original Host", async () => {
+    const asked: string[] = [];
+    const lookup: LookupFunction = (hostname, options, callback) => {
+      asked.push(hostname);
+      if (options.all) callback(null, [{ address: "127.0.0.1", family: 4 }]);
+      else callback(null, "127.0.0.1", 4);
+    };
+    const res = await fetch(`http://pinned.does-not-exist.invalid:${port}/`, {
+      dispatcher: createDispatcher(lookup),
+    } as RequestInit);
+    expect(await res.text()).toBe(`host=pinned.does-not-exist.invalid:${port}`);
+    expect(asked).toEqual(["pinned.does-not-exist.invalid"]);
   });
 });

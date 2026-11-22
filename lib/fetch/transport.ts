@@ -1,20 +1,21 @@
 import type { LookupAddress } from "node:dns";
 import { promises as dns } from "node:dns";
-import { connect as netConnect, type Socket } from "node:net";
-import { connect as tlsConnect } from "node:tls";
+import type { LookupFunction } from "node:net";
+import { Agent, type Dispatcher } from "undici";
 
 /**
- * S00B part 2: the two network steps of the guarded fetcher (./guarded-fetch.ts), and nothing else. Production
- * resolves with the system resolver (what `fetch` uses) and connects with Node's own sockets.
+ * S00B part 2: the guarded fetcher's two network pieces (./guarded-fetch.ts), and nothing else.
  *
- * DNS pinning: `resolveHost` runs once per request hop; the guarded fetcher checks every address it returns and
- * hands the checked list to `connectPinned`, whose `lookup` answers with that list. Node never resolves the name
- * a second time, so a DNS answer that changes between the check and the connection (rebinding) can't move the
- * request. TLS still sends the original host name as SNI and checks the certificate against it.
+ * - `resolveHost`: the system resolver, which `fetch` uses too.
+ * - `createDispatcher`: the connection pool `fetch` is given for every guarded request (`fetch(url, {dispatcher})`;
+ *   undici 7, the same code as Node's own `fetch`). Its connections take their address from the guarded
+ *   fetcher's lookup, which resolves the name once, checks every answer and hands back only checked ones: the
+ *   socket connects to exactly what was checked (DNS pinning), so an answer that changes between the check and the
+ *   connection (rebinding) can't move the request. TLS keeps the original name for SNI and the certificate.
  *
- * Tests swap this module with `vi.mock` (tests/unit/fetch/guarded-fetch.test.ts) to resolve fixture names and to
- * reach a local server; nothing in production code can (tests/unit/fetch/guarded-fetch-injection-guard.test.ts:
- * no environment switch, no setter, and only guarded-fetch.ts imports it).
+ * Tests swap this module with `vi.mock` (tests/helpers/guarded-fetch-test-transport.ts) to resolve fixture names
+ * and reach a local server; nothing in production code can (tests/unit/fetch/guarded-fetch-injection-guard.test.ts:
+ * no environment switch, no setter, and only guarded-fetch.ts imports this).
  */
 
 export interface ResolvedAddress {
@@ -31,45 +32,7 @@ export async function resolveHost(hostname: string): Promise<ResolvedAddress[]> 
   }));
 }
 
-export interface PinnedTarget {
-  protocol: "http:" | "https:";
-  /** The URL's host name: the TLS server name and certificate name. Never re-resolved. */
-  hostname: string;
-  port: number;
-  /** The checked addresses, in the resolver's order; the connection uses only these. */
-  addresses: readonly ResolvedAddress[];
-  /** False for an IP literal, which TLS must not send as SNI. */
-  sendServerName: boolean;
-}
-
-/**
- * Opens the connection to one of the checked addresses (Happy Eyeballs across them, as `fetch` does). The
- * returned socket is plain TCP for http: and TLS for https:.
- */
-export function connectPinned(target: PinnedTarget): Socket {
-  const pinned = target.addresses.map((a) => ({ address: a.address, family: a.family }));
-  const lookup = (
-    _hostname: string,
-    options: { all?: boolean },
-    callback: (
-      err: NodeJS.ErrnoException | null,
-      address: string | LookupAddress[],
-      family?: number,
-    ) => void,
-  ): void => {
-    if (options.all) callback(null, pinned);
-    else callback(null, pinned[0].address, pinned[0].family);
-  };
-  const common = {
-    host: target.hostname,
-    port: target.port,
-    lookup,
-    autoSelectFamily: true,
-  };
-  if (target.protocol === "http:") return netConnect(common);
-  return tlsConnect({
-    ...common,
-    ...(target.sendServerName ? { servername: target.hostname } : {}),
-    ALPNProtocols: ["http/1.1"],
-  });
+/** The pool `fetch` uses for guarded requests: every new connection's address comes from `lookup`. */
+export function createDispatcher(lookup: LookupFunction): Dispatcher {
+  return new Agent({ connect: { lookup, autoSelectFamily: true } });
 }

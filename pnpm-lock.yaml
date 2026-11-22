@@ -166,6 +166,9 @@ importers:
       tldts:
         specifier: ^7.4.18
         version: 7.4.18
+      undici:
+        specifier: 7.27.2
+        version: 7.27.2
       unified:
         specifier: ^11.0.5
         version: 11.0.5

@@ -31,7 +31,7 @@ describe("the guarded fetcher has no way in for production code", () => {
     for (const f of files) expect(f.text, f.path).not.toMatch(/process\.env|import\.meta\.env/);
   });
 
-  it("the transport exports only resolveHost, connectPinned and their types: nothing to set or swap", () => {
+  it("the transport exports only resolveHost, createDispatcher and their types: nothing to set or swap", () => {
     const text = sourceText("lib/fetch/transport.ts");
     const exported = [
       ...text.matchAll(
@@ -39,9 +39,8 @@ describe("the guarded fetcher has no way in for production code", () => {
       ),
     ].map((m) => `${m[1]} ${m[2]}`);
     expect(exported.sort()).toEqual([
-      "function connectPinned",
+      "function createDispatcher",
       "function resolveHost",
-      "interface PinnedTarget",
       "interface ResolvedAddress",
     ]);
     expect(text).not.toMatch(/^export\s+(let|var)\b/m);
@@ -81,7 +80,11 @@ describe("the guarded fetcher has no way in for production code", () => {
       .map((f) => f.path);
     expect(importers).toEqual(["lib/fetch/guarded-fetch.ts"]);
     const testTransport = sourceFiles(NON_TEST_ROOTS)
-      .filter((f) => f.text.includes("guarded-fetch-test-transport"))
+      .filter((f) =>
+        /(?:from\s+|import\(\s*|require\(\s*)["'][^"']*guarded-fetch-test-transport["']/.test(
+          f.text,
+        ),
+      )
       .map((f) => f.path);
     expect(testTransport).toEqual([]);
   });

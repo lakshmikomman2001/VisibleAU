@@ -18,7 +18,9 @@ import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
  * classification already fetches it when a brand is added (lib/crawler crawlSite, one page, 8 s), so this is no new
  * kind of fetch; only a plain host name is accepted (no IP address, port, path or localhost), and only the
  * suggested name and aliases are sent back, never the page. When the page can't be read, the suggestion falls back
- * to the domain's own words. S06's guarded fetcher replaces crawlSite here with every other caller.
+ * to the domain's own words. S00B part 3: crawlSite fetches through the guarded fetcher (lib/fetch/guarded-fetch.ts),
+ * so a host name that resolves to an internal address, or a page that redirects to one, is refused and lands in
+ * that fallback.
  */
 export async function GET(req: Request) {
   const currentUser = await getCurrentUser();

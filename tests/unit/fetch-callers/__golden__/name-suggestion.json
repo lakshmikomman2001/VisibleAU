@@ -1,0 +1,40 @@
+{
+  "fixture-plumbing.com.au": {
+    "status": 200,
+    "body": {
+      "name": "Fixture Plumbing",
+      "source": "title",
+      "aliases": [
+        "FixturePlumbing"
+      ]
+    }
+  },
+  "fixture-blocked.com.au": {
+    "status": 200,
+    "body": {
+      "name": "Fixture Blocked",
+      "source": "domain",
+      "aliases": [
+        "FixtureBlocked"
+      ]
+    }
+  },
+  "fixture-soft.com.au": {
+    "status": 200,
+    "body": {
+      "name": "Soft",
+      "source": "title",
+      "aliases": []
+    }
+  },
+  "fixture-cdn.com.au": {
+    "status": 200,
+    "body": {
+      "name": "Fixture Cdn",
+      "source": "domain",
+      "aliases": [
+        "FixtureCdn"
+      ]
+    }
+  }
+}

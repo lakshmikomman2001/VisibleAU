@@ -81,6 +81,38 @@ Visible to a customer only where the site itself does something the protections 
 - a `Sitemap:` line naming a non-http(s) URL (F3; `fetch` also read `data:` URLs);
 - a webhook endpoint on a port other than 80 or 443, or on an internal address (F11, F12). Sri: before the push, count them read-only in production: `SELECT count(*) FROM webhook_endpoints WHERE url !~* '^https?://[^/:]+(:(80|443))?(/|$)';`.
 
-## 6. Migrated in
+## 6. Migrated in (S00B part 5)
 
-Filled in by Part 5.
+The guarded fetcher: `lib/fetch/guarded-fetch.ts` (`69e74713`; its exchange is `fetch` with a pinning undici dispatcher since `99c5a103`). Guard against new unguarded fetches: `tests/unit/fetch/no-unguarded-fetch.test.ts` (`f3c700fc`).
+
+| # | Fetch site | Migrated in | Options kept | Bound added where there was none |
+|---|---|---|---|---|
+| F1 | crawler pages | `e3d55f70` | our UA; the page timeout on the headers; follow | body 60 s (hard limit), 10 MB |
+| F2 | crawler robots.txt | `e3d55f70` | our UA; 10 s; follow | 5 MB |
+| F3 | crawler sitemap | `e3d55f70` | our UA; 10 s; follow | 50 MB (the sitemap protocol's maximum) |
+| F4 | `fetchRobotsTxt` | `e3d55f70` | our UA; 5 s; follow | 5 MB |
+| F5 | CDN Shield probe | `c5882a92` | our UA; GET; manual; 5 s; body not read (now cancelled at once) | n/a |
+| F6 | llms.txt | `398cb9dc` | fetch's own headers; 5 s; follow | 10 MB |
+| F7 | llms-full.txt | `398cb9dc` | fetch's own headers; 5 s; follow | 50 MB |
+| F8 | AI files | `398cb9dc` | fetch's own headers; 10 s; follow | 10 MB |
+| F9 | MCP | `398cb9dc` | our UA; 5 s; follow | 10 MB |
+| F10 | agency logo | `5c909ae9` | https only; its string host check; error on redirect; 5 s; 2 MB; PNG/JPEG by bytes | n/a |
+| F11 | webhook delivery | `1efb5efc` | POST; signed headers; webhook UA; 10 s; follow (POST to GET after 301/302/303, as fetch) | response 1 MB (read for the result only; a failed read was already "") |
+| F12 | webhook test | `1efb5efc` | the same; status only (body now cancelled) | n/a |
+
+The callers that reach F1–F3 through `crawlSite` moved with the crawler (`e3d55f70`); each has its own parity and refusal test: classification (`440dd23c`), the name suggestion (`031cb065`), `POST /api/crawl` (`cdea0b41`), the technical audit, entity home, content structure, llms.txt refresh, agent readiness, llms.txt generate and coverage (through the crawler's own tests, `tests/unit/fetch-callers/crawler.test.ts`).
+
+**Parity:** every migrated caller's output on recorded public sites is byte for byte its output before the move (the golden files in `tests/unit/fetch-callers/__golden__/`, each written on the code before its caller moved). **Refusal:** each caller's test points it at a local server standing in for an internal address (a redirect, a `Sitemap:` line, an endpoint URL, a reserved range); before the move each one read or sent to it, after it none connects.
+
+**Left out, with the reason:**
+- The fixed-host clients in section 4: the host is fixed in code (or comes from operator data), so a customer can't point them anywhere; the guard lists each by file, host and count.
+- The browser's requests to the app's own `/api` (client components, `lib/load/fetch-json.ts`, `lib/auth/workspace-errors.ts`): not server code; relative paths.
+- DNS-only lookups of visitor IPs (`lib/agent-analytics/verify-crawler-hits.ts`): no HTTP request is made.
+
+**Proposed LLD amendments (8.6.2):**
+1. Limits: hard caps for every caller are **60 s and 50 MB**; the LLD's 10 s / 2 MB / 3 redirects / HTML-only are the preset for the new S06+ callers, not limits on existing ones (which keep theirs, as D-SEC1 says).
+2. "`http:` upgraded": existing callers keep fetching `http:` links and redirects as they did; `allowHttp: false` is the per-caller option (S06's preset can set it).
+3. Refusal codes add `blocked_credentials` (a user name or password in the URL) and `blocked_by_robots` (only with `obeyRobots`).
+4. robots.txt (`obeyRobots`, off for every existing caller): the bot's own group, then `*` (lib/robots-txt/evaluate.ts); a 4xx robots.txt allows everything, a 5xx or no answer disallows everything (RFC 9309 2.3.1); cached 10 minutes per origin and user agent.
+5. The exchange is Node's `fetch` with an undici 7 dispatcher whose connect lookup is the guard's (dependency `undici` 7.27.2, the version already installed through cheerio), so request headers, decoding and errors are `fetch`'s own and every test that fakes `fetch` keeps working. IP literals are checked before `fetch` on every hop, because Node never calls a lookup for one.
+6. Scope: amendment 19's "about eight places" is twelve fetch sites, including the agency logo (F10) and webhooks (F11, F12); webhook endpoints on a port other than 80 or 443 stop receiving.

@@ -27,8 +27,12 @@ interface HomepageSignals {
 
 /**
  * Vunnara Build 1, Part C.3: the homepage's <title>/meta description/
- * first <h1> via the existing SSRF-safe crawler, capped at 1 page (we
- * only need the homepage, not a full site crawl) with its own timeout.
+ * first <h1> via the crawler, capped at 1 page (we only need the
+ * homepage, not a full site crawl) with its own timeout. S00B part 3:
+ * the crawler fetches through the guarded fetcher (lib/fetch/
+ * guarded-fetch.ts), so a domain or redirect that points at an internal
+ * address is refused and lands here as "no homepage" (it called the
+ * crawler "SSRF-safe" before that was true).
  * Nothing from this is stored beyond feeding the classification prompt
  * -- returns null on any failure so the caller can classify from name/
  * domain alone and lower its confidence accordingly.

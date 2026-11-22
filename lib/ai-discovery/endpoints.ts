@@ -4,7 +4,7 @@ import {
   outcomeForError,
   outcomeForStatus,
 } from "@/lib/crawler/fetch-outcome";
-
+import { guardedFetch } from "@/lib/fetch/guarded-fetch";
 import type { TechnicalScoringVersion } from "@/lib/technical-audit/scoring-version";
 
 // Task WW: the single source of truth for AI Discovery weights -- the
@@ -95,12 +95,17 @@ interface AiDiscoveryResult {
 
 /** How long each request gets (5 s made a slow site's files "missing"). */
 const ENDPOINT_TIMEOUT_MS = 10_000;
+/** S00B part 3 (inventory F8): a file's size bound (none before); these are small text and JSON files. */
+export const AI_FILE_MAX_BYTES = 10 * 1024 * 1024;
 
 async function checkEndpoint(url: string, expectedType: string): Promise<FetchOutcome> {
   try {
-    const res = await fetch(url, {
+    // S00B part 3: through the guarded fetcher (an internal address is refused: "couldn't check" below), with
+    // fetch's own request headers and the same timeout as before.
+    const res = await guardedFetch(url, {
       method: "GET",
-      signal: AbortSignal.timeout(ENDPOINT_TIMEOUT_MS),
+      timeoutMs: ENDPOINT_TIMEOUT_MS,
+      maxBytes: AI_FILE_MAX_BYTES,
     });
     if (!res.ok) return outcomeForStatus(res.status);
     // A 2xx that isn't the file (the site's own HTML page for an unknown path) is a missing file.

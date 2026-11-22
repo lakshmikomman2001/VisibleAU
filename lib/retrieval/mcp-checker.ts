@@ -4,7 +4,11 @@ import {
   outcomeForError,
   outcomeForStatus,
 } from "@/lib/crawler/fetch-outcome";
+import { guardedFetch } from "@/lib/fetch/guarded-fetch";
 import { CRAWLER_USER_AGENT } from "@/lib/product";
+
+/** S00B part 3 (inventory F9): a manifest's size bound (none before). */
+export const MCP_MANIFEST_MAX_BYTES = 10 * 1024 * 1024;
 
 /**
  * Leftovers task, part 3 (17 Nov): present true (a manifest answered), false (both places said 404 or 410), or null
@@ -24,8 +28,11 @@ export async function checkMcpEndpoint(domain: string): Promise<McpCheckResult> 
 
   for (const url of urls) {
     try {
-      const res = await fetch(url, {
-        signal: AbortSignal.timeout(5000),
+      // S00B part 3: through the guarded fetcher (an internal address is refused: "couldn't check" below), with its
+      // own options as before: our user agent, 5 s.
+      const res = await guardedFetch(url, {
+        timeoutMs: 5000,
+        maxBytes: MCP_MANIFEST_MAX_BYTES,
         // Follow-ups from af8de42..d1eb5a1, part 2: the one user agent every check sends (it was the old name's
         // "VisibleAU-MCP-Check/1.0").
         headers: { "User-Agent": CRAWLER_USER_AGENT },

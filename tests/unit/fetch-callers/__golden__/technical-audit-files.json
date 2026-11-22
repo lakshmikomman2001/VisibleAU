@@ -1,0 +1,1357 @@
+{
+  "fixture-plumbing.com.au technical audit": {
+    "dimensions": {
+      "scoreRobots": 18,
+      "scoreLlmsTxt": 0,
+      "scoreSchema": 0,
+      "scoreMeta": 4,
+      "scoreContent": 3,
+      "scoreBrandEntity": 5,
+      "scoreSignals": 0,
+      "scoreAiDiscovery": 0
+    },
+    "scoreComposite": 30,
+    "findings": {
+      "scoringVersion": 4,
+      "crawl": {
+        "pagesCrawled": 3,
+        "homepageReached": true,
+        "homepageHttpStatus": 200,
+        "sitemap": {
+          "url": "https://fixture-plumbing.com.au/sitemap.xml",
+          "status": "found",
+          "httpStatus": 200
+        }
+      },
+      "robots": {
+        "present": true,
+        "score": 18,
+        "aiBotsAllowed": [
+          "OAI-SearchBot",
+          "Claude-SearchBot",
+          "Googlebot",
+          "PerplexityBot"
+        ],
+        "aiBotsBlocked": [],
+        "cdnBlockingDetected": false,
+        "cdnVendor": null,
+        "recommendations": [],
+        "botVerdicts": [
+          {
+            "userAgent": "OAI-SearchBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Claude-SearchBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "PerplexityBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Googlebot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "ChatGPT-User",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Claude-User",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Perplexity-User",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "GPTBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "ClaudeBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "CCBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Google-Extended",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "anthropic-ai",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "FacebookBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Bytespider",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Diffbot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "cohere-ai",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "AppleBot-Extended",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "bingbot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "YouBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Amazonbot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Applebot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "DuckAssistBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "AndiBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Bingbot-AI-Tool",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "Cotoyogi",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          },
+          {
+            "userAgent": "PetalBot",
+            "verdict": "allowed",
+            "basis": "wildcard-group",
+            "rule": "Allow: /"
+          }
+        ],
+        "fetchStatus": "found",
+        "homepageHttpStatus": 200,
+        "ownersChoiceBlocked": [],
+        "userAgentsBlocked": []
+      },
+      "llmsTxt": {
+        "fetchStatus": "found",
+        "fullFetchStatus": "absent",
+        "present": true,
+        "url": "https://fixture-plumbing.com.au/llms.txt",
+        "depthScore": 6,
+        "components": {
+          "present": true,
+          "h1Blockquote": true,
+          "sections": false,
+          "links": false,
+          "depth": false,
+          "fullTxt": false
+        },
+        "issues": [],
+        "hasFullTxt": false,
+        "sizeKb": 0
+      },
+      "schema": {
+        "typesFound": [],
+        "richness": 0,
+        "gaps": [
+          "Organization",
+          "LocalBusiness",
+          "FAQPage",
+          "Article"
+        ],
+        "realityCheck": {
+          "google": "Low / mixed for AI citations — schema is still a solid traditional-SEO practice (rich snippets, eligibility for enhanced results), but the only large-scale experiment found no AI-citation uplift and a small, statistically significant -4.6% decline in Google AI Overview citations after adding schema (ahrefs.com/blog/schema-ai-citations). Treat it as traditional-SEO hygiene, not an AI-Overview lever.",
+          "chatgpt": "No clear direct lift from schema alone — a large-scale Ahrefs study tracking 1,885 pages between August 2025 and March 2026 found no statistically significant change in ChatGPT citations after adding schema (ahrefs.com/blog/schema-ai-citations). Evidence across studies is mixed.",
+          "claude": "No large-scale Claude-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "perplexity": "No large-scale Perplexity-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "gemini": "Low / mixed for AI citations — no Gemini-specific large-scale study; schema retains traditional-snippet value, but the closest evidence (Ahrefs, 1,885 pages) found no AI-citation uplift on the Google AI surfaces it measured (a slight decline on AI Overviews). A traditional-SEO best practice, not an AI-citation lever."
+        },
+        "blocks": [],
+        "pagesScanned": 3
+      },
+      "meta": {
+        "score": 4,
+        "titlePresent": true,
+        "descriptionPresent": false,
+        "descriptionLength": 39,
+        "descriptionVerdict": "too_short",
+        "ogPresent": false,
+        "ogTitle": false,
+        "ogDesc": false,
+        "ogImage": false,
+        "canonicalPresent": false,
+        "hreflangPresent": false
+      },
+      "content": {
+        "score": 3,
+        "wordCount": 36,
+        "answerCapsulesFound": 0,
+        "answerCapsulesSuggested": 0,
+        "capsuleFinding": "We checked your H2/H3 headings and found no question-style headings — add FAQ/Q&A sections with 20-25 word answers to form answer capsules.",
+        "questions": [],
+        "ssr": {
+          "healthy": false,
+          "pagesChecked": 3,
+          "pages": [
+            {
+              "path": "/",
+              "wordCount": 22,
+              "contentVerdict": "none",
+              "criticalCtas": "yes",
+              "schemaVisible": false,
+              "status": "review"
+            },
+            {
+              "path": "/services",
+              "wordCount": 7,
+              "contentVerdict": "none",
+              "criticalCtas": "no",
+              "schemaVisible": false,
+              "status": "review"
+            },
+            {
+              "path": "/about",
+              "wordCount": 7,
+              "contentVerdict": "none",
+              "criticalCtas": "no",
+              "schemaVisible": false,
+              "status": "review"
+            }
+          ]
+        },
+        "negativeSignals": [
+          {
+            "pattern": "thin-content",
+            "severity": "critical",
+            "count": 22,
+            "detail": "22 words on / — below the 300-word minimum for citable content."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'fixture' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'plumbingblocked' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'drains,' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'water' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'fitting' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'across' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'sydney.' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 2,
+            "detail": "'services' at 9.1% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'again' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'about' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'page' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'blog' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'contact' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'elsewhere' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "warning",
+            "count": 1,
+            "detail": "'mail' at 4.5% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "thin-content",
+            "severity": "critical",
+            "count": 7,
+            "detail": "7 words on /services — below the 300-word minimum for citable content."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'servicesservices' at 14.3% density on /services — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'text' at 14.3% density on /services — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'crawl.jo' at 14.3% density on /services — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'fixturehot' at 14.3% density on /services — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'water' at 14.3% density on /services — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "thin-content",
+            "severity": "critical",
+            "count": 7,
+            "detail": "7 words on /about — below the 300-word minimum for citable content."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'about' at 14.3% density on /about — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'usabout' at 14.3% density on /about — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'text' at 14.3% density on /about — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'crawl.' at 14.3% density on /about — above the 3% over-optimisation threshold."
+          }
+        ],
+        "promptInjections": []
+      },
+      "brandEntity": {
+        "score": 5,
+        "abnVerified": false,
+        "abnNumber": null,
+        "wikipediaAuPresent": false,
+        "auTldPresent": false,
+        "directoryPresence": []
+      },
+      "signals": {
+        "score": 0
+      },
+      "aiDiscovery": {
+        "score": 0,
+        "aiTxtPresent": true,
+        "aiSummaryPresent": true,
+        "aiFaqPresent": false,
+        "aiServicePresent": null,
+        "notChecked": {
+          "aiServicePresent": "HTTP 500"
+        },
+        "optionalFilesScored": false
+      }
+    },
+    "siteReached": true,
+    "unmeasured": [],
+    "unmeasuredScored": []
+  },
+  "fixture-plumbing.com.au ai discovery": {
+    "score": 0,
+    "measured": true,
+    "findings": {
+      "score": 0,
+      "aiTxtPresent": true,
+      "aiSummaryPresent": true,
+      "aiFaqPresent": false,
+      "aiServicePresent": null,
+      "notChecked": {
+        "aiServicePresent": "HTTP 500"
+      },
+      "optionalFilesScored": false
+    }
+  },
+  "fixture-plumbing.com.au mcp": {
+    "mcpEndpointPresent": true,
+    "mcpEndpointValid": true,
+    "mcpToolsCount": 2
+  },
+  "fixture-blocked.com.au technical audit": {
+    "dimensions": {
+      "scoreRobots": 0,
+      "scoreLlmsTxt": 0,
+      "scoreSchema": 0,
+      "scoreMeta": 0,
+      "scoreContent": 0,
+      "scoreBrandEntity": 5,
+      "scoreSignals": 6,
+      "scoreAiDiscovery": 0
+    },
+    "scoreComposite": 11,
+    "findings": {
+      "scoringVersion": 4,
+      "crawl": {
+        "pagesCrawled": 0,
+        "homepageReached": false,
+        "homepageHttpStatus": 403,
+        "sitemap": {
+          "url": "https://fixture-blocked.com.au/sitemap.xml",
+          "status": "unreachable",
+          "httpStatus": 503,
+          "reason": "HTTP 503"
+        }
+      },
+      "robots": {
+        "present": false,
+        "score": 0,
+        "aiBotsAllowed": [],
+        "aiBotsBlocked": [],
+        "cdnBlockingDetected": true,
+        "cdnVendor": null,
+        "recommendations": [
+          "We couldn't read your robots.txt (it answered HTTP 403), so we can't say what it allows. Check it loads at /robots.txt.",
+          "Your site answered our crawler with HTTP 403. Check your firewall or bot protection settings: AI crawlers may be turned away too."
+        ],
+        "fetchStatus": "unreachable",
+        "homepageHttpStatus": 403
+      },
+      "llmsTxt": {
+        "fetchStatus": "unreachable",
+        "fetchReason": "blocked, HTTP 403",
+        "fullFetchStatus": "unreachable",
+        "fullFetchReason": "blocked, HTTP 403",
+        "present": false,
+        "url": null,
+        "depthScore": 0,
+        "components": {
+          "present": false,
+          "h1Blockquote": false,
+          "sections": false,
+          "links": false,
+          "depth": false,
+          "fullTxt": false
+        },
+        "issues": [],
+        "hasFullTxt": false,
+        "sizeKb": 0
+      },
+      "schema": {
+        "typesFound": [],
+        "richness": 0,
+        "gaps": [
+          "Organization",
+          "LocalBusiness",
+          "FAQPage",
+          "Article"
+        ],
+        "realityCheck": {
+          "google": "Low / mixed for AI citations — schema is still a solid traditional-SEO practice (rich snippets, eligibility for enhanced results), but the only large-scale experiment found no AI-citation uplift and a small, statistically significant -4.6% decline in Google AI Overview citations after adding schema (ahrefs.com/blog/schema-ai-citations). Treat it as traditional-SEO hygiene, not an AI-Overview lever.",
+          "chatgpt": "No clear direct lift from schema alone — a large-scale Ahrefs study tracking 1,885 pages between August 2025 and March 2026 found no statistically significant change in ChatGPT citations after adding schema (ahrefs.com/blog/schema-ai-citations). Evidence across studies is mixed.",
+          "claude": "No large-scale Claude-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "perplexity": "No large-scale Perplexity-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "gemini": "Low / mixed for AI citations — no Gemini-specific large-scale study; schema retains traditional-snippet value, but the closest evidence (Ahrefs, 1,885 pages) found no AI-citation uplift on the Google AI surfaces it measured (a slight decline on AI Overviews). A traditional-SEO best practice, not an AI-citation lever."
+        },
+        "blocks": [],
+        "pagesScanned": 0
+      },
+      "meta": {
+        "score": 0,
+        "titlePresent": false,
+        "descriptionPresent": false,
+        "descriptionLength": 0,
+        "descriptionVerdict": "missing",
+        "ogPresent": false,
+        "ogTitle": false,
+        "ogDesc": false,
+        "ogImage": false,
+        "canonicalPresent": false,
+        "hreflangPresent": false
+      },
+      "content": {
+        "score": 0,
+        "wordCount": 0,
+        "answerCapsulesFound": 0,
+        "answerCapsulesSuggested": 0,
+        "capsuleFinding": "We checked your H2/H3 headings and found no question-style headings — add FAQ/Q&A sections with 20-25 word answers to form answer capsules.",
+        "questions": [],
+        "ssr": {
+          "healthy": true,
+          "pagesChecked": 0,
+          "pages": []
+        },
+        "negativeSignals": [],
+        "promptInjections": []
+      },
+      "brandEntity": {
+        "score": 5,
+        "abnVerified": false,
+        "abnNumber": null,
+        "wikipediaAuPresent": false,
+        "auTldPresent": false,
+        "directoryPresence": []
+      },
+      "signals": {
+        "score": 6
+      },
+      "aiDiscovery": {
+        "score": 0,
+        "aiTxtPresent": false,
+        "aiSummaryPresent": false,
+        "aiFaqPresent": false,
+        "aiServicePresent": false,
+        "notChecked": {},
+        "optionalFilesScored": false
+      }
+    },
+    "siteReached": false,
+    "unmeasured": [
+      "scoreRobots",
+      "scoreLlmsTxt",
+      "scoreSchema",
+      "scoreMeta",
+      "scoreContent",
+      "scoreSignals",
+      "scoreAiDiscovery"
+    ],
+    "unmeasuredScored": [
+      "scoreRobots",
+      "scoreSchema",
+      "scoreMeta",
+      "scoreContent",
+      "scoreSignals"
+    ]
+  },
+  "fixture-blocked.com.au ai discovery": {
+    "score": 0,
+    "measured": true,
+    "findings": {
+      "score": 0,
+      "aiTxtPresent": false,
+      "aiSummaryPresent": false,
+      "aiFaqPresent": false,
+      "aiServicePresent": false,
+      "notChecked": {},
+      "optionalFilesScored": false
+    }
+  },
+  "fixture-blocked.com.au mcp": {
+    "mcpEndpointPresent": null,
+    "mcpEndpointValid": null,
+    "mcpToolsCount": 0,
+    "mcpCheckFailure": "rate-limited, HTTP 429"
+  },
+  "fixture-soft.com.au technical audit": {
+    "dimensions": {
+      "scoreRobots": 3,
+      "scoreLlmsTxt": 0,
+      "scoreSchema": 0,
+      "scoreMeta": 0,
+      "scoreContent": 0,
+      "scoreBrandEntity": 5,
+      "scoreSignals": 0,
+      "scoreAiDiscovery": 0
+    },
+    "scoreComposite": 8,
+    "findings": {
+      "scoringVersion": 4,
+      "crawl": {
+        "pagesCrawled": 1,
+        "homepageReached": true,
+        "homepageHttpStatus": 200,
+        "sitemap": {
+          "url": "https://fixture-soft.com.au/sitemap.xml",
+          "status": "absent",
+          "httpStatus": 200
+        }
+      },
+      "robots": {
+        "present": false,
+        "score": 3,
+        "aiBotsAllowed": [],
+        "aiBotsBlocked": [],
+        "cdnBlockingDetected": false,
+        "cdnVendor": null,
+        "recommendations": [
+          "Add a robots.txt file to your site root.",
+          "No robots.txt found — AI crawler access is undeclared.",
+          "Add a Sitemap: directive to robots.txt"
+        ],
+        "botVerdicts": [
+          {
+            "userAgent": "OAI-SearchBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Claude-SearchBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "PerplexityBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Googlebot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "ChatGPT-User",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Claude-User",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Perplexity-User",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "GPTBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "ClaudeBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "CCBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Google-Extended",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "anthropic-ai",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "FacebookBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Bytespider",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Diffbot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "cohere-ai",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "AppleBot-Extended",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "bingbot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "YouBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Amazonbot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Applebot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "DuckAssistBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "AndiBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Bingbot-AI-Tool",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "Cotoyogi",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          },
+          {
+            "userAgent": "PetalBot",
+            "verdict": "allowed",
+            "basis": "no-robots-txt",
+            "rule": null
+          }
+        ],
+        "fetchStatus": "absent",
+        "homepageHttpStatus": 200,
+        "ownersChoiceBlocked": [],
+        "userAgentsBlocked": []
+      },
+      "llmsTxt": {
+        "fetchStatus": "absent",
+        "fullFetchStatus": "absent",
+        "present": false,
+        "url": null,
+        "depthScore": 0,
+        "components": {
+          "present": false,
+          "h1Blockquote": false,
+          "sections": false,
+          "links": false,
+          "depth": false,
+          "fullTxt": false
+        },
+        "issues": [],
+        "hasFullTxt": false,
+        "sizeKb": 0
+      },
+      "schema": {
+        "typesFound": [],
+        "richness": 0,
+        "gaps": [
+          "Organization",
+          "LocalBusiness",
+          "FAQPage",
+          "Article"
+        ],
+        "realityCheck": {
+          "google": "Low / mixed for AI citations — schema is still a solid traditional-SEO practice (rich snippets, eligibility for enhanced results), but the only large-scale experiment found no AI-citation uplift and a small, statistically significant -4.6% decline in Google AI Overview citations after adding schema (ahrefs.com/blog/schema-ai-citations). Treat it as traditional-SEO hygiene, not an AI-Overview lever.",
+          "chatgpt": "No clear direct lift from schema alone — a large-scale Ahrefs study tracking 1,885 pages between August 2025 and March 2026 found no statistically significant change in ChatGPT citations after adding schema (ahrefs.com/blog/schema-ai-citations). Evidence across studies is mixed.",
+          "claude": "No large-scale Claude-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "perplexity": "No large-scale Perplexity-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "gemini": "Low / mixed for AI citations — no Gemini-specific large-scale study; schema retains traditional-snippet value, but the closest evidence (Ahrefs, 1,885 pages) found no AI-citation uplift on the Google AI surfaces it measured (a slight decline on AI Overviews). A traditional-SEO best practice, not an AI-citation lever."
+        },
+        "blocks": [],
+        "pagesScanned": 1
+      },
+      "meta": {
+        "score": 0,
+        "titlePresent": false,
+        "descriptionPresent": false,
+        "descriptionLength": 0,
+        "descriptionVerdict": "missing",
+        "ogPresent": false,
+        "ogTitle": false,
+        "ogDesc": false,
+        "ogImage": false,
+        "canonicalPresent": false,
+        "hreflangPresent": false
+      },
+      "content": {
+        "score": 0,
+        "wordCount": 5,
+        "answerCapsulesFound": 0,
+        "answerCapsulesSuggested": 0,
+        "capsuleFinding": "We checked your H2/H3 headings and found no question-style headings — add FAQ/Q&A sections with 20-25 word answers to form answer capsules.",
+        "questions": [],
+        "ssr": {
+          "healthy": false,
+          "pagesChecked": 1,
+          "pages": [
+            {
+              "path": "/",
+              "wordCount": 5,
+              "contentVerdict": "none",
+              "criticalCtas": "no",
+              "schemaVisible": false,
+              "status": "review"
+            }
+          ]
+        },
+        "negativeSignals": [
+          {
+            "pattern": "thin-content",
+            "severity": "critical",
+            "count": 5,
+            "detail": "5 words on / — below the 300-word minimum for citable content."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'softsoft' at 20.0% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'text' at 20.0% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'crawl.' at 20.0% density on / — above the 3% over-optimisation threshold."
+          }
+        ],
+        "promptInjections": []
+      },
+      "brandEntity": {
+        "score": 5,
+        "abnVerified": false,
+        "abnNumber": null,
+        "wikipediaAuPresent": false,
+        "auTldPresent": false,
+        "directoryPresence": []
+      },
+      "signals": {
+        "score": 0
+      },
+      "aiDiscovery": {
+        "score": 0,
+        "aiTxtPresent": false,
+        "aiSummaryPresent": false,
+        "aiFaqPresent": false,
+        "aiServicePresent": false,
+        "notChecked": {},
+        "optionalFilesScored": false
+      }
+    },
+    "siteReached": true,
+    "unmeasured": [],
+    "unmeasuredScored": []
+  },
+  "fixture-soft.com.au ai discovery": {
+    "score": 0,
+    "measured": true,
+    "findings": {
+      "score": 0,
+      "aiTxtPresent": false,
+      "aiSummaryPresent": false,
+      "aiFaqPresent": false,
+      "aiServicePresent": false,
+      "notChecked": {},
+      "optionalFilesScored": false
+    }
+  },
+  "fixture-soft.com.au mcp": {
+    "mcpEndpointPresent": true,
+    "mcpEndpointValid": false,
+    "mcpToolsCount": 0
+  },
+  "fixture-cdn.com.au technical audit": {
+    "dimensions": {
+      "scoreRobots": 18,
+      "scoreLlmsTxt": 0,
+      "scoreSchema": 0,
+      "scoreMeta": 0,
+      "scoreContent": 0,
+      "scoreBrandEntity": 5,
+      "scoreSignals": 0,
+      "scoreAiDiscovery": 0
+    },
+    "scoreComposite": 23,
+    "findings": {
+      "scoringVersion": 4,
+      "crawl": {
+        "pagesCrawled": 1,
+        "homepageReached": true,
+        "homepageHttpStatus": 200,
+        "sitemap": {
+          "url": "https://cdn.fixture-assets.com/fixture-cdn/sitemap.xml",
+          "status": "found",
+          "httpStatus": 200
+        }
+      },
+      "robots": {
+        "present": true,
+        "score": 18,
+        "aiBotsAllowed": [
+          "OAI-SearchBot",
+          "Claude-SearchBot",
+          "Googlebot",
+          "PerplexityBot"
+        ],
+        "aiBotsBlocked": [],
+        "cdnBlockingDetected": false,
+        "cdnVendor": null,
+        "recommendations": [],
+        "botVerdicts": [
+          {
+            "userAgent": "OAI-SearchBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Claude-SearchBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "PerplexityBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Googlebot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "ChatGPT-User",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Claude-User",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Perplexity-User",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "GPTBot",
+            "verdict": "blocked",
+            "basis": "agent-group",
+            "rule": "Disallow: /"
+          },
+          {
+            "userAgent": "ClaudeBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "CCBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Google-Extended",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "anthropic-ai",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "FacebookBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Bytespider",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Diffbot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "cohere-ai",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "AppleBot-Extended",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "bingbot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "YouBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Amazonbot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Applebot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "DuckAssistBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "AndiBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Bingbot-AI-Tool",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "Cotoyogi",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          },
+          {
+            "userAgent": "PetalBot",
+            "verdict": "allowed",
+            "basis": "no-matching-group",
+            "rule": null
+          }
+        ],
+        "fetchStatus": "found",
+        "homepageHttpStatus": 200,
+        "ownersChoiceBlocked": [
+          "GPTBot"
+        ],
+        "userAgentsBlocked": []
+      },
+      "llmsTxt": {
+        "fetchStatus": "found",
+        "fullFetchStatus": "found",
+        "present": true,
+        "url": "https://fixture-cdn.com.au/llms.txt",
+        "depthScore": 6,
+        "components": {
+          "present": true,
+          "h1Blockquote": true,
+          "sections": false,
+          "links": false,
+          "depth": false,
+          "fullTxt": false
+        },
+        "issues": [],
+        "hasFullTxt": true,
+        "sizeKb": 0
+      },
+      "schema": {
+        "typesFound": [],
+        "richness": 0,
+        "gaps": [
+          "Organization",
+          "LocalBusiness",
+          "FAQPage",
+          "Article"
+        ],
+        "realityCheck": {
+          "google": "Low / mixed for AI citations — schema is still a solid traditional-SEO practice (rich snippets, eligibility for enhanced results), but the only large-scale experiment found no AI-citation uplift and a small, statistically significant -4.6% decline in Google AI Overview citations after adding schema (ahrefs.com/blog/schema-ai-citations). Treat it as traditional-SEO hygiene, not an AI-Overview lever.",
+          "chatgpt": "No clear direct lift from schema alone — a large-scale Ahrefs study tracking 1,885 pages between August 2025 and March 2026 found no statistically significant change in ChatGPT citations after adding schema (ahrefs.com/blog/schema-ai-citations). Evidence across studies is mixed.",
+          "claude": "No large-scale Claude-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "perplexity": "No large-scale Perplexity-specific study on schema's direct citation impact; the closest available evidence (Ahrefs, 1,885 pages) found no significant effect on the engines it measured.",
+          "gemini": "Low / mixed for AI citations — no Gemini-specific large-scale study; schema retains traditional-snippet value, but the closest evidence (Ahrefs, 1,885 pages) found no AI-citation uplift on the Google AI surfaces it measured (a slight decline on AI Overviews). A traditional-SEO best practice, not an AI-citation lever."
+        },
+        "blocks": [],
+        "pagesScanned": 1
+      },
+      "meta": {
+        "score": 0,
+        "titlePresent": false,
+        "descriptionPresent": false,
+        "descriptionLength": 0,
+        "descriptionVerdict": "missing",
+        "ogPresent": false,
+        "ogTitle": false,
+        "ogDesc": false,
+        "ogImage": false,
+        "canonicalPresent": false,
+        "hreflangPresent": false
+      },
+      "content": {
+        "score": 0,
+        "wordCount": 7,
+        "answerCapsulesFound": 0,
+        "answerCapsulesSuggested": 0,
+        "capsuleFinding": "We checked your H2/H3 headings and found no question-style headings — add FAQ/Q&A sections with 20-25 word answers to form answer capsules.",
+        "questions": [],
+        "ssr": {
+          "healthy": false,
+          "pagesChecked": 1,
+          "pages": [
+            {
+              "path": "/",
+              "wordCount": 7,
+              "contentVerdict": "none",
+              "criticalCtas": "no",
+              "schemaVisible": false,
+              "status": "review"
+            }
+          ]
+        },
+        "negativeSignals": [
+          {
+            "pattern": "thin-content",
+            "severity": "critical",
+            "count": 7,
+            "detail": "7 words on / — below the 300-word minimum for citable content."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'homecdn' at 14.3% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'home' at 14.3% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'text' at 14.3% density on / — above the 3% over-optimisation threshold."
+          },
+          {
+            "pattern": "keyword-stuffing",
+            "severity": "critical",
+            "count": 1,
+            "detail": "'crawl.' at 14.3% density on / — above the 3% over-optimisation threshold."
+          }
+        ],
+        "promptInjections": []
+      },
+      "brandEntity": {
+        "score": 5,
+        "abnVerified": false,
+        "abnNumber": null,
+        "wikipediaAuPresent": false,
+        "auTldPresent": false,
+        "directoryPresence": []
+      },
+      "signals": {
+        "score": 0
+      },
+      "aiDiscovery": {
+        "score": 0,
+        "aiTxtPresent": false,
+        "aiSummaryPresent": false,
+        "aiFaqPresent": false,
+        "aiServicePresent": false,
+        "notChecked": {},
+        "optionalFilesScored": false
+      }
+    },
+    "siteReached": true,
+    "unmeasured": [],
+    "unmeasuredScored": []
+  },
+  "fixture-cdn.com.au ai discovery": {
+    "score": 0,
+    "measured": true,
+    "findings": {
+      "score": 0,
+      "aiTxtPresent": false,
+      "aiSummaryPresent": false,
+      "aiFaqPresent": false,
+      "aiServicePresent": false,
+      "notChecked": {},
+      "optionalFilesScored": false
+    }
+  },
+  "fixture-cdn.com.au mcp": {
+    "mcpEndpointPresent": true,
+    "mcpEndpointValid": false,
+    "mcpToolsCount": 0
+  }
+}

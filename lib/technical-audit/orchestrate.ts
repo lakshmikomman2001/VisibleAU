@@ -4,6 +4,7 @@ import { checkCapsuleQuality } from "@/lib/answer-capsules/check-capsule";
 import { findQuestionHeadings } from "@/lib/answer-capsules/find-questions";
 import { outcomeForError, outcomeForStatus } from "@/lib/crawler/fetch-outcome";
 import type { CrawlResult } from "@/lib/crawler/types";
+import { guardedFetch, HARD_MAX_BYTES } from "@/lib/fetch/guarded-fetch";
 import { isPlainTextLlmsFile, scoreLlmsTxtDepth } from "@/lib/llms-txt/depth-score";
 import { aggregateNegativeScore, detectNegativeSignals } from "@/lib/negative-signals/detect";
 import { detectPromptInjections, type PromptInjection } from "@/lib/prompt-injection/detect";
@@ -159,6 +160,13 @@ export function scoreMeta(crawl: CrawlResult): { score: number; findings: MetaFi
   };
 }
 
+// S00B part 3 (inventory F6, F7): llms.txt and llms-full.txt through the guarded fetcher -- an internal address
+// (a redirect to one) is refused through the "couldn't check (no answer)" path below -- with their own options
+// as before: fetch's own request headers, 5 s. Bounds where there were none: llms.txt 10 MB; llms-full.txt, which
+// can hold a whole documentation site, the hard 50 MB.
+export const LLMS_TXT_MAX_BYTES = 10 * 1024 * 1024;
+export const LLMS_FULL_TXT_MAX_BYTES = HARD_MAX_BYTES;
+
 export async function orchestrateTechnicalAudit(
   domain: string,
   crawl: CrawlResult,
@@ -177,7 +185,10 @@ export async function orchestrateTechnicalAudit(
   let llmsTxtFetch: "found" | "absent" | "unreachable" = "unreachable";
   let llmsTxtFetchReason: string | null = null;
   try {
-    const r = await fetch(`https://${domain}/llms.txt`, { signal: AbortSignal.timeout(5000) });
+    const r = await guardedFetch(`https://${domain}/llms.txt`, {
+      timeoutMs: 5000,
+      maxBytes: LLMS_TXT_MAX_BYTES,
+    });
     if (r.ok) {
       const body = await r.text();
       if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsTxtContent = body;
@@ -195,7 +206,10 @@ export async function orchestrateTechnicalAudit(
   let llmsFullFetch: "found" | "absent" | "unreachable" = "unreachable";
   let llmsFullFetchReason: string | null = null;
   try {
-    const r = await fetch(`https://${domain}/llms-full.txt`, { signal: AbortSignal.timeout(5000) });
+    const r = await guardedFetch(`https://${domain}/llms-full.txt`, {
+      timeoutMs: 5000,
+      maxBytes: LLMS_FULL_TXT_MAX_BYTES,
+    });
     if (r.ok) {
       const body = await r.text();
       if (isPlainTextLlmsFile(r.headers.get("content-type"), body)) llmsFullContent = body;

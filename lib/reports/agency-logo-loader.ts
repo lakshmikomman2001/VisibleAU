@@ -4,8 +4,22 @@ import {
   parseStoredLogoUrl,
   storedLogoPath,
 } from "@/lib/branding/logo";
+import { guardedFetch } from "@/lib/fetch/guarded-fetch";
 import { getStorage } from "@/lib/storage";
-import { type AgencyLogo, fetchAgencyLogo } from "./agency-branding";
+import { type AgencyLogo, fetchAgencyLogo, LOGO_FETCH_TIMEOUT_MS } from "./agency-branding";
+
+/**
+ * S00B part 3: fetchAgencyLogo's request through the guarded fetcher, with what it asks for (no redirect, its own
+ * timeout signal) and its own limits (https only, 2 MB, 5 s).
+ */
+const guardedLogoFetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+  guardedFetch(input instanceof Request ? input.url : String(input), {
+    redirect: init?.redirect ?? "follow",
+    signal: init?.signal ?? undefined,
+    timeoutMs: LOGO_FETCH_TIMEOUT_MS,
+    maxBytes: LOGO_MAX_BYTES,
+    allowHttp: false,
+  })) as typeof fetch;
 
 /**
  * 2 Nov -- the agency's logo for a PDF (the report, and Account -> Report
@@ -16,7 +30,7 @@ import { type AgencyLogo, fetchAgencyLogo } from "./agency-branding";
  */
 export async function loadAgencyLogo(url: string | null): Promise<AgencyLogo | null> {
   const stored = parseStoredLogoUrl(url);
-  if (!stored) return fetchAgencyLogo(url);
+  if (!stored) return fetchAgencyLogo(url, { fetchImpl: guardedLogoFetch });
   try {
     const bytes = await getStorage("logos").download(
       storedLogoPath(stored.organizationId, stored.file),

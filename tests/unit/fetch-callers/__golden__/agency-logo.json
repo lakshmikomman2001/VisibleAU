@@ -1,0 +1,19 @@
+{
+  "https://cdn.fixture-agency.com/logo.png": {
+    "format": "png",
+    "base64": "iVBORw0KGgoAAAANSUhEUgECAw=="
+  },
+  "https://cdn.fixture-agency.com/logo.jpg": {
+    "format": "jpg",
+    "base64": "/9j/4AAQSkZJRgABAgM="
+  },
+  "https://cdn.fixture-agency.com/untyped": {
+    "format": "png",
+    "base64": "iVBORw0KGgoAAAANSUhEUgECAw=="
+  },
+  "https://cdn.fixture-agency.com/moved.png": null,
+  "https://cdn.fixture-agency.com/missing.png": null,
+  "https://cdn.fixture-agency.com/page.png": null,
+  "https://cdn.fixture-agency.com/huge.png": null,
+  "http://cdn.fixture-agency.com/logo.png": null
+}

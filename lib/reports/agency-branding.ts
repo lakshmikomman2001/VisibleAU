@@ -89,10 +89,16 @@ function imageFormat(bytes: Uint8Array): "png" | "jpg" | null {
  * PNG or JPEG by its own bytes, within 5 s. Anything else -- including a
  * slow or failing host -- returns null, and the cover draws the initials
  * tile instead. Never throws.
+ *
+ * S00B part 3 (docs/lld/fetch-inventory.md F10): the request goes through the `fetchImpl` the server passes,
+ * the guarded fetcher in production (lib/reports/agency-logo-loader.ts), which refuses internal addresses the
+ * string check below can't see (a public name that resolves to one, a reserved range). This module is also
+ * bundled for the browser (report-branding-form.tsx reads agencyInitials), so it can't import the fetcher
+ * itself; there is no default, so no logo is ever fetched with a bare fetch.
  */
 export async function fetchAgencyLogo(
   url: string | null,
-  options: { timeoutMs?: number; fetchImpl?: typeof fetch } = {},
+  options: { timeoutMs?: number; fetchImpl: typeof fetch },
 ): Promise<AgencyLogo | null> {
   if (!url) return null;
   let parsed: URL;
@@ -102,7 +108,7 @@ export async function fetchAgencyLogo(
     return null;
   }
   if (parsed.protocol !== "https:" || isPrivateHost(parsed.hostname)) return null;
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImpl = options.fetchImpl;
   try {
     const res = await fetchImpl(parsed.toString(), {
       redirect: "error",

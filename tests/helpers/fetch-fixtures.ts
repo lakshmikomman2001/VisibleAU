@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 export type Fixture =
-  | { status?: number; headers?: Record<string, string>; body?: string }
+  | { status?: number; headers?: Record<string, string>; body?: string | Uint8Array }
   | { redirect: 301 | 302 | 303 | 307 | 308; location: string };
 
 const NULL_BODY = new Set([101, 204, 205, 304]);
@@ -20,11 +20,13 @@ const NULL_BODY = new Set([101, 204, 205, 304]);
 function answer(
   status: number,
   headers: Record<string, string>,
-  body: string,
+  body: string | Uint8Array,
   href: string,
   redirected: boolean,
 ): Response {
-  const res = new Response(NULL_BODY.has(status) ? null : body, { status, headers });
+  // A fresh copy each time: a Response can be read once, and a fixture is served many times.
+  const content = typeof body === "string" ? body : (body.slice().buffer as ArrayBuffer);
+  const res = new Response(NULL_BODY.has(status) ? null : content, { status, headers });
   Object.defineProperty(res, "url", { value: href });
   Object.defineProperty(res, "redirected", { value: redirected });
   return res;

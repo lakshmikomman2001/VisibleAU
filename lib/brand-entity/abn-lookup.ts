@@ -7,6 +7,20 @@ interface AbnLookupResult {
   abnStatus: string | null;
 }
 
+/*
+ * ABR web services: terms for automated lookups (checked 23 Nov 2026, S01 part 1).
+ * The ABN Lookup web services are free; a GUID is issued on registering and accepting the ABN Lookup Web Services
+ * Agreement (https://abr.business.gov.au/Tools/WebServicesAgreement, version 9.9.7; registration:
+ * https://abr.business.gov.au/Tools/WebServices). The agreement grants a non-exclusive, non-transferable licence and
+ * states no rate, volume, caching or attribution rule. It requires: deleting any information the ABR tells us it
+ * has withdrawn (for example to protect an individual's privacy); never using the services in a way that is or may
+ * be false, misleading or deceptive; never implying the Commonwealth endorses us or our use. Extracts may be given to
+ * third parties at our own risk. The service is "as is", and may be altered or suspended.
+ * Methods (https://abr.business.gov.au/json/): AbnDetails.aspx?abn=&guid= (below) and MatchingNames.aspx?name=
+ * &maxResults=&guid= (name search; no postcode or state parameter on the JSON method, and its AbnStatus is a code,
+ * so each candidate is confirmed with AbnDetails). Both confirmed with the configured GUID on 23 Nov 2026.
+ */
+
 // ABN_LOOKUP_BYPASS: temporary — real ABR check resumes automatically when this is unset and ABN_LOOKUP_GUID is provided.
 export async function lookupAbn(abn: string | null | undefined): Promise<AbnLookupResult> {
   const empty: AbnLookupResult = {

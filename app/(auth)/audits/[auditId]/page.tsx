@@ -39,6 +39,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { customerAuditError } from "@/lib/costs/customer-safe";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
+import { isEnabled } from "@/lib/flags/flags";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyLabel } from "@/lib/llm/methodology";
 import { modelDriftNote } from "@/lib/llm/model-drift";
@@ -56,6 +57,11 @@ import {
   generalAdviceHeading,
   generalAdviceItems,
 } from "@/lib/recommendations/general-advice";
+import {
+  type AdviceEvidenceRefs,
+  evidenceBackedAdvice,
+  loadPlatformCitations,
+} from "@/lib/recommendations/general-advice-evidence";
 import { auditEvidenceActions } from "@/lib/reports/audit-findings";
 import type { Finding } from "@/lib/reports/report-findings";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
@@ -390,6 +396,8 @@ export default async function AuditPage({
       /** The PDF's "Recommended next" for this audit, each with its counts. */
       evidenceActions: Finding[];
       generalAdvice: Array<{
+        /** S01 part 4: the evidence behind it ("LinkedIn was cited in 9 of 40 answers"), while report_v2 is on. */
+        evidenceLine: string | null;
         id: string;
         title: string;
         expectedImpactScore: string;
@@ -478,14 +486,24 @@ export default async function AuditPage({
       const ownerStatements = ownerStatementsByBrand.get(audit.brandId) ?? [];
       // Everything else this audit's open Action Center items say is general advice, shown apart and
       // never above Low (lib/recommendations/general-advice.ts).
-      const generalAdvice = generalAdviceItems(
+      const allGeneralAdvice = generalAdviceItems(
         openActions.map(({ evidenceRefs, ...a }) => ({
           ...a,
+          evidenceRefs: evidenceRefs as AdviceEvidenceRefs,
           displayBasis: resolveDisplayBasis({ ...a, evidenceRefs }, ownerStatements),
         })),
         evidenceActions,
         // 14 Nov (Sri): the one order the PDF's Action Plan uses too -- priority, then date, then title.
       ).sort(compareActionItems);
+      // S01 part 4 (LLD 8.8.5, T7): while report_v2 is on, only advice something backs is shown -- the audit
+      // citing its platform 3+ times, or a verified research source -- each with that evidence. Off: as today.
+      const generalAdvice: Array<
+        Omit<(typeof allGeneralAdvice)[number], "evidenceRefs"> & { evidenceLine: string | null }
+      > = (await isEnabled("report_v2", currentUser.organizationId))
+        ? evidenceBackedAdvice(allGeneralAdvice, await loadPlatformCitations(tx, auditId)).map(
+            ({ evidenceRefs: _refs, evidence, ...a }) => ({ ...a, evidenceLine: evidence.line }),
+          )
+        : allGeneralAdvice.map(({ evidenceRefs: _refs, ...a }) => ({ ...a, evidenceLine: null }));
 
       // Task #46 Phase 1: real counts on the headline's own answers, never a
       // hard-coded "#1 you". One Share of Voice (7 Nov): from the one counter
@@ -1855,6 +1873,19 @@ export default async function AuditPage({
                           >
                             {displayRecommendationTitle(a)}
                           </div>
+                          {a.evidenceLine && (
+                            <div
+                              data-advice-evidence
+                              style={{
+                                fontSize: 11,
+                                fontFamily: "var(--font-mono)",
+                                color: "var(--text-secondary)",
+                                marginBottom: 2,
+                              }}
+                            >
+                              {a.evidenceLine}
+                            </div>
+                          )}
                           <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                             {
                               displayBasisLabels(a.displayBasis, {

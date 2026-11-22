@@ -7,6 +7,7 @@ import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-butt
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanGatedLink, PlanLockedPage } from "@/components/domain/pricing/plan-lock";
+import { ReportContentsPanel } from "@/components/domain/reports/report-contents-panel";
 import { useCan } from "@/components/domain/role-context";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
@@ -17,7 +18,8 @@ import { deriveReportStatus, REPORT_GENERATING_NOTE } from "@/lib/communication/
 import { refusalMessage } from "@/lib/governance/permissions";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
-import { actionFailureMessage } from "@/lib/load/fetch-json";
+import { actionFailureMessage, fetchOrFail, readJson } from "@/lib/load/fetch-json";
+import type { ReportContentsView } from "@/lib/reports/report-contents-view";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
 const POLL_INTERVAL_MS = 4_000;
@@ -148,6 +150,36 @@ export default function ReportsListPage() {
   // Team follow-ups, item 10: a viewer can't generate reports (the route answers 403); the button says why.
   const canGenerate = useCan("generate_reports");
 
+  // S01 part 5 (LLD 8.1.3, contract P08): while report_v2 is on, "Generate report" opens the report contents panel.
+  // The panel's view is asked for when Generate is pressed, so the page loads exactly as before; with report_v2 off
+  // (`{ enabled: false }`), or when the view can't be read, Generate starts today's report directly, as before.
+  const [panelView, setPanelView] = useState<Extract<ReportContentsView, { enabled: true }> | null>(
+    null,
+  );
+  const openPanelOrGenerate = async () => {
+    setGenerating(true);
+    let view: ReportContentsView | null = null;
+    try {
+      const res = await fetchOrFail(`/api/brands/${brandId}/report-preferences`);
+      if (await planRefused(res)) {
+        setGenerating(false);
+        return;
+      }
+      view = res.ok ? await readJson<ReportContentsView>(res) : null;
+    } catch {
+      // No view: Generate makes today's report, as it did before the panel.
+      view = null;
+    }
+    setGenerating(false);
+    if (view?.enabled === true) setPanelView(view);
+    else await handleGenerate();
+  };
+  const startWaiting = () => {
+    reportCountRef.current = reports.length;
+    setAwaitingReport(true);
+    restartPolling();
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     setGenerateError(null);
@@ -162,9 +194,7 @@ export default function ReportsListPage() {
         setGenerateError(await actionFailureMessage(res, "The report couldn't be started."));
         return;
       }
-      reportCountRef.current = reports.length;
-      setAwaitingReport(true);
-      restartPolling();
+      startWaiting();
     } catch {
       setGenerateError("The report couldn't be started. Check your connection and try again.");
     } finally {
@@ -177,6 +207,19 @@ export default function ReportsListPage() {
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 32 }}>
+        {panelView && (
+          <ReportContentsPanel
+            brandId={brandId}
+            brandName={panelView.brandName}
+            basisAuditNumber={panelView.basis?.auditNumber ?? null}
+            periodLabel={panelView.periodLabel}
+            agencyName={panelView.agencyName}
+            curated={panelView.curated}
+            whatToDoNext={panelView.whatToDoNext}
+            onClose={() => setPanelView(null)}
+            onGenerated={startWaiting}
+          />
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -219,8 +262,9 @@ export default function ReportsListPage() {
                   background: "var(--layer-communication)",
                   color: "var(--layer-communication-fg)",
                 }}
-                onClick={handleGenerate}
+                onClick={openPanelOrGenerate}
                 disabled={generating}
+                data-testid="generate-report"
               >
                 {generating ? "Generating..." : "Generate report"}
               </button>

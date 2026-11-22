@@ -334,6 +334,17 @@ const PLAN_REFUSING_ROUTES: RouteCase[] = [
     methods: ["GET"],
     load: () => import("@/app/api/brands/[brandId]/reports/[reportId]/route"),
   },
+  // S01 part 5 (report_v2 is off here: the gate answers before the flag is read).
+  {
+    file: `${b}/agency-actions/route.ts`,
+    methods: ["POST", "PATCH", "DELETE"],
+    load: () => import("@/app/api/brands/[brandId]/agency-actions/route"),
+  },
+  {
+    file: `${b}/report-preferences/route.ts`,
+    methods: ["GET", "PUT"],
+    load: () => import("@/app/api/brands/[brandId]/report-preferences/route"),
+  },
   {
     file: `${b}/reports/generate/route.ts`,
     methods: ["POST"],

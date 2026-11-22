@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { isEnabled } from "@/lib/flags/flags";
 import {
   assertBrandAccess,
   assertTier,
@@ -12,11 +13,17 @@ import {
 } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { reportPreferencesSchema } from "@/lib/reports/report-contents";
 import { defaultReportPeriodLabel } from "@/lib/reports/report-data";
+import { saveReportPreferences, workspaceCurates } from "@/lib/reports/report-preferences-service";
 
 const generateSchema = z.object({
   periodLabel: z.string().optional(),
   periodType: z.enum(["weekly", "monthly"]).default("weekly"),
+  // S01 part 5 (LLD 8.1.3, P08): what the report contents panel showed when Generate was pressed. While report_v2 is
+  // on and the plan curates (Agency and up), it is saved as the brand's choices before the report starts, so the
+  // report and the next panel use it. Otherwise it is ignored, as today. The server still picks the basis audit.
+  contents: reportPreferencesSchema.optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -65,6 +72,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
         periodType,
       }),
     ));
+
+  const contents = parsed.data.contents;
+  if (contents && (await isEnabled("report_v2", currentUser.organizationId))) {
+    await withRlsContext(currentUser.organizationId, async (tx) => {
+      if (!(await workspaceCurates(tx, currentUser.organizationId))) return;
+      await saveReportPreferences(tx, {
+        organizationId: currentUser.organizationId,
+        brandId,
+        userId: currentUser.id,
+        curated: true,
+        preferences: contents,
+      });
+    });
+  }
 
   await inngest.send({
     name: "trend/aggregated",

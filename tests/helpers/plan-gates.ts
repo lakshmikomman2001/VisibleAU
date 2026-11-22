@@ -53,6 +53,9 @@ export const DIRECT_GATES = [
   // (tests/integration/invite-new-account.integration.test.ts: a cancelled plan's last seat is taken).
   "lib/auth/invite.ts",
   "lib/governance/access-control.ts",
+  // S01 part 5: whether the workspace curates its reports (Agency and up): the panel's view and its saves.
+  "lib/reports/report-contents-view.ts",
+  "lib/reports/report-preferences-service.ts",
   // Google AI surfaces (Phase 1, part 1): Growth and up only, the workspace override included.
   "lib/governance/google-surfaces.ts",
   "lib/platform/budget-policy.service.ts",
@@ -88,6 +91,8 @@ export const PLAN_FEATURE_GATES = [
 
 /** Calls assertTier(), which reads effectiveTier() (lib/governance/access-control.ts). */
 export const ASSERT_TIER_GATES = [
+  // S01 part 5: agency actions are Agency and up.
+  "app/api/brands/[brandId]/agency-actions/route.ts",
   "app/api/brands/[brandId]/agent-analytics/cdn-join/route.ts",
   "app/api/brands/[brandId]/agent-analytics/coverage/route.ts",
   "app/api/brands/[brandId]/agent-analytics/overview/route.ts",
@@ -113,6 +118,7 @@ export const ASSERT_TIER_GATES = [
   "app/api/brands/[brandId]/linkedin-presence/route.ts",
   "app/api/brands/[brandId]/reports/[reportId]/retry-pdf/route.ts",
   "app/api/brands/[brandId]/reports/[reportId]/route.ts",
+  "app/api/brands/[brandId]/report-preferences/route.ts",
   "app/api/brands/[brandId]/reports/generate/route.ts",
   "app/api/brands/[brandId]/reports/route.ts",
   "app/api/brands/[brandId]/site-readiness/route.ts",
@@ -305,9 +311,17 @@ export const PLAN_GATE_ENTRY_POINTS: Record<
       "app/(auth)/brands/[brandId]/reports/[reportId]/page.tsx": "reports",
     },
   },
+  // S01 part 5: the report contents panel (opened only from the locked Reports page) generates too.
+  "app/api/brands/[brandId]/report-preferences/route.ts": {
+    callers: {
+      "app/(auth)/brands/[brandId]/reports/page.tsx": "reports",
+      "components/domain/reports/report-contents-panel.tsx": "reports",
+    },
+  },
   "app/api/brands/[brandId]/reports/generate/route.ts": {
     callers: {
       "app/(auth)/brands/[brandId]/reports/page.tsx": "reports",
+      "components/domain/reports/report-contents-panel.tsx": "reports",
     },
   },
   "app/api/brands/[brandId]/reports/route.ts": {

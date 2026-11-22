@@ -68,6 +68,8 @@ export * from "./recommendation-research";
 export * from "./remediation-tasks";
 export * from "./report-delivery-schedules";
 export * from "./report-templates";
+// S01 part 2 (migration 0154): report preferences, action choices, agency actions.
+export * from "./report-v2";
 export * from "./sampling-policies";
 export * from "./share-of-voice-snapshots";
 export * from "./subscriptions";

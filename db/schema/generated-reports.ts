@@ -39,6 +39,12 @@ export const generatedReports = pgTable(
     // /admin/reports only; the reports API never returns it (lib/communication/report-view.ts).
     pdfFailureDetail: text("pdf_failure_detail"),
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+    // S01 part 2 (migration 0154; LLD 8.1.3, appendix D): exactly what the PDF contained (null for every report made
+    // before S01: those keep today's rebuild from live data), and its tier ('basic' for every existing report).
+    contentsSnapshot: jsonb("contents_snapshot"),
+    reportTier: text("report_tier", { enum: ["basic", "standard", "enhanced"] })
+      .default("basic")
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

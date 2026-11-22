@@ -16,6 +16,10 @@ export const reportDeliverySchedules = pgTable("report_delivery_schedules", {
   timeOfDay: text("time_of_day").notNull().default("23:00"),
   recipientEmails: jsonb("recipient_emails").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  // S01 part 2 (migration 0154; LLD 8.1.7): the report tier a scheduled report is generated at, capped at the plan.
+  reportTier: text("report_tier", { enum: ["basic", "standard", "enhanced"] })
+    .notNull()
+    .default("basic"),
   lastSentAt: timestamp("last_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

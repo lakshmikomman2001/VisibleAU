@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { brands } from "./brands";
 import { organizations } from "./organizations";
 
@@ -18,6 +18,9 @@ export const agencyBrandAssets = pgTable(
     contactLine: text("contact_line"),
     agencyName: text("agency_name"),
     contactEmail: text("contact_email"),
+    // S01 part 2 (migration 0154; LLD 7.5, P18): the names the agency sells its report tiers under, on the workspace
+    // row only (brand_id IS NULL); null = the default names (lib/reports/tier-names.ts).
+    reportTierNames: jsonb("report_tier_names"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({

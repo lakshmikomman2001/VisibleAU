@@ -16,6 +16,9 @@ export const brands = pgTable("brands", {
   // The name the add-brand wizard suggested from the site (lib/brands/name-suggestion.ts); brand settings says
   // "Suggested from your website's name" while the name still equals it. Null when there was none.
   nameSuggestion: text("name_suggestion"),
+  // S01 part 2 (migration 0154; LLD 7.7, 8.8.6): the ABR match brand settings offers while `abn` is empty, kept with
+  // answer "dismissed" after "Not mine" (lib/brand-entity/abn-suggestion.ts).
+  abnSuggestion: jsonb("abn_suggestion"),
   domain: text("domain").notNull(),
   vertical: verticalEnum("vertical").notNull(),
   region: regionEnum("region").notNull(),

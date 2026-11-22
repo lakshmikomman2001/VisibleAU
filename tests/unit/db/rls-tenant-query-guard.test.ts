@@ -27,6 +27,8 @@ import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/s
 const RLS_TENANT_TABLES = new Set([
   "actionItems",
   "agencyBrandAssets",
+  // S01 part 2 (migration 0154): FORCE RLS on app.current_org_id, as 0145.
+  "agencyActions",
   "agentReadinessScores",
   "aiReferralHits",
   "auditCostSnapshots",
@@ -68,6 +70,8 @@ const RLS_TENANT_TABLES = new Set([
   "organizations",
   "queryFanOutResults",
   "remediationTasks",
+  "reportActionChoices",
+  "reportBrandPreferences",
   "reportDeliverySchedules",
   "reportTemplates",
   "shareOfVoiceSnapshots",

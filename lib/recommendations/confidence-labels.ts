@@ -31,6 +31,11 @@ export const CONFIDENCE_LEVELS: Record<string, ConfidenceLabel> = {
   "wikipedia-article": "confirmed",
   "entity-profiles": "confirmed",
   "directory-visibility": "confirmed",
+  // S01 part 3 (LLD 8.1.5): findings g-j's items, each from this audit's answers or a dated check.
+  "finding-others-named": "confirmed",
+  "finding-could-not-find": "confirmed",
+  "finding-directories-not-on": "confirmed",
+  "finding-identity-not-verified": "confirmed",
   "stale-content": "confirmed",
   "faq-content": "likely",
   "expert-quotes": "likely",
@@ -214,6 +219,17 @@ const OWNER_CONFIRMABLE_KEYS = new Set(["directory-visibility"]);
  * header) -- as opposed to a user-reported confirmation. */
 const CHECKED_SOURCE_KEYS = new Set(["entity-profiles", "wikipedia-article", "stale-content"]);
 
+/**
+ * S01 part 3: findings g-j's Action Center items (lib/reports/finding-recommendations.ts FINDING_RECOMMENDATIONS),
+ * written "verified" from this audit's measured answers: shown as measured, never as general advice.
+ */
+export const FINDING_KEYS: ReadonlySet<string> = new Set([
+  "finding-others-named",
+  "finding-could-not-find",
+  "finding-directories-not-on",
+  "finding-identity-not-verified",
+]);
+
 /** One brand_directory_listings row: the owner's own status for one directory. */
 export interface OwnerDirectoryStatement {
   directoryKey: string;
@@ -237,6 +253,9 @@ export function resolveDisplayBasis(
     return confidenceBasis === "verified" && ownerStatementBacksTitle(item, ownerStatements)
       ? "owner_confirmed"
       : "measured_citations";
+  }
+  if (FINDING_KEYS.has(recommendationKey)) {
+    return confidenceBasis === "verified" ? "measured_citations" : "unverified";
   }
   if (CHECKED_SOURCE_KEYS.has(recommendationKey)) {
     // "inferred" here means the check itself didn't complete (e.g.

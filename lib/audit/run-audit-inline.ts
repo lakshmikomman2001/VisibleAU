@@ -44,6 +44,7 @@ import {
   productionCheckers,
 } from "@/lib/recommendations";
 import { persistRecommendations } from "@/lib/recommendations/persist";
+import { findingRecommendations } from "@/lib/reports/finding-recommendations";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -661,7 +662,13 @@ export async function runAuditInline(
         // The same counts the audit page shows, read back from the rows
         // this run just wrote.
         const counts = await resolveAuditDimensionsAndHeadline(tx, auditId);
-        const recs = await buildRecommendations(
+        // S01 part 3 (LLD 8.1.5): findings g-j's items while report_v2 is on, as the Inngest runner adds them.
+        const fromFindings = await findingRecommendations(tx, {
+          organizationId: a.organizationId,
+          brandId: a.brandId,
+          auditId,
+        });
+        const fromRules = await buildRecommendations(
           {
             scoreFrequency: freqScore.toFixed(2),
             scoreSentimentNumeric: sentScore.toFixed(2),
@@ -680,6 +687,7 @@ export async function runAuditInline(
           tx,
           evidence,
         );
+        const recs = [...fromRules, ...fromFindings];
 
         // "The Action Center shows each brand's latest audit only" (23
         // Oct), item 1 -- same shared helper the Inngest function calls

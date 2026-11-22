@@ -1,6 +1,13 @@
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { audits, brands, citations, engineCallFailures } from "@/db/schema";
+import {
+  audits,
+  brandDirectoryListings,
+  brandEntityScores,
+  brands,
+  citations,
+  engineCallFailures,
+} from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import {
@@ -19,6 +26,7 @@ import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts
 import type { DirectoryKind } from "@/lib/directories/registry";
 import { classifySeverity } from "@/lib/drift/significance";
 import type { DriftSeverity } from "@/lib/drift/types";
+import { isEnabled } from "@/lib/flags/flags";
 import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { methodologyChangeNote, methodologyLabel } from "@/lib/llm/methodology";
@@ -32,6 +40,7 @@ import type { SovShare } from "@/lib/visibility/share-of-voice-display";
 import { getSourceTypeCitationsForAudit } from "@/lib/visibility/source-type-citations";
 import { TREND_MIN_AUDITS } from "@/lib/visibility/visibility-trend-aggregator";
 import { resolveAgencyBranding } from "./agency-branding";
+import { countLowVisibilityEvidence, type LowVisibilityEvidence } from "./low-visibility-findings";
 import { inReportPeriod, type ReportPeriodType, reportPeriodLabel } from "./report-period";
 import { type ReportSectionFlags, reportSectionFlags } from "./report-sections";
 import { type SearchResultsSeen, searchResultsSeen } from "./search-results";
@@ -244,6 +253,11 @@ export interface ReportData {
   /** Sri's decision (7 Nov): the everyday answers (the directories' own count) and how many cited a Reddit
    * page (lib/visibility/source-type-citations.ts) -- the report's Reddit finding reads it. */
   sources: { totalAnswers: number; reddit: number };
+  /**
+   * S01 part 3 (LLD 8.1.5): what finding rules g-j read (lib/reports/low-visibility-findings.ts). Built only while
+   * report_v2 is on for the workspace; absent otherwise, so the findings are exactly today's.
+   */
+  lowVisibility?: LowVisibilityEvidence;
   /** One Share of Voice (7 Nov): lib/visibility/share-of-voice.ts's counts for the basis audit. */
   competitors: {
     configured: boolean;
@@ -424,6 +438,88 @@ export async function defaultReportPeriodLabel(
 }
 
 /**
+ * S01 part 3 (LLD 8.1.5): rules g-j's evidence for the basis audit -- other businesses' sites in its everyday answers,
+ * "couldn't find" sentences in its answers to questions that name the business, who cited the ABR, the latest
+ * identity check at or before `now` (brand_entity_scores) and whether a Google Business Profile is linked
+ * (brand_directory_listings). Three indexed reads beyond the answers basisAuditEvidence already has.
+ */
+async function lowVisibilityEvidence(
+  db: DbClient,
+  {
+    brand,
+    basisId,
+    answerRows,
+    now,
+  }: {
+    brand: typeof brands.$inferSelect;
+    basisId: string;
+    answerRows: ReadonlyArray<{ engine: string; prompt: string; organic: boolean; citedSources: unknown }>;
+    now: Date;
+  },
+): Promise<LowVisibilityEvidence> {
+  const [brandedTexts, [entity], [gbp]] = await Promise.all([
+    db
+      .select({ engine: citations.engine, prompt: citations.prompt, text: citations.responseText })
+      .from(citations)
+      .where(
+        and(
+          eq(citations.auditId, basisId),
+          eq(citations.runNumber, 1),
+          sql`NOT (${ORGANIC_ONLY})`,
+        ),
+      ),
+    db
+      .select({
+        abnVerified: brandEntityScores.abnVerified,
+        abnStatus: brandEntityScores.abnStatus,
+        checkedAt: brandEntityScores.checkedAt,
+      })
+      .from(brandEntityScores)
+      .where(and(eq(brandEntityScores.brandId, brand.id), lte(brandEntityScores.checkedAt, now)))
+      .orderBy(desc(brandEntityScores.checkedAt))
+      .limit(1),
+    db
+      .select({ status: brandDirectoryListings.status })
+      .from(brandDirectoryListings)
+      .where(
+        and(
+          eq(brandDirectoryListings.brandId, brand.id),
+          eq(brandDirectoryListings.directoryKey, "google_business_profile"),
+          eq(brandDirectoryListings.status, "listed"),
+        ),
+      )
+      .limit(1),
+  ]);
+  const textOf = new Map(brandedTexts.map((r) => [`${r.engine}\u0000${r.prompt}`, r.text]));
+  const counted = countLowVisibilityEvidence(
+    answerRows.map((r) => ({
+      engine: r.engine,
+      engineName: engineName(r.engine),
+      prompt: r.prompt,
+      organic: r.organic,
+      citedSources: r.citedSources,
+      responseText: r.organic ? null : (textOf.get(`${r.engine}\u0000${r.prompt}`) ?? null),
+    })),
+    brand.domain,
+  );
+  return {
+    brandName: brand.name,
+    everydayAnswers: counted.everydayAnswers,
+    answersCitingOtherBusinesses: counted.answersCitingOtherBusinesses,
+    businessSites: counted.businessSites,
+    couldNotFind: counted.couldNotFind,
+    identity: {
+      abn: brand.abn ?? null,
+      abnVerified: entity?.abnVerified === true && !!brand.abn,
+      abnStatus: brand.abn ? (entity?.abnStatus ?? null) : null,
+      checkedAt: entity?.checkedAt ? entity.checkedAt.toISOString() : null,
+      gbpLinked: gbp !== undefined,
+      abrCitedBy: counted.abrCitedBy,
+    },
+  };
+}
+
+/**
  * The basis audit's measured evidence, read one way: its answers and failed calls, the directories and
  * source types its everyday answers cited, share of voice, the per-engine rows and the question matrix.
  * buildReportData reads it for the PDF, and lib/reports/audit-findings.ts for the audit page's "from this
@@ -439,12 +535,15 @@ export async function basisAuditEvidence(
     resolved,
     coverage,
     now,
+    lowVisibility = false,
   }: {
     brand: typeof brands.$inferSelect;
     basis: CompleteAudit;
     resolved: Awaited<ReturnType<typeof resolveOrganicDimensions>>;
     coverage: Awaited<ReturnType<typeof resolveEngineCoverage>>;
     now: Date;
+    /** S01 part 3: build the evidence finding rules g-j read (report_v2 on). */
+    lowVisibility?: boolean;
   },
 ) {
   const [answerRows, failureRows, directoryCitations, shareOfVoice, sourceTypes] =
@@ -574,6 +673,9 @@ export async function basisAuditEvidence(
     answerRows,
     failureRows,
     directoryCitations,
+    lowVisibility: lowVisibility
+      ? await lowVisibilityEvidence(db, { brand, basisId: basis.id, answerRows, now })
+      : undefined,
     shareOfVoice,
     sources: {
       totalAnswers: sourceTypes.totalAnswers,
@@ -630,6 +732,7 @@ export function evidenceFields(
       })),
     },
     sources: evidence.sources,
+    ...(evidence.lowVisibility ? { lowVisibility: evidence.lowVisibility } : {}),
   };
 }
 
@@ -650,6 +753,7 @@ export type FindingsData = Pick<
   | "rankedCount"
   | "medianPosition"
   | "sourcedCount"
+  | "lowVisibility"
 > & {
   basis: Pick<ReportData["basis"], "auditNumber">;
   competitors: Pick<ReportData["competitors"], "rows">;
@@ -753,7 +857,14 @@ export async function buildReportData(
   trendCoverage.set(basis.id, coverage);
 
   const [evidence, assetRows] = await Promise.all([
-    basisAuditEvidence(db, { brand, basis, resolved, coverage, now }),
+    basisAuditEvidence(db, {
+      brand,
+      basis,
+      resolved,
+      coverage,
+      now,
+      lowVisibility: await isEnabled("report_v2", organizationId),
+    }),
     // 2 Nov: the newest workspace-wide row (the same one Account -> Report
     // branding saves into), whatever duplicates the old save left; nothing
     // on a plan without report branding, so the cover says "Powered by" only.

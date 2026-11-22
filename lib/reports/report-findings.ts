@@ -5,6 +5,7 @@ import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
+import { lowVisibilityFindings } from "./low-visibility-findings";
 import type { FindingsData, ReportEngineRow } from "./report-data";
 import { plural, relevantCitedDirectories } from "./report-format";
 import { countWord } from "./report-narrative";
@@ -40,7 +41,8 @@ export interface EvidencePart {
 }
 export type EvidenceLine = EvidencePart[];
 
-export type FindingRule = "a" | "b" | "c" | "d" | "e" | "f";
+/** a-f as before; g-j (S01 part 3, LLD 8.1.5) only while report_v2 is on (lib/reports/low-visibility-findings.ts). */
+export type FindingRule = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j";
 export type FindingKind = "risk" | "watch" | "strength";
 
 export interface Finding {
@@ -409,7 +411,11 @@ function strengthFinding(data: FindingsData): Finding | null {
   };
 }
 
-/** Up to three problems (rules a, b, c, e, f, in that order) and one strength (d), problems first. */
+/**
+ * Up to three problems (rules a, b, c, e, f, in that order) and one strength (d), problems first. S01 part 3: then
+ * rules g, h, i, j, each when its condition holds -- only while report_v2 is on (data.lowVisibility set); a-f and
+ * their order are unchanged either way.
+ */
 export function reportFindings(data: FindingsData): Finding[] {
   const problems = [
     directoryFinding(data),
@@ -420,6 +426,7 @@ export function reportFindings(data: FindingsData): Finding[] {
   ]
     .filter((f): f is Finding => f !== null)
     .slice(0, 3);
+  const lowVisibility = lowVisibilityFindings(data);
   const strength = strengthFinding(data);
-  return strength ? [...problems, strength] : problems;
+  return strength ? [...problems, ...lowVisibility, strength] : [...problems, ...lowVisibility];
 }

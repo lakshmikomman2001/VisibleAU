@@ -2006,6 +2006,13 @@ function FindingCard({ finding }: { finding: Finding }) {
   );
 }
 
+/**
+ * S01 part 3 (LLD 8.1.2, 8.1.5; N15): with report_v2 on, a page with no finding says what was checked, never "No
+ * finding rule matched this audit" (a 0% audit has findings g or h whenever its answers support them).
+ */
+export const FINDINGS_CHECKED =
+  "Checked for this audit: directories AI cited, engines that didn't name you or couldn't answer, competitors named more often, Reddit threads, other providers' sites AI cited, answers that couldn't find your business, directories beyond your type, and your ABN and Google Business Profile. None of them showed a problem to fix.";
+
 function DiagnosisPage({ ctx }: { ctx: Ctx }) {
   return (
     <Page size="A4" style={s.page}>
@@ -2024,7 +2031,7 @@ function DiagnosisPage({ ctx }: { ctx: Ctx }) {
       ) : (
         <View style={{ ...s.tile, marginTop: px(12) }}>
           <Text style={{ fontSize: px(10.5), color: C.ink2 }}>
-            No finding rule matched this audit.
+            {ctx.data.lowVisibility ? FINDINGS_CHECKED : "No finding rule matched this audit."}
           </Text>
         </View>
       )}

@@ -12,6 +12,7 @@ import {
 } from "@/lib/recommendations";
 import { persistRecommendations } from "@/lib/recommendations/persist";
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
+import { findingRecommendations } from "@/lib/reports/finding-recommendations";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 
 export const generateRecommendations = inngest.createFunction(
@@ -94,7 +95,14 @@ export const generateRecommendations = inngest.createFunction(
         // The same counts the audit page shows (verified mentions in
         // successful everyday answers, ranks, sources).
         const counts = (await resolveOrganicDimensions(serviceDb, [auditId])).get(auditId);
-        return buildRecommendations(
+        // S01 part 3 (LLD 8.1.5): findings g-j's items, while report_v2 is on (none otherwise). In this step, not a
+        // new one, so a run in flight when this ships finds every step it planned.
+        const fromFindings = await findingRecommendations(serviceDb, {
+          organizationId: audit.organizationId,
+          brandId: audit.brandId,
+          auditId,
+        });
+        const fromRules = await buildRecommendations(
           {
             scoreFrequency: audit.scoreFrequency,
             scoreSentimentNumeric: audit.scoreSentimentNumeric,
@@ -115,6 +123,7 @@ export const generateRecommendations = inngest.createFunction(
           serviceDb,
           evidence,
         );
+        return [...fromRules, ...fromFindings];
       },
     );
 

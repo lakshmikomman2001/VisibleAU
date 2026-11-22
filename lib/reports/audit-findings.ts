@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import { isEnabled } from "@/lib/flags/flags";
 import { resolveOrganicDimensions } from "@/lib/scoring/resolve-audit-dimensions";
 import {
   basisAuditEvidence,
@@ -38,6 +39,8 @@ export async function auditFindingsData(
     resolved,
     coverage,
     now: input.now ?? new Date(),
+    // S01 part 3: rules g-j's evidence, only while report_v2 is on (the page is today's otherwise).
+    lowVisibility: await isEnabled("report_v2", input.organizationId),
   });
   return {
     basis: { auditNumber: basis.auditNumber },

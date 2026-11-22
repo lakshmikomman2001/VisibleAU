@@ -18,6 +18,11 @@ export const GENERAL_ADVICE_PRIORITY_LABEL = "Low";
 const GIVEN_BY_EVIDENCE_ACTION: Partial<Record<string, FindingRule>> = {
   "directory-visibility": "a",
   "reddit-absence": "f",
+  // S01 part 3: findings g-j's own items (lib/reports/finding-recommendations.ts).
+  "finding-others-named": "g",
+  "finding-could-not-find": "h",
+  "finding-directories-not-on": "i",
+  "finding-identity-not-verified": "j",
 };
 
 /** "General advice for plumbing": the brand's first category, as the report names it. */

@@ -60,9 +60,9 @@ describe("the wizard suggests the site's own name", () => {
     expect(document.querySelector('[data-name-suggested="site"]')).toHaveTextContent(
       "Suggested from your website's name. Edit if it's different.",
     );
-    expect(document.querySelector("[data-name-aliases]")).toHaveTextContent(
-      "Also recognised as techcoreit and TechCoreIT in AI answers. You can change these in Brand settings.",
-    );
+    // S01 part 0 (LLD section 0.2 #5, contract C-27: "stop suggesting the name without spaces or the domain stem"):
+    // no aliases are pre-filled, so the "Also recognised as techcoreit and TechCoreIT" line S00 showed is gone.
+    expect(document.querySelector("[data-name-aliases]")).toBeNull();
     fireEvent.change(nameField(), { target: { value: "TechCore IT Services" } });
     expect(document.querySelector('[data-name-suggested="site"]')).toBeNull();
   });

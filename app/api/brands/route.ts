@@ -6,7 +6,7 @@ import { brands } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isOwnStoredLogo } from "@/lib/branding/logo";
 import { checkBrandLimit, inheritRegion } from "@/lib/brands";
-import { checkAliases, MAX_ALIASES } from "@/lib/brands/aliases";
+import { checkAliases, MAX_ALIASES, NAME_SUGGESTION_MAX_LENGTH } from "@/lib/brands/aliases";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
@@ -72,13 +72,14 @@ const createBrandSchema = z.object({
   // 2 Nov: a logo uploaded through POST /api/branding/logo -- checked
   // below to be this workspace's own; never a URL from elsewhere.
   logoUrl: z.string().max(200).nullable().optional(),
-  // S00 part 4 (LLD 8.8.2): the other names the wizard pre-filled ("techcoreit", "TechCoreIT"), checked below
-  // (lib/brands/aliases.ts), and the name it suggested from the site, so brand settings can say so.
+  // S00 part 4 (LLD 8.8.2): the brand's other names, checked below (lib/brands/aliases.ts), and the name the wizard
+  // suggested from the site, so brand settings can say so. S01 part 0 (LLD section 0.2 #5): the suggestion is cut to
+  // NAME_SUGGESTION_MAX_LENGTH (120) when it's written, never refused for its length.
   aliases: z.array(z.string().max(200)).max(MAX_ALIASES).optional().default([]),
   nameSuggestion: z
     .string()
-    .transform(normalizeBrandName)
-    .pipe(z.string().min(1).max(100))
+    .transform((value) => normalizeBrandName(value).slice(0, NAME_SUGGESTION_MAX_LENGTH).trim())
+    .pipe(z.string().min(1))
     .nullable()
     .optional(),
 });

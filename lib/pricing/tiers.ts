@@ -94,7 +94,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     frequency: "Weekly audits",
     unlocks: [],
     highlights: ["1 brand", "4 AI engines", "Weekly automated audits"],
-    extras: ["Action items & recommendations", "Email reports"],
+    // S01 part 0 (D-RT1 revised): no "Email reports" -- reports are Growth and up (brand-features.ts).
+    extras: ["Action items & recommendations"],
   },
   {
     key: "growth",

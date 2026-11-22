@@ -1,7 +1,5 @@
 import * as cheerio from "cheerio";
 
-export { suggestAliases } from "./aliases";
-
 import { domainLabel, readableNameFromDomain } from "./name-from-domain";
 import { normalizeBrandName } from "./normalize";
 

@@ -32,7 +32,10 @@ describe("visibilityDisplay", () => {
     expect(visibilityDisplay(scored(30, 12, 40)).band).toBe("strong");
     expect(visibilityDisplay(scored(29.2, 7, 24)).band).toBe("developing");
     expect(visibilityDisplay(scored(10, 4, 40)).band).toBe("developing");
-    expect(visibilityDisplay(scored(9.9, 4, 41)).band).toBe("low");
+    // S01 part 0 (LLD section 0.1, D-BAND: "'10%' is never coloured Low"): 9.9 shows "10%", so it's Developing; S00
+    // expected "low" here. 9.4 shows "9%" and is Low.
+    expect(visibilityDisplay(scored(9.9, 4, 41)).band).toBe("developing");
+    expect(visibilityDisplay(scored(9.4, 4, 41)).band).toBe("low");
     expect(visibilityColorVar("strong")).toBe("var(--success)");
     expect(visibilityColorVar("developing")).toBe("var(--warning)");
     expect(visibilityColorVar("low")).toBe("var(--danger)");

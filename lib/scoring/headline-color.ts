@@ -44,3 +44,14 @@ export const HEADLINE_BAND_LABELS: Record<HeadlineColorBand, string> = {
   developing: "Developing",
   low: "Low",
 };
+
+/**
+ * D-BAND (LLD section 0.1; S01 part 0): the band of the figure as it is shown. Every surface that colours a rate
+ * prints it with no decimals (formatVisibilityPercent's toFixed(0); Math.round on engine rows and the badge), so a
+ * rate of 9.6 reads "10%" and is Developing, never Low, and 29.5 reads "30%", Strong. Visual only: stored scores and
+ * figures are unchanged (N3), and the CI export's build gate (lib/exports/ci-checks.ts) still judges the rate
+ * itself, since it fails a build rather than colouring a figure.
+ */
+export function shownHeadlineBand(value: number): HeadlineColorBand {
+  return headlineColorBand(Number(value.toFixed(0)));
+}

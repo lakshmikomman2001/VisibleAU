@@ -7,12 +7,13 @@ import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { BusinessKindPicker } from "@/components/domain/vertical/business-kind-picker";
 import { PromptPreview } from "@/components/domain/vertical/prompt-preview";
-import { suggestAliases } from "@/lib/brands/aliases";
 import { VERTICAL_LABELS } from "@/lib/brands/business-label";
 import { MAX_COMPARISON_COMPETITORS, withCompetitorAdded } from "@/lib/brands/competitor-limits";
 import { isRunTogetherDomainName, readableNameFromDomain } from "@/lib/brands/name-from-domain";
+import { normalizeBrandName } from "@/lib/brands/normalize";
 import type { AuStateCode } from "@/lib/constants/au";
 import { AU_STATES } from "@/lib/constants/au";
+import { fetchJson, LoadFailure } from "@/lib/load/fetch-json";
 import { isValidSuburbEntry, resolveCityForSuburb } from "@/lib/locations";
 import { type Breadcrumbs, CRUMB } from "@/lib/navigation/breadcrumbs";
 
@@ -42,13 +43,29 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   // S00 part 4 (LLD 8.8.2): the name the business's own site gives (og:site_name, its title, JSON-LD), asked for
   // when the domain is entered; null while there's none (the domain's words above are the suggestion then).
   const [siteSuggestion, setSiteSuggestion] = useState<string | null>(null);
+  // S01 part 0: what the last ask for the site's name came to. A failed ask is kept here, as useLoad keeps a failed
+  // load (lib/hooks/use-load.ts): the wizard shows no suggestion and stays usable; the name is typed as before.
+  const [siteNameAsk, setSiteNameAsk] = useState<
+    { status: "idle" | "answered" } | { status: "failed"; httpStatus: number | null }
+  >({ status: "idle" });
   const [keepRunTogether, setKeepRunTogether] = useState(false);
   const runTogether = isRunTogetherDomainName(name, domain) && !keepRunTogether;
-  // The other names saved with the brand, shown under the name so none is added silently.
-  const aliasesToSave = name.trim() && domain.trim() ? suggestAliases(name, domain) : [];
+  // S01 part 0: the site's own name, offered whenever the name in the field differs from it -- one the owner typed
+  // is never replaced without their click ("Use ..."). Before S01 the answer was kept only when the field was
+  // empty or still the wizard's suggestion, so a typed "herohomeservices" hid "Hero Home Services" for good.
+  const siteNameOffer =
+    siteSuggestion && name.trim() !== "" && normalizeBrandName(name) !== siteSuggestion
+      ? siteSuggestion
+      : null;
+  const applySiteName = (siteName: string) => {
+    setSuggestedName(siteName);
+    setName(siteName);
+    setKeepRunTogether(false);
+  };
   const onDomainChange = (value: string) => {
     setDomain(value);
     setSiteSuggestion(null);
+    setSiteNameAsk({ status: "idle" });
     // Suggest a readable name where the domain shows the words ("hero-home-services" -> "Hero Home
     // Services"), only while the name is empty or still the wizard's own suggestion.
     if (name === "" || name === suggestedName) {
@@ -60,24 +77,33 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   // What the fields hold now, for an answer that arrives after the owner has typed on.
   const latest = useRef({ name, domain, suggestedName });
   latest.current = { name, domain, suggestedName };
-  /** The site's own name for the domain just entered; it replaces the name only while that is still a suggestion. */
+  /**
+   * The site's own name for the domain just entered. It fills the name only while that is empty or still a
+   * suggestion; otherwise it's offered beside the name (siteNameOffer). An answer for a domain the owner has since
+   * changed is dropped.
+   */
   const askSiteForName = async () => {
     const host = domain.trim();
     if (!host.includes(".")) return;
+    let body: { name: string | null; source: string | null };
     try {
-      const res = await fetch(`/api/brands/name-suggestion?domain=${encodeURIComponent(host)}`);
-      if (!res.ok) return;
-      const body = (await res.json()) as { name: string | null; source: string | null };
-      if (!body.name || body.source === "domain") return;
-      const now = latest.current;
-      if (now.domain.trim() !== host) return;
-      setSiteSuggestion(body.name);
-      if (now.name === "" || now.name === now.suggestedName) {
-        setSuggestedName(body.name);
-        setName(body.name);
-      }
-    } catch {
-      // No suggestion: the owner types the name, as before.
+      body = await fetchJson(`/api/brands/name-suggestion?domain=${encodeURIComponent(host)}`);
+    } catch (error) {
+      if (latest.current.domain.trim() !== host) return;
+      setSiteNameAsk({
+        status: "failed",
+        httpStatus: error instanceof LoadFailure ? error.status : null,
+      });
+      return;
+    }
+    const now = latest.current;
+    if (now.domain.trim() !== host) return;
+    setSiteNameAsk({ status: "answered" });
+    if (!body.name || body.source === "domain") return;
+    setSiteSuggestion(body.name);
+    if (now.name === "" || now.name === now.suggestedName) {
+      setSuggestedName(body.name);
+      setName(body.name);
     }
   };
   const [vertical, setVertical] = useState("");
@@ -153,9 +179,8 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          // S00 part 4: the other names shown under the name, and the site's suggestion (brand settings says
-          // "Suggested from your website's name" while the name still equals it).
-          aliases: aliasesToSave,
+          // S00 part 4: the site's suggestion (brand settings says "Suggested from your website's name" while the
+          // name still equals it). S01 part 0 (C-27): no aliases are pre-filled any more.
           nameSuggestion: siteSuggestion,
           domain: domain.replace(/^(https?:\/\/)?/i, "").replace(/^www\./i, ""),
           vertical,
@@ -319,7 +344,15 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
             </h2>
 
             {/* Brand name */}
-            <div style={{ marginBottom: 16 }}>
+            <div
+              style={{ marginBottom: 16 }}
+              data-site-name-ask={siteNameAsk.status}
+              data-site-name-ask-http={
+                siteNameAsk.status === "failed"
+                  ? String(siteNameAsk.httpStatus ?? "none")
+                  : undefined
+              }
+            >
               <label
                 htmlFor="wiz-name"
                 style={{
@@ -352,12 +385,28 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                     : "From your web address. Change it if customers write it differently."}
                 </p>
               )}
-              {aliasesToSave.length > 0 && (
+              {siteNameOffer && !runTogether && (
                 <p
-                  data-name-aliases=""
+                  data-testid="wizard-site-name-offer"
                   style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
                 >
-                  {`Also recognised as ${aliasesToSave.join(" and ")} in AI answers. You can change these in Brand settings.`}
+                  Your website gives the name &ldquo;{siteNameOffer}&rdquo;.{" "}
+                  <button
+                    type="button"
+                    data-testid="wizard-use-site-name"
+                    onClick={() => applySiteName(siteNameOffer)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--accent-primary)",
+                      textDecoration: "underline",
+                      fontSize: 12,
+                    }}
+                  >
+                    Use &ldquo;{siteNameOffer}&rdquo;
+                  </button>
                 </p>
               )}
               {runTogether && (
@@ -377,6 +426,27 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   &ldquo;{name}&rdquo; is your web address without its spaces. Write the name the
                   way customers see it (for example with spaces between the words) &mdash; it&apos;s
                   the name your audit&apos;s questions and pages use.{" "}
+                  {siteNameOffer && (
+                    <>
+                      <button
+                        type="button"
+                        data-testid="wizard-use-site-name"
+                        onClick={() => applySiteName(siteNameOffer)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          color: "var(--accent-primary)",
+                          textDecoration: "underline",
+                          fontSize: 12,
+                        }}
+                      >
+                        Use &ldquo;{siteNameOffer}&rdquo;
+                      </button>
+                      {" · "}
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => setKeepRunTogether(true)}

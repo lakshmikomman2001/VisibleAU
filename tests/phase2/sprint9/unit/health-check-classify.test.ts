@@ -3,7 +3,7 @@ import {
   buildHealthCheckCards,
   type HealthCheckData,
 } from "@/components/domain/autopilot/health-check-panel";
-import { headlineColorBand } from "@/lib/scoring/headline-color";
+import { shownHeadlineBand } from "@/lib/scoring/headline-color";
 import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 /**
@@ -45,21 +45,26 @@ describe("AI presence: the Visibility bands", () => {
     expect(presenceBand(100)).toBe("Strong");
   });
 
+  // S01 part 0 (LLD section 0.1, D-BAND: "The score band colour follows the figure shown (the rounded value), so
+  // '10%' is never coloured Low"): 29.9 shows "30%" and is Strong, 9.9 shows "10%" and is Developing. S00's
+  // expectations here were the rate's own band (29.9 Developing, 9.9 Low); 29.4 and 9.4 keep them.
   it("10–29 is Developing (13% included)", () => {
     expect(presenceBand(10)).toBe("Developing");
     expect(presenceBand(13)).toBe("Developing");
-    expect(presenceBand(29.9)).toBe("Developing");
+    expect(presenceBand(29.4)).toBe("Developing");
+    expect(presenceBand(29.9)).toBe("Strong");
   });
 
   it("<10 is Low", () => {
-    expect(presenceBand(9.9)).toBe("Low");
+    expect(presenceBand(9.4)).toBe("Low");
+    expect(presenceBand(9.9)).toBe("Developing");
     expect(presenceBand(0)).toBe("Low");
   });
 
-  it("matches headlineColorBand at every boundary", () => {
+  it("matches shownHeadlineBand (the band of the figure shown) at every boundary", () => {
     for (const value of [0, 9.99, 10, 29.99, 30, 59, 60, 100]) {
       const expected = { strong: "Strong", developing: "Developing", low: "Low" }[
-        headlineColorBand(value)
+        shownHeadlineBand(value)
       ];
       expect(presenceBand(value)).toBe(expected);
     }

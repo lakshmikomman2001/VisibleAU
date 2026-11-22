@@ -8,11 +8,14 @@
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import {
   COMPARISON_ROWS,
   cardFeatures,
+  comparisonIncludes,
   PRIORITY_EMAIL_SUPPORT,
   TIER_DEFINITIONS,
+  tierRank,
 } from "@/lib/pricing/tiers";
 import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/source-files";
 
@@ -77,6 +80,22 @@ describe("the pricing page promises only what's delivered", () => {
     expect(TIER_DEFINITIONS.find((t) => t.key === "enterprise")?.frequency).toBe("By arrangement");
     expect(lines).toContain("Everything in Agency Pro");
     expect(lines.join(" ")).not.toMatch(/SSO|SAML|SLA|account manager|dedicated/i);
+  });
+
+  // S01 part 0 (D-RT1 revised): reports are Growth and up (lib/pricing/brand-features.ts), so no card below
+  // Growth promises one. Starter's card listed "Email reports", which Starter can't generate.
+  it("no plan below the reports plan promises reports, on its card or in the table", () => {
+    const reportsFrom = brandFeaturePlan("reports");
+    const below = TIER_DEFINITIONS.filter((t) => tierRank(t.key) < tierRank(reportsFrom));
+    expect(below.map((t) => t.key)).toEqual(["free", "starter"]);
+    for (const tier of below) {
+      expect(cardFeatures(tier).join(" | ")).not.toMatch(/report|PDF/i);
+    }
+    for (const row of COMPARISON_ROWS) {
+      const name = "label" in row ? row.label : row.feature;
+      if (!/report|PDF/i.test(name)) continue;
+      for (const tier of below) expect(comparisonIncludes(row, tier.key), name).not.toBe(true);
+    }
   });
 
   it("no comparison row promises SSO", () => {

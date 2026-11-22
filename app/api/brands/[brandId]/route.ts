@@ -65,7 +65,7 @@ const updateBrandSchema = z.object({
   // it. Normalised and kept to this brand's competitors below (lib/brands/competitor-websites.ts).
   competitorWebsites: z.record(z.string().max(100), z.string().max(253)).optional(),
   // S00 part 4 (LLD 8.8.2): "Also known as" -- the whole list, checked against the name the brand will have
-  // (lib/brands/aliases.ts: up to 10, 2-60 characters, unique as written, never the name itself).
+  // (lib/brands/aliases.ts: up to 10, 2-60 characters, unique ignoring case, never the name itself).
   aliases: z.array(z.string().max(200)).max(MAX_ALIASES).optional(),
 });
 
@@ -156,7 +156,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       sentAliases ?? storedAliases.filter((a) => a.toLowerCase() !== finalName.toLowerCase());
     let aliasUpdate: { aliases?: string[] } = {};
     if (sentAliases !== undefined || aliasList.length !== storedAliases.length) {
-      const aliases = checkAliases(aliasList, finalName);
+      // S01 part 0 (C-27): the stored list is passed, so aliases saved before S01 are kept as they are.
+      const aliases = checkAliases(aliasList, finalName, storedAliases);
       if (!aliases.ok) return NextResponse.json({ error: aliases.error }, { status: 400 });
       aliasUpdate = { aliases: aliases.aliases };
     }

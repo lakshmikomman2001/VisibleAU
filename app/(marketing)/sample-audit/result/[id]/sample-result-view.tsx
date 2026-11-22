@@ -3,7 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import { PROMPTS_PER_AUDIT, TIER_ENGINES } from "@/lib/llm/tier-engines";
 import { SAMPLE_AUDIT_CONFIG } from "@/lib/sample-audit/config";
-import { headlineColorBand } from "@/lib/scoring/headline-color";
+import { shownHeadlineBand } from "@/lib/scoring/headline-color";
 import {
   type MentionDetailCard,
   NOT_MEASURED_REASONS,
@@ -146,9 +146,9 @@ function ScoreCard({
     num === null
       ? "var(--text-tertiary)"
       : useHeadlineThresholds
-        ? headlineColorBand(num) === "strong"
+        ? shownHeadlineBand(num) === "strong"
           ? "var(--success)"
-          : headlineColorBand(num) === "developing"
+          : shownHeadlineBand(num) === "developing"
             ? "var(--warning)"
             : "var(--danger)"
         : num >= 70
@@ -226,9 +226,9 @@ export default function SampleResultView({ audit }: Props) {
   const headlineColor =
     headline === null
       ? "var(--text-tertiary)"
-      : headlineColorBand(headline) === "strong"
+      : shownHeadlineBand(headline) === "strong"
         ? "var(--success)"
-        : headlineColorBand(headline) === "developing"
+        : shownHeadlineBand(headline) === "developing"
           ? "var(--warning)"
           : "var(--danger)";
 

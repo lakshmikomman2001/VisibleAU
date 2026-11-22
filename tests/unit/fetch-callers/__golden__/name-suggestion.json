@@ -4,9 +4,7 @@
     "body": {
       "name": "Fixture Plumbing",
       "source": "title",
-      "aliases": [
-        "FixturePlumbing"
-      ]
+      "aliases": []
     }
   },
   "fixture-blocked.com.au": {
@@ -14,9 +12,7 @@
     "body": {
       "name": "Fixture Blocked",
       "source": "domain",
-      "aliases": [
-        "FixtureBlocked"
-      ]
+      "aliases": []
     }
   },
   "fixture-soft.com.au": {
@@ -32,9 +28,7 @@
     "body": {
       "name": "Fixture Cdn",
       "source": "domain",
-      "aliases": [
-        "FixtureCdn"
-      ]
+      "aliases": []
     }
   }
 }

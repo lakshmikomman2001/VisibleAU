@@ -1,5 +1,5 @@
 import type { DimensionResult } from "./dimension-result";
-import { type HeadlineColorBand, headlineColorBand } from "./headline-color";
+import { type HeadlineColorBand, shownHeadlineBand } from "./headline-color";
 
 /**
  * How every surface shows a brand's or an audit's Visibility -- the audit
@@ -51,7 +51,8 @@ export function visibilityDisplay(resolved: VisibilityInput | null | undefined):
   return {
     value: formatVisibilityPercent(resolved.headline.value),
     detail: `${resolved.mentionedCount} of ${resolved.sampleCount}`,
-    band: headlineColorBand(resolved.headline.value),
+    // D-BAND (S01 part 0): the band of `value`, the figure shown.
+    band: shownHeadlineBand(resolved.headline.value),
   };
 }
 

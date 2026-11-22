@@ -145,6 +145,25 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
     expect(tryAdd("techcoreit")).toBe("That name is already listed.");
   });
 
+  // S01 part 0 (contract C-27, LLD section 0.2 #5): unique ignoring case for a name being added; the brand's two
+  // saved case-only twins (S00) stay listed.
+  it("a name that differs only in case from a listed one is already listed", () => {
+    render(<BrandDetailClient {...PROPS} brand={BRAND} />);
+    edit();
+    fireEvent.click(screen.getByTestId("p01-aliases-add"));
+    const input = screen.getByTestId("p01-aliases-input");
+    fireEvent.change(input, { target: { value: "TECHCOREIT" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(within(aliasField()).getByRole("alert").textContent).toBe(
+      "That name is already listed.",
+    );
+    expect(
+      within(aliasField())
+        .getAllByTestId("p01-aliases-chip")
+        .map((chip) => chip.textContent?.replace(/×$/, "").trim()),
+    ).toHaveLength(2);
+  });
+
   it("× removes one; Save sends the new list (and nothing about aliases when they didn't change)", async () => {
     render(<BrandDetailClient {...PROPS} brand={BRAND} />);
     edit();

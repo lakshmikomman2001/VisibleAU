@@ -5,7 +5,7 @@ import { serviceDb } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { audits, brands } from "@/db/schema";
 import { getRedisConfig } from "@/lib/sample-audit/rate-limit";
-import { headlineColorBand } from "@/lib/scoring/headline-color";
+import { shownHeadlineBand } from "@/lib/scoring/headline-color";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
 
 // Task #46 (17th follow-up): was its own separate inline Upstash client
@@ -115,7 +115,8 @@ function buildSvg(result: BadgeScore): string {
   // (lib/scoring/headline-color.ts), not the 70/40 bands that fit an
   // already-mentioned dimension. A business embedding this badge with a
   // genuinely good 35% mention rate used to show red here.
-  const band = headlineColorBand(score);
+  // D-BAND (S01 part 0): the shared helper; `score` is already the rounded figure printed.
+  const band = shownHeadlineBand(score);
   const color = band === "strong" ? "#22c55e" : band === "developing" ? "#f59e0b" : "#ef4444";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="170" height="20" role="img" aria-label="Visible on AI: ${score}%">
   <rect width="170" height="20" rx="3" fill="#555"/>

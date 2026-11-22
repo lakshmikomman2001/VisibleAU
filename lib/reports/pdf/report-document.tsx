@@ -23,7 +23,7 @@ import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { DIRECTORY_KIND_LABELS } from "@/lib/directories/registry";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { PRODUCT_NAME } from "@/lib/product";
-import { HEADLINE_COLOR_THRESHOLDS, headlineColorBand } from "@/lib/scoring/headline-color";
+import { HEADLINE_COLOR_THRESHOLDS, shownHeadlineBand } from "@/lib/scoring/headline-color";
 import { engineRowDisplay, positionCard, sourceCitationCard } from "@/lib/scoring/measured-display";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
@@ -1106,7 +1106,8 @@ function EngineRows({ data }: { data: ReportData }) {
             e.failedCount > 0 ? `${e.failedCount} ${plural(e.failedCount, "error")}` : null,
         });
         const rate = row.kind === "answered" ? row.ratePct : 0;
-        const fill = BAND[headlineColorBand(rate)].fill;
+        // D-BAND (S01 part 0): the band of the figure printed below (`${Math.round(rate)}%`).
+        const fill = BAND[shownHeadlineBand(rate)].fill;
         const last = i === data.engines.length - 1;
         const answeredErrors = !e.fullyFailed && e.failedEverydayCount > 0;
         return (

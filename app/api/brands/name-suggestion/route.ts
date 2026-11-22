@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   NAME_SUGGESTION_LIMIT,
-  suggestAliases,
   suggestBrandName,
   suggestionHost,
 } from "@/lib/brands/name-suggestion";
@@ -12,7 +11,8 @@ import { checkPostgresRateLimit } from "@/lib/governance/pg-rate-limit";
 
 /**
  * S00 part 4 (22 Nov; LLD 8.8.2, T2): GET /api/brands/name-suggestion?domain=… -- the name the add-brand wizard
- * suggests, from the business's own home page (lib/brands/name-suggestion.ts), and the aliases it pre-fills.
+ * suggests, from the business's own home page (lib/brands/name-suggestion.ts). `aliases` is always empty since S01
+ * part 0 (C-27).
  *
  * Only someone who may add a brand (manage_brands) asks; 30 a user per 10 minutes. The page is fetched the way
  * classification already fetches it when a brand is added (lib/crawler crawlSite, one page, 8 s), so this is no new
@@ -65,6 +65,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     name: suggestion?.name ?? null,
     source: suggestion?.source ?? null,
-    aliases: suggestion ? suggestAliases(suggestion.name, domain) : [],
+    // S01 part 0 (C-27): no aliases are suggested (the two S00 forms are ones detection already matches);
+    // the field stays in the answer, always empty, so the response keeps its shape.
+    aliases: [],
   });
 }

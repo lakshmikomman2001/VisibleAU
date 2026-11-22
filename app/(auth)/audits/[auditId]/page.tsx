@@ -59,7 +59,7 @@ import {
 import { auditEvidenceActions } from "@/lib/reports/audit-findings";
 import type { Finding } from "@/lib/reports/report-findings";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
-import { HEADLINE_BAND_LABELS, headlineColorBand } from "@/lib/scoring/headline-color";
+import { HEADLINE_BAND_LABELS, shownHeadlineBand } from "@/lib/scoring/headline-color";
 import {
   engineAnswerLine,
   failedNotCountedNote,
@@ -97,9 +97,9 @@ function headlineColor(result: DimensionResult): string {
   return headlineColorVar(result.value);
 }
 
-/** The same bands for any mention rate, e.g. one engine's. */
+/** The same bands for any mention rate, e.g. one engine's: the band of the figure shown (D-BAND, S01 part 0). */
 function headlineColorVar(rate: number): string {
-  const band = headlineColorBand(rate);
+  const band = shownHeadlineBand(rate);
   return band === "strong"
     ? "var(--success)"
     : band === "developing"
@@ -1160,7 +1160,7 @@ export default async function AuditPage({
               {/* Health Check (7 Nov): the band's name, from the one map the Health Check's AI
                   presence card also reads. */}
               <div
-                data-visibility-band={headlineColorBand(headlineResult.value)}
+                data-visibility-band={shownHeadlineBand(headlineResult.value)}
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
@@ -1168,7 +1168,7 @@ export default async function AuditPage({
                   marginTop: 2,
                 }}
               >
-                {HEADLINE_BAND_LABELS[headlineColorBand(headlineResult.value)]}
+                {HEADLINE_BAND_LABELS[shownHeadlineBand(headlineResult.value)]}
               </div>
             </>
           )}

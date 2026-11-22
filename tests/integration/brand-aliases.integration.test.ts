@@ -126,13 +126,16 @@ describe("brand aliases on a real database", () => {
     expect(await stored()).toEqual({ name: "TechCore IT", aliases: [], name_suggestion: null });
   });
 
+  // S01 part 0 (LLD section 0.2 #5: "aliases unique ignoring case"; contract C-27): S00's first list here was
+  // ["techcoreit", "TechCoreIT"], a case-only pair, which a new list may no longer hold; it's now among the bad ones.
   it("PATCH keeps a new list, trimmed; a bad list is refused and nothing changes", async () => {
-    expect((await patch({ aliases: ["techcoreit", "  TechCoreIT "] })).status).toBe(200);
-    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT"]);
+    expect((await patch({ aliases: ["techcoreit", "  Astorio  Group "] })).status).toBe(200);
+    expect((await stored()).aliases).toEqual(["techcoreit", "Astorio Group"]);
     for (const [bad, reason] of [
       [["techcore it"], "That's the brand's name already."],
       [["A"], "A name is 2 to 60 characters."],
       [["techcoreit", "techcoreit"], "That name is already listed."],
+      [["techcoreit", "Astorio Group", "TECHCOREIT"], "That name is already listed."],
     ] as const) {
       const res = await patch({ aliases: bad });
       expect(res.status, JSON.stringify(bad)).toBe(400);
@@ -141,7 +144,20 @@ describe("brand aliases on a real database", () => {
     expect(
       (await patch({ aliases: Array.from({ length: 11 }, (_, i) => `Name ${i}`) })).status,
     ).toBe(400);
-    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT"]);
+    expect((await stored()).aliases).toEqual(["techcoreit", "Astorio Group"]);
+  });
+
+  it("S01 part 0: aliases saved before S01 with a case-only twin are kept as they are", async () => {
+    await sql`UPDATE brands SET aliases = ARRAY['techcoreit', 'TechCoreIT']::text[] WHERE id = ${BRAND_ID}`;
+    expect((await patch({ aliases: ["techcoreit", "TechCoreIT", "Astorio Group"] })).status).toBe(
+      200,
+    );
+    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT", "Astorio Group"]);
+    expect((await patch({ vertical: "local_business" })).status).toBe(200);
+    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT", "Astorio Group"]);
+    const twin = await patch({ aliases: ["techcoreit", "TechCoreIT", "TECHCOREIT"] });
+    expect(twin.status).toBe(400);
+    await patch({ aliases: [] });
   });
 
   it("a rename to a listed alias drops that alias; other saves keep the list", async () => {
@@ -177,6 +193,23 @@ describe("brand aliases on a real database", () => {
     });
   });
 
+  it("S01 part 0: the site's suggestion is cut to 120 characters when written, never refused", async () => {
+    const long = `Hero Home Services ${"and more ".repeat(20)}`.trim();
+    expect(long.length).toBeGreaterThan(120);
+    const res = await create({
+      name: "Hero Home Services",
+      domain: "hero-home-services-long.com.au",
+      vertical: "tradies",
+      nameSuggestion: long,
+      locationMode: "online_only",
+    });
+    expect(res.status).toBe(201);
+    const { brand } = (await res.json()) as { brand: { id: string } };
+    const kept = (await stored(brand.id)).name_suggestion ?? "";
+    expect(kept.length).toBeLessThanOrEqual(120);
+    expect(long.startsWith(kept)).toBe(true);
+  });
+
   it("POST refuses an alias that is the name, and a brand made without aliases has none", async () => {
     const refused = await create({
       name: "Omega Services",
@@ -202,7 +235,9 @@ describe("brand aliases on a real database", () => {
 });
 
 describe("GET /api/brands/name-suggestion", () => {
-  it("reads the home page and suggests the site's name and the aliases", async () => {
+  // S01 part 0 (LLD section 0.2 #5, C-27): "stop suggesting the name without spaces or the domain stem": S00
+  // answered aliases ["techcoreit", "TechCoreIT"] here; the field stays, always empty.
+  it("reads the home page and suggests the site's name, and no aliases", async () => {
     crawl.html =
       "<html><head><title>Managed IT Services Western Sydney | TechCore IT</title></head></html>";
     const res = await suggestion("https://www.TechCoreIT.com.au/");
@@ -210,7 +245,7 @@ describe("GET /api/brands/name-suggestion", () => {
     expect(await res.json()).toEqual({
       name: "TechCore IT",
       source: "title",
-      aliases: ["techcoreit", "TechCoreIT"],
+      aliases: [],
     });
     expect(crawl.calls).toEqual(["techcoreit.com.au"]);
   });

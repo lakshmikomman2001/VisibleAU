@@ -1753,7 +1753,7 @@ export function BrandDetailClient({
             />
           </div>
           {/* S00 part 4 (UI contract P01.aliases): the brand's other names. Up to 10, each 2-60 characters,
-              unique as written, never the brand's name (lib/brands/aliases.ts, the API's own rules). */}
+              unique ignoring case (S01, C-27), never the brand's name (lib/brands/aliases.ts, the API's own rules). */}
           <fieldset data-testid="p01-aliases" style={{ border: "none", margin: 0, padding: 0 }}>
             <legend
               style={{

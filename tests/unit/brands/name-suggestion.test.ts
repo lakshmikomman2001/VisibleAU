@@ -5,7 +5,7 @@
  * accepts (no IP address, port, path or local name).
  */
 import { describe, expect, it } from "vitest";
-import { aliasProblem, checkAliases, MAX_ALIASES, suggestAliases } from "@/lib/brands/aliases";
+import { aliasProblem, checkAliases, MAX_ALIASES } from "@/lib/brands/aliases";
 import { suggestBrandName, suggestionHost } from "@/lib/brands/name-suggestion";
 
 /** A home page shaped like TechCore IT's: the business's name in the title's last segment, no og:site_name. */
@@ -65,48 +65,43 @@ describe("suggestBrandName: the site's own name, in order", () => {
   });
 });
 
-describe("suggestAliases: the domain label and the name without its spaces", () => {
-  it('TechCore IT -> "techcoreit" and "TechCoreIT"', () => {
-    expect(suggestAliases("TechCore IT", "techcoreit.com.au")).toEqual([
-      "techcoreit",
-      "TechCoreIT",
-    ]);
-  });
-
-  it("nothing that is just the name again", () => {
-    expect(suggestAliases("Omega", "omega.com.au")).toEqual([]);
-    expect(suggestAliases("herohomeservices", "herohomeservices.com.au")).toEqual([]);
-  });
-
-  it("a hyphenated domain gives the no-space form only", () => {
-    expect(suggestAliases("Hero Home Services", "hero-home-services.com.au")).toEqual([
-      "HeroHomeServices",
-    ]);
-  });
-
-  it("every suggestion passes the rules a write checks", () => {
-    const name = "TechCore IT";
-    expect(checkAliases(suggestAliases(name, "techcoreit.com.au"), name)).toEqual({
-      ok: true,
-      aliases: ["techcoreit", "TechCoreIT"],
-    });
-  });
-});
+// S01 part 0: S00's four suggestAliases tests are gone with the function. LLD section 0.2 #5: "S01 carry-over: stop
+// suggesting the name without spaces or the domain stem" (contract C-27) -- those were its only two forms.
 
 describe("the alias rules (UI contract P01.aliases)", () => {
-  // Unique as written: S00 part 4 keeps "techcoreit" and "TechCoreIT" both (the contract's "ignoring case" is
-  // proposed for amendment); detection ignores case either way.
-  it("2-60 characters, unique as written, never the brand's name (ignoring case), up to 10", () => {
+  // S01 part 0 (LLD section 0.2 #5: "aliases unique ignoring case"; contract C-27): S00 kept "techcoreit" and
+  // "TechCoreIT" both; a name added now is compared ignoring case.
+  it("2-60 characters, unique ignoring case, never the brand's name (ignoring case), up to 10", () => {
     expect(aliasProblem("A", [], "TechCore IT")).toBe("A name is 2 to 60 characters.");
     expect(aliasProblem("x".repeat(61), [], "TechCore IT")).toBe("A name is 2 to 60 characters.");
     expect(aliasProblem("techcore it", [], "TechCore IT")).toBe("That's the brand's name already.");
     expect(aliasProblem("techcoreit", ["techcoreit"], "TechCore IT")).toBe(
       "That name is already listed.",
     );
-    expect(aliasProblem("TechCoreIT", ["techcoreit"], "TechCore IT")).toBeNull();
+    expect(aliasProblem("TechCoreIT", ["techcoreit"], "TechCore IT")).toBe(
+      "That name is already listed.",
+    );
     const ten = Array.from({ length: MAX_ALIASES }, (_, i) => `Name ${i}`);
     expect(aliasProblem("Another", ten, "TechCore IT")).toBe("Up to 10 names.");
     expect(aliasProblem("  Astorio  Group ", [], "TechCore IT")).toBeNull();
+  });
+
+  it("aliases saved before S01 are kept as they are; a new case-only twin is refused", () => {
+    const saved = ["techcoreit", "TechCoreIT"];
+    expect(checkAliases(saved, "TechCore IT", saved)).toEqual({ ok: true, aliases: saved });
+    expect(checkAliases([...saved, "Astorio Group"], "TechCore IT", saved)).toEqual({
+      ok: true,
+      aliases: [...saved, "Astorio Group"],
+    });
+    expect(checkAliases([...saved, "TECHCOREIT"], "TechCore IT", saved)).toEqual({
+      ok: false,
+      error: "aliases: That name is already listed.",
+    });
+    // A new brand (POST) has nothing saved: the twin is refused.
+    expect(checkAliases(saved, "TechCore IT")).toEqual({
+      ok: false,
+      error: "aliases: That name is already listed.",
+    });
   });
 
   it("checkAliases trims each and stops at the first problem", () => {

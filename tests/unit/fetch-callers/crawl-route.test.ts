@@ -16,6 +16,11 @@ vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(async () => ({ id: "user-1", organizationId: "org-1" })),
 }));
 vi.mock("@/lib/governance", () => ({ roleRefusal: vi.fn(async () => null) }));
+// S01 part 0 added the per-user limiter (Postgres); unit tests never reach a database (tests/unit/no-database.setup.ts),
+// so it is stubbed to allow every call here. Its own test: tests/integration/crawl-route-limit.integration.test.ts.
+vi.mock("@/lib/governance/pg-rate-limit", () => ({
+  checkPostgresRateLimit: vi.fn(async () => ({ allowed: true, remaining: 9, resetAt: new Date() })),
+}));
 
 const { POST } = await import("@/app/api/crawl/route");
 

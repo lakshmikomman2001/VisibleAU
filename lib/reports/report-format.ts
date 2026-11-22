@@ -1,7 +1,7 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { PRODUCT_NAME } from "@/lib/product";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
-import { type HeadlineColorBand, headlineColorBand } from "@/lib/scoring/headline-color";
+import { type HeadlineColorBand, shownHeadlineBand } from "@/lib/scoring/headline-color";
 import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import type { ReportData, ReportDirectoryRow, ReportTrendPoint } from "./report-data";
 import { reportPeriodDisplay } from "./report-period";
@@ -51,7 +51,8 @@ export function headlineFigures(data: ReportData): HeadlineFigures {
   return {
     percent: formatVisibilityPercent(data.headline.value),
     value: data.headline.value,
-    band: headlineColorBand(data.headline.value),
+    // D-BAND (S01 part 0): the band of `percent`, the figure printed.
+    band: shownHeadlineBand(data.headline.value),
     kOfN,
     ci: formatCi(data.headline.ci),
     noFigureReason: null,

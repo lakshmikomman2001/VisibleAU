@@ -3,12 +3,13 @@ import { NextResponse } from "next/server";
 import { withRlsContext } from "@/db/client";
 import { webhookEndpoints } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { guardedFetch } from "@/lib/fetch/guarded-fetch";
+import { roleRefusal } from "@/lib/governance";
 import { planFeatureRefusal } from "@/lib/pricing/plan-features";
+import { WEBHOOK_HEADERS, WEBHOOK_USER_AGENT } from "@/lib/product";
 import { type AuditCompletedPayload, SCORE_BASIS } from "@/lib/webhooks/events";
 import { formatForChannel } from "@/lib/webhooks/format";
 import { signHmacSha256 } from "@/lib/webhooks/sign";
-import { roleRefusal } from "@/lib/governance";
-import { WEBHOOK_HEADERS, WEBHOOK_USER_AGENT } from "@/lib/product";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const currentUser = await getCurrentUser();
@@ -49,7 +50,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const sig = signHmacSha256(JSON.stringify(body), endpoint.signingSecret);
 
     try {
-      const res = await fetch(endpoint.url, {
+      // S00B part 3 (inventory F12): through the guarded fetcher; an internal address or a port other than 80/443
+      // is refused and answered as "Connection failed" below. The answer's status is all this reads.
+      const res = await guardedFetch(endpoint.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -60,8 +63,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           "User-Agent": WEBHOOK_USER_AGENT,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(10_000),
+        timeoutMs: 10_000,
       });
+      void res.body?.cancel().catch(() => {});
 
       return NextResponse.json({ status: res.status, ok: res.ok });
     } catch {

@@ -1,0 +1,75 @@
+{
+  "deliver https://hooks.fixture-receiver.com/ok": {
+    "result": {
+      "ok": true,
+      "status": 200,
+      "body": "received"
+    }
+  },
+  "test https://hooks.fixture-receiver.com/ok": {
+    "status": 200,
+    "body": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  "deliver https://hooks.fixture-receiver.com/fail": {
+    "error": "Delivery failed: 500"
+  },
+  "test https://hooks.fixture-receiver.com/fail": {
+    "status": 200,
+    "body": {
+      "status": 500,
+      "ok": false
+    }
+  },
+  "deliver https://hooks.fixture-receiver.com/gone": {
+    "error": "Delivery failed: 410"
+  },
+  "test https://hooks.fixture-receiver.com/gone": {
+    "status": 200,
+    "body": {
+      "status": 410,
+      "ok": false
+    }
+  },
+  "deliver https://hooks.fixture-receiver.com/moved": {
+    "result": {
+      "ok": true,
+      "status": 200,
+      "body": "landed"
+    }
+  },
+  "test https://hooks.fixture-receiver.com/moved": {
+    "status": 200,
+    "body": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  "deliver https://hooks.fixture-receiver.com/landed": {
+    "result": {
+      "ok": true,
+      "status": 200,
+      "body": "landed"
+    }
+  },
+  "test https://hooks.fixture-receiver.com/landed": {
+    "status": 200,
+    "body": {
+      "status": 200,
+      "ok": true
+    }
+  },
+  "deliver https://nowhere.fixture-unknown.com/hook": {
+    "error": "fetch failed"
+  },
+  "test https://nowhere.fixture-unknown.com/hook": {
+    "status": 502,
+    "body": {
+      "status": 0,
+      "ok": false,
+      "error": "Connection failed"
+    }
+  }
+}

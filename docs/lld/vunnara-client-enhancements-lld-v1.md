@@ -1,8 +1,8 @@
-# Vunnara client enhancements: low-level design (LLD) v1.4
+# Vunnara client enhancements: low-level design (LLD) v1.5
 
 | | |
 |---|---|
-| Version | 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
+| Version | 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
 | Owner | Sri |
 | Repo location | `docs/lld/vunnara-client-enhancements-lld-v1.md` (commit it there with the prototype files in `docs/prototypes/`, listed in the next rows) |
 | Builds on | `main` at `15f287b` (20 Nov 2026) or later |
@@ -19,7 +19,7 @@
 ---
 
 
-## 0. What changed after S00 (v1.4, read first)
+## 0. What changed after S00 and S00B (v1.5, read first)
 
 S00 checked every VERIFY statement against the code (`docs/lld/as-is-verification.md`, with file:line evidence) and mapped the UI contract onto the app (`docs/prototypes/token-map.md`). Sri decided the open points on 22 Nov 2026. Where this section and older text below differ, this section wins; the most load-bearing passages below are also corrected in place.
 
@@ -28,7 +28,7 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | Id | Decision |
 |---|---|
 | D-RT1 (revised) | Reports stay **Growth and up**, as today. Free and Starter have no reports. Growth: Basic and Standard. Agency, Agency Pro, Enterprise: all three, chosen per report. The Starter pricing card's false "Email reports" claim is removed in S01's first commit |
-| D-SEC1 | A small security sprint **S00B** runs before S01: the guarded fetcher (8.6.2) is built and every existing place that fetches a customer website moves onto it (about eight, plus S00's name suggestion and `app/api/crawl`). Network protections apply to every caller; robots.txt obedience, user agent and rate limits stay as each caller has them today unless that caller is new |
+| D-SEC1 | A small security sprint **S00B** runs before S01: the guarded fetcher (8.6.2) is built and every existing place that fetches a customer website moves onto it (about eight, plus S00's name suggestion and `app/api/crawl`). Network protections apply to every caller; robots.txt obedience, user agent and rate limits stay as each caller has them today unless that caller is new. **Done in S00B (23 Nov 2026):** all 12 fetch sites moved (amendments 19 and 29) |
 | D-QI-BR | A question set may hold up to **5** questions that name the business (today's packs carry 3 to 5). Every "3" for branded questions becomes 5 |
 | D-BAND | The score band colour follows the figure shown (the rounded value), so "10%" is never coloured Low. Visual only; stored scores unchanged (S01 carry-over) |
 | D-GT | From S05, reference tables the app must only read get a named read-only list: prod-fix 0052's grants, the drift check and `app-role-grants.integration.test.ts` allow it. `directory_registry` joins that list in S05; until then it keeps the app's DML grants |
@@ -60,7 +60,7 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | 16 | Generate route (8.1.3, 8.1.7) | `POST /api/brands/:id/reports/generate` takes `{ periodLabel?, periodType }`; the server picks the basis audit (`selectReportBasis`). S01 adds `tier` and `contents`, keeps the server's basis choice, and makes render and "Try again" use the saved snapshot for new reports (old reports keep rebuilding from live data) |
 | 17 | Done since last report (8.1.3) | `action_items` has no status history: use `done_at` |
 | 18 | Engine location (8.4) | `userLocation` lives in `lib/llm/openai-impl.ts` and `anthropic-impl.ts`; Gemini and Perplexity take none; country "AU" is sent only for a confirmed city |
-| 19 | One fetch path (8.6.2) | About eight places fetch customer sites with no SSRF guard; `app/api/crawl` accepts any domain. Fixed in S00B (D-SEC1) |
+| 19 | One fetch path (8.6.2) | Twelve server-side fetches of customer-supplied URLs, in 8 files, had no address check: the crawler's pages, robots.txt, sitemap and `fetchRobotsTxt`; the CDN Shield probe; llms.txt and llms-full.txt; the five AI files; MCP; the agency logo; webhook delivery and the webhook test. None can be started by an anonymous visitor. All twelve moved onto `lib/fetch/guarded-fetch.ts` in S00B (`docs/lld/fetch-inventory.md` lists each with its options and commit). Webhook endpoints on a port other than 80 or 443 stop receiving. `tests/unit/fetch/no-unguarded-fetch.test.ts` fails on any new unguarded fetch; a new fixed-host client needs an entry there (file, host, reason, exact call count). `POST /api/crawl` (signed in, `run_audit`, any domain, no limit) gets a per-user limit in S01 Part 0 |
 | 20 | Directory links (8.6.4, 8.1.4) | `brand_directory_listings` (one row per brand and directory; status listed / not_listed / unsure; `profile_url`), edited on the brand overview page via `PUT /api/brands/:id/directory-listings`; audit label "Your profile: Not linked yet" / "{n} cited" |
 | 21 | Question limits (7.6, 8.3.5) | `max_prompts_per_audit` is never read; `PROMPTS_PER_AUDIT = 10` on every plan. Per-plan question limits are new work in S03 |
 | 22 | Report templates (8.1) | Only five optional-section flags take effect (`competitors`, `diagnosis`, `trend`, `recommended_next`, `method`); `tone` is ignored |
@@ -70,10 +70,20 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | 26 | Beyond AI answers (8.1.4) | Crawler visits come from uploaded logs and the visit beacon (CDN Shield writes none): say "upload server logs". YouTube's "videos cited by AI" has no source: removed. Business identity has one entity name: no "trading as". YouTube checks are gated off in code and need `YOUTUBE_API_KEY`; ABN needs `ABN_LOOKUP_GUID` set and `ABN_LOOKUP_BYPASS` unset in production |
 | 27 | Reports list (P17) | No report-type column today; the list learns a PDF is ready by polling every 4 s for up to 12 minutes; statuses generating, ready, published (emailed), failed |
 | 28 | Profile-link rule (7.7, 8.6.4) | The table doesn't store a pattern. `loadDirectoryRegistry()` (`lib/directories/registry-store.ts`) reads the rows and caches them per server process for 5 minutes; `profileUrlPatternFor()` (`lib/directories/registry.ts`) builds each directory's `profileUrlPattern` from its `directory_key` and `domain_pattern`: hipages `/connect/{slug}` (fixed in code by key), Google Business Profile any path on its domains, every other directory its first domain plus a non-empty path under the row's path prefix (for example `/company` for LinkedIn). `profile_url_hint` is description only. The same pattern drives the PUT route's check, own-profile suggestions and citation counts. A row change takes up to 5 minutes to apply. No test yet shows a row change moving the rule: S07 adds one |
+| 29 | Guarded fetcher as built (8.6.2) | The exchange is Node's `fetch` (`redirect: 'manual'`) with an undici 7 dispatcher whose connect lookup is the guard's (direct dependency `undici` 7.27.2, the version cheerio already installed); IP literals are checked before every hop. Hard caps for every caller: 60 s and 50 MB. Existing callers keep their own user agent, timeout, redirect handling, size limit and `http:` handling (`allowHttp`); robots.txt (`obeyRobots`) and per-host pace are off for them. Refusal codes add `blocked_credentials` and `blocked_by_robots`. `lib/fetch` reads no environment variable and has no switch that turns it off (guard test). The LLD's earlier 10 s / 2 MB / 3 redirects / HTML-only figures are the S06+ analysis preset, not limits on existing callers |
 
 S00 also proposed (and this version adopts): the contract typecheck command `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts`; the sprint prompts and reports live in `docs/Sprints/` (capital S, as git tracks it); S11 compares lint with the pre-S00 baseline (339 errors in the whole repo).
 
 S00's Playwright run (22 Nov 2026): all 15 specs, 216 of 216 tests passed against the local e2e database with 0153 applied; the directory table was read without errors in every run. Its memory measurements (one run with its `next dev` server peaks at 3.5–6.7 GB) set the Playwright memory rules in the runbook, section 5.
+
+S00B (23 Nov 2026): 12 of 12 fetch sites migrated; every migrated caller's output on recorded public sites is byte for byte what it was before; each refusal is proven against a local stand-in for an internal address; no migration, flag or Inngest change. Pushed 23 Nov 2026 (`f1d9ffdb`): production had no webhook endpoints, `RATE_LIMIT_IP_SALT` is set in Vercel (Production), and the name suggestion for herohomeservices.com.au, omegaservices.com.au and techcoreit.com.au returned identical results before and after the push. It also found that S00 left one source-scan guard failing (`no-silent-fetch-fallback`, the wizard's name-suggestion request): fixed in S01 Part 0, and the runbook now has every guard file run in every part.
+
+### 0.3 Backlog (found, not scheduled; Sri schedules)
+
+| Item | Found in | Note |
+|---|---|---|
+| Brand domain shape | S00B inventory | `POST` and `PATCH /api/brands` accept any text up to 253 characters as the domain, cleaned of scheme and slashes only (an IP address is accepted). Harmless for fetching since S00B (refused), but junk can be stored. Validate on create and whenever the domain changes, with the name suggestion's host rule (`suggestionHost`, `lib/brands/name-suggestion.ts`); existing brands untouched |
+| Removing `POST /api/crawl` | S00B inventory | If S01 Part 0 finds no caller in the app, Sri decides whether to remove the route; until then it keeps working, with a per-user limit |
 
 ## 1. Scope and traceability
 
@@ -937,12 +947,14 @@ The full rationale is in the design doc "Vunnara question intelligence: layer-by
 Each step stores its status in `analysis_runs.layers` so the progress screen (P12) shows live state. A failed layer marks the run `partial`; later layers use whatever exists. Costs are recorded per step and stop paid steps at the ceiling (decision D-QI5, default US$0.50).
 
 #### 8.6.2 Guarded fetcher (`lib/fetch/guarded-fetch.ts`, built in S00B) — security gate
-- Allowed schemes: `https:` (and `http:` upgraded); ports 443/80 only.
-- Resolve the host once (DNS), reject private, loopback, link-local, CGNAT, multicast, IPv6 ULA, and cloud metadata addresses (169.254.169.254, fd00:ec2::254, metadata.google.internal); connect to the resolved IP with the original Host/SNI (pinned), so DNS rebinding can't switch targets.
-- Max 3 redirects, each re-validated; 10 s timeout; 2 MB body cap; `text/html` and `application/xhtml+xml` only (plus `text/plain` for robots, XML for sitemaps).
-- User agent `Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)`; robots.txt obeyed (rules for `Vunnara-Audit-Bot` then `*`); one request per second per host.
-- Every refusal logged with reason; unit tests for each blocked class and for rebinding.
-- S00B moves every existing caller onto it (`lib/crawler/index.ts`, classification, CDN Shield probe, robots fetch, `app/api/crawl`, the name suggestion and the rest found in S00), so there is one fetch path. Network protections (scheme, port, DNS pinning, private ranges, redirects, timeout, size, content type) apply to every caller. Robots.txt obedience, user agent and per-host rate limit are per-caller options: existing callers keep today's behaviour; new S6–S8 callers turn them on.
+Every server-side fetch of a URL that comes from customer input goes through `guardedFetch`. As built in S00B: the inventory, each caller's options and the commit it moved in are in `docs/lld/fetch-inventory.md` (amendments 19 and 29).
+- **Always on, for every caller:** `http:` and `https:` only; ports 80 and 443 only; no credentials in the URL. The host is resolved once and every answer checked (one private answer refuses the host). Refused: private, loopback, link-local, CGNAT, multicast, broadcast, unspecified, reserved, documentation and benchmarking ranges; IPv6 ULA, link-local and site-local; IPv4-mapped and IPv4-compatible; NAT64 or 6to4 carrying a blocked IPv4; Teredo; cloud metadata (169.254.169.254, fd00:ec2::254, 100.100.100.200, `metadata.google.internal`); `localhost`, `*.local`, `*.internal`; IP literals in every notation. The connection is pinned to the checked address with the original Host and SNI (no second lookup, so DNS rebinding can't switch targets). Every redirect is checked again from the start. Hard caps of 60 s and 50 MB, whatever a caller asks.
+- **Per caller (options):** user agent; timeout (the whole exchange, plus an optional headers-only limit); redirect mode and limit; byte limit; allowed content types; `obeyRobots`; per-host pace; `allowHttp`. Existing callers keep the behaviour they had before S00B (robots.txt and pace off; `http:` links and redirects followed as before), with a size bound added where they had none.
+- **Refusals:** a `GuardedFetchError` with a code (`blocked_address`, `blocked_scheme`, `blocked_port`, `blocked_credentials`, `too_many_redirects`, `too_large`, `timeout`, `bad_content_type`, `blocked_by_robots`), logged with the host and reason only (no path, query, address or content). Each caller's existing "couldn't reach" path handles it.
+- **robots.txt (`obeyRobots`):** the bot's own group, then `*` (`lib/robots-txt/evaluate.ts`); a 4xx robots.txt allows everything, a 5xx or no answer disallows everything (RFC 9309 2.3.1); cached 10 minutes per origin and user agent.
+- **Analysis preset (new S06+ callers):** user agent `Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)`; `obeyRobots: true`; one request per second per host across all instances (the shared rate limiter, not only the in-process pace option); `maxRedirects: 3`; `timeoutMs: 10_000`; `maxBytes: 2 MB`; HTML and XHTML only (plain text for robots.txt, XML for sitemaps); `allowHttp: false`. One shared preset that callers can't weaken.
+- **Implementation:** the exchange is Node's `fetch` (`redirect: 'manual'`) with an undici 7 dispatcher whose connect lookup is the guard's (dependency `undici` 7.27.2). IP literals are checked before `fetch` on every hop, because Node never calls a lookup for one. `lib/fetch` reads no environment variable and exposes no switch; tests reach a local server only by mocking the transport module.
+- **Guard:** `tests/unit/fetch/no-unguarded-fetch.test.ts` fails when server code outside `lib/fetch` calls `fetch` (or undici, `node:http(s)`, axios, got, node-fetch, cross-fetch), except the named fixed-host clients, each listed with its file, host, reason and exact call count.
 
 #### 8.6.3 Layer 1: website (S6)
 1. Read robots.txt, sitemap(s) (first 500 URLs), home page links.

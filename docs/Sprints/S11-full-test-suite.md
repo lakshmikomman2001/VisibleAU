@@ -18,6 +18,7 @@ Sri has **explicitly asked for the full test suites** in this run. The project r
 - **Known baselines (from S00):** whole-repo lint (`biome check .`) already had 339 errors, 277 warnings and 251 infos before S00, so lint passes when it has **no more than the baseline** and no new diagnostics in files the sprints changed (compare with the pre-sprint hash); plain `tsc` fails on the stale `.next/types/validator.ts`, so typecheck runs with `.next` excluded, as S00 did.
 - Discover every suite from `package.json` scripts, test configs and `CLAUDE.md` ("Testing scope"): typecheck, lint, source-scan guards (plan-claim, cost-visibility, GST and any others), unit, integration (database), RLS/tenant-isolation, API route, component, PDF render, accessibility (axe), production build, Playwright end-to-end. List each with its command and how it's configured.
 - Find the pre-sprint baseline hash in the S00 report (the hash S00 started from; `15f287b` or later).
+- **Known under load (from S00B):** `tests/unit/crawler/failed-checks-not-negative.test.ts` timed out once while the machine was busy and passed alone (18 of 18). If it fails in the full run, run it alone before calling it a failure, and report it as flaky under load.
 - Find how tests switch feature flags on and off (S00 Part 2 scaffold, per-workspace overrides in tests). Never through the production settings store.
 - Report the plan (suites in order, commands, configurations, safety check results), then start Part 1.
 

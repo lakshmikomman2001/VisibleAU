@@ -1,8 +1,8 @@
-# Vunnara client enhancements: low-level design (LLD) v1.2
+# Vunnara client enhancements: low-level design (LLD) v1.4
 
 | | |
 |---|---|
-| Version | 1.2, 21 Nov 2026 (1.1 plus report tiers Basic, Standard and Enhanced: requirement R6, section 8.1.7, screens P17–P18, decisions D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
+| Version | 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
 | Owner | Sri |
 | Repo location | `docs/lld/vunnara-client-enhancements-lld-v1.md` (commit it there with the prototype files in `docs/prototypes/`, listed in the next rows) |
 | Builds on | `main` at `15f287b` (20 Nov 2026) or later |
@@ -17,6 +17,63 @@
 **How to read this.** Sections 1–4 explain what is being built and why, and the rules that protect what already works. Sections 5–17 are the build specification. Section 18 is the sprint plan. Anything marked **VERIFY** is a statement about the current code taken from Claude Code's reports; sprint S0 confirms each one before any code changes and records differences in `docs/lld/as-is-verification.md`. Where the code differs, the code wins and this LLD is amended, never silently ignored.
 
 ---
+
+
+## 0. What changed after S00 (v1.4, read first)
+
+S00 checked every VERIFY statement against the code (`docs/lld/as-is-verification.md`, with file:line evidence) and mapped the UI contract onto the app (`docs/prototypes/token-map.md`). Sri decided the open points on 22 Nov 2026. Where this section and older text below differ, this section wins; the most load-bearing passages below are also corrected in place.
+
+### 0.1 Sri's decisions (22 Nov 2026)
+
+| Id | Decision |
+|---|---|
+| D-RT1 (revised) | Reports stay **Growth and up**, as today. Free and Starter have no reports. Growth: Basic and Standard. Agency, Agency Pro, Enterprise: all three, chosen per report. The Starter pricing card's false "Email reports" claim is removed in S01's first commit |
+| D-SEC1 | A small security sprint **S00B** runs before S01: the guarded fetcher (8.6.2) is built and every existing place that fetches a customer website moves onto it (about eight, plus S00's name suggestion and `app/api/crawl`). Network protections apply to every caller; robots.txt obedience, user agent and rate limits stay as each caller has them today unless that caller is new |
+| D-QI-BR | A question set may hold up to **5** questions that name the business (today's packs carry 3 to 5). Every "3" for branded questions becomes 5 |
+| D-BAND | The score band colour follows the figure shown (the rounded value), so "10%" is never coloured Low. Visual only; stored scores unchanged (S01 carry-over) |
+| D-GT | From S05, reference tables the app must only read get a named read-only list: prod-fix 0052's grants, the drift check and `app-role-grants.integration.test.ts` allow it. `directory_registry` joins that list in S05; until then it keeps the app's DML grants |
+| D-UI2 | Web fonts: none loaded today (Inter is named only). Not changed in these sprints; a separate task later |
+| D-UI3 | Line heights: new components use the contract's values; existing screens keep theirs |
+| D-UI4 | No toast library is mounted: wherever the contract says "toast", show the same copy as inline `role="status"` feedback (`components/shared/save-feedback.tsx` pattern) |
+| D-UI5 | Upgrade links on locked features go to `/pricing` (23 existing uses) |
+| D-UI6 | EngineDots gets a fourth state, "unverified" (the audit page's "Maybe": mentioned but not confirmed as the business) |
+
+### 0.2 Amendments from S00's as-is verification
+
+| # | Area (section) | Correct statement |
+|---|---|---|
+| 1 | Flags (17, 7A) | The store is `feature_settings` (global; CHECK widened by 0153), `org_feature_flags` (workspace, FORCE RLS) and `feature_setting_changes`. Read through `lib/flags/flags.ts` `isEnabled(flag, orgId)`; operator card on `/admin/settings` |
+| 2 | Directory registry (7.7, 8.8.3) | Built in 0153 as `directory_registry(domain_pattern pk, directory_key, name, kind, market, applies_to trades/local/cited, profile_url_hint, active, sort_order)`, 35 rows / 30 directories; read through `lib/directories/registry.ts` (seed kept identical in code for the browser and unit tests) |
+| 3 | Branded typing (5, 7A step 4) | One rule: `isBrandedPrompt(text, {name, domain})` in `lib/audit/flag-branded-prompts.ts` (aliases added in S00). `isBrandedPackPrompt` no longer exists |
+| 4 | Categories (5, appendix A) | `CATEGORY_KEYS` has 28 keys; none for IT services |
+| 5 | Aliases (8.8.2) | Detection already ignores case and spacing and checks the domain stem, so aliases matter only for genuinely different names. S01 carry-over: stop suggesting the name without spaces or the domain stem; aliases unique ignoring case; `brands.name_suggestion` (added in 0153) capped at 120 characters |
+| 6 | Brand record (5) | `prompt_pack` is jsonb (string array); `vertical` and `region` are enums |
+| 7 | Packs (N1, 5) | 10 everyday questions plus 3 to 5 that name the business |
+| 8 | `{region}` (5) | From `resolveRegionLabel()` (`lib/brands/region-label.ts`): suburb → city → `primary_regions[0]` → region → "Australia" |
+| 9 | Paths (5) | Runner `inngest/functions/run-audit.ts`; `brandReadyForAudit` in `lib/brands/needs-confirmation.ts`; `validateGeneratedQuestion` in `lib/prompts/validate-question.ts`; `lib/pricing/tiers.ts`; `db/open-workspace.ts`; `lib/scoring/dimension-labels.ts`; `lib/governance/google-surfaces.ts` |
+| 10 | Mentions (5) | Shared function `answerMention()` (`lib/audit/answer-mention.ts`) |
+| 11 | Findings (8.1.5, N15) | Existing rules are a–f (f: Reddit cited in 2+ everyday answers). The new rules are **g–j** (corrected in 8.1.5) |
+| 12 | Audit-complete event (8.6.1, S9) | `audit.complete`; 14 listeners share `POST_AUDIT_POOL` (account-wide, limit 1). A new listener joins it and needs a resync |
+| 13 | Report branding (7.5, 8.1.7) | `agency_brand_assets`: one workspace row (`brand_id IS NULL`, newest wins if duplicated) plus optional per-brand rows; `/settings/report-branding`; Agency plans, owners and admins. `report_tier_names` goes on the workspace row |
+| 14 | Scheduled reports (8.1.7) | `report_delivery_schedules` (Agency) exist; every `audit.complete` can trigger a report through `generate-narrative-report` when a schedule is active, but the generator never reads the schedule row. S01 adds `report_tier` to it and makes the generator read it (capped at the plan) |
+| 15 | Report plans (8.1.7) | Reports are Growth and up (`lib/pricing/brand-features.ts`); see D-RT1 (revised) |
+| 16 | Generate route (8.1.3, 8.1.7) | `POST /api/brands/:id/reports/generate` takes `{ periodLabel?, periodType }`; the server picks the basis audit (`selectReportBasis`). S01 adds `tier` and `contents`, keeps the server's basis choice, and makes render and "Try again" use the saved snapshot for new reports (old reports keep rebuilding from live data) |
+| 17 | Done since last report (8.1.3) | `action_items` has no status history: use `done_at` |
+| 18 | Engine location (8.4) | `userLocation` lives in `lib/llm/openai-impl.ts` and `anthropic-impl.ts`; Gemini and Perplexity take none; country "AU" is sent only for a confirmed city |
+| 19 | One fetch path (8.6.2) | About eight places fetch customer sites with no SSRF guard; `app/api/crawl` accepts any domain. Fixed in S00B (D-SEC1) |
+| 20 | Directory links (8.6.4, 8.1.4) | `brand_directory_listings` (one row per brand and directory; status listed / not_listed / unsure; `profile_url`), edited on the brand overview page via `PUT /api/brands/:id/directory-listings`; audit label "Your profile: Not linked yet" / "{n} cited" |
+| 21 | Question limits (7.6, 8.3.5) | `max_prompts_per_audit` is never read; `PROMPTS_PER_AUDIT = 10` on every plan. Per-plan question limits are new work in S03 |
+| 22 | Report templates (8.1) | Only five optional-section flags take effect (`competitors`, `diagnosis`, `trend`, `recommended_next`, `method`); `tone` is ignored |
+| 23 | Global table grants (7, runbook) | Every table is read-write for `visibleau_app` today (prod-fix 0052, drift check). See D-GT |
+| 24 | RLS template (7) | Policies use `current_setting('app.current_org_id', true)::uuid`; newer migrations use 0145's loop |
+| 25 | ABN (8.1.4, 8.8.6) | `brands.abn` exists but the wizard and `PATCH /api/brands/:id` can't set it. S01 adds an ABN field to brand settings (11 digits, ABN checksum) and PATCH support; the ABN suggestion writes the same column. The live entity check is `lib/brand-entity/abn-lookup.ts` (GUID); `lib/trust/entity-checker.ts` makes a second ABR call without a GUID: S01 uses the first only |
+| 26 | Beyond AI answers (8.1.4) | Crawler visits come from uploaded logs and the visit beacon (CDN Shield writes none): say "upload server logs". YouTube's "videos cited by AI" has no source: removed. Business identity has one entity name: no "trading as". YouTube checks are gated off in code and need `YOUTUBE_API_KEY`; ABN needs `ABN_LOOKUP_GUID` set and `ABN_LOOKUP_BYPASS` unset in production |
+| 27 | Reports list (P17) | No report-type column today; the list learns a PDF is ready by polling every 4 s for up to 12 minutes; statuses generating, ready, published (emailed), failed |
+| 28 | Profile-link rule (7.7, 8.6.4) | The table doesn't store a pattern. `loadDirectoryRegistry()` (`lib/directories/registry-store.ts`) reads the rows and caches them per server process for 5 minutes; `profileUrlPatternFor()` (`lib/directories/registry.ts`) builds each directory's `profileUrlPattern` from its `directory_key` and `domain_pattern`: hipages `/connect/{slug}` (fixed in code by key), Google Business Profile any path on its domains, every other directory its first domain plus a non-empty path under the row's path prefix (for example `/company` for LinkedIn). `profile_url_hint` is description only. The same pattern drives the PUT route's check, own-profile suggestions and citation counts. A row change takes up to 5 minutes to apply. No test yet shows a row change moving the rule: S07 adds one |
+
+S00 also proposed (and this version adopts): the contract typecheck command `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts`; the sprint prompts and reports live in `docs/Sprints/` (capital S, as git tracks it); S11 compares lint with the pre-S00 baseline (339 errors in the whole repo).
+
+S00's Playwright run (22 Nov 2026): all 15 specs, 216 of 216 tests passed against the local e2e database with 0153 applied; the directory table was read without errors in every run. Its memory measurements (one run with its `next dev` server peaks at 3.5–6.7 GB) set the Playwright memory rules in the runbook, section 5.
 
 ## 1. Scope and traceability
 
@@ -61,7 +118,7 @@
 |---|---|---|---|
 | C1 | Report "What to do next" and report contents panel (8.1) | S1 | PDF for Hero and Omega shows curated actions with evidence lines; snapshot unchanged after Action Center edits |
 | R3 | Report "Beyond AI answers" page (8.1.4) | S1 | Enhanced PDF shows ABN, YouTube, AI crawler access and visits, website technical score and directory profiles, each with its own check date or "Not checked" |
-| R6 | Report tiers Basic, Standard, Enhanced (8.1.7) | S1 | Starter generates Basic only (402 for higher tiers); Growth Basic or Standard; Agency and up pick any tier per report and rename the tiers; a Basic PDF equals today's report apart from the listed corrections (N15); an Enhanced report re-runs stale checks first |
+| R6 | Report tiers Basic, Standard, Enhanced (8.1.7) | S1 | Free and Starter have no reports, as today (D-RT1 revised); Growth Basic or Standard (402 for Enhanced); Agency and up pick any tier per report and rename the tiers; a Basic PDF equals today's report apart from the listed corrections (N15); an Enhanced report re-runs stale checks first |
 | C2b, C4 | Question library, sets, versions (8.2); agency questions, confirm-screen questions step, Questions settings page, plan limits (8.3) | S2, S3 | Agency adds a question on the confirm screen or the Questions tab, applies, next audit uses it; trend restarts with notice; question mix disclosed |
 | C2a | Question intelligence layers 1–7 (8.6) | S6–S9 | Evaluation set: question fit ≥ 90%, services found ≥ 90% |
 | C3, C5, T1 | Business taxonomy, search picker, custom types, learning (8.5) | S5 | A managed IT provider is offered "Managed IT services provider"; Growth workspace creates a custom type |
@@ -117,7 +174,7 @@ Sources: [DEV Community price comparison, 20 Nov 2026](https://dev.to/raphaelaub
 |---|---|---|
 | ABN | `lib/brand-entity/abn-lookup.ts` calls the ABR web service; scored through `brandEntityScore()` in `lib/audit/run-technical-audit-inline.ts` (Brand & Entity, part of the Technical Audit) | The report builder (`lib/reports/report-data.ts`) reads only the basis audit. The ABN check also only runs when `brands.abn` was typed in at setup and `ABN_LOOKUP_GUID` works, so many brands (TechCore IT) show "Not checked" |
 | YouTube | `youtube_presence_audits` table, a YouTube cron, channel matching with domain-mismatch states | Separate module with its own schedule; at one point it was a stub and an honesty pass showed "Measurement not yet available" until it was real |
-| AI crawlers | Access: robots.txt scoring in `lib/robots-txt/analyze.ts` (Technical Audit). Visits: `crawler_visit_logs` from uploaded server logs and CDN Shield | Separate modules. Uploaded-log visits were never stored in production until the 20 Nov fix (date bug), so there was nothing true to show |
+| AI crawlers | Access: robots.txt scoring in `lib/robots-txt/analyze.ts` (Technical Audit). Visits: `crawler_visit_logs` from uploaded server logs and the visit beacon (CDN Shield writes none) | Separate modules. Uploaded-log visits were never stored in production until the 20 Nov fix (date bug), so there was nothing true to show |
 
 **Fix (S1, sections 8.1.4 and 8.1.7):** a "Beyond AI answers" page in **Enhanced** PDF reports (and a card on the audit page and in the client portal for every plan), with tiles (Business identity, YouTube, AI crawler access and visits, Website technical score). Each tile shows its own check date, comes from the module's latest real result, says "Not checked" with how to enable it when there is none, and is never counted in the Visibility score. S1 first verifies that each module is a real measurement; anything still stubbed stays out. S1 also adds ABN suggestion by business name (8.8.6), so the check runs for brands like TechCore IT.
 
@@ -129,7 +186,7 @@ These behaviours exist today and must be identical after every sprint unless thi
 
 | # | Behaviour that must not change | Guard |
 |---|---|---|
-| N1 | An existing brand's audit asks the same questions in the same order (stored `prompt_pack`, 10 everyday + up to 3 that name the business) | Integration test: audit prompts for Hero/Omega fixtures equal before and after backfill |
+| N1 | An existing brand's audit asks the same questions in the same order (stored `prompt_pack`, 10 everyday + 3 to 5 that name the business) | Integration test: audit prompts for Hero/Omega fixtures equal before and after backfill |
 | N2 | `audits.question_set_hash` values and every "comparable / not comparable" decision for past audits | Prod run3 check: 0 hashes differ; unit test on comparator |
 | N3 | Headline Visibility % for existing audits (everyday answers mentioning the brand ÷ successful everyday answers) | Snapshot tests on audit #50, #51, #54, #55 fixtures |
 | N4 | Questions that name the business are shown but never counted | Existing guard plus new test for agency-written branded questions |
@@ -143,7 +200,7 @@ These behaviours exist today and must be identical after every sprint unless thi
 | N12 | No mock, seed or placeholder data in production | Placeholder guard; production writes only through run1–run4 sets |
 | N13 | Inngest app id `visibleau` and existing function ids unchanged; new functions only added | Function-id snapshot test |
 | N14 | Existing PDF sections and their figures for a Local-only brand with no new data | Render test compares page text for Hero #54 fixture, allowing only the added sections |
-| N15 | A **Basic** report contains today's report pages. Allowed differences only: findings f–i replace "No finding rule matched" (T5), general advice only when backed by evidence (T7), the question mix line (S3) and the reach row (S4) | Render test: Basic PDF for Hero #54 and Omega #55 fixtures vs today's page text, diff limited to the allowed items |
+| N15 | A **Basic** report contains today's report pages. Allowed differences only: findings g–j replace "No finding rule matched" (T5), general advice only when backed by evidence (T7), the question mix line (S3) and the reach row (S4) | Render test: Basic PDF for Hero #54 and Omega #55 fixtures vs today's page text, diff limited to the allowed items |
 
 **Feature flags.** Every new behaviour ships behind a flag that is off in production until Sri has checked it in the Splice workspace (section 17). Flags never change data; turning one off returns the old behaviour.
 
@@ -156,12 +213,12 @@ These behaviours exist today and must be identical after every sprint unless thi
 | Brand record | `db/schema/brands.ts`: `name`, `domain`, `vertical`, `region` ('au'), `categories`, `classification` (jsonb: category, buyerType, confidence, auRelevance, competitors, intentSignals), `classification_status`, `prompt_pack` (text array), `prompt_pack_version`, `prompt_pack_generator_version`, `suburb`, `city`, `state`, `country`, `postcode`, `location_mode`, `location_confirmed_at`, `primary_regions` ('NSW:Sydney CBD'), `competitors` (names), `competitor_websites`, `abn`, `youtube_channel_url`, `logo_url`, `deleted_at` | `location_mode` is plain text; online-only brands verify mentions by domain only |
 | Classification | `lib/brands/classify-brand.ts` (home page title, meta description, H1 → Claude), `classify-and-store.ts`, `audience.ts`, `intent-signals.ts` | Confidence < 0.7 or unconfirmed → confirm screen |
 | Categories and templates | `lib/prompts/templates.ts`: closed `CATEGORY_KEYS`, `CATEGORY_TEMPLATES[category][buyerType]`, `CATEGORY_LABELS`, alias table, `resolveCategory()` (exact → alias → `{parent}_general` → `general`); templates use `{region}` from `primary_regions[0]` | 30 confirm-screen chips; no IT services key |
-| Building questions | `lib/prompts/build-prompt-pack.ts` (`buildPromptPack`, `buildEnrichedPrompts` for the branded ones), `lib/audit/get-audit-prompts.ts` (`getAuditPrompts`, `BrandNeedsConfirmationError`, `PromptPackGenerationError`, `brandReadyForAudit`), `lib/verticals/expand-prompt.ts` (`{brand}`, `{domain}`, `{location}`, `{competitors}`; `validateGeneratedQuestion`), `isBrandedPackPrompt()` | Order: 10 everyday then the branded ones; `PROMPTS_PER_AUDIT = 10` in `lib/llm/tier-engines.ts` |
+| Building questions | `lib/prompts/build-prompt-pack.ts` (`buildPromptPack`, `buildEnrichedPrompts` for the branded ones), `lib/audit/get-audit-prompts.ts` (`getAuditPrompts`, `BrandNeedsConfirmationError`, `PromptPackGenerationError`, `brandReadyForAudit`), `lib/verticals/expand-prompt.ts` (`{brand}`, `{domain}`, `{location}`, `{competitors}`; `validateGeneratedQuestion`), `isBrandedPrompt()` (`lib/audit/flag-branded-prompts.ts`; section 0, #3) | Order: 10 everyday then the branded ones; `PROMPTS_PER_AUDIT = 10` in `lib/llm/tier-engines.ts` |
 | Running audits | `lib/audit/run-audit.ts` (Inngest) and `lib/audit/run-audit-inline.ts`; engines by tier in `lib/llm/tier-engines.ts` and `model-selector.ts`; per-engine settings in `lib/llm/web-search-config.ts` | Both runners must stay in step |
 | Mentions | `lib/audit/detect-mention.ts`, `lib/audit/verify-mention.ts` | One shared match function (spacing, case, markdown) |
 | Comparability | `audits.question_set_hash` computed with SQL `question_text_key()` over everyday questions | Excluded audits via `excluded_from_trends_reason` |
 | Recommendations | `lib/recommendations/index.ts`, `triggers.ts`, `action_items`, `recommendation_research` | Labels via `dimension-labels.ts` |
-| Report | `lib/reports/report-data.ts` (`pickBasisAudit`, `defaultReportPeriodLabel`), `lib/reports/pdf/report-document.tsx` (react-pdf, 7–8 A4 pages), `lib/reports/report-findings.ts` (rules a–e, up to 3 problems + 1 strength), `inngest/.../render-report-pdf.ts`, `generated_reports`, `report_templates` (`sections` jsonb, `tone` ignored), `lib/communication/pdf-builder.tsx` | Client portal does not list generated reports |
+| Report | `lib/reports/report-data.ts` (`pickBasisAudit`, `defaultReportPeriodLabel`), `lib/reports/pdf/report-document.tsx` (react-pdf, 7–8 A4 pages), `lib/reports/report-findings.ts` (rules a–f, up to 3 problems + 1 strength), `inngest/.../render-report-pdf.ts`, `generated_reports`, `report_templates` (`sections` jsonb, `tone` ignored), `lib/communication/pdf-builder.tsx` | Client portal does not list generated reports |
 | Entity, YouTube, crawlers | See section 3 | |
 | Google AI | `google-surfaces.ts`, `location.ts` (postcode → suburb → city → state capital, labelled) | Global and workspace switches on `/admin/settings` |
 | Plans | `tiers.ts` (features, models line, Google line), `model-selector.ts` | Setting-aware public claims |
@@ -501,17 +558,16 @@ create table agency_actions (              -- org
 alter table generated_reports add column contents_snapshot jsonb;   -- exactly what the PDF contained
 alter table generated_reports add column report_tier text not null default 'basic'
   check (report_tier in ('basic','standard','enhanced'));           -- existing rows are today's report = basic
--- Tier names an agency sells under (8.1.7, P18). Added to the existing report-branding row (VERIFY table in S0);
--- if branding has no row of its own, add it to organizations instead.
-alter table <report_branding_table> add column report_tier_names jsonb;   -- {"basic":"Essentials","standard":"Growth Plan","enhanced":"Premium Audit"}
--- If S0 finds scheduled report generation, the schedule/template row gains:
--- alter table <report_schedule_table> add column report_tier text not null default 'basic' check (report_tier in ('basic','standard','enhanced'));
+-- Tier names an agency sells under (8.1.7, P18).
+alter table agency_brand_assets add column report_tier_names jsonb;     -- workspace row only (brand_id is null; newest wins if duplicated). {"basic":"Essentials","standard":"Growth Plan","enhanced":"Premium Audit"}
+-- Scheduled reports (report_delivery_schedules, Agency) get a tier; the generator reads it, capped at the plan:
+alter table report_delivery_schedules add column report_tier text not null default 'basic' check (report_tier in ('basic','standard','enhanced'));
 ```
 `report_tier_names`: each value 1–24 characters after trimming, plain text, no line breaks or control characters, the three unique ignoring case; missing keys fall back to Basic, Standard, Enhanced. Validated by zod on write and by a `check` on `jsonb_typeof` plus lengths in the migration.
 
 ### 7.6 Plans and packs (S3, S10)
 
-- `tiers.ts` gains per plan: `includedScoredQuestions` (10), `maxBrandedQuestions` (3), `canWriteQuestions`, `reachesAllowed` (Free 1, Starter 1, Growth 2, Agency 4, Agency Pro 4, Enterprise 4), `customBusinessTypes` (0/0/5/20/unlimited), `reportCuration` (Agency and up), `maxReportTier` (Free: as today, VERIFY whether Free has reports; Starter `basic`; Growth `standard`; Agency, Agency Pro and Enterprise `enhanced`), `reportTierNames` (Agency and up can rename the tiers), `questionPacks` (Growth and up). Server code reads these; nothing in the browser enforces limits alone.
+- `tiers.ts` gains per plan: `includedScoredQuestions` (10), `maxBrandedQuestions` (5, D-QI-BR), `canWriteQuestions`, `reachesAllowed` (Free 1, Starter 1, Growth 2, Agency 4, Agency Pro 4, Enterprise 4), `customBusinessTypes` (0/0/5/20/unlimited), `reportCuration` (Agency and up), `maxReportTier` (Free and Starter: none, reports stay Growth and up (D-RT1 revised); Growth `standard`; Agency, Agency Pro and Enterprise `enhanced`), `reportTierNames` (Agency and up can rename the tiers), `questionPacks` (Growth and up). Server code reads these; nothing in the browser enforces limits alone.
 - ```sql
   alter table organizations add column question_packs int not null default 0 check (question_packs >= 0);  -- from the Stripe webhook
   create table brand_question_packs (organization_id uuid not null, brand_id uuid primary key references brands(id) on delete cascade, packs int not null check (packs >= 0), updated_at timestamptz not null default now());
@@ -521,15 +577,15 @@ alter table <report_branding_table> add column report_tier_names jsonb;   -- {"b
 ### 7.7 Smaller columns (S0, S1)
 
 ```sql
-alter table brands add column aliases text[] not null default '{}';     -- VERIFY it doesn't exist; used by mention detection and branded-question filtering
-alter table brands add column abn_suggestion jsonb;                      -- {"abn":"17701710947","entity":"Astorio Group Pty Ltd","trading":"TechCore IT","postcode":"2765","checked_at":"..."}
-create table directory_registry (                                        -- global
-  domain_pattern text primary key,      -- 'localbusinessguide.com.au', 'linkedin.com/company'
-  name text not null, kind text not null check (kind in ('trades','general','health','professional','reviews','social','maps')),
-  market text not null default 'au', profile_url_hint text, active boolean not null default true
-);
+-- Built in S0 (0153): brands.aliases text[] not null default '{}' (≤ 10) and brands.name_suggestion text.
+-- S1 (0154): brands.abn already exists (POST accepts it); PATCH and brand settings gain it. New:
+alter table brands add column abn_suggestion jsonb;                      -- {"abn":"17701710947","entity":"Astorio Group Pty Ltd","postcode":"2765","state":"NSW","status":"Active","checked_at":"..."}
+-- Built in S0 (0153), as amended (section 0, #2):
+-- directory_registry(domain_pattern text pk, directory_key text, name text, kind text, market text,
+--   applies_to text check in ('trades','local','cited'), profile_url_hint text, active boolean, sort_order int,
+--   created_at, updated_at); 35 rows / 30 directories. App role has DML until S5 (D-GT).
 ```
-`directory_registry` replaces the hard-coded directory list (VERIFY where it lives today); seeded in the migration from the current list plus the directories seen in the TechCore audit (appendix B).
+`directory_registry` replaced `DIRECTORY_REGISTRY` in `lib/directories/registry.ts`; seeded from that list plus appendix B (applies_to `cited`: shown only when an audit cites them).
 
 ---
 
@@ -539,7 +595,7 @@ Numbers are indicative: use the next free number at build time (S0 may add one f
 
 | Migration | Sprint | Contents | Backfill and checks |
 |---|---|---|---|
-| 0153 | S0 | `brands.aliases`, `directory_registry` (+ seed) | run1: list current directory constants vs seed; run3: counts match |
+| 0153 | S0 | Flag keys (feature_settings CHECK), `brands.aliases` + `name_suggestion`, `directory_registry` (+ seed) | Built and applied as one run set |
 | 0154 | S1 | `report_brand_preferences` (with `default_tier`), `report_action_choices`, `agency_actions`, `generated_reports.contents_snapshot` and `report_tier`, `report_tier_names` on the report-branding row, `brands.abn_suggestion` (and the schedule `report_tier` if scheduled reports exist) | Default `basic` for existing reports; run3: every existing `generated_reports` row is `basic` |
 | 0155 | S2 | `brand_questions`, `brand_question_sets`, `brand_question_set_items`, `audits.question_set_id`, `citations.question_id`, `engine_call_failures.question_id` | run2 backfill (below); run3 proves hashes |
 | 0156 | S3 | `organizations.question_packs`, `brand_question_packs` | Defaults 0 |
@@ -552,7 +608,7 @@ Numbers are indicative: use the next free number at build time (S0 may add one f
 Each is a `db/prod-fixes/<n>-run1..run4` set as today: run1 read-only preview, run2 apply (enum `ADD VALUE` statements alone, outside a transaction), run3 verify (including `has_function_privilege` / `has_table_privilege` for `visibleau_app`), run4 rollback. Migrations go in before the push.
 
 **S2 backfill (0155 run2), the delicate one:**
-1. For each non-deleted brand with a non-empty `prompt_pack`: insert each prompt into `brand_questions` in stored order with `source = 'original'`, `kind` from `isBrandedPackPrompt()` logic re-expressed in SQL (the brand name, domain or aliases appear, using the same normalisation), `reach = 'local'`, `text_key = question_text_key(text)`.
+1. For each non-deleted brand with a non-empty `prompt_pack`: insert each prompt into `brand_questions` in stored order with `source = 'original'`, `kind` from `isBrandedPrompt()` (`lib/audit/flag-branded-prompts.ts`) re-expressed in SQL (the brand name, domain or aliases appear, using the same normalisation), `reach = 'local'`, `text_key = question_text_key(text)`.
 2. Insert set version 1, `is_current = true`, items in stored order, `comparison_hash` computed in SQL with the existing algorithm.
 3. run3 proves, brand by brand, that version 1's `comparison_hash` equals the `question_set_hash` of that brand's latest complete audit **when that audit used the stored pack**; it lists any mismatch (expected: brands whose pack changed after their last audit) for review. Mismatches are reported, never "fixed".
 4. The SQL rule for `kind` must reproduce how stored packs are typed today (by text, `get-audit-prompts.ts` around lines 180–182, VERIFY). run1 checks it against stored truth: for every brand, each pack prompt's SQL `kind` is compared with `citations.is_branded_prompt` for the same prompt in that brand's latest complete audit. Expected: 0 differences. Any difference stops the run.
@@ -578,7 +634,7 @@ Which of these pages a report contains depends on its tier (8.1.7): Basic keeps 
 | Page | Today | After S1 |
 |---|---|---|
 | Cover, Summary, Engines, Google, Directories, Competitors | As built in Nov 2026 | Unchanged for a Local-only brand (S4 adds the reach row) |
-| Diagnosis | Findings rules a–e; "No finding rule matched this audit" when none | "Why, and what to do next": findings (a–e plus new f–i, 8.1.5), then **What to do next** (8.1.3). The "No finding rule matched" sentence is removed; a 0% audit always has findings f or g |
+| Diagnosis | Findings rules a–f; "No finding rule matched this audit" when none | "Why, and what to do next": findings (a–f plus new g–j, 8.1.5), then **What to do next** (8.1.3). The "No finding rule matched" sentence is removed; a 0% audit always has findings f or g |
 | NEW Beyond AI answers | — | Four tiles (8.1.4), placed after Diagnosis |
 | Over time | Trend and prioritised list | Trend only; the prioritised list moves into "What to do next" |
 | Method | Method, glossary, residency | Adds "Questions asked: 10 everyday (all AI-suggested)" or the mix once agencies write questions (S3), and a "Checks outside AI answers" row listing each check's date |
@@ -609,8 +665,8 @@ Four tiles on the audit page and portal, plus a fifth "Your directory profiles" 
 
 | Tile | Shows when measured | Source (VERIFY) | Not measured shows |
 |---|---|---|---|
-| Business identity | "ABN 17 701 710 947 · Active · Astorio Group Pty Ltd, trading as TechCore IT · verified on the Australian Business Register <date>" with a link to the public ABR record; ".au domain: yes"; "Wikipedia (AU): no article found (searched <date>)" | `lib/brand-entity/abn-lookup.ts`, `wikipedia-au.ts`, latest technical audit's entity findings | "ABN not checked: add the business's ABN in brand settings" (or the ABN suggestion, 8.8.6) |
-| YouTube | "Channel found: <title> · <n> videos · last upload <date> · videos cited by AI in this audit: <n>" | `youtube_presence_audits` latest row with `check_status` measured | "No channel linked" / "Couldn't check (<reason>)" / "Channel found but its website doesn't match yours" (existing sub-states) |
+| Business identity | "ABN 17 701 710 947 · Active · Astorio Group Pty Ltd · verified on the Australian Business Register <date>" with a link to the public ABR record; ".au domain: yes"; "Wikipedia (AU): no article found (searched <date>)" | `lib/brand-entity/abn-lookup.ts`, `wikipedia-au.ts`, latest technical audit's entity findings | "ABN not checked: add the business's ABN in brand settings" (or the ABN suggestion, 8.8.6) |
+| YouTube | "Channel found: <title> · <n> videos · last upload <date>" | `youtube_presence_audits` latest row with `check_status` measured | "No channel linked" / "Couldn't check (<reason>)" / "Channel found but its website doesn't match yours" (existing sub-states) |
 | AI crawlers | Access: "Search crawlers allowed: OAI-SearchBot, Claude-SearchBot, PerplexityBot, Googlebot" and any blocked, from the robots.txt check (training crawlers listed as "your choice"). Visits (only when log or CDN data exists): visits in the last 30 days by crawler | `lib/robots-txt/analyze.ts` results in the latest technical audit; `crawler_visit_logs` | Access always measurable when the site is reachable; visits: "Not measured: upload server logs or connect CDN Shield" |
 | Website technical score | "40 of 74 · scoring updated 20 Nov 2026" plus the two weakest checks | Latest technical audit with its own maximum (`compositeMaxFor`) | "No technical audit yet" |
 | Your directory profiles (PDF only) | "Linked {n} of {m} directories AI cites for your questions", then per directory: linked or not, and how often AI cited it in the basis audit | Basis audit citations over `directory_registry` (S0) + the brand's directory links (existing store, VERIFY; S7 adds confirmed listing matches) | "No profiles linked yet" + the directories AI cited |
@@ -625,13 +681,13 @@ Rules:
 
 | Rule | Condition | Finding text (example) | Evidence |
 |---|---|---|---|
-| f. Others are named instead | Brand mentioned in ≤ 10% of everyday answers and ≥ 50% of everyday answers name or cite other businesses | "AI recommends other providers: the sites it cited most were kangaroo-it.com.au (9 answers), crystaltec.com.au (6), suretech… (5)" | Counts of cited business domains (non-directory domains from `citations`) in everyday answers |
-| g. AI couldn't find the business | In questions that name the business, at least one engine's answer contains an explicit "couldn't find information" statement | "Claude couldn't find information about TechCore IT: 'I was unable to find any verified information about a company specifically called TechCoreIT'" | The quoted sentence (≤ 200 chars), engine, question |
-| h. Directories you're not on | Existing directory rule, now over `directory_registry` (all kinds) | "Local Business Guide cited in 14 of 40 answers; your profile: not linked" | Directory counts |
-| i. Identity not verified | Beyond-AI data: ABN not verified, or no Google Business Profile linked | "Your ABN isn't verified yet; AI engines read the ABR (ChatGPT cited abr.business.gov.au)" | ABN status; citation of abr.business.gov.au if present |
+| g. Others are named instead | Brand mentioned in ≤ 10% of everyday answers and ≥ 50% of everyday answers name or cite other businesses | "AI recommends other providers: the sites it cited most were kangaroo-it.com.au (9 answers), crystaltec.com.au (6), suretech… (5)" | Counts of cited business domains (non-directory domains from `citations`) in everyday answers |
+| h. AI couldn't find the business | In questions that name the business, at least one engine's answer contains an explicit "couldn't find information" statement | "Claude couldn't find information about TechCore IT: 'I was unable to find any verified information about a company specifically called TechCoreIT'" | The quoted sentence (≤ 200 chars), engine, question |
+| i. Directories you're not on | Existing directory rule, now over `directory_registry` (all kinds) | "Local Business Guide cited in 14 of 40 answers; your profile: Not linked yet" | Directory counts |
+| j. Identity not verified | Beyond-AI data: ABN not verified, or no Google Business Profile linked | "Your ABN isn't verified yet; AI engines read the ABR (ChatGPT cited abr.business.gov.au)" | ABN status; citation of abr.business.gov.au if present |
 
-- Rule g's detector is a phrase list (appendix C) matched case-insensitively within answers to branded questions; the quote is the matched sentence. No model judgement, so it stays evidence-based.
-- Rule f distinguishes business sites from directories using `directory_registry`; social and maps domains are excluded.
+- Rule h's detector is a phrase list (appendix C) matched case-insensitively within answers to branded questions; the quote is the matched sentence. No model judgement, so it stays evidence-based.
+- Rule g distinguishes business sites from directories using `directory_registry`; social and maps domains are excluded.
 - These rules also create Action Center items (dimension "frequency" or "source", never context or sentiment), so the 0% audit page shows recommended actions instead of "0 from this audit".
 
 #### 8.1.6 Client portal reports
@@ -646,7 +702,7 @@ The client portal lists the brand's generated reports (date, period, basis audit
 | PDF content | Basic | Standard | Enhanced |
 |---|---|---|---|
 | Today's pages: Cover, Summary (plus the reach row when the brand has more than one reach), Engine by engine, Google Search AI, Where AI looks, Competitors, Over time, Method and notes | ✓ | ✓ | ✓ |
-| Findings: why the score is what it is (rules a–i; never "No finding rule matched") | ✓ on the Diagnosis page as today | ✓ | ✓ |
+| Findings: why the score is what it is (rules a–j; never "No finding rule matched") | ✓ on the Diagnosis page as today | ✓ | ✓ |
 | Prioritised list on the Over time page, general advice backed by evidence | ✓ as today | Moved into "What to do next" | Moved into "What to do next" |
 | **What to do next** (8.1.3): measured actions with evidence lines, priority and status; done since the last report; recommended by the agency and notes (Agency and up); general advice under its own label | — | ✓ | ✓ |
 | **Beyond AI answers** (8.1.4): business identity and ABN, YouTube, AI crawler access (and visits when logs exist), website technical, your directory profiles | — | — | ✓ |
@@ -657,14 +713,13 @@ A Basic report is today's report, corrected (non-regression N15). With `report_v
 
 | Plan | Tiers it can generate |
 |---|---|
-| Free | As today (VERIFY in S0 whether Free has reports) |
-| Starter | Basic |
+| Free, Starter | None (as today; D-RT1 revised) |
 | Growth | Basic, Standard |
 | Agency, Agency Pro, Enterprise | Basic, Standard, Enhanced, chosen per report (D-RT2, agreed) |
 
 **Choosing the tier** (P08). The report contents panel opens with a three-option picker. Default: the brand's last choice (`report_brand_preferences.default_tier`), else the plan's highest tier. Tiers above the plan show a lock with the plan name and an Upgrade link (in the app only). The outline on the right updates as the tier changes, and the button reads "Generate {tierName} report".
 
-**Server enforcement.** `POST` to the existing generate route gains `tier`. The server checks `tier <= maxReportTier(plan)` and returns 402 with code `report_tier_not_in_plan` otherwise. The server computes the page set from the tier; contents a tier doesn't include are dropped even if the request sends them. The snapshot (appendix D) stores `tier`, `tierName`, the page set and the check results it printed. Re-rendering an old report uses its snapshot (tier included), so a later plan change never alters a generated report. Scheduled reports, if S0 finds them, store a tier and are capped at the plan's tier when they run (the cap is logged for operators).
+**Server enforcement.** The existing generate route (`{ periodLabel?, periodType }`; the server picks the basis audit) gains `tier` and `contents`. The server checks `tier <= maxReportTier(plan)` and returns 402 with code `report_tier_not_in_plan` otherwise. The server computes the page set from the tier; contents a tier doesn't include are dropped even if the request sends them. The snapshot (appendix D) stores `tier`, `tierName`, the page set and the check results it printed. Rendering and "Try again" use the snapshot for reports generated after S1 (tier included), so a later plan change never alters them; reports from before S1 keep today's rebuild from live data. Scheduled reports (`report_delivery_schedules`) store a tier; `generate-narrative-report` reads it and caps it at the plan when it runs (the cap is logged for operators).
 
 **Enhanced checks before rendering** (decision D-RT4, default). When the tier is Enhanced, the render job first refreshes checks older than their window, then renders:
 
@@ -679,11 +734,11 @@ A Basic report is today's report, corrected (non-regression N15). With `report_v
 
 Rules: one refresh per brand at a time (Inngest concurrency key `brand_id`); the whole refresh step times out after 5 minutes; a check that fails or times out prints "Couldn't check on {date}: {reason}" on its tile and the report still renders; anything still older than 30 days prints "Last checked {date}, may be out of date" (8.1.4). P08 lists each check with its age and whether it will be reused or re-run.
 
-**Tier names** (decision D-RT3, default; P18). Agency and up can rename the three tiers in Report branding (e.g. "Essentials", "Growth Plan", "Premium Audit"), stored in `report_tier_names`. Names appear on the PDF cover (above the title, Agency and up only), in the brand's reports list (P17), in P08 and in the client portal (P13). Other plans see the default names in the app and no tier name on the cover.
+**Tier names** (decision D-RT3, default; P18). Agency and up can rename the three tiers in Report branding (`/settings/report-branding`, stored on the workspace row of `agency_brand_assets`) (e.g. "Essentials", "Growth Plan", "Premium Audit"), stored in `report_tier_names`. Names appear on the PDF cover (above the title, Agency and up only), in the brand's reports list (P17), in P08 and in the client portal (P13). Other plans see the default names in the app and no tier name on the cover.
 
 **No upsell inside a PDF.** A Basic or Standard PDF never mentions higher tiers, prices or Vunnara plans; an agency's client must never see a sales message in the agency's branded report. Upgrade prompts live in the app (P08 locks, P17).
 
-**Public claims.** The pricing page comparison table gains a "Reports" row through `tiers.ts` (setting-aware: shown only while `report_v2` is on): Starter "Basic"; Growth "Basic and Standard"; Agency plans "Basic, Standard and Enhanced, chosen per client report, with your own names". A footnote states what each tier contains in the words of appendix E. No prices are added for tiers: they are part of the plans.
+**Public claims.** The pricing page comparison table gains a "Reports" row through `tiers.ts` (setting-aware: shown only while `report_v2` is on): Growth "Basic and Standard"; Agency plans "Basic, Standard and Enhanced, chosen per client report, with your own names". A footnote states what each tier contains in the words of appendix E. No prices are added for tiers: they are part of the plans.
 
 **Observability.** `report_generated` logs tier and plan; `/admin/costs` shows Enhanced refresh calls by check; operators see reports per tier per plan (to learn which tiers agencies sell).
 
@@ -691,7 +746,7 @@ Rules: one refresh per brand at a time (Inngest concurrency key `brand_id`); the
 - Hero #54 and Omega #55 reports: same figures as today on unchanged pages; new pages render; TechCore #52 report shows findings f, g, h, i and a non-empty "What to do next".
 - Editing an action after generating does not change the generated PDF on re-render.
 - Growth sees the section uncurated; Agency sees the panel.
-- Tiers: Starter gets 402 for Standard or Enhanced, Growth for Enhanced; Agency generates all three for the same audit; each PDF contains exactly its tier's pages; a Basic PDF passes N15.
+- Tiers: Free and Starter still have no reports; Growth gets 402 for Enhanced; Agency generates all three for the same audit; each PDF contains exactly its tier's pages; a Basic PDF passes N15.
 - An Enhanced report re-runs only checks older than their window (fixture clock) and still renders when a check fails or times out.
 - Renamed tiers show on the cover (Agency and up), in the reports list and in the portal; no Basic or Standard PDF mentions another tier.
 
@@ -734,7 +789,7 @@ Rules: one refresh per brand at a time (Inngest concurrency key `brand_id`); the
 | One question | One sentence ending in "?", no line breaks | Yes |
 | No links or contact details | No URL, email or phone pattern | Yes |
 | Duplicate | `question_text_key` matches a live question in the library | Yes |
-| Names the business | Brand name, domain or alias appears (normalised) → kind = branded, "Names your business · not scored"; at most 3 branded in the set | Yes beyond 3 |
+| Names the business | Brand name, domain or alias appears (normalised) → kind = branded, "Names your business · not scored"; at most 5 branded in the set (D-QI-BR) | Yes beyond 5 |
 | Place | No place from the brand's reaches in the text → warn and offer the button Add "in {place}" (one click adds the reach's main area or city) unless reach = global | No |
 | Instruction-like | Starts with "ignore", "you are", "pretend", contains "system prompt" or similar (appendix C) → flagged | Yes |
 | Competitor named | A configured competitor's name appears → "Comparison question" (allowed, counted as everyday only if the brand isn't named) | No |
@@ -744,21 +799,21 @@ Rules: one refresh per brand at a time (Inngest concurrency key `brand_id`); the
 - Under the headline: "AI-suggested questions: 30% (6 of 20) · Written by Splice Marketing: 10% (1 of 10)" whenever both sources exist. The headline itself counts all everyday questions.
 
 #### 8.3.4 Workspace → Questions settings page (P05) — the separate page the client asked for
-- Route `/settings/questions` (workspace settings group). Visible to owner/admin/editor; plan-gated actions.
+- Route `/settings/questions` (workspace settings group). Visible to owners and admins (existing settings rule); plan-gated actions.
 - Table of every brand: brand, reaches, everyday questions (active / allowed), written by agency, last change, version, "Edit questions" link to the brand's tab.
 - Defaults for new brands: number of everyday questions (within plan), whether AI suggestions fill empty slots, default reach (Local, fixed in S3; editable in S4).
 - "Copy questions from another brand": pick source brand → its questions are copied into the target's library as `source = 'agency'` suggestions, places replaced by the target's places where they match the source's places; the user reviews and applies. Copies are copies (brand-specific rule).
 
 #### 8.3.5 Plan limits (server-enforced; `tiers.ts`)
 
-| Plan | Everyday questions included | Branded (not scored) | Write own | Reaches | Packs |
+| Plan | Everyday questions included | Branded (not scored; D-QI-BR) | Write own | Reaches | Packs |
 |---|---|---|---|---|---|
 | Free | As today, fixed | As today | No | Local | No |
-| Starter | 10 | 3 | No (choose among suggestions) | 1 | No |
-| Growth | 10 | 3 | Yes | 2 | +10 per pack |
-| Agency | 10 | 3 | Yes | 4 | +10 per pack |
-| Agency Pro | 10 | 3 | Yes | 4 | +10 per pack |
-| Enterprise | By arrangement | 3 | Yes | 4 | By arrangement |
+| Starter | 10 | Up to 5 | No (choose among suggestions) | 1 | No |
+| Growth | 10 | Up to 5 | Yes | 2 | +10 per pack |
+| Agency | 10 | Up to 5 | Yes | 4 | +10 per pack |
+| Agency Pro | 10 | Up to 5 | Yes | 4 | +10 per pack |
+| Enterprise | By arrangement | Up to 5 | Yes | 4 | By arrangement |
 
 A brand can run fewer everyday questions, down to 5; the confidence range widens and says so. Limits are checked on apply and again when an audit starts (`assertQuestionLimits`), returning 402 with a plain message and an upgrade link.
 
@@ -769,10 +824,10 @@ Before the website analysis exists (S6), the existing "Confirm your business det
 | Method and route | Body | Auth | Result |
 |---|---|---|---|
 | `GET /api/brands/:id/questions` | — | brand access | `{ set: {version, appliedAt, items[]}, library: [...], suggestions: [...], limits }` |
-| `POST /api/brands/:id/questions/validate` | `{ text, reach }` | editor | `{ ok, kind, checks[] }` |
-| `POST /api/brands/:id/question-sets` | `{ baseVersion, items: [{questionId?|text, reach, position}], count }` | editor | 201 `{ version }`; 409 if `baseVersion` isn't current; 402 over limit; 422 failed checks |
-| `POST /api/brands/:id/questions/:qid/archive` | — | editor | 200; 409 if in current set |
-| `POST /api/brands/:id/questions/copy-from` | `{ sourceBrandId }` | editor, same workspace | 200 `{ added }` |
+| `POST /api/brands/:id/questions/validate` | `{ text, reach }` | `edit_brand_data` (owners, admins, analysts) | `{ ok, kind, checks[] }` |
+| `POST /api/brands/:id/question-sets` | `{ baseVersion, items: [{questionId?|text, reach, position}], count }` | `edit_brand_data` | 201 `{ version }`; 409 if `baseVersion` isn't current; 402 over limit; 422 failed checks |
+| `POST /api/brands/:id/questions/:qid/archive` | — | `edit_brand_data` | 200; 409 if in current set |
+| `POST /api/brands/:id/questions/copy-from` | `{ sourceBrandId }` | `edit_brand_data`, same workspace | 200 `{ added }` |
 
 All routes run inside the request's RLS context; brand access via the existing `assertBrandAccess`.
 
@@ -877,17 +932,17 @@ The full rationale is in the design doc "Vunnara question intelligence: layer-by
 |---|---|---|---|
 | `analysis-run` | `brand/analysis.requested` `{brandId, trigger}` | `fetch-plan` → `fetch-pages` → `extract` → `listings` (S7) → `demand` (S8) → `competitors` (S8) → `merge` → `generate` → `score` → `pretest` (S8) → `finalise` | key `organizationId`, limit 2; key `brandId`, limit 1 |
 | `analysis-website-drift` | cron weekly | per brand: sitemap + home fingerprint; on change, send `brand/analysis.requested` with `website_changed` (suggestions only) | limit 5 |
-| `question-results-compute` | `audit/complete` (existing event, VERIFY name) | compute `question_results` and weak flags | key `brandId`, limit 1 |
+| `question-results-compute` | `audit.complete` (joins `POST_AUDIT_POOL`, account-wide limit 1) | compute `question_results` and weak flags | key `brandId`, limit 1 |
 
 Each step stores its status in `analysis_runs.layers` so the progress screen (P12) shows live state. A failed layer marks the run `partial`; later layers use whatever exists. Costs are recorded per step and stop paid steps at the ceiling (decision D-QI5, default US$0.50).
 
-#### 8.6.2 Guarded fetcher (`lib/fetch/guarded-fetch.ts`, S6) — security gate
+#### 8.6.2 Guarded fetcher (`lib/fetch/guarded-fetch.ts`, built in S00B) — security gate
 - Allowed schemes: `https:` (and `http:` upgraded); ports 443/80 only.
 - Resolve the host once (DNS), reject private, loopback, link-local, CGNAT, multicast, IPv6 ULA, and cloud metadata addresses (169.254.169.254, fd00:ec2::254, metadata.google.internal); connect to the resolved IP with the original Host/SNI (pinned), so DNS rebinding can't switch targets.
 - Max 3 redirects, each re-validated; 10 s timeout; 2 MB body cap; `text/html` and `application/xhtml+xml` only (plus `text/plain` for robots, XML for sitemaps).
 - User agent `Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)`; robots.txt obeyed (rules for `Vunnara-Audit-Bot` then `*`); one request per second per host.
 - Every refusal logged with reason; unit tests for each blocked class and for rebinding.
-- The existing crawler (`lib/crawler/index.ts`, VERIFY) is migrated to use it, so there is one fetch path.
+- S00B moves every existing caller onto it (`lib/crawler/index.ts`, classification, CDN Shield probe, robots fetch, `app/api/crawl`, the name suggestion and the rest found in S00), so there is one fetch path. Network protections (scheme, port, DNS pinning, private ranges, redirects, timeout, size, content type) apply to every caller. Robots.txt obedience, user agent and per-host rate limit are per-caller options: existing callers keep today's behaviour; new S6–S8 callers turn them on.
 
 #### 8.6.3 Layer 1: website (S6)
 1. Read robots.txt, sitemap(s) (first 500 URLs), home page links.
@@ -952,7 +1007,7 @@ Three steps: **Your services** (sources, demand, tick/untick/add, competitor sug
 
 #### 8.8.2 Brand display name and aliases (T2, S0)
 - When adding a brand, suggest the name from the site's `og:site_name`, the title's brand segment or the JSON-LD `name` ("TechCore IT"), not from the domain; the user can edit it.
-- `brands.aliases` holds other forms (domain label "techcoreit", "TechCoreIT"); mention detection and branded-question checks include aliases (normalised, same function).
+- `brands.aliases` holds genuinely different names (detection already ignores case and spacing and checks the domain stem, so those forms are never suggested); unique ignoring case; mention detection and branded-question checks include aliases (normalised, same function).
 - Brand settings shows "Also known as" chips.
 
 #### 8.8.3 Directory registry (T6, S0)
@@ -1055,7 +1110,7 @@ Per the project rule, prompts run targeted tests (related tests, new tests RED �
 
 | Layer | What |
 |---|---|
-| Unit | phrasing, validators, hash parity TS vs SQL fixtures, scorer, balance chooser, reach placement, guarded fetcher, quote verifier, finding rules f–i, entitlement math |
+| Unit | phrasing, validators, hash parity TS vs SQL fixtures, scorer, balance chooser, reach placement, guarded fetcher, quote verifier, finding rules g–j, entitlement math |
 | Integration | backfill parity on fixtures; apply flow (versions, 409, 402); audit uses current set; per-reach results; report snapshot; report tiers (402 per plan, page set per tier, Basic vs today N15, Enhanced refresh windows, timeouts, tier names); ABN suggestion with recorded ABR responses (no live calls in tests) |
 | Guard (source-scan) | no AU strings outside `lib/markets/au.ts` in reach code; no context/sentiment dimensions; plan claims via `tiers.ts`; placeholders; every new org table in the RLS list; no `serviceDb` in new routes |
 | E2E | questions tab view/edit/apply; reach settings; wizard type search; report contents panel; cross-org isolation on new routes; responsive shell |
@@ -1093,6 +1148,7 @@ Note on `question_library`: from S2 onward audits always read the current set (w
 | Sprint | Name | Covers | Depends on | Migration | Inngest resync | Gate before the next sprint |
 |---|---|---|---|---|---|---|
 | S0 | Verify, quick wins, flags | As-is verification; T2, T3, T6; flag scaffold | `main` | 0153 | No | As-is report reviewed by Sri; guards green |
+| S0B | Security: guarded fetcher | D-SEC1: one guarded fetch path for every existing caller | S0 | none expected | Only if a function changes | Fetcher security tests and every migrated caller's tests green |
 | S1 | Report v2 and report tiers | C1, R3, R6, T5, T7, T8; portal reports | S0 | 0154 | Yes (render job, Enhanced checks) | Hero/Omega/TechCore PDFs checked in all three tiers |
 | S2 | Question library | C2b/C4 foundation | S0 | 0155 | Yes (audit runners) | run3: hash parity; N1–N3 tests |
 | S3 | Agency questions and settings page | C2b, C4, plan limits | S2 | 0156 | No | Apply flow e2e; Splice check |
@@ -1130,7 +1186,8 @@ Sprints run one at a time, each pushed and checked in production before the next
 | Id | Decision | Default in this LLD | Needed by |
 |---|---|---|---|
 | D1 | Who curates report actions and adds notes | Agency and up; Growth gets "What to do next" uncurated in Standard reports (updated for tiers) | S1 |
-| D-RT1 | Report tiers per plan | **Agreed 21 Nov 2026:** Starter Basic; Growth Basic and Standard; Agency, Agency Pro, Enterprise all three | S1 |
+| D-RT1 | Report tiers per plan | **Revised 22 Nov 2026:** Free and Starter none (as today); Growth Basic and Standard; Agency, Agency Pro, Enterprise all three | S1 |
+| D-SEC1, D-QI-BR, D-BAND, D-GT, D-UI2–D-UI6 | See section 0.1 | **Agreed 22 Nov 2026** | S0B, S1, S2–S3, S5 |
 | D-RT2 | Who picks the tier | **Agreed:** Agency plans pick per report, so agencies can sell each tier to their clients at their own price | S1 |
 | D-RT3 | Tier names | Agency and up can rename the three tiers (shown on the cover, reports list, portal); others see the default names in the app only | S1 |
 | D-RT4 | Enhanced check freshness | Re-run before rendering when older than: identity 30 days, AI crawler access 7, YouTube 7, technical 30; 5-minute cap; failures shown on the tile | S1 |
@@ -1176,7 +1233,7 @@ S5 Part 1 turns this into `db/seed/taxonomy/au-v1.json` with services and aliase
 
 **TechCore IT** would be offered "Managed IT services provider" (main), "Cybersecurity services", "Cloud and Microsoft 365 services", "AI and automation services" and "Digital marketing agency" (from "Branding and Marketing").
 
-Every legacy `CATEGORY_KEYS` value (VERIFY full list) maps to one of these types; S5 includes the mapping table and a sync test.
+Every legacy `CATEGORY_KEYS` value (28 keys, `lib/prompts/templates.ts`) maps to one of these types; S5 includes the mapping table and a sync test.
 
 ## Appendix B. Directory registry v1 additions (market 'au')
 
@@ -1261,7 +1318,7 @@ Summary only. The complete copy for every screen, state and message is in `vunna
 | Generate button | Generate {tierName} report |
 | Tier locked | Available on {plan} and up |
 | Enhanced checks note | Before an Enhanced report, checks older than their window run again. None of them change the Visibility score. |
-| Pricing row "Reports" | Starter: Basic · Growth: Basic and Standard · Agency plans: Basic, Standard and Enhanced, chosen per client report, with your own names |
+| Pricing row "Reports" | Growth: Basic and Standard · Agency plans: Basic, Standard and Enhanced, chosen per client report, with your own names |
 | Report names help | Shown on the report cover, in your reports list and in the client portal. Use the names you sell under. |
 | Weak question | Row: AI doesn't name any business here (last 2 audits) · Swap banner: Swap it for “{suggestion}”? · Recommended action: AI doesn't name any business for this question |
 | Small sample | Pill "Small sample"; tooltip "Small sample ({n} questions): this figure can move a lot between audits." |

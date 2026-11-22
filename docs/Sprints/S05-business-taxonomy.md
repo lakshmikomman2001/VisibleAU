@@ -1,16 +1,16 @@
 # S05 — Business types: taxonomy, search picker, multiple and custom types, learning signals
 
-> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/sprints/reports/S05-report.md` and commit it as the last commit.
+> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S05-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S04 pushed); say which hash. Read LLD sections 4, 7.3, 7A (0158), 8.5 (all), 11, 13, 20 (D5, D6, D7, D12) and appendix A; contract screens P06, P10 (types on confirm), P11, P15.
+Start with `git fetch origin` and build on `origin/main` (S04 pushed); say which hash. Read LLD **section 0** (v1.4 decisions and amendments) first, then sections 4, 7.3, 7A (0158), 8.5 (all), 11, 13, 20 (D5, D6, D7, D12) and appendix A; contract screens P06, P10 (types on confirm), P11, P15.
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
 **Rules (every part):**
 - One commit per numbered part; don't amend; commit only in a separate step after tests finish, never chained with `;`. **Never push.**
 - Targeted tests only: related tests, new tests RED on the parent then GREEN, typecheck, lint, compared by name with `tests/known-failures.txt` (0 entries; keep 0), named guards. Full suites only if Sri asks. Playwright only in parts that change a screen or a shared UI component: run the specs `scripts/qa/e2e-specs-for.ts` maps to the files that part changed, one at a time, only with ≥ 6 GB free (otherwise "not run: memory" and list the specs). Parts that change only data, jobs, scoring, APIs or PDF rendering don't run Playwright; say "Playwright: not needed (no UI change)".
-- ⛔ No mock data in production: the taxonomy is real reference data, reviewed by Sri before it goes into a migration. No `any`; FORCE RLS on org tables; global tables SELECT-only for `visibleau_app`; no new `serviceDb`; no production writes (0158 as a run1–run4 set).
-- Non-regression: LLD section 4 (N1–N14) must hold after every part; list the guards you ran for each part.
+- ⛔ No mock data in production: the taxonomy is real reference data, reviewed by Sri before it goes into a migration. No `any`; FORCE RLS on org tables; global tables read-only for `visibleau_app` through the new named read-only list (Part 2, D-GT); no new `serviceDb`; no production writes (0158 as a run1–run4 set).
+- Non-regression: LLD section 4 (N1–N15) must hold after every part; list the guards you ran for each part.
 - Existing readers of `brands.vertical`, `brands.categories` and `brands.classification` keep working; `classification.category` is still written.
 - Behind `business_taxonomy` (off). With it off, the wizard and confirm screen are as today.
 - Decision defaults: D5 custom types Growth 5 / Agency 20 / Agency Pro unlimited; D6 ANZSIC 2006 mapping; D7 counts only from ≥ 3 workspaces; D12 aggregate-only SECURITY DEFINER function.
@@ -18,11 +18,12 @@ Start with `git fetch origin` and build on `origin/main` (S04 pushed); say which
 
 ## 1. Taxonomy seed for review — then STOP
 - Produce `db/seed/taxonomy/au-v1.json`: sectors, 180–250 types (appendix A minimum included, IT and technology services in full), each with plain name, aliases, default buyer, default reach (Local unless clearly remote/national; never auto-enabled), template family, 5–30 services with aliases, and an ANZSIC 2006 class **verified against the ABS class list** (cite the ABS source in the file header; leave `industry_code` null where no class fits rather than guessing).
-- Mapping table from every current `CATEGORY_KEYS` value to a type (none unmapped).
+- Mapping table from every current `CATEGORY_KEYS` value (28 keys in `lib/prompts/templates.ts`, none for IT services) to a type (none unmapped).
 - Commit the JSON and a readable `docs/lld/taxonomy-au-v1-review.md` (sector → types → services, with codes).
 - **Stop after this part** and report so Sri can review the taxonomy. Continue with Part 2 only when Sri says the seed is approved (he may edit the JSON).
 
 ## 2. Schema and seed (migration 0158)
+First, the read-only list (D-GT): today every table is read-write for `visibleau_app` (prod-fix 0052 plus default privileges), and `tests/integration/app-role-grants.integration.test.ts` and the integration setup's `appRolePrivilegeDrift` treat a read-only table as drift. Add a named, documented read-only list to all three (one place in code); put the taxonomy tables and `directory_registry` on it; revoke INSERT/UPDATE/DELETE on those for `visibleau_app` in the run set (run3 proves the app role can SELECT but not write; the directory registry keeps working because nothing in the app writes it: prove that with a source scan). `search_demand_cache` joins the list in S08.
 Tables per LLD 7.3, seeded from the approved JSON; `brand_business_types` legacy mapping (source 'legacy', main) for every brand; `refresh_taxonomy_signals()` SECURITY DEFINER aggregate-only (≥ 3 distinct workspaces; normalised names only), owned by the migration role, executable by an Inngest job's DB role only (VERIFY role setup; propose if missing). run3 checks: every brand has exactly one main type; no unmapped legacy key; grants; function returns nothing for keys seen in fewer than 3 workspaces (test with fixtures locally).
 
 ## 3. Taxonomy service and search (LLD 8.5.2, 13)

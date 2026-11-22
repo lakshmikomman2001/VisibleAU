@@ -1,8 +1,8 @@
 # S10 — Question packs (Stripe add-on) and full entitlement enforcement
 
-> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/sprints/reports/S10-report.md` and commit it as the last commit.
+> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S10-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
+Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD **section 0** (v1.4 decisions and amendments) first, then sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -10,7 +10,7 @@ Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which
 - One commit per numbered part; don't amend; commit only in a separate step after tests finish, never chained with `;`. **Never push.**
 - Targeted tests only: related tests, new tests RED on the parent then GREEN, typecheck, lint, compared by name with `tests/known-failures.txt` (0 entries; keep 0), named guards (plan-claim, cost-visibility, GST). Full suites only if Sri asks. Playwright only in parts that change a screen or a shared UI component: run the specs `scripts/qa/e2e-specs-for.ts` maps to the files that part changed, one at a time, only with ≥ 6 GB free (otherwise "not run: memory" and list the specs). Parts that change only data, jobs, scoring, APIs or PDF rendering don't run Playwright; say "Playwright: not needed (no UI change)".
 - ⛔ No mock data in production; **no invented prices anywhere**: prices come from Stripe objects Sri creates. No GST shown or charged (Vunnara isn't registered for GST). Stripe stays in test mode. No `any`; FORCE RLS; no new `serviceDb`; no production writes.
-- Non-regression: LLD section 4 (N1–N14) must hold after every part; list the guards you ran for each part.
+- Non-regression: LLD section 4 (N1–N15) must hold after every part; list the guards you ran for each part.
 - Behind `question_packs` (off).
 - If the LLD contradicts the code, the code wins: report with file:line; continue only with independent parts.
 

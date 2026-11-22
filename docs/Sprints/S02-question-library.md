@@ -1,8 +1,8 @@
 # S02 — Question library and versioned question sets (today's questions become version 1)
 
-> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/sprints/reports/S02-report.md` and commit it as the last commit.
+> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S02-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S01 pushed); say which hash. Read LLD sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
+Start with `git fetch origin` and build on `origin/main` (S01 pushed); say which hash. Read LLD **section 0** (v1.4 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -21,6 +21,7 @@ Start with `git fetch origin` and build on `origin/main` (S01 pushed); say which
 
 ## 2. Backfill set (0155 run1–run4) — the delicate part
 Follow LLD 7A steps 1–5 exactly:
+- Packs carry 10 everyday questions plus 3 to 5 that name the business (LLD section 0, #7); `kind` follows `isBrandedPrompt()` (`lib/audit/flag-branded-prompts.ts`, aliases included since S00).
 - run1 (read-only): per brand, the pack prompts with SQL-derived `kind` compared to `citations.is_branded_prompt` from that brand's latest complete audit for the same prompt; expected 0 differences; also counts per brand.
 - run2: insert library rows (`source='original'`, `reach='local'`, `status='ready'`), set v1 (`is_current=true`), items in stored order, `comparison_hash` in SQL.
 - run3: brand by brand, v1 `comparison_hash` vs the latest complete audit's `question_set_hash` where that audit used the stored pack; list mismatches with reason (never fix them); grants and RLS checks.
@@ -36,7 +37,7 @@ Follow LLD 7A steps 1–5 exactly:
 
 ## 4. Questions tab, read-only (LLD 8.2.2, P02 view mode)
 - `GET /api/brands/:id/questions`: current set, library, suggestions, limits; one query joining set items, library and last-audit results aggregated by `question_id` (index use shown with EXPLAIN on local data); brand access, RLS context.
-- UI per P02 view mode: sections by reach (Local only for now), badges, service/intent chips when known, per-engine dots for the last audit, header line (version, applied, counts, "comparing since audit #N"), skeleton/empty/error states, 390 px layout.
+- UI per P02 view mode: sections by reach (Local only for now), badges, service/intent chips when known, per-engine dots for the last audit (four states including "unverified" for the audit page's "Maybe", D-UI6), header line (version, applied, counts, "comparing since audit #N"), skeleton/empty/error states, 390 px layout.
 - Suggestions: template-generated alternatives (`source='template'`, `status='suggested'`) for the brand's category and place, created on demand and stored; "Add" disabled until S03.
 - Tests: route (auth, RLS, cross-org 404), component, e2e view; responsive shell spec updated.
 

@@ -1,6 +1,6 @@
 # Prototype guide: building Vunnara screens from the UI contract
 
-Repo path: `docs/prototypes/PROTOTYPE-GUIDE.md` · version 1.1 · 21 Nov 2026 · read this before building any screen P01–P18.
+Repo path: `docs/prototypes/PROTOTYPE-GUIDE.md` · version 1.2 · 22 Nov 2026 · read this before building any screen P01–P18.
 
 ## What's in `docs/prototypes/`
 
@@ -26,7 +26,7 @@ Don't edit `vunnara-ui-config.ts`, the HTML or the PNGs. If something in them is
 ## How to build one screen (the method)
 
 1. **Read** `screens[Pxx]` in the contract and look at `screens/Pxx-*.png`.
-2. **Map** each component and token it uses through `token-map.md`. Extend existing components (add a variant) rather than creating parallel ones.
+2. **Map** every colour to the token's `app` variable (the contract's `color` table lists it) and every type role and component through `token-map.md`. The app has no shared Button, Input or Card and uses no Radix and no toast library: follow the existing patterns `token-map.md` names (confirm dialog, mobile-nav drawer, workspace-switcher listbox, InfoTip, inline `role="status"` feedback). Shared components you create serve new screens only; never restyle existing screens.
 3. **Build the nodes** in the order listed. Each node's `component`, `variant` and `style` say how it looks; `copy` says what it says; `bind` says where the data comes from; `showWhen` says when it renders (hidden means no empty gap); `behaviour` says what it does.
 4. **Test ids.** Give every interactive node, and every node your tests assert on, `data-testid={testIdOf(node.id)}`: dots become dashes, camelCase becomes kebab (`P02.draftBar` → `p02-draft-bar`). The function is in the contract.
 5. **States.** Build each entry in `states` (loading skeletons match the final layout; empty = one sentence + one action; errors in plain words with Retry; no-permission is read-only with who can change it; plan lock shows the plan marker and Upgrade).

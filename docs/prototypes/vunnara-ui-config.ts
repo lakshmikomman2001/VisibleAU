@@ -1,8 +1,8 @@
 /* =============================================================================
  * Vunnara UI contract: client enhancements (canonical)
  * Repo path : docs/prototypes/vunnara-ui-config.ts
- * Version   : 1.1 · 21 Nov 2026 (1.1 adds report tiers: P08 picker, P09 cover and directory tile,
- *             P13 report column, new P17 reports list and P18 report names; C-23, C-24)
+ * Version   : 1.2 · 22 Nov 2026 (1.2: S00's token map and as-is verification folded in: app token names and
+ *             values, roles, ABN field, branded limit 5, findings g–j, D-UI2–D-UI6; C-25–C-34. 1.1: report tiers)
  * Pairs with: docs/lld/vunnara-client-enhancements-lld-v1.md (behaviour, data, APIs)
  *             docs/prototypes/client-enhancements-v2.html (the visual, rendered from this file's data)
  *             docs/prototypes/PROTOTYPE-GUIDE.md (how to build a screen from this file)
@@ -13,7 +13,7 @@
  * responsive rules and acceptance checks. The HTML prototype embeds this same data.
  *
  * This file is documentation. Nothing in the app imports it. Check it with:
- *   npx tsc --noEmit --strict --target es2022 docs/prototypes/vunnara-ui-config.ts
+ *   npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts
  *
  * Placeholders in copy use {camelCase}. Example values shown in the HTML (Hero Home Services,
  * TechCore IT, Splice Marketing, audit numbers, percentages) are illustrative layout examples,
@@ -50,9 +50,10 @@ export type ComponentName =
 export type TokenStatus = 'map' | 'new';
 
 export interface ColorToken {
-  name: `--${string}`;
-  light: string;
-  dark: string;
+  name: `--${string}`;   // the contract's role name, used throughout this file
+  app: string;           // the variable to use in the app (token-map.md section 1). Always write this one in code
+  light: string;         // the app's value (light), from token-map.md
+  dark: string;          // the app's value (dark)
   status: TokenStatus;
   use: string;
 }
@@ -148,6 +149,7 @@ export const precedence = [
   '5. Copy is exact. Change wording only through this file (and say so in the report).',
   '6. Every screen ships all of its listed states. A screen without its loading, empty, error and no-permission states is not done.',
   '7. Flags off = the app is exactly as today. Each screen lists what shows when its flag is off.',
+  '8. LLD section 0 (v1.3) and docs/prototypes/token-map.md amend this file; where they differ from it, they win. In code, always use each token\'s `app` variable.',
 ] as const;
 
 /* ----------------------------------------------------------------------------
@@ -155,48 +157,38 @@ export const precedence = [
  * ------------------------------------------------------------------------- */
 
 export const color: ColorToken[] = [
-  { name: '--bg',               light: '#F7F7F8', dark: '#09090B', status: 'map', use: 'Page background' },
-  { name: '--surface',          light: '#FFFFFF', dark: '#111113', status: 'map', use: 'Cards, modals, drawers, sidebar, top bar' },
-  { name: '--surface-2',        light: '#F4F4F5', dark: '#18181B', status: 'map', use: 'Reach headers, evidence lines, neutral pills and chips, hover fill' },
-  { name: '--surface-3',        light: '#ECECEE', dark: '#202024', status: 'map', use: 'Bar tracks, empty engine dots, pressed fill' },
-  { name: '--border',           light: '#E4E4E7', dark: '#27272A', status: 'map', use: 'Card borders and row dividers (decorative)' },
-  { name: '--border-strong',    light: '#D4D4D8', dark: '#3F3F46', status: 'map', use: 'Secondary button border, evidence left rule, frame edges (decorative)' },
-  { name: '--border-control',   light: '#8A8A93', dark: '#71717A', status: 'new', use: 'Form control boundaries: inputs, textarea, stepper, segmented, checkbox, toggle-off track. 3.42:1 / 3.90:1 on surface (WCAG 1.4.11). Decision D-UI1' },
-  { name: '--text',             light: '#0A0A0B', dark: '#FAFAFA', status: 'map', use: 'Primary text' },
-  { name: '--text-2',           light: '#3F3F46', dark: '#D4D4D8', status: 'map', use: 'Body text, field labels, chip text' },
-  { name: '--text-3',           light: '#5F5F68', dark: '#A1A1AA', status: 'map', use: 'Muted text: help, meta, table headers, overlines' },
-  { name: '--accent',           light: '#2563EB', dark: '#60A5FA', status: 'map', use: 'Links, toggles on, focus ring, accent buttons, progress fill' },
-  { name: '--accent-strong',    light: '#1D4ED8', dark: '#93C5FD', status: 'map', use: 'Accent hover, AI-suggested pill text, selected segment text' },
-  { name: '--accent-tint',      light: '#EFF4FF', dark: '#13213A', status: 'map', use: 'Info banners, AI-suggested pill, selected option and segment' },
-  { name: '--on-accent',        light: '#FFFFFF', dark: '#0A0A0B', status: 'map', use: 'Text and icons on --accent' },
-  { name: '--primary-btn',      light: '#0A0A0B', dark: '#FAFAFA', status: 'map', use: 'Primary button fill' },
-  { name: '--primary-btn-hover',light: '#27272A', dark: '#E4E4E7', status: 'map', use: 'Primary button hover fill (use the app\'s existing hover if it has one)' },
-  { name: '--on-primary',       light: '#FFFFFF', dark: '#0A0A0B', status: 'map', use: 'Text on primary button' },
-  { name: '--good',             light: '#15803D', dark: '#4ADE80', status: 'map', use: 'Strong band (≥ 30%), passed checks, complete' },
-  { name: '--good-tint',        light: '#ECFDF3', dark: '#0F2A1A', status: 'map', use: 'Good pill and banner fill' },
-  { name: '--warn',             light: '#A15C07', dark: '#FBBF24', status: 'map', use: 'Developing band (10–29%), small sample, stale, names-your-business label, weak question' },
-  { name: '--warn-tint',        light: '#FFF8E6', dark: '#2A2109', status: 'map', use: 'Warn pill, banner and weak-row fill' },
-  { name: '--bad',              light: '#C81E1E', dark: '#F87171', status: 'map', use: 'Low band (< 10%), High priority, blocking checks, errors' },
-  { name: '--bad-tint',         light: '#FEF2F2', dark: '#2C1212', status: 'map', use: 'Bad pill fill, failed check icon fill' },
-  { name: '--agency',           light: '#6D28D9', dark: '#C4B5FD', status: 'new', use: 'Content written by the agency ONLY: "Written by {agency}", agency actions, agency notes' },
-  { name: '--agency-tint',      light: '#F5F3FF', dark: '#211A3A', status: 'new', use: 'Agency pill fill' },
-  { name: '--on-status',        light: '#FFFFFF', dark: '#0A0A0B', status: 'new', use: 'Glyph on a solid --warn/--good/--bad icon disc (white on #FBBF24 is 1.67:1 in dark; this fixes it)' },
-  { name: '--overlay',          light: 'rgba(0,0,0,.38)', dark: 'rgba(0,0,0,.60)', status: 'map', use: 'Scrim behind modals and drawers' },
+  { name: '--bg',               app: '--bg-base',            light: '#fafafa', dark: '#09090b', status: 'map', use: 'Page background' },
+  { name: '--surface',          app: '--bg-elevated',        light: '#ffffff', dark: '#18181b', status: 'map', use: 'Cards, modals, drawers' },
+  { name: '--surface-2',        app: '--bg-subtle',          light: '#f4f4f5', dark: '#0c0c0f', status: 'map', use: 'Reach headers, evidence lines, neutral pills and chips (hover fill: --bg-hover #f4f4f5 / #27272a)' },
+  { name: '--surface-3',        app: '--bg-active',          light: '#e4e4e7', dark: '#3f3f46', status: 'map', use: 'Bar tracks, empty engine dots, pressed fill' },
+  { name: '--border',           app: '--border-default',     light: 'rgba(0,0,0,.08)', dark: 'rgba(255,255,255,.08)', status: 'map', use: 'Card borders and row dividers (decorative)' },
+  { name: '--border-strong',    app: '--border-strong',      light: 'rgba(0,0,0,.12)', dark: 'rgba(255,255,255,.14)', status: 'map', use: 'Secondary button border, evidence left rule (decorative)' },
+  { name: '--border-control',   app: '--border-control',     light: '#8a8a93', dark: '#71717a', status: 'new', use: 'Form control boundaries (added in S00, D-UI1 applied app-wide)' },
+  { name: '--text',             app: '--text-primary',       light: '#09090b', dark: '#fafafa', status: 'map', use: 'Primary text' },
+  { name: '--text-2',           app: '--text-secondary',     light: '#52525b', dark: '#a1a1aa', status: 'map', use: 'Body text, field labels, chip text' },
+  { name: '--text-3',           app: '--text-tertiary',      light: '#6b6b74', dark: '#8f8f98', status: 'map', use: 'Muted text: help, meta, table headers, overlines' },
+  { name: '--accent',           app: '--accent-blue',        light: '#2160eb', dark: '#5190f7', status: 'map', use: 'Links, toggles on, focus ring, accent buttons, progress fill' },
+  { name: '--accent-strong',    app: '--accent-blue',        light: '#2160eb', dark: '#5190f7', status: 'map', use: 'AI-suggested pill text, selected segment text (no separate hover colour in the app, T-04)' },
+  { name: '--accent-tint',      app: '--accent-blue-soft',   light: 'rgba(33,96,235,.08)', dark: 'rgba(81,144,247,.15)', status: 'map', use: 'Info banners, AI-suggested pill, selected option and segment' },
+  { name: '--on-accent',        app: '--accent-blue-fg',     light: '#ffffff', dark: '#09090b', status: 'map', use: 'Text and icons on --accent' },
+  { name: '--primary-btn',      app: '--accent-primary',     light: '#18181b', dark: '#ffffff', status: 'map', use: 'Primary button fill' },
+  { name: '--primary-btn-hover',app: '(none yet)',           light: '#27272a', dark: '#e4e4e7', status: 'new', use: 'Primary button hover. Add as --accent-primary-hover only when a new screen needs it (T-05)' },
+  { name: '--on-primary',       app: '--accent-primary-fg',  light: '#fafafa', dark: '#09090b', status: 'map', use: 'Text on primary button' },
+  { name: '--good',             app: '--success',            light: '#117c38', dark: '#22c55e', status: 'map', use: 'Strong band (≥ 30%), passed checks, complete' },
+  { name: '--good-tint',        app: '--success-soft',       light: 'rgba(17,124,56,.08)', dark: 'rgba(34,197,94,.12)', status: 'map', use: 'Good pill and banner fill' },
+  { name: '--warn',             app: '--warning',            light: '#a25904', dark: '#f59e0b', status: 'map', use: 'Developing band (10–29%), small sample, stale, names-your-business label, weak question' },
+  { name: '--warn-tint',        app: '--warning-soft',       light: 'rgba(162,89,4,.08)', dark: 'rgba(245,158,11,.12)', status: 'map', use: 'Warn pill, banner and weak-row fill' },
+  { name: '--bad',              app: '--danger',             light: '#cf2121', dark: '#f15c5c', status: 'map', use: 'Low band (< 10%), High priority, blocking checks, errors' },
+  { name: '--bad-tint',         app: '--danger-soft',        light: 'rgba(207,33,33,.08)', dark: 'rgba(241,92,92,.12)', status: 'map', use: 'Bad pill fill, failed check icon fill' },
+  { name: '--agency',           app: '--agency',             light: '#6d28d9', dark: '#c4b5fd', status: 'new', use: 'Content written by the agency ONLY (added in S00)' },
+  { name: '--agency-tint',      app: '--agency-soft',        light: '#f5f3ff', dark: '#211a3a', status: 'new', use: 'Agency pill fill (added in S00 under the app\'s naming, T-01)' },
+  { name: '--on-status',        app: '--warning-fg / --success-fg / --danger-fg', light: '#ffffff', dark: '#0a0a0b', status: 'new', use: 'Glyph on a solid warn / good / bad disc (T-02; --warning-fg added in S00)' },
+  { name: '--overlay',          app: '--overlay-scrim',      light: 'rgba(0,0,0,.6)', dark: 'rgba(0,0,0,.6)', status: 'map', use: 'Scrim behind modals and drawers' },
 ];
 
 /** Measured WCAG 2.2 ratios for every text pair the screens use (computed, not estimated). */
 export const contrast = {
-  light: {
-    'text/surface': 19.79, 'text-2/surface': 10.44, 'text-2/surface-2': 9.5, 'text-3/surface': 6.32, 'text-3/bg': 5.9, 'text-3/surface-2': 5.75,
-    'accent/surface': 5.17, 'on-accent/accent': 5.17, 'accent-strong/accent-tint': 6.08, 'on-primary/primary-btn': 19.79,
-    'good/good-tint': 4.76, 'warn/warn-tint': 4.9, 'bad/bad-tint': 5.24, 'agency/agency-tint': 6.48, 'on-status/warn': 5.19, 'on-status/good': 5.02,
-    'border-control/surface (UI, needs 3)': 3.42, 'border-control/surface-2 (UI, needs 3)': 3.11,
-  },
-  dark: {
-    'text/surface': 18.07, 'text-2/surface': 12.76, 'text-3/surface': 7.36, 'text-3/surface-2': 6.91, 'accent/surface': 7.42, 'on-accent/accent': 7.78,
-    'accent-strong/accent-tint': 8.91, 'good/good-tint': 8.82, 'warn/warn-tint': 9.53, 'bad/bad-tint': 6.31, 'agency/agency-tint': 8.93,
-    'on-status/warn': 11.85, 'on-status/good': 11.36, 'border-control/surface (UI, needs 3)': 3.9, 'border-control/surface-2 (UI, needs 3)': 3.67,
-  },
+  app: 'Re-measured by S00 with the app\'s values: every text and control pair passes its threshold (token-map.md section 1, "Contrast, re-measured"). Re-measure any new pair with a script.',
   pdf: { 'agency #5B21B6/#EDE9FE': 7.57, 'eyebrow #8A5A00/#FFFFFF': 5.93, 'footer #6B6B76/#FFFFFF': 5.26, 'evidence #3F3F46/#F6F5F2': 9.58 },
   rule: 'Text ≥ 4.5:1 (≥ 3:1 at ≥ 24px or ≥ 18.66px bold). Control boundaries and focus indicators ≥ 3:1. Disabled controls are exempt but keep their label legible.',
 } as const;
@@ -205,7 +197,7 @@ export const fontFamily = {
   ui: '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   report: '"Fraunces", Georgia, serif',
-  note: 'Use the app\'s existing font loading (next/font or equivalent, VERIFY). No new font files. Fraunces is used in the PDF only.',
+  note: 'The app loads no web font today (Inter is only named; Windows shows Arial). Don\'t add font loading in these sprints (D-UI2). Fraunces and the PDF fonts are embedded by react-pdf as today.',
 } as const;
 
 export const typography: TypeRole[] = [
@@ -235,7 +227,7 @@ export const typography: TypeRole[] = [
 ];
 
 export const typeRule =
-  'Use the exact size and line height. If the app\'s scale lacks a value (14.5, 13.5, 12.5, 11.5), use an arbitrary value (e.g. text-[13.5px] leading-[19px]); never round. If an existing screen already uses a different value for the same role, the existing value wins and token-map.md records it.';
+  'Roles that existing screens already use (page and card titles, body, labels, help, table text) take the app\'s values from token-map.md section 2 (10–14 px scale, 600-weight titles, line height 1.5). Roles used only by new components (question rows, reach headers, draft bar, evidence lines, tiles, combobox) use the values below, line heights included (D-UI3). Use the exact size and line height. If the app\'s scale lacks a value (14.5, 13.5, 12.5, 11.5), use an arbitrary value (e.g. text-[13.5px] leading-[19px]); never round. If an existing screen already uses a different value for the same role, the existing value wins and token-map.md records it.';
 
 export const space = { s1: 4, s2: 8, s3: 12, s4: 16, s5: 20, s6: 24, s8: 32, s10: 40 } as const;
 export const spaceRule = 'All gaps and paddings come from the 4-pt scale above. Exceptions are listed per component (e.g. question row 14 × 16, banner 12 × 14, content 28 × 32).';
@@ -260,18 +252,18 @@ export const motion = {
 export const zIndex = { stickyBar: 10, dropdown: 30, overlay: 40, toast: 50 } as const;
 
 export const breakpoints = {
-  mobile: '≤ 640px: one column; sidebar replaced by the existing mobile navigation (VERIFY); targets ≥ 44px tall; drawers become full-screen sheets; modals full width with 16px margin',
-  tablet: '641–1023px: sidebar per existing shell behaviour (VERIFY); grids of 3–4 become 2',
+  mobile: '< 640px (Tailwind sm starts at 640): one column; existing mobile navigation drawer; targets ≥ 44px tall; new side drawers become full-screen sheets; modals full width with 16px margin',
+  tablet: '640–1023px: the shell is the same as mobile (it switches only at lg 1024); content grids of 3–4 become 2',
   desktop: '≥ 1024px: 240px sidebar + content; grids as drawn',
   wide: '≥ 1100px: Beyond AI answers tiles in 4 columns',
   prototypeFrames: 'The HTML draws each screen at 1240px (desktop) and 390px (mobile). It uses container queries so both fit on one page; implement with the app\'s existing viewport breakpoints (Tailwind sm 640 / md 768 / lg 1024, VERIFY).',
 } as const;
 
 export const layout = {
-  sidebar: 'width 240; padding 16 × 12; gap 12; surface; right border --border (existing shell, unchanged)',
-  topBar: 'height 56; padding 0 24; surface; bottom border --border; breadcrumbs left (body 14, --text-3, current page 500 --text), brand selector right (existing)',
-  content: 'padding 28 top/bottom × 32 sides; vertical gap 20 between blocks; max width per screen when given',
-  card: 'padding 24 (tight 16); radius 12; 1px --border; --surface',
+  sidebar: 'Existing shell, unchanged: width 224 (--app-sidebar-width), shown at ≥ 1024 only',
+  topBar: 'Existing: 48 tall at ≥ 1024 (padding 0 24), 56 below with a 44 px menu button and a separate 36 px breadcrumb row',
+  content: 'Follow the page you\'re adding to (token-map.md section 5: 28 × 32 on list pages, 32 × 24 with max widths on detail pages); below 1024 the app forces 16 px side padding',
+  card: 'padding 24 (tight 16); 1px --border; --surface. Radius: 8 as most existing cards use inline, 12 for new cards only if the page already uses rounded-lg',
 } as const;
 
 export const icons = {
@@ -288,7 +280,7 @@ export const scoreBands = {
   strong: { from: 30, color: '--good', label: 'Strong' },
   developing: { from: 10, to: 29, color: '--warn', label: 'Developing' },
   low: { to: 9, color: '--bad', label: 'Low' },
-  note: 'Use the bands already in the code (VERIFY in S00); these are the values the prototype assumes. Bands colour figures; the band word is always available as text (tooltip or label).',
+  note: 'Thresholds match the code (lib/scoring/headline-color.ts). App colours --success / --warning / --danger. D-BAND: the colour follows the figure shown (rounded), so 9.6 shown as "10%" is Developing, not Low. The band word is always visible text (existing HEADLINE_BAND_LABELS).',
 } as const;
 
 export const reachLabels = {
@@ -322,7 +314,7 @@ export const components: ComponentSpec[] = [
     states: { default: 'As production' },
     a11y: ['Existing landmarks: nav for sidebar, main for content'],
     responsive: ['Existing mobile behaviour (VERIFY); the prototype hides the sidebar at ≤ 640 and shows a menu button in the top bar'],
-    mapTo: 'Existing dashboard layout (app/(dashboard)/layout.tsx or equivalent, VERIFY). Do not restyle.',
+    mapTo: 'components/domain/app-shell.tsx (sidebar 224 at ≥ 1024, mobile drawer below). Do not restyle.',
   },
   {
     name: 'PageHeader', protoClass: '.h1 + .sub', purpose: 'Title, one subtitle line, actions on the right.',
@@ -338,7 +330,7 @@ export const components: ComponentSpec[] = [
     variants: { default: 'padding 24', tight: 'padding 16', flush: 'padding 0 (tables); header row padding 16 × 20', highlight: 'border colour color-mix(--accent 35%, --border) (confirm card P10 only)' },
     states: { default: 'Static' },
     a11y: ['Card title is a heading at the level that fits the page (h2 under the page h1)'],
-    mapTo: 'Existing Card (VERIFY)',
+    mapTo: 'No shared Card: existing cards are inline (radius 8, --border-default, --bg-elevated). New screens follow the page they sit in.',
   },
   {
     name: 'Button', protoClass: '.btn (.primary .accent .ghost .danger .sm)', purpose: 'Actions.',
@@ -360,7 +352,7 @@ export const components: ComponentSpec[] = [
     },
     a11y: ['Native <button>; icon-only buttons use IconButton', 'Disabled-with-reason buttons keep focusable via aria-disabled and show the reason in a Tooltip'],
     responsive: ['≤ 640: min-height 44 (sm too); footer and page actions full width'],
-    mapTo: 'Existing Button component and its variants (VERIFY names: default/secondary/ghost/destructive). Add "accent" only if no equivalent exists.',
+    mapTo: 'No shared Button exists (buttons are styled inline per screen, token-map TC rows). Create one shared button for new screens only, using these variants; don\'t migrate existing screens.',
   },
   {
     name: 'IconButton', protoClass: '.btn.sm.ghost[aria-label]', purpose: 'Icon-only actions: close, more, move up/down.',
@@ -408,7 +400,7 @@ export const components: ComponentSpec[] = [
     states: { hover: 'border --text-3', focus: 'border --accent + shadow.focus', error: 'border --bad; error text below (help size, --bad), aria-invalid', disabled: 'fill --surface-2, text --text-3', readOnly: 'fill --surface-2; no border change on hover' },
     a11y: ['Visible label (Field); aria-describedby → help and error ids'],
     responsive: ['≤ 640: height 44, font-size 16 (prevents iOS zoom)'],
-    mapTo: 'Existing Input',
+    mapTo: 'No shared Input: controls are styled inline (87 in 33 files); D-UI1 already gives them --border-control. New screens may add one shared input; never migrate existing ones.',
   },
   {
     name: 'Textarea', protoClass: 'textarea.inp', purpose: 'Multi-line text (question text, notes).',
@@ -439,7 +431,7 @@ export const components: ComponentSpec[] = [
     states: { hover: 'off → track --text-3; on → track --accent-strong', focus: 'shadow.focus around the track', disabled: 'opacity .45' },
     a11y: ['<button role="switch" aria-checked>', 'Accessible name from the row title ("NSW", "Include: Link your Yellow Pages…")', 'Locked: aria-disabled="true", name "Local, always on"'],
     responsive: ['≤ 640: hit area 44 × 44'],
-    mapTo: 'Existing Switch (VERIFY)',
+    mapTo: 'The two existing hand-built role="switch" buttons (settings/notifications, schedule-form) set the pattern; their off tracks use --border-control since S00.',
   },
   {
     name: 'Stepper', protoClass: '.stepper', purpose: 'Small integers (questions per reach, packs per brand, default count).',
@@ -464,7 +456,7 @@ export const components: ComponentSpec[] = [
     variants: { counts: '"{source} cited in {n} of {total} answers · {more} · audit #{n}"', quote: '"“{quote ≤ 200 chars}” · {engine} · “{question}”"' },
     states: { default: 'Read-only text, never editable' },
     a11y: ['Plain text; quotes in <q> or with quote marks'],
-    mapTo: 'Existing evidence line style on the audit page (VERIFY; production already uses mono for evidence)',
+    mapTo: 'New. Production answer quotes use a plain 2px left border (response-answer-text.tsx:43), not mono (TC-34); new evidence lines use this spec.',
   },
   {
     name: 'Banner', protoClass: '.banner (.info .warn .good)', purpose: 'Inline messages and one-tap suggestions.',
@@ -472,8 +464,8 @@ export const components: ComponentSpec[] = [
     variants: {
       neutral: 'fill --surface-2, border --border, icon disc --accent with --on-accent',
       info: 'fill --accent-tint, border color-mix(--accent 25%, transparent), icon disc --accent',
-      warn: 'fill --warn-tint, border color-mix(--warn 30%, transparent), icon disc --warn with --on-status',
-      good: 'fill --good-tint, border color-mix(--good 30%, transparent), icon disc --good with --on-status',
+      warn: 'fill --warn-tint, border color-mix(--warn 30%, transparent), icon disc --warn with --warning-fg',
+      good: 'fill --good-tint, border color-mix(--good 30%, transparent), icon disc --good with --success-fg',
     },
     states: { default: 'Static; dismissible banners have a "Not now" ghost button, never a bare ×' },
     a11y: ['Static banners are plain content; banners that appear after an action use role="status" (or role="alert" for errors)'],
@@ -514,9 +506,9 @@ export const components: ComponentSpec[] = [
   },
   {
     name: 'EngineDots', protoClass: '.eng', purpose: 'Last result per engine for one question.',
-    anatomy: ['Inline-flex gap 3; four 12 × 12 squares, radius 3, fixed engine order', 'Named: fill and border --good with a white ✓ (8px) glyph', 'Not named: fill --surface-3, border --border', 'Failed: diagonal hatch of --text-3 on --surface-3', 'Preceded by help text "Named you:"'],
-    states: { hover: 'Tooltip per dot: "{engine}: named you" / "{engine}: didn\'t name you" / "{engine}: answer failed"' },
-    a11y: ['role="img" aria-label "Named you on {list}; not on {list}; failed on {list}"', 'Fill, glyph and hatch differ, so colour is never the only signal'],
+    anatomy: ['Inline-flex gap 3; four 12 × 12 squares, radius 3, fixed engine order', 'Named: fill and border --good with a white ✓ (8px) glyph', 'Not named: fill --surface-3, border --border', 'Unverified (D-UI6): fill --warn-tint, border --warn, "?" glyph 8px --warn (the audit page\'s "Maybe": mentioned, not confirmed as the business)', 'Failed: diagonal hatch of --text-3 on --surface-3', 'Preceded by help text "Named you:"'],
+    states: { hover: 'Tooltip per dot: "{engine}: named you" / "{engine}: mentioned, not confirmed as you" / "{engine}: didn\'t name you" / "{engine}: answer failed"' },
+    a11y: ['role="img" aria-label "Named you on {list}; unconfirmed on {list}; not on {list}; failed on {list}"', 'Fill, glyph and hatch differ, so colour is never the only signal'],
     mapTo: 'New',
   },
   {
@@ -533,7 +525,7 @@ export const components: ComponentSpec[] = [
     states: { default: 'Opens with motion.overlay', loading: 'Confirm button loading state; Cancel stays enabled', error: 'Inline banner above the footer' },
     a11y: ['role="dialog" aria-modal="true" aria-labelledby the title', 'Focus trapped; initial focus as each screen says; Esc closes unless a request is in flight; focus returns to the opener'],
     responsive: ['≤ 640: full width minus 16px margins, max-height 100dvh − 32, body scrolls, footer sticky'],
-    mapTo: 'Existing Dialog',
+    mapTo: 'components/shared/confirm-dialog.tsx pattern (role, focus trap, Esc, focus return). No Radix is used: don\'t introduce it.',
   },
   {
     name: 'Drawer', protoClass: '.drawer', purpose: 'Side panel form over the current page (add question, history).',
@@ -541,7 +533,7 @@ export const components: ComponentSpec[] = [
     states: { default: 'Opens with motion.drawer' },
     a11y: ['As Modal (role="dialog", focus trap, Esc, return focus)'],
     responsive: ['≤ 640: full-screen sheet; footer sticky; primary button full width'],
-    mapTo: 'Existing Sheet (VERIFY)',
+    mapTo: 'No right-hand sheet exists: build one from the mobile-nav drawer pattern (components/domain/mobile-nav-drawer.tsx: focus trap, scrim, 200ms slide), mirrored to the right.',
   },
   {
     name: 'CheckItem', protoClass: '.check (i.ok i.wn i.no)', purpose: 'Validation and progress lines.',
@@ -581,10 +573,10 @@ export const components: ComponentSpec[] = [
   },
   {
     name: 'LockMarker', protoClass: '.lock', purpose: 'Shows a plan-gated control.',
-    anatomy: ['Inline; type 11.5/16 --text-3; border 1px dashed --border-strong; radius 6; padding 1 × 6; text = plan name ("Growth", "Agency")', 'Followed by link "Upgrade" to the existing billing page'],
+    anatomy: ['Inline; type 11.5/16 --text-3; border 1px dashed --border-strong; radius 6; padding 1 × 6; text = plan name ("Growth", "Agency")', 'Followed by link "Upgrade" to /pricing (D-UI5; 23 existing uses through PlanLockedCard)'],
     states: { default: 'The gated control is disabled (aria-disabled) and its tooltip says "Available on {plan} and up"' },
     a11y: ['Marker text is read with the control ("Write your own, available on Growth and up")'],
-    mapTo: 'Existing plan-gate pattern if any (VERIFY), else new',
+    mapTo: 'Existing PlanLockBadge / PlanLockedCard (token-map section 3)',
   },
   {
     name: 'Kbd', protoClass: '.kbd', purpose: 'Keyboard hints.',
@@ -599,14 +591,14 @@ export const components: ComponentSpec[] = [
     states: { default: 'Closed until typing or ↓', loading: 'Not needed (static list in memory)', empty: 'Option text "No match for “{query}”" + the custom type option', disabled: 'Custom option shows LockMarker when the plan is below Growth' },
     a11y: ['ARIA 1.2 combobox: role="combobox" on the input, aria-expanded, aria-controls the listbox, aria-activedescendant; ↑/↓ move, Enter selects, Esc closes, Home/End', 'Result count announced politely ("4 results")'],
     responsive: ['≤ 640: listbox full width; max-height 50dvh'],
-    mapTo: 'Existing Command/Combobox (VERIFY)',
+    mapTo: 'No combobox library: build on the workspace-switcher listbox pattern (components/domain/agency/workspace-switcher.tsx), adding the ARIA 1.2 combobox input.',
   },
   {
     name: 'Menu', protoClass: '.menu', purpose: 'Row overflow menus (•••).',
     anatomy: ['As the listbox surface; items 36 tall, padding 8 × 10, radius 6, body type; destructive items --bad'],
     states: { hover: 'item fill --surface-2', focus: 'item fill --accent-tint' },
     a11y: ['role="menu" with menuitems; arrow keys; Esc returns focus to the button'],
-    mapTo: 'Existing DropdownMenu',
+    mapTo: 'The account menu pattern (role="menu", components/domain/app-sidebar.tsx). No Radix.',
   },
   {
     name: 'StepIndicator', protoClass: '.steps', purpose: 'Steps of the confirm flow.',
@@ -635,21 +627,21 @@ export const components: ComponentSpec[] = [
     anatomy: ['Blocks fill --surface-2; radius 6 (text lines 12 tall), 8 (controls), 12 (cards)', 'Pulse motion.skeleton', 'Row skeletons repeat the final row grid and height'],
     states: { default: 'Shown after 150ms of loading (avoid flashes); replaced without layout shift' },
     a11y: ['Container aria-busy="true"; a visually hidden "Loading {thing}"'],
-    mapTo: 'Existing Skeleton',
+    mapTo: 'Tailwind animate-pulse blocks on --bg-subtle (components/shared/skeleton/* exist but are unused; either is fine).',
   },
   {
     name: 'Toast', protoClass: '(existing)', purpose: 'Confirmation after an action that leaves the page as it was.',
     anatomy: ['Existing toast component and position'],
     states: { success: 'Copy per screen', error: 'Copy per screen, with Retry when it makes sense' },
     a11y: ['Existing (role="status")'],
-    mapTo: 'Existing toast (VERIFY library)',
+    mapTo: 'No toast is mounted (D-UI4): render the same copy as inline role="status" feedback next to the action (components/shared/save-feedback.tsx). Don\'t mount sonner.',
   },
   {
     name: 'Tooltip', protoClass: '(existing)', purpose: 'Short explanations on hover and focus.',
     anatomy: ['Existing tooltip; max width 280; body 12.5'],
     states: { default: 'Opens on hover after 300ms and immediately on focus; Esc closes' },
     a11y: ['aria-describedby; never the only place for required information on touch devices (repeat in help text where it matters)'],
-    mapTo: 'Existing Tooltip',
+    mapTo: 'InfoTip (components/domain/shared/info-tip.tsx): shown on hover, focus or tap. Never rely on a native title alone.',
   },
   {
     name: 'PdfPage', protoClass: '.pdf (.ph .eyebrow h5 .lead .grp .act .ev .pp .t4 .tl .pf)', purpose: 'react-pdf A4 pages (P09).',
@@ -714,7 +706,7 @@ const P01: ScreenSpec = {
   id: 'P01', title: 'Brand settings: reach, aliases, ABN', route: '/brands/:id (Brand settings)', sprints: ['S00', 'S01', 'S04', 'S10'],
   flags: ['visibility_reach', 'abn_suggestion', 'question_packs'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor edit; viewer and client portal read-only', plans: 'All plans; reach limit Starter 1, Growth 2, Agency and up 4 (D-QI8)' },
+  access: { roles: 'Owners and admins edit (manage_brands); other roles and the client portal read-only (lib/governance/permissions.ts)', plans: 'All plans; reach limit Starter 1, Growth 2, Agency and up 4 (D-QI8)' },
   layout: [
     'AppShell; breadcrumbs "Workspace › Brands › {brand}"; content column gap 20',
     'Card 1 "Brand settings": grid 2 columns gap 16 (name, domain); then "Also known as"; then ABN field; vertical gap 16',
@@ -724,8 +716,9 @@ const P01: ScreenSpec = {
     { id: 'P01.identity', component: 'Card', copy: 'Brand settings' },
     { id: 'P01.identity.name', component: 'Field', variant: 'Input', copy: 'Brand name|Suggested from your website\'s name. Edit if it\'s different.', bind: 'brands.name', behaviour: ['Required; trimmed; existing length limit (VERIFY)', 'Help line shows only while the name equals the suggestion made when the brand was added (S00 Part 4)'] },
     { id: 'P01.identity.domain', component: 'Field', variant: 'Input', copy: 'Domain', bind: 'brands.domain', behaviour: ['Existing behaviour, unchanged'] },
-    { id: 'P01.aliases', component: 'Field', variant: 'Chip removable + Button ghost sm', copy: 'Also known as|+ Add a name|Other ways AI might write your name. Used to recognise mentions.', bind: 'brands.aliases', behaviour: ['Up to 10 names, each 2–60 characters, unique ignoring case, not equal to the brand name', '"+ Add a name" turns into an inline Input (36 tall) with Enter to add and Esc to cancel', 'Suggested aliases from S00 Part 4 are pre-filled when the brand is added; never added silently later'] },
-    { id: 'P01.abn', component: 'Banner', variant: 'info', copy: 'Is this your ABN?|{abn} · {tradingName} · {entityName} · {state} {postcode} · {status}|Found on the Australian Business Register by your business name.|Confirm|Not mine', bind: 'brands.abn_suggestion (S01 Part 8)', showWhen: 'flag abn_suggestion on AND brands.abn is empty AND a confident ABR match exists AND not dismissed', style: 'ABN line type evidence without fill (mono 12.5)', behaviour: ['Confirm (primary sm) writes the ABN, queues the entity check, replaces the banner with the ABN in a read-only Input and toast "ABN saved. We\'ll check the register now."', 'Not mine (ghost sm) hides it for this brand permanently'] },
+    { id: 'P01.aliases', component: 'Field', variant: 'Chip removable + Button ghost sm', copy: 'Also known as|+ Add a name|Other ways AI might write your name. Used to recognise mentions.', bind: 'brands.aliases', behaviour: ['Up to 10 names, each 2–60 characters, unique ignoring case, not equal to the brand name ignoring case and spaces', 'Never suggest the name without spaces or the domain stem: detection already matches those (LLD section 0, #5)', '"+ Add a name" turns into an inline Input (36 tall) with Enter to add and Esc to cancel', 'Suggested aliases from S00 Part 4 are pre-filled when the brand is added; never added silently later'] },
+    { id: 'P01.abn', component: 'Banner', variant: 'info', copy: 'Is this your ABN?|{abn} · {entityName} · {state} {postcode} · {status}|Found on the Australian Business Register by your business name.|Confirm|Not mine', bind: 'brands.abn_suggestion (S01 Part 8)', showWhen: 'flag abn_suggestion on AND brands.abn is empty AND a confident ABR match exists AND not dismissed', style: 'ABN line type evidence without fill (mono 12.5)', behaviour: ['Confirm (primary sm) writes the ABN, queues the entity check, replaces the banner with the ABN in a read-only Input and inline status "ABN saved. We\'ll check the register now."', 'Not mine (ghost sm) hides it for this brand permanently'] },
+    { id: 'P01.abnField', component: 'Field', variant: 'Input', copy: 'ABN|11 digits, from the Australian Business Register|Enter the 11 digits of an ABN.|This isn\'t a valid ABN. Check the digits.', bind: 'brands.abn (exists; PATCH /api/brands/:id gains it in S01)', behaviour: ['Accepts spaces as typed and saves digits only; validated with the ABN checksum on the client and the server', 'Empty is allowed (no ABN); saving a new ABN queues the entity check', 'Read-only for roles without manage_brands'] },
     { id: 'P01.reach', component: 'Card', copy: 'Where do you want to be visible?|Local is always on. Add NSW, Australia or worldwide to see whether AI recommends you beyond your area. Each area gets its own questions and its own score.|{planName}: up to {reachLimit} areas', showWhen: 'flag visibility_reach on', behaviour: ['"NSW" and "Australia" in the help text come from lib/markets (the brand\'s state and country)'] },
     { id: 'P01.reach.suggest', component: 'Banner', variant: 'info', copy: 'Your website says you work across {scope} ("{quote}"). Add {reachList}?|Add|Not now', bind: 'GET /reaches → suggestions[0]', showWhen: 'a suggestion exists and was not dismissed', behaviour: ['Add (accent sm) switches the listed reaches on in the form (not saved until Save)', 'Not now (ghost sm) stores the dismissal per brand and reason', 'Never enables a reach by itself'] },
     { id: 'P01.reach.list', component: 'List' },
@@ -741,8 +734,8 @@ const P01: ScreenSpec = {
   states: {
     loading: { show: 'Skeleton: card 1 with two 36px fields and a chip row; card 2 with title lines and four 64px reach rows' },
     error: { show: 'Banner warn in place of the card that failed', copy: 'We couldn\'t load these settings. Check your connection and try again.', action: 'Retry' },
-    noPermission: { show: 'Inputs read-only, toggles and steppers disabled, actions hidden; banner neutral at the top of each card', copy: 'View only. Owners, admins and editors can change these settings.' },
-    planLock: { show: 'Toggles beyond the plan\'s reach limit stay off and disabled, with LockMarker "{plan}" and an "Upgrade" link on the row', copy: 'Available on {plan} and up' },
+    noPermission: { show: 'Inputs read-only, toggles and steppers disabled, actions hidden; banner neutral at the top of each card', copy: 'View only. Owners and admins can change these settings.' },
+    planLock: { show: 'Toggles beyond the plan\'s reach limit stay off and disabled, with LockMarker "{plan}" and an "Upgrade" link to /pricing on the row', copy: 'Available on {plan} and up' },
     overLimit: { show: '402 from PUT: inline error under the total', copy: 'Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack.' },
     flagOff: { show: 'visibility_reach off: card 2 not rendered (brand settings as today plus aliases). abn_suggestion off: no ABN banner.' },
   },
@@ -786,7 +779,7 @@ const P02: ScreenSpec = {
   id: 'P02', title: 'Brand → Questions tab (view and edit)', route: '/brands/:id/questions (edit mode ?edit=1)', sprints: ['S02', 'S03', 'S04', 'S09'],
   flags: ['question_library', 'agency_questions', 'visibility_reach', 'qi_learning'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'All members view; owner, admin, editor edit; viewer and client portal view only', plans: 'View all plans. Edit: Starter swaps/removes/reorders among suggestions only (D4); Growth and up write their own. Free: suggestions hidden.' },
+  access: { roles: 'All members view; owners, admins and analysts edit (edit_brand_data); other roles and the client portal view only', plans: 'View all plans. Edit: Starter swaps/removes/reorders among suggestions only (D4); Growth and up write their own. Free: suggestions hidden.' },
   layout: [
     'AppShell; breadcrumbs "Workspace › Brands › {brand} › Questions"',
     'PageHeader: title (pageTitle) + subtitle; actions History (secondary) and Edit questions (primary)',
@@ -807,13 +800,13 @@ const P02: ScreenSpec = {
     { id: 'P02.section.branded', component: 'List', copy: 'Names your business|{n} questions · not scored|Shown in results, never counted', behaviour: ['Rows use variant branded with pill "Names your business · not scored"; never draggable into reach sections'] },
     { id: 'P02.suggestions', component: 'Card', variant: 'tight', copy: 'Suggestions|{sourceLine}|Add', bind: 'GET /questions → suggestions', showWhen: 'plan is not Free', behaviour: ['{sourceLine}: before S06 "From your business type"; with website analysis "From your website"; adds ", listings" (S07) and " and local search demand" (S08) as those layers are on', 'Each suggestion row: question text, reason chips (Service: {service} · {sourcePath}, Demand: {level}, Pre-test: named {n} businesses)', 'Add (secondary sm) disabled in view mode with tooltip "Edit questions to add"; in edit mode adds to the draft in the suggestion\'s reach'] },
     { id: 'P02.addQuestion', component: 'Button', variant: 'secondary sm', copy: '+ Add question', showWhen: 'edit mode, at the foot of each reach section', behaviour: ['Opens P03 with the reach preselected', 'Starter: LockMarker "Growth" instead of the button'] },
-    { id: 'P02.draftBar', component: 'DraftBar', copy: 'Draft|+{added} added|−{removed} removed|{moved} moved|{everyday} of {limit} everyday · {branded} of 3 naming you|No changes yet|Discard|Apply from the next audit', showWhen: 'edit mode', behaviour: ['Chips only for non-zero counts; "No changes yet" when empty and Apply disabled', 'Discard: existing confirm dialog "Discard your changes?" (Keep editing / Discard) → back to view mode', 'Apply opens P04'] },
+    { id: 'P02.draftBar', component: 'DraftBar', copy: 'Draft|+{added} added|−{removed} removed|{moved} moved|{everyday} of {limit} everyday · {branded} of 5 naming you|No changes yet|Discard|Apply from the next audit', showWhen: 'edit mode', behaviour: ['Chips only for non-zero counts; "No changes yet" when empty and Apply disabled', 'Discard: existing confirm dialog "Discard your changes?" (Keep editing / Discard) → back to view mode', 'Apply opens P04'] },
   ],
   states: {
     loading: { show: 'Skeleton: header lines, banner block, two sections with header + 3 rows each (row height 72)' },
     empty: { show: 'Card with one sentence and one action', copy: 'No questions yet. Confirm your business details to create them.', action: 'Confirm details' },
     error: { show: 'Banner warn replacing the lists', copy: 'We couldn\'t load the questions. Try again.', action: 'Retry' },
-    noPermission: { show: 'View mode only; no Edit button; banner neutral under the header', copy: 'View only. Owners, admins and editors can change questions.' },
+    noPermission: { show: 'View mode only; no Edit button; banner neutral under the header', copy: 'View only. Owners, admins and analysts can change questions.' },
     planLock: { show: 'Starter in edit mode: "+ Add question" replaced by LockMarker "Growth" + Upgrade; Free: no suggestions card', copy: 'Writing your own questions is available on Growth and up.' },
     conflict: { show: '409 from apply: banner warn above the draft bar; draft kept', copy: 'Someone else changed these questions. Reload to see their version.', action: 'Reload' },
     overLimit: { show: '402 from apply: inline error above the draft bar', copy: 'Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack.' },
@@ -824,7 +817,7 @@ const P02: ScreenSpec = {
     { on: 'Drag a row, or focus its handle and press Alt+↑/↓', then: 'Row moves within its section; live region "Moved to position {n} of {m}"; draft counts "{n} moved"' },
     { on: 'Leave the page with a non-empty draft', then: 'Prompt "Keep your draft?" Keep / Discard; draft kept in sessionStorage for this tab (convenience only; the server validates on apply)' },
     { on: 'Apply from the next audit', then: 'P04 modal' },
-    { on: 'Apply succeeds', then: 'Toast "Questions applied. The next audit will use version {v}."; view mode; header shows the new version' },
+    { on: 'Apply succeeds', then: 'Inline status "Questions applied. The next audit will use version {v}."; view mode; header shows the new version' },
   ],
   api: [
     { call: 'GET /api/brands/:id/questions', use: 'One request for the whole tab: { set, library, suggestions, limits }' },
@@ -859,7 +852,7 @@ const P03: ScreenSpec = {
   id: 'P03', title: 'Add question drawer', route: 'Drawer over /brands/:id/questions?edit=1', sprints: ['S03'],
   flags: ['agency_questions'],
   frame: { kind: 'drawer', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'Growth and up' },
+  access: { roles: 'Owners, admins and analysts (edit_brand_data)', plans: 'Growth and up' },
   layout: ['Drawer 480 on the right; column gap 16; title row; textarea field; area segmented; check list (gap 8); info banner; footer pinned to the bottom'],
   nodes: [
     { id: 'P03.title', component: 'Text', copy: 'Add a question', style: 'dialogTitle' },
@@ -874,7 +867,7 @@ const P03: ScreenSpec = {
     ].join('|'), behaviour: [
       'Always-shown lines (pass ✓ / fail ✕). Fail lines turn --bad and block Add',
       'Naming the business switches line 3 to warn: "Names your business, so it\'s shown but not scored" and the label preview to the branded pill',
-      'Conditional lines: warn "No place in the question. AI answers differ by place, and Gemini can\'t be told your location." + accent sm button "Add “in {place}”" (not for Worldwide); fail "Already 3 questions name your business. Remove one first."; fail "This reads like an instruction to the AI, not a customer\'s question."; warn "Names {competitor}. That\'s fine: it\'s counted as a comparison question."',
+      'Conditional lines: warn "No place in the question. AI answers differ by place, and Gemini can\'t be told your location." + accent sm button "Add “in {place}”" (not for Worldwide); fail "Already 5 questions name your business. Remove one first."; fail "This reads like an instruction to the AI, not a customer\'s question."; warn "Names {competitor}. That\'s fine: it\'s counted as a comparison question."',
     ] },
     { id: 'P03.label', component: 'Banner', variant: 'neutral', copy: 'It will be labelled {pill} on the audit page and in reports.', behaviour: ['{pill} = Written by {agencyName} (agency) or Names your business · not scored (branded)'] },
     { id: 'P03.footer', component: 'Layout', copy: 'Added to your draft. Nothing changes until you apply.|Add to draft', behaviour: ['Add to draft (primary) disabled while a blocking check fails or checks are pending', 'On add: drawer closes, the new row appears at the end of its section with focus, live region "Question added to your draft"'] },
@@ -906,7 +899,7 @@ const P03: ScreenSpec = {
 const P04: ScreenSpec = {
   id: 'P04', title: 'Apply changes modal', route: 'Modal over P02', sprints: ['S03'], flags: ['agency_questions'],
   frame: { kind: 'modal', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'All plans with edit rights' },
+  access: { roles: 'Owners, admins and analysts (edit_brand_data)', plans: 'All plans with edit rights' },
   layout: ['Modal 560; title; subtitle; change list (gap 8, margin 16 0); warn banner; footer (margin-top 20)'],
   nodes: [
     { id: 'P04.title', component: 'Text', copy: 'Apply new questions from the next audit?', style: 'dialogTitle' },
@@ -920,7 +913,7 @@ const P04: ScreenSpec = {
     conflict: { show: '409: modal closes; P02 shows the conflict banner', copy: 'Someone else changed these questions. Reload to see their version.' },
     overLimit: { show: '402: inline error above the footer; modal stays open', copy: 'Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack.' },
     error: { show: '422 or network: inline banner above the footer', copy: 'Some questions didn\'t pass the checks. Fix them in your draft and try again.' },
-    success: { show: 'Modal closes; toast', copy: 'Questions applied. The next audit will use version {to}.' },
+    success: { show: 'Modal closes; inline status above the Questions list (D-UI4)', copy: 'Questions applied. The next audit will use version {to}.' },
   },
   interactions: [{ on: 'Apply', then: 'POST question-sets with baseVersion; 201 → success state' }],
   api: [{ call: 'POST /api/brands/:id/question-sets', use: '{ baseVersion, items[{questionId?|text, reach, position}], count } → 201 {version}; 409; 402; 422' }],
@@ -937,7 +930,7 @@ const P04: ScreenSpec = {
 const P05: ScreenSpec = {
   id: 'P05', title: 'Workspace → Questions settings', route: '/settings/questions', sprints: ['S03', 'S04', 'S10'], flags: ['agency_questions'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor (viewer: no access, existing settings rule)', plans: 'Growth and up edit; Starter sees counts and suggestions only' },
+  access: { roles: 'Owners and admins (existing settings rule)', plans: 'Growth and up edit; Starter sees counts and suggestions only' },
   layout: ['AppShell; breadcrumbs "Workspace › Settings › Questions"; PageHeader; Defaults card (grid 3 columns gap 16); Brands card (flush) with header row and Table'],
   nodes: [
     { id: 'P05.header', component: 'PageHeader', copy: 'Questions|Choose how many questions each brand is audited on, and write your own. Questions always belong to one brand.' },
@@ -957,8 +950,8 @@ const P05: ScreenSpec = {
     flagOff: { show: 'agency_questions off: page not in the settings navigation; route returns the existing 404' },
   },
   interactions: [
-    { on: 'Copy questions from another brand', then: 'Modal: Source brand and Target brand selects (same workspace, different brands) → Copy; copied questions land as suggestions in the target\'s library with places swapped where they match; toast "Copied {n} questions to {target} as suggestions. Review them in its Questions tab."' },
-    { on: 'Change a default', then: 'Saves on change (debounced 500ms) with toast "Saved"; never touches existing brands' },
+    { on: 'Copy questions from another brand', then: 'Modal: Source brand and Target brand selects (same workspace, different brands) → Copy; copied questions land as suggestions in the target\'s library with places swapped where they match; inline status "Copied {n} questions to {target} as suggestions. Review them in its Questions tab."' },
+    { on: 'Change a default', then: 'Saves on change (debounced 500ms) with inline "Saved" status (D-UI4); never touches existing brands' },
   ],
   api: [
     { call: 'Existing workspace settings route or new GET/PUT /api/settings/questions (S03 decides; name from code)', use: 'Defaults' },
@@ -977,7 +970,7 @@ const P05: ScreenSpec = {
 const P06: ScreenSpec = {
   id: 'P06', title: 'Add brand wizard, step 2: what does the business do?', route: '/brands/wizard (step 2)', sprints: ['S05'], flags: ['business_taxonomy'],
   frame: { kind: 'app', width: 1240, contentMaxWidth: 860, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'All; custom types Growth and up (D5)' },
+  access: { roles: 'Roles that can add brands today (manage_brands: owners and admins)', plans: 'All; custom types Growth and up (D5)' },
   layout: ['Content max width 860; title block; 4-segment step bar (gap 6); step card; footer row Back / Continue'],
   nodes: [
     { id: 'P06.header', component: 'PageHeader', copy: 'Add a brand|Step 2 of {steps} · about 3 minutes in total', style: 'title type display', behaviour: ['{steps} from the existing wizard (VERIFY)'] },
@@ -1022,12 +1015,12 @@ const P07: ScreenSpec = {
     { id: 'P07.reachRow.tile', component: 'StatTile', variant: 'score', copy: '{reachLabel}|{pct}%|{m} of {n} answers · 95% CI {lo}–{hi}%|Small sample', bind: 'audit_reach_results', behaviour: ['One tile per reach in reach order; grid 3 (4 when Worldwide is on)', 'Small sample pill when the reach has < 5 questions (tooltip sentence)'] },
     { id: 'P07.mix', component: 'Text', copy: '{total} questions: {everyday} everyday ({ai} AI-suggested, {agency} written by {agencyName}) and {branded} that name the business.', style: 'help, margin-top 12', showWhen: 'always (S03)', behaviour: ['Omit parts that are zero ("13 questions: 13 everyday." for an untouched brand)'] },
     { id: 'P07.split', component: 'Text', copy: 'AI-suggested questions: {pct}% ({m} of {n}) · Written by {agencyName}: {pct}% ({m} of {n})', style: 'help', showWhen: 'both sources exist in this audit (D2)' },
-    { id: 'P07.findings', component: 'Card', copy: 'Why, and what to do next', behaviour: ['Existing rules a–e plus f–i (LLD 8.1.5); also listed in Recommended actions'] },
-    { id: 'P07.finding', component: 'StatTile', variant: 'finding', copy: '{title}|{priority}|{explanation}|{evidence}', behaviour: ['Priority pill: High (bad), Medium (warn), Strength (good)', 'Rule g quotes the matched sentence (≤ 200 chars) with engine and question', 'Never shows "No finding rule matched"'] },
+    { id: 'P07.findings', component: 'Card', copy: 'Why, and what to do next', behaviour: ['Existing rules a–f plus g–j (LLD 8.1.5); also listed in Recommended actions'] },
+    { id: 'P07.finding', component: 'StatTile', variant: 'finding', copy: '{title}|{priority}|{explanation}|{evidence}', behaviour: ['Priority pill: High (bad), Medium (warn), Strength (good)', 'Rule h quotes the matched sentence (≤ 200 chars) with engine and question', 'Never shows "No finding rule matched"'] },
     { id: 'P07.beyond', component: 'Card', copy: 'Beyond AI answers|Separate from the Visibility score', showWhen: 'flag report_v2 on' },
     { id: 'P07.beyond.identity', component: 'StatTile', variant: 'status', copy: 'Business identity|ABN verified|{status} · {entityName} · checked {date}|.au domain ✓ · Wikipedia: {wikiStatus}', behaviour: ['No ABN: neutral pill "No ABN on file" + link "Add your ABN" (brand settings)'] },
-    { id: 'P07.beyond.youtube', component: 'StatTile', variant: 'status', copy: 'YouTube|No channel linked|Add your channel', behaviour: ['Linked: "Channel found" (good) + "{videos} videos · last upload {date}" + "Videos cited by AI in this audit: {n}"'] },
-    { id: 'P07.beyond.crawlers', component: 'StatTile', variant: 'status', copy: 'AI crawlers|Search crawlers allowed|{allowed} of {total} · checked {date}|Visits: not measured · upload logs', behaviour: ['Blocked crawlers: warn pill "{n} search crawlers blocked" + names', 'Visits measured: "Visits in 30 days: {n} ({bots})"'] },
+    { id: 'P07.beyond.youtube', component: 'StatTile', variant: 'status', copy: 'YouTube|No channel linked|Add your channel', behaviour: ['Linked: "Channel found" (good) + "{videos} videos · last upload {date}" (nothing measures which videos AI cited, so no such line)', 'Check unavailable (no YOUTUBE_API_KEY or the check switched off): neutral "Not checked"'] },
+    { id: 'P07.beyond.crawlers', component: 'StatTile', variant: 'status', copy: 'AI crawlers|Search crawlers allowed|{allowed} of {total} · checked {date}|Visits: not measured · upload server logs', behaviour: ['Blocked crawlers: warn pill "{n} search crawlers blocked" + names', 'Visits measured: "Visits in 30 days: {n} ({bots})"'] },
     { id: 'P07.beyond.technical', component: 'StatTile', variant: 'score', copy: 'Website technical|{score} of 74|checked {date} · v4 scoring', style: 'value 22/28 mono 600', behaviour: ['Uses the existing technical audit; not run: neutral "Not checked yet" + "Run check"'] },
   ],
   states: {
@@ -1044,7 +1037,7 @@ const P07: ScreenSpec = {
   acceptance: [
     'Local-only brand: headline number identical to today; label "Local · {city}"; no reach row',
     'Sum of reach tiles\' mentions/answers equals the headline counts',
-    'A 0% audit (TechCore #52 fixture) shows findings f–i and Recommended actions are not empty',
+    'A 0% audit (TechCore #52 fixture) shows findings g–j and Recommended actions are not empty',
     'Every Beyond tile shows its own date; none shows a 0 for "not measured"',
   ],
   lld: ['8.1.4', '8.1.5', '8.3.3', '8.4.6', '10'],
@@ -1053,7 +1046,7 @@ const P07: ScreenSpec = {
 const P08: ScreenSpec = {
   id: 'P08', title: 'Report contents panel with report type', route: '/brands/:id/reports → Generate report (modal)', sprints: ['S01'], flags: ['report_v2'],
   frame: { kind: 'modal', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'Tiers by plan (D-RT1): Starter Basic; Growth Basic and Standard; Agency, Agency Pro, Enterprise all three, chosen per report (D-RT2). Curation Agency and up (D1)' },
+  access: { roles: 'Owners, admins and analysts (generate_reports)', plans: 'Reports are Growth and up (D-RT1 revised): Growth Basic and Standard; Agency, Agency Pro, Enterprise all three, chosen per report (D-RT2). Curation Agency and up (D1)' },
   layout: [
     'Modal 1100, two columns 1fr | 320, padding 0',
     'Left (padding 24, right border): header; report type picker (margin-top 16); then by tier: Standard and Enhanced show "What to do next · measured", "Recommended by {agency}" + "+ Add your own action", "Sections"; Enhanced also shows "Checks before this report"; Basic shows one help line instead',
@@ -1070,13 +1063,13 @@ const P08: ScreenSpec = {
     { id: 'P08.checks', component: 'List', copy: 'Checks before this report|Business identity (ABN)|YouTube|AI crawler access|Website technical|Your directory profiles|Checked {age} · will reuse|Checked {age} · will run again (about {duration})|From audit #{n}|No channel linked · shown as not linked|Before an Enhanced report, checks older than their window run again. None of them change the Visibility score.', showWhen: 'tier = enhanced', bind: 'latest result per check vs D-RT4 windows (identity 30 days, crawler access 7, YouTube 7, technical 30)', behaviour: ['Rows 40 tall, padding 10 × 16; label body; status help on the right; "will run again" in --warn', 'Read-only: the windows are fixed (D-RT4)'] },
     { id: 'P08.sections', component: 'Layout', copy: 'Sections|Done since the last report ({n} items)|General advice, not drawn from this audit', showWhen: 'tier = standard or enhanced', behaviour: ['Two Toggles, both on by default; "Done since" hidden when n = 0; general advice lists evidence-backed items only (8.8.5)', 'No "Beyond AI answers" toggle: the tier decides (C-23)'] },
     { id: 'P08.outline', component: 'Layout', copy: 'Report outline · {tierName}|Cover|Summary|Engine by engine|Google Search AI|Where AI looks|Competitors|Why your score is what it is|Why, and what to do next · {n} actions|Beyond AI answers|Over time|Method and notes', behaviour: ['Basic: "Why your score is what it is" and no Beyond AI answers; Standard: "Why, and what to do next · {n} actions"; Enhanced: plus "Beyond AI answers"', 'Pages added by the tier in 600 --text'] },
-    { id: 'P08.footer', component: 'Layout', copy: 'Your choices are saved for {brand} and used next time. Generated reports never change afterwards.|Generate {tierName} report|Save without generating', behaviour: ['Generate (primary): existing render job with { basisAuditId, tier, contents }; panel closes; the P17 row shows "Generating…" (Enhanced: "Running checks…" first)', 'Save without generating (ghost): saves report_action_choices / report_brand_preferences (with default_tier); toast "Report contents saved."'] },
+    { id: 'P08.footer', component: 'Layout', copy: 'Your choices are saved for {brand} and used next time. Generated reports never change afterwards.|Generate {tierName} report|Save without generating', behaviour: ['Generate (primary): the existing generate route with { periodType, tier, contents } (the server picks the basis audit, as today); panel closes; the P17 row shows "Generating…" (Enhanced: "Running checks…" first)', 'Save without generating (ghost): saves report_action_choices / report_brand_preferences (with default_tier); inline status "Report contents saved." (D-UI4)'] },
   ],
   states: {
     loading: { show: 'Skeleton: three tier cards, then rows in the left column; outline static' },
     empty: { show: 'No measured actions (Standard or Enhanced)', copy: 'No measured actions for this audit. You can still add your own.' },
     error: { show: 'Inline banner above the footer', copy: 'We couldn\'t save your choices. Try again.' },
-    planLock: { show: 'Starter: Standard locked "Growth", Enhanced locked "Agency". Growth: Enhanced locked "Agency"; toggles, reorder, notes and agency actions disabled with LockMarker "Agency"; Generate enabled', copy: 'Available on {plan} and up' },
+    planLock: { show: 'Growth: Enhanced locked "Agency" with Upgrade to /pricing; toggles, reorder, notes and agency actions disabled with LockMarker "Agency"; Generate enabled', copy: 'Available on {plan} and up' },
     overLimit: { show: '402 report_tier_not_in_plan (plan changed while open): inline banner; the picker falls back to the highest allowed tier', copy: 'Your plan now includes reports up to {tierName}. Choose another report type.' },
     flagOff: { show: 'report_v2 off: "Generate report" works as today (no panel, today\'s report)' },
   },
@@ -1085,7 +1078,7 @@ const P08: ScreenSpec = {
     { on: 'Toggle, reorder or note', then: 'Outline updates immediately; nothing is saved until Generate or Save' },
   ],
   api: [
-    { call: 'Existing generate route + { tier }', use: '402 report_tier_not_in_plan above the plan; the server derives the page set from the tier and drops anything else' },
+    { call: 'POST /api/brands/:id/reports/generate { periodLabel?, periodType, tier, contents }', use: '402 report_tier_not_in_plan above the plan; the server derives the page set from the tier and drops anything else' },
     { call: 'GET/PUT /api/brands/:id/report-preferences', use: 'default_tier, section toggles, action choices' },
   ],
   a11y: ['Tier picker is a radiogroup ("Report type"); arrow keys move and select; locked cards are aria-disabled with the plan in their name', 'Dialog with initial focus on the selected tier card', 'Move buttons named with the item title; live region announces new positions'],
@@ -1107,7 +1100,7 @@ const P09: ScreenSpec = {
   layout: ['A4 pages with the existing header/footer; agency branding unchanged', 'Basic: today\'s pages (Diagnosis titled "Why your score is what it is", findings only). Standard: page 05 "Why, and what to do next". Enhanced: plus page 06 "Beyond AI answers"'],
   nodes: [
     { id: 'P09.cover', component: 'PdfPage', variant: 'cover (existing)', copy: '{TIER NAME}', showWhen: 'Agency and up (D-RT3)', style: 'Eyebrow style (JetBrains Mono 600 8.5/12, tracking .14em, #8A5A00) on its own line directly above the existing cover title; uppercase of the tier name', behaviour: ['The rest of the cover is unchanged (illustrative in the prototype)', 'Never shown for Starter or Growth'] },
-    { id: 'P09.next', component: 'PdfPage', copy: '{nn} · WHY, AND WHAT TO DO NEXT|MEASURED · AUDIT #{n}|What we found, and what to do next|Each action shows the evidence from this audit. Notes and actions from {agencyName} are labelled.', showWhen: 'tier = standard or enhanced (Basic keeps today\'s Diagnosis page with findings a–i, titled "Why your score is what it is")', behaviour: ['Findings first (existing card style), then groups MEASURED ACTIONS, RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT, GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (when switched on)', 'Groups render only when non-empty; never prints "No finding rule matched"'] },
+    { id: 'P09.next', component: 'PdfPage', copy: '{nn} · WHY, AND WHAT TO DO NEXT|MEASURED · AUDIT #{n}|What we found, and what to do next|Each action shows the evidence from this audit. Notes and actions from {agencyName} are labelled.', showWhen: 'tier = standard or enhanced (Basic keeps today\'s Diagnosis page with findings a–j, titled "Why your score is what it is")', behaviour: ['Findings first (existing card style), then groups MEASURED ACTIONS, RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT, GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (when switched on)', 'Groups render only when non-empty; never prints "No finding rule matched"'] },
     { id: 'P09.next.action', component: 'PdfPage', variant: 'action card', copy: '{PRIORITY}|{STATUS}|{title}|{evidence}|Note from {agencyName}: {note}' },
     { id: 'P09.beyond', component: 'PdfPage', copy: '{nn} · BEYOND AI ANSWERS|SEPARATE CHECKS · OWN DATES|What AI can read about you elsewhere|These checks are separate from the Visibility score and don\'t change it.', showWhen: 'tier = enhanced', behaviour: ['2 × 2 tiles: Business identity, YouTube, AI crawlers, Website technical; then "Your directory profiles" across both columns; each prints its own date line', 'Missing data prints "Not checked" + how to enable; older than 30 days prints "may be out of date"; a failed refresh prints "Couldn\'t check on {date}: {reason}"'] },
     { id: 'P09.beyond.directories', component: 'PdfPage', variant: 'wide tile', copy: 'Your directory profiles|FROM AUDIT #{n} · {DATE}|Linked {linked} of {cited} directories AI cites for your questions.|{directory}: linked · cited in {n} answers|{directory}: not linked (cited in {n} answers)', showWhen: 'tier = enhanced', behaviour: ['Directories from the basis audit citations over directory_registry, top 6 by citations; linked status from the brand\'s directory links (S7 adds confirmed listing matches)', 'None linked: "No profiles linked yet." + the cited directories'] },
@@ -1133,7 +1126,7 @@ const P10: ScreenSpec = {
   id: 'P10', title: 'Confirm business v2', route: '/brands/:id (confirm flow)', sprints: ['S03', 'S05', 'S06', 'S07', 'S08'],
   flags: ['qi_website', 'business_taxonomy', 'qi_listings', 'qi_demand', 'qi_competitors', 'qi_pretest'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'All; "Add your own question" Growth and up' },
+  access: { roles: 'Owners, admins and analysts (edit_brand_data)', plans: 'All; "Add your own question" Growth and up' },
   layout: ['Highlight Card with header (title + sub left, StepIndicator right); step body; footer row (help left, primary right)', 'Step 1 Services list; Step 2 Where you work; Step 3 Questions (P02 rows)'],
   nodes: [
     { id: 'P10.card', component: 'Card', variant: 'highlight', copy: 'Confirm what {brand} does|We read {pages} pages of {domain} and {listings} listing(s). Untick anything that\'s wrong; nothing is used until you confirm.', behaviour: ['Sub line names only the sources actually used'] },
@@ -1172,7 +1165,7 @@ const P10: ScreenSpec = {
 const P11: ScreenSpec = {
   id: 'P11', title: 'Custom business type', route: 'Modal from P06 and /settings/business-types', sprints: ['S05'], flags: ['business_taxonomy'],
   frame: { kind: 'modal', width: 1240, mobile: true },
-  access: { roles: 'owner, admin, editor', plans: 'Growth 5 · Agency 20 · Agency Pro unlimited (D5)' },
+  access: { roles: 'Owners and admins', plans: 'Growth 5 · Agency 20 · Agency Pro unlimited (D5)' },
   layout: ['Modal 560; title; sub; fields (gap 16): Name, grid 2 (Sector, Closest type), What it does, Services chips; footer'],
   nodes: [
     { id: 'P11.title', component: 'Text', copy: 'Add a custom business type', style: 'dialogTitle' },
@@ -1293,7 +1286,7 @@ const P15: ScreenSpec = {
 const P16: ScreenSpec = {
   id: 'P16', title: 'Weak question flag and swap', route: 'Inside P02 (and Recommended actions)', sprints: ['S09'], flags: ['qi_learning'],
   frame: { kind: 'standalone', width: 900, mobile: true },
-  access: { roles: 'owner, admin, editor act; others see the flag only', plans: 'All with edit rights' },
+  access: { roles: 'Owners, admins and analysts act (edit_brand_data); others see the flag only', plans: 'All with edit rights' },
   layout: ['QuestionRow variant weak; swap Banner (neutral, fill --surface) inside the row, margin-top 10'],
   nodes: [
     { id: 'P16.row', component: 'QuestionRow', variant: 'weak', copy: '{text}|AI doesn\'t name any business here (last 2 audits)' },
@@ -1316,13 +1309,13 @@ const P16: ScreenSpec = {
 const P17: ScreenSpec = {
   id: 'P17', title: 'Brand → Reports (report type column)', route: '/brands/:id/reports (existing page, VERIFY)', sprints: ['S01'], flags: ['report_v2'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'All members see and download; owner, admin, editor generate', plans: 'All plans that have reports' },
+  access: { roles: 'All members see and download; owners, admins and analysts generate (generate_reports)', plans: 'Growth and up (reports start at Growth)' },
   layout: ['AppShell; breadcrumbs "Workspace › Brands › {brand} › Reports"; PageHeader with Generate report; Card flush with the Table', 'Everything except the Report column, the statuses and the P08 hand-off is the existing page: keep its columns and order if they differ (VERIFY in S0)'],
   nodes: [
     { id: 'P17.header', component: 'PageHeader', copy: 'Reports|PDF reports for {brand}. A generated report never changes.' },
     { id: 'P17.generate', component: 'Button', variant: 'primary', copy: 'Generate report', behaviour: ['Opens P08 for the latest complete audit', 'Disabled with tooltip "Run an audit first" when no complete audit exists'] },
     { id: 'P17.list', component: 'Card', variant: 'flush' },
-    { id: 'P17.table', component: 'Table', copy: 'Report|Period|Based on|Visibility|Generated|Status|Download PDF|{tierName}|Week {w}, {yyyy}|Audit #{n}|{date} · {userName}|Ready|Running checks…|Generating…|Failed|Try again', bind: 'generated_reports for the brand, newest first (report_tier, contents_snapshot, status)', behaviour: ['Report column: neutral Pill with the tier name (agency names on Agency plans); rows generated before tiers read the Basic name', 'Status: Ready (good pill); Running checks… (Enhanced refresh) and Generating… (Spinner 14 + help text); Failed (bad pill) + "Try again" (secondary sm) re-renders from the snapshot', 'Visibility coloured by band (figureStrong)', 'Paginate past 25 rows'] },
+    { id: 'P17.table', component: 'Table', copy: 'Report|Period|Based on|Visibility|Generated|Status|Download PDF|{tierName}|Week {w}, {yyyy}|Audit #{n}|{date} · {userName}|Ready|Published|Running checks…|Generating…|Failed|Try again', bind: 'generated_reports for the brand, newest first (report_tier, contents_snapshot, status)', behaviour: ['Report column: neutral Pill with the tier name (agency names on Agency plans); rows generated before tiers read the Basic name', 'Status (existing deriveReportStatus): Ready (good pill), Published (neutral pill: emailed), Generating… (Spinner 14 + help text), Failed (bad pill) + "Try again" (secondary sm; re-renders from the snapshot for reports made after S01); new: Running checks… while an Enhanced refresh runs', 'Visibility coloured by band (figureStrong)', 'Paginate past 25 rows'] },
   ],
   states: {
     loading: { show: 'Skeleton header and 4 table rows (row height 48)' },
@@ -1333,7 +1326,7 @@ const P17: ScreenSpec = {
   },
   interactions: [
     { on: 'Generate report', then: 'P08' },
-    { on: 'A report finishes', then: 'Row status changes to Ready without reload (existing polling or realtime pattern, VERIFY)' },
+    { on: 'A report finishes', then: 'Row status changes to Ready without reload (existing polling: every 4 s, up to 12 minutes)' },
   ],
   api: [{ call: 'Existing reports loader + report_tier', use: 'One query for the list (no per-row requests)' }],
   a11y: ['Download links named "Download {tierName} PDF for {period}"', 'Status changes announced politely'],
@@ -1343,9 +1336,9 @@ const P17: ScreenSpec = {
 };
 
 const P18: ScreenSpec = {
-  id: 'P18', title: 'Report branding → Report names', route: 'Existing report branding settings (VERIFY route; "Report branding" in the sidebar)', sprints: ['S01'], flags: ['report_v2'],
+  id: 'P18', title: 'Report branding → Report names', route: '/settings/report-branding (existing page)', sprints: ['S01'], flags: ['report_v2'],
   frame: { kind: 'app', width: 1240, contentMaxWidth: 860, mobile: true },
-  access: { roles: 'owner, admin (existing branding rule, VERIFY)', plans: 'Agency, Agency Pro, Enterprise edit (D-RT3); other plans see the card locked' },
+  access: { roles: 'Owners and admins (manage_branding)', plans: 'Agency, Agency Pro, Enterprise edit (D-RT3); other plans see the card locked' },
   layout: ['AppShell; breadcrumbs "Workspace › Settings › Report branding"; existing branding cards first (unchanged); new Card "Report names" below them; Card "What each report contains" (read-only) below that'],
   nodes: [
     { id: 'P18.card', component: 'Card', copy: 'Report names|Shown on the report cover, in your reports list and in the client portal. Use the names you sell under.' },
@@ -1353,7 +1346,7 @@ const P18: ScreenSpec = {
     { id: 'P18.standard', component: 'Field', variant: 'Input', copy: 'Standard report name|Default: Standard', bind: 'report_tier_names.standard' },
     { id: 'P18.enhanced', component: 'Field', variant: 'Input', copy: 'Enhanced report name|Default: Enhanced', bind: 'report_tier_names.enhanced' },
     { id: 'P18.preview', component: 'Banner', variant: 'neutral', copy: 'Cover preview: {ENHANCED NAME} · Your clients see these names, not Basic, Standard or Enhanced, unless you keep them.', behaviour: ['Updates as the user types'] },
-    { id: 'P18.actions', component: 'Layout', copy: 'Save names|Reset to defaults', behaviour: ['Save (primary) disabled until changed or while invalid; toast "Report names saved."', 'Reset (ghost) fills the defaults; still needs Save'] },
+    { id: 'P18.actions', component: 'Layout', copy: 'Save names|Reset to defaults', behaviour: ['Save (primary) disabled until changed or while invalid; inline status "Report names saved." (D-UI4)', 'Reset (ghost) fills the defaults; still needs Save'] },
     { id: 'P18.contents', component: 'Table', copy: 'What each report contains|Report|Contains|{basicName}|{standardName}|{enhancedName}', bind: 'Appendix E tier descriptions', behaviour: ['Read-only, so agencies can describe each tier to their clients'] },
   ],
   states: {
@@ -1363,8 +1356,8 @@ const P18: ScreenSpec = {
     noPermission: { show: 'Existing branding permission handling' },
     flagOff: { show: 'report_v2 off: card not rendered' },
   },
-  interactions: [{ on: 'Save names', then: 'PATCH the existing branding route with report_tier_names; names apply to reports generated from now on (old PDFs keep their snapshot names)' }],
-  api: [{ call: 'Existing report branding route (VERIFY) + report_tier_names', use: 'zod: each 1–24 chars after trim, no control characters, unique ignoring case; 402 below Agency' }],
+  interactions: [{ on: 'Save names', then: 'PUT /api/report-branding with report_tier_names; names apply to reports generated from now on (old PDFs keep their snapshot names)' }],
+  api: [{ call: 'PUT /api/report-branding + report_tier_names (workspace row of agency_brand_assets)', use: 'zod: each 1–24 chars after trim, no control characters, unique ignoring case; 402 below Agency' }],
   a11y: ['Labels tied to inputs; errors in aria-describedby; preview is aria-live="polite"'],
   responsive: ['≤ 640: grid one column; buttons full width (Save first)'],
   acceptance: ['Names show on the cover (Agency and up), in P17, P08 and the portal', 'Old reports keep the names in their snapshot', 'Server refuses names below Agency (402) and invalid names (422)', 'XSS payloads stored and shown as text'],
@@ -1403,15 +1396,30 @@ export const conflicts: ConflictResolution[] = [
   { id: 'C-22', where: 'Suggestions card source line (P02)', conflict: 'Prototype claimed "website, listings and local search demand" before those layers exist', resolution: 'Source line lists only the layers that are on (P02.suggestions)' },
   { id: 'C-23', where: 'P08 "Beyond AI answers" section toggle vs report tiers', conflict: 'A toggle and the tier both decided whether the page appears', resolution: 'Toggle removed; the tier decides (Enhanced). LLD 7.5 drops include_beyond_ai and adds default_tier' },
   { id: 'C-24', where: 'D1 ("every paid plan gets What to do next") vs report tiers', conflict: 'Starter would get the action plan in its PDF although Basic excludes it', resolution: 'The PDF action plan is Standard and up; the audit page\'s Recommended actions and the Action Center stay on every plan (D1 updated in LLD 20)' },
+  { id: 'C-25', where: 'Colour tokens (token map T-01–T-07)', conflict: 'Contract names and values differed from the app', resolution: 'Each token now carries its app variable and the app\'s values; code always uses `app`. --agency-tint is --agency-soft; --on-status is --warning-fg / --success-fg / --danger-fg; --accent-strong is --accent-blue' },
+  { id: 'C-26', where: 'Roles on every screen', conflict: 'The contract named an "editor" role that doesn\'t exist', resolution: 'Roles follow lib/governance/permissions.ts: brand settings manage_brands (owners, admins); questions edit_brand_data (owners, admins, analysts); reports generate_reports (owners, admins, analysts); branding manage_branding (owners, admins)' },
+  { id: 'C-27', where: 'P01.aliases', conflict: 'S00 kept case-only duplicates and suggested forms detection already matches', resolution: 'Unique ignoring case; never suggest the name without spaces or the domain stem (S01 carry-over)' },
+  { id: 'C-28', where: 'Questions naming the business (P02, P03, LLD)', conflict: '"Up to 3" vs packs that carry 3 to 5', resolution: 'Limit 5 everywhere (D-QI-BR)' },
+  { id: 'C-29', where: 'Finding rules (P07, P09, LLD 8.1.5)', conflict: 'New rules were lettered f–i but f already exists (Reddit)', resolution: 'New rules are g–j' },
+  { id: 'C-30', where: 'P01 ABN', conflict: 'The ABN suggestion had no field to save into or point to', resolution: 'New P01.abnField; PATCH /api/brands/:id gains abn (S01)' },
+  { id: 'C-31', where: 'P07/P09 Beyond AI answers copy', conflict: '"Videos cited by AI", "trading as" and CDN Shield visits have no source', resolution: 'Removed; visits say "upload server logs"; one entity name' },
+  { id: 'C-32', where: 'Toasts in copy', conflict: 'No toast is mounted in the app', resolution: 'Same copy as inline role="status" feedback (D-UI4)' },
+  { id: 'C-33', where: 'LockMarker Upgrade link', conflict: 'Billing vs /pricing (23 existing uses)', resolution: '/pricing (D-UI5)' },
+  { id: 'C-34', where: 'EngineDots', conflict: 'The audit page has a "Maybe" result the contract lacked', resolution: 'Fourth state "unverified" (D-UI6)' },
 ];
 
 /** Decisions this file adds (defaults apply unless Sri says otherwise). */
 export const uiDecisions = [
-  { id: 'D-UI1', question: 'Apply --border-control (3:1 control borders) app-wide or only on new screens?', default: 'App-wide: one variable change, visual only, every form gains WCAG 1.4.11 compliance', neededBy: 'S00 Part 0b' },
+  { id: 'D-UI1', question: 'Control borders at 3:1', default: 'Done in S00: app-wide', neededBy: 'S00' },
+  { id: 'D-UI2', question: 'Web fonts', default: 'Agreed: not in these sprints (separate task)', neededBy: '—' },
+  { id: 'D-UI3', question: 'Line heights for new components', default: 'Agreed: contract values for new components; existing screens keep theirs', neededBy: 'S01' },
+  { id: 'D-UI4', question: 'Toast vs inline feedback', default: 'Agreed: inline role="status"', neededBy: 'S01' },
+  { id: 'D-UI5', question: 'Upgrade link destination', default: 'Agreed: /pricing', neededBy: 'S01' },
+  { id: 'D-UI6', question: 'EngineDots unverified state', default: 'Agreed: add it', neededBy: 'S02' },
 ] as const;
 
 export const uiConfig = {
-  version: '1.1',
+  version: '1.2',
   date: '2026-11-21',
   precedence, color, contrast, fontFamily, typography, typeRule, space, spaceRule, radius, shadow, motion, zIndex,
   breakpoints, layout, icons, scoreBands, reachLabels, engines, intents, components, screens, conflicts, uiDecisions,

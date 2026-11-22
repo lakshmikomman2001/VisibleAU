@@ -1,6 +1,6 @@
-# S11 — Full test suite after all sprints (S00–S10)
+# S11 — Full test suite after all sprints (S00, S00B, S01–S10)
 
-> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report to `docs/sprints/reports/S11-report.md` and commit it as the last commit.
+> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report to `docs/Sprints/reports/S11-report.md` and commit it as the last commit.
 
 Sri has **explicitly asked for the full test suites** in this run. The project rule "targeted tests only" is lifted for this prompt only. This is a verification run: **no product code changes until Sri approves fixes (Part 5).**
 
@@ -8,13 +8,14 @@ Sri has **explicitly asked for the full test suites** in this run. The project r
 - Never push. No production writes. No edits to existing tests to make them pass. Commit only the report until Part 5.
 - **Never run tests against production.** Before any test touches a database, print the database host and branch the test environment will use (hide the password). If it is the production Neon branch (`br-ancient-tooth`) or the production host from `.env.neon`, stop. Tests use the local test database or the dev branch the existing test setup names.
 - **No live provider spend.** Tests run on recorded fixtures. Before starting, check the test environment for live LLM, DataForSEO, YouTube, ABR or Stripe live keys. If a suite needs live providers (for example a "live" tag), skip it and list it. Stripe stays in test mode.
-- Memory: Playwright only with ≥ 6 GB free, `--workers=1`. If memory is short, run the Playwright suite in shards one after another (e.g. `--shard=1/4` … `4/4`) and check free memory before each shard. If it's still short, stop and ask Sri to close other apps. Don't let a low-memory run produce failures.
+- Memory: follow the runbook's Playwright memory rules (section 5): one worker; a fresh server for each spec or shard; ≥ 6 GB free before each; stop a run below 1.2 GB free and rerun the tests it didn't reach on a fresh server; the listed specs in shards. Run the Playwright suite spec by spec (or in shards), never as one long run on one server: a `next dev` server grows with every page it compiles, and S00's single-spec runs already peaked at 6.7 GB. If memory is still short, stop and ask Sri to close other apps. Don't let a low-memory run produce failures.
 - Save every log to `.qa/full-suite/<date-time>/` (gitignored) and keep the report to summaries plus the exact failure output.
 - A full run took over 3 hours before. Don't stop part-way because it's slow; do stop on any safety check above.
 
 ## 0. Read and plan (no runs yet)
-- Read order from the runbook, including **all** reports in `docs/sprints/reports/` (S00–S10) and LLD sections 4 (N1–N15), 15 (testing) and 17 (flags).
+- Read order from the runbook, including **all** reports in `docs/Sprints/reports/` (S00, S00B, S01–S10) and LLD sections 4 (N1–N15), 15 (testing) and 17 (flags).
 - Pre-flight: `main` equals `origin/main` and includes S10; working tree clean; state the hash. Sri's kickoff confirms migrations 0153–0161 are applied in production (if not stated, ask and stop). Dependencies installed from the lockfile without changing it.
+- **Known baselines (from S00):** whole-repo lint (`biome check .`) already had 339 errors, 277 warnings and 251 infos before S00, so lint passes when it has **no more than the baseline** and no new diagnostics in files the sprints changed (compare with the pre-sprint hash); plain `tsc` fails on the stale `.next/types/validator.ts`, so typecheck runs with `.next` excluded, as S00 did.
 - Discover every suite from `package.json` scripts, test configs and `CLAUDE.md` ("Testing scope"): typecheck, lint, source-scan guards (plan-claim, cost-visibility, GST and any others), unit, integration (database), RLS/tenant-isolation, API route, component, PDF render, accessibility (axe), production build, Playwright end-to-end. List each with its command and how it's configured.
 - Find the pre-sprint baseline hash in the S00 report (the hash S00 started from; `15f287b` or later).
 - Find how tests switch feature flags on and off (S00 Part 2 scaffold, per-workspace overrides in tests). Never through the production settings store.
@@ -22,7 +23,7 @@ Sri has **explicitly asked for the full test suites** in this run. The project r
 
 ## 1. Configuration A: all new flags off (non-regression)
 All 13 flags from LLD 17 off: `report_v2`, `abn_suggestion`, `question_library`, `agency_questions`, `visibility_reach`, `business_taxonomy`, `qi_website`, `qi_listings`, `qi_demand`, `qi_competitors`, `qi_pretest`, `qi_learning`, `question_packs`. With all of them off the app must behave as it did before S00, apart from the D-UI1 control borders.
-Run in this order, continuing past failures: typecheck → lint → source-scan guards → unit → component → API routes → integration (database) → RLS and tenant isolation → PDF render → production build (`next build`) → accessibility → Playwright full suite (production build if the Playwright config supports it).
+Run in this order, continuing past failures: typecheck → lint (against the baseline) → source-scan guards (including S00B's no-unguarded-fetch guard) → unit → component → API routes → integration (database) → RLS and tenant isolation → PDF render → production build (`next build`) → accessibility → Playwright full suite (production build if the Playwright config supports it).
 
 ## 2. Configuration B: all new flags on (new features together)
 All 13 flags on for the test workspace(s). Re-run only the suites whose results can depend on flags: component, API routes, integration, RLS, PDF render (including Basic, Standard and Enhanced reports), accessibility and Playwright. This checks the new features working together: report tiers with reach, agency questions with packs, taxonomy with website analysis, and so on.
@@ -35,7 +36,7 @@ For each failing test:
 4. **Cause:** one or two sentences with file:line, and whether the fix belongs in product code, test setup or environment. Never "fix" by changing an existing test's expectation; if you believe the expectation itself is wrong, quote the LLD or contract line that says so.
 
 ## 4. Report (commit only this file), then STOP
-`docs/sprints/reports/S11-report.md`:
+`docs/Sprints/reports/S11-report.md`:
 - Summary table: suite × configuration → total, passed, failed, skipped, flaky, duration.
 - Non-regression: N1–N15, each with the tests that cover it and pass/fail in configuration A.
 - Failures table: test, suite, configuration, flaky/real, new/pre-existing, sprint, cause (file:line), proposed fix.

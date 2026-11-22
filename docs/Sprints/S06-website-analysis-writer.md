@@ -1,8 +1,8 @@
-# S06 — Question intelligence 4a: guarded fetcher, website analysis, question writer, confirm screen v2
+# S06 — Question intelligence 4a: analysis fetch preset, website analysis, question writer, confirm screen v2
 
-> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/sprints/reports/S06-report.md` and commit it as the last commit.
+> **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S06-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S05 pushed); say which hash. Read LLD sections 4, 6.1, 7.4, 7A (0159), 8.6.1–8.6.3, 8.6.5, 8.6.6, 8.6.9, 11, 12, 13, 14, 20 (D-QI1, D-QI5, D-QI6); `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` layers 1, 5 and 6 (reasoning only; the LLD is the spec); contract screens P10, P12, P02 (reasons chips).
+Start with `git fetch origin` and build on `origin/main` (S05 pushed); say which hash. Read LLD **section 0** (v1.4 decisions and amendments) first, then sections 4, 6.1, 7.4, 7A (0159), 8.6.1–8.6.3, 8.6.5, 8.6.6, 8.6.9, 11, 12, 13, 14, 20 (D-QI1, D-QI5, D-QI6); `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` layers 1, 5 and 6 (reasoning only; the LLD is the spec); contract screens P10, P12, P02 (reasons chips).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -10,13 +10,13 @@ Start with `git fetch origin` and build on `origin/main` (S05 pushed); say which
 - One commit per numbered part; don't amend; commit only in a separate step after tests finish, never chained with `;`. **Never push.**
 - Targeted tests only: related tests, new tests RED on the parent then GREEN, typecheck, lint, compared by name with `tests/known-failures.txt` (0 entries; keep 0), named guards. Full suites only if Sri asks. Playwright only in parts that change a screen or a shared UI component: run the specs `scripts/qa/e2e-specs-for.ts` maps to the files that part changed, one at a time, only with ≥ 6 GB free (otherwise "not run: memory" and list the specs). Parts that change only data, jobs, scoring, APIs or PDF rendering don't run Playwright; say "Playwright: not needed (no UI change)".
 - ⛔ No mock data in production; tests use recorded fixtures, never live sites or live model calls. No `any`; FORCE RLS; no new `serviceDb`; no production writes (0159 as a run1–run4 set).
-- **Security gate:** Part 1 must pass before any other part fetches anything.
+- **Security gate:** Part 1 must pass before any other part fetches anything (S00B's fetcher plus the analysis preset).
 - Nothing is used until the client confirms. Existing brands keep their questions; "Improve my questions" only suggests.
 - Behind `qi_website` (off). Decision defaults: no JavaScript rendering (D-QI1); US$0.50 cost ceiling per analysis (D-QI5); all paid plans for new brands, "Improve my questions" from Growth (D-QI6).
 - If the LLD contradicts the code, the code wins: report with file:line; continue only with independent parts.
 
-## 1. Guarded fetcher (LLD 8.6.2) — security gate
-`lib/fetch/guarded-fetch.ts`: https/http only, ports 80/443, DNS resolved once and pinned (connect to the IP with original Host/SNI), block private/loopback/link-local/CGNAT/multicast/ULA/metadata (169.254.169.254, fd00:ec2::254, metadata.google.internal), ≤ 3 redirects each re-validated, 10 s timeout, 2 MB cap, content-type allow-list, UA `Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)`, robots.txt obeyed (bot then `*`), 1 req/s per host (Upstash). Migrate `lib/crawler/index.ts` (VERIFY) to use it. Tests: each blocked class, DNS rebinding (first public then private), redirect to private, oversized body, wrong type, robots disallow. Report the test list.
+## 1. Analysis fetch settings on the guarded fetcher (LLD 8.6.2) — security gate
+S00B built `lib/fetch/guarded-fetch.ts` and moved every existing caller onto it. The analysis layers are new callers and turn on the options existing callers leave off: user agent `Vunnara-Audit-Bot/1.0 (+https://vunnara.com.au/about)`, robots.txt obeyed (rules for the bot, then `*`), 1 request per second per host (Upstash), ≤ 3 redirects, 10 s timeout, 2 MB cap, HTML/XHTML only (plain text for robots, XML for sitemaps). One shared `analysisFetch` preset, used by every analysis layer. Tests: robots disallow respected, rate limit across concurrent runs, preset can't be weakened by callers; the S00B security tests still pass. Report the test list.
 
 ## 2. Schema (migration 0159)
 `analysis_runs`, `brand_profiles`, `profile_services`, `profile_places`, `profile_evidence`, `question_candidates`, `page_cache` per LLD 7.4 (FORCE RLS, grants, indexes). Add to RLS list, cascade, retention job (page cache 7 days; others 12 months like audits) and `data-facts.ts`.

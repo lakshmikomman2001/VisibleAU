@@ -3,6 +3,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "l
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AuditRunningView } from "@/components/domain/audit/audit-running";
+import { BeyondAiCard } from "@/components/domain/audit/beyond-ai-card";
 import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cited-panel";
 import {
   EngineTotalFailureBanner,
@@ -63,6 +64,7 @@ import {
   loadPlatformCitations,
 } from "@/lib/recommendations/general-advice-evidence";
 import { auditEvidenceActions } from "@/lib/reports/audit-findings";
+import { getBeyondAiAnswers } from "@/lib/reports/beyond-ai";
 import type { Finding } from "@/lib/reports/report-findings";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { HEADLINE_BAND_LABELS, shownHeadlineBand } from "@/lib/scoring/headline-color";
@@ -720,6 +722,11 @@ export default async function AuditPage({
     // directories, and whether any cited URL is the owner's own
     // confirmed profile (brand_directory_listings, Part C).
     const directoryCitations = await getDirectoryCitationsForAudit(tx, auditId, brand);
+    // S01 part 6 (LLD 8.1.4, P07.beyond): the checks outside AI answers, latest results, while report_v2 is on.
+    // Off: null, and the page is exactly as before.
+    const beyondAi = (await isEnabled("report_v2", currentUser.organizationId))
+      ? await getBeyondAiAnswers(tx, { brand, asOf: new Date() })
+      : null;
     // Google AI surfaces (Phase 1, part 3): null for an audit that ran without Google -- the page is then
     // exactly as before.
     const googleSurfaces = await loadGoogleSurfaceSummary(tx, auditId);
@@ -770,6 +777,7 @@ export default async function AuditPage({
       audit,
       brand,
       directoryCitations,
+      beyondAi,
       googleSurfaces,
       headlineIncludesGoogle: headlineIncludesGoogle === true,
       failureRows,
@@ -853,6 +861,7 @@ export default async function AuditPage({
     audit,
     brand,
     directoryCitations,
+    beyondAi,
     googleSurfaces,
     headlineIncludesGoogle,
     failureRows,
@@ -1913,6 +1922,9 @@ export default async function AuditPage({
               )}
             </div>
           )}
+
+          {/* S01 part 6 (P07.beyond): only while report_v2 is on. */}
+          {beyondAi ? <BeyondAiCard answers={beyondAi} brandId={brand.id} /> : null}
         </>
       )}
 

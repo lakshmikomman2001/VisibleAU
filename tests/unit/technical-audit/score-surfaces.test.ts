@@ -34,6 +34,9 @@ const READERS: Record<string, string> = {
   "app/(auth)/brands/[brandId]/ssr-check/page.tsx": "findings only",
   "app/api/brands/[brandId]/entity-score/route.ts": "findings only (Wikipedia)",
   "inngest/functions/score-agent-readiness.ts": "findings only (Wikipedia)",
+  // S01 part 6 (LLD 8.1.4): "Beyond AI answers" -- the audit page card, the Enhanced PDF page and the portal show the
+  // latest technical score "with its own maximum (compositeMaxFor)" and the robots.txt findings.
+  "lib/reports/beyond-ai.ts": "Beyond AI answers: technicalScoringOf",
 };
 
 const USES_ITS_OWN_SCORING = [
@@ -43,6 +46,7 @@ const USES_ITS_OWN_SCORING = [
   "app/(auth)/brands/[brandId]/llms-txt-generator/page.tsx",
   "app/(auth)/brands/[brandId]/brand-entity-audit/page.tsx",
   "app/api/technical-audits/[id]/route.ts",
+  "lib/reports/beyond-ai.ts",
 ];
 
 describe("every reader of technical_audits is accounted for", () => {

@@ -305,3 +305,371 @@ Deviations: the PDF/portal-only "Your directory profiles" tile isn't on the audi
 ## Tests skipped by the testing-scope rules (Parts 6–7)
 - Full suites: not run (not asked). No `next build`.
 - `responsive-shell` (8 shards) and the `13-s01-beyond-ai` re-run: not run (see "Read first", point 2).
+
+---
+
+# Parts 8–12 (resumed session, 23 Nov 2026)
+
+Resumed with the v1.11 `UPDATE-HERE.md` step: pack v1.11 copied and committed (`b9ce9ebc`; LLD v1.7, runbook v1.6, contract v1.3 and the prototype HTML, sprint prompts S01–S10; the contract typecheck passes). Start of this session: `origin/main` = `f1d9ffdb` (checked with `git fetch origin`), local `main` = that plus the 14 S01 commits listed in the update step, tree clean apart from Sri's three untracked items. Free memory 7.44 GB, 0 node processes.
+
+## Before Part 8: outstanding Playwright (all passed; no Part 6 follow-up needed)
+
+- `tests/e2e/responsive/responsive-shell.spec.ts`, 8 shards (`--fully-parallel --shard=i/8`, fresh server each): **94 of 94 passed** (12 × 7 + 10). Peak tree 5.92 GB, lowest free 1.88 GB (above the 1.2 GB stop), 0 leftovers, port 3000 free after each.
+  - The first attempt failed in every shard's `beforeAll` in under 20 s: `duplicate key value violates unique constraint "audits_org_audit_number_idx"`. The cause was rows the previous session's stopped shard 1 left in `visibleau_e2e` (its `afterAll` never ran): org `responsive-9628eba8` and a sample audit #1 under the shared `__sample__` org, both made at 19:34:32 on 23 Nov. Removed the same way the spec's `afterAll` does (a scratch script that refuses any database but `visibleau_e2e`); the re-run passed.
+- `tests/e2e/13-s01-beyond-ai.spec.ts` re-run: **2 of 2 passed**; `.qa/screens/S01/P07-{1240,390}-{light,dark}.png` retaken with the four-column layout at 1240.
+
+## Read first (Parts 8–12)
+
+1. **S01 is finished: Parts 8–12 are committed** (`7eefae34`, `35760774`, `63fab7fd`, `c2afabfa`, `84a0dc7b`, plus the screenshot spec `b86c754f`). Nothing is pushed.
+2. **Playwright not run (memory)**: these must pass before the push, because Part 11's ABN field is live on push, and before `report_v2` is switched on.
+   - Claude Code stopped Part 11's queue for low system memory after 8 of its 21 runs. All 8 had passed: 02, 03, 04, 05, 07, 10, 11-s01-part0, 14-s01-abn. As its notice says, I didn't restart it.
+   - Not run:
+     - `tests/e2e/responsive/responsive-shell.spec.ts`, 8 shards (`--fully-parallel --shard=1/8` … `8/8`);
+     - `tests/e2e/sprint2/sprint2-workflow.spec.ts`, 2 shards. Shard 1 was 9 tests in, all passing, when it stopped; its `afterAll` didn't run, so the spec's rows may be left in `visibleau_e2e`;
+     - `tests/e2e/sprint3/sprint3-visibility.spec.ts`;
+     - `tests/e2e/sprint9/s9-autopilot-e2e.spec.ts`, 2 shards.
+   - Not re-run after Part 12: 02-brands-list, 04-brand-detail, 07-acceptance and sprint4-reports. They are mapped to Part 12 but passed after Part 11, and Part 12 changed only the portal page and the plan-gate helper.
+   - After that stop I ran only single specs in the foreground: 05-cross-org-isolation (9/9) for Part 12, and the screenshot spec (2/2). Free memory was 7.2–7.4 GB before each.
+   - Every other mapped spec in every part passed (details per part). Since Part 6, `responsive-shell` has passed twice in full (94/94 before Part 8, and after Part 9).
+3. **Found and fixed on the way:**
+   - Part 7's reports list sent every row's whole `contents_snapshot` on each 4-second poll (Part 9);
+   - the Enhanced refresh read just-written results with a millisecond time and missed them (Part 9);
+   - the snapshot held the workspace, brand and trend audit ids (Part 8, amendment 41).
+4. **One live call from a test, once.** In Part 9 the Part 8 tier test generated an Enhanced report before it stubbed the refresh runners. The real site runner ran once: a crawl of the fixture's made-up domain through the guarded fetcher, and a Wikipedia search. The test now stubs the runners, and the rows it left in `visibleau_integration` were removed.
+5. **Deviations to decide** are in their own section below. The main ones:
+   - the Enhanced refresh runs inside the generator's account-wide pool (no separate `brand_id` key) and re-runs the whole technical audit for crawler access;
+   - P13 links are signed when the page loads (no new route, so no new `serviceDb` read);
+   - the cover line's colour on the navy cover;
+   - a Basic report on Agency gains the cover's name line, which N15 doesn't list.
+
+## Part 8. Report tiers: plans, page sets, picker, schedules, server enforcement — `7eefae34`
+
+- **`lib/reports/report-tier-choice.ts`** (new): `chooseReportTier` decides a report's tier on the server from the workspace's live plan. A requested tier is kept when the plan includes it, else it's "over the limit". With none requested: the brand's saved `default_tier` when the plan includes it, else the plan's highest. Also `tierNotInPlanBody` (402 `{ error, code: "report_tier_not_in_plan", maxTier }` in P08.overLimit's words), `loadTierNames` (the workspace row, newest wins), `tierOptionsFor` (the P08 cards; a locked tier names the plan it needs) and `workspaceTierOptions`. Listed in `tests/helpers/plan-gates.ts` `DIRECT_GATES` (it reads `effectiveTier`).
+- **Generate route** (`app/api/brands/[brandId]/reports/generate/route.ts`) takes `tier` (an enum; anything else is 400). With `report_v2` on:
+  - above the plan: 402, and nothing starts;
+  - the tier asked for becomes the brand's default;
+  - contents are saved only for Standard and Enhanced on Agency and up (a Basic report drops them);
+  - the event and the 202 carry the tier.
+  With `report_v2` off the route is today's (the tier is ignored). Free and Starter keep today's 403 `plan_required`: the existing Growth gate runs first.
+- **Preferences route:** PUT refuses a `defaultTier` above the plan with the same 402. **Panel view:** gains `tiers` and `defaultTier`.
+- **Generator** (`inngest/functions/generate-narrative-report.ts`):
+  - reads the active schedule's `report_tier`, the brand's own schedule before the workspace-wide one;
+  - passes the route's tier for a manual report;
+  - caps the tier at the plan in `reportV2ForGeneration`, with an operator log line `report_tier_capped` (a plan with no reports gets today's report, Basic);
+  - logs `report_generated` with tier, plan and source. Part 7's hard-coded "enhanced" is gone.
+- **Delivery schedules:**
+  - `POST /api/organizations/:orgId/delivery-schedules` accepts `reportTier`, kept only while `report_v2` is on.
+  - The form shows "Report type" from the new `GET /api/report-tiers`: the workspace's names, only the plan's tiers, default Basic, help "Scheduled reports use this report type.".
+  - Each schedule shows "· {name} report".
+- **P08 picker** (`components/domain/reports/report-tier-picker.tsx`):
+  - three cards (Segmented `cards`, in the app's look), a radiogroup named "Report type"; arrow keys move and select among the tiers the plan includes;
+  - a locked tier is `aria-disabled`, named "{tier}, available on {plan} and up", with the lock marker and "Available on {plan} and up · Upgrade" (to /pricing). The Upgrade link sits outside the radio so it stays reachable by keyboard.
+- **The panel with a tier:**
+  - Basic shows P08.basicNote instead of the lists; its second sentence only when Standard is in the plan.
+  - The outline is "Report outline · {name}" with the tier's pages ("Why your score is what it is" for Basic; "Beyond AI answers" for Enhanced; pages the tier adds in 600).
+  - The button reads "Generate {name} report", and Generate sends `{ periodType, tier, contents }` (no contents for Basic or below Agency). Save without generating saves `defaultTier`.
+  - A 402 `report_tier_not_in_plan` shows its words inline, and the picker falls back to the plan's highest tier, locking the ones above.
+  - Initial focus goes to the selected card.
+- **Loading (P08.states.loading):** a new `app/(auth)/brands/[brandId]/reports/layout.tsx` reads `report_v2` on the server and passes it to the page (`components/domain/reports/report-v2-context.tsx`).
+  - Flag on: Generate opens the panel at once with its skeleton (`ReportContentsPanelLoading`: three tier cards, then rows) while the view loads. The page's button never says "Generating..." for that.
+  - Flag off: the page is exactly today's. Generate starts the report directly, with no view request.
+- **The pricing page's "Reports" row:**
+  - `lib/pricing/tiers.ts` now holds the report types' names and appendix E's descriptions; `report-tiers.ts` re-exports them, so there is one copy.
+  - The row is built from each plan's `maxReportTier` and `reportTierNames`: Free and Starter "—", Growth "Basic and Standard", Agency plans "Basic, Standard and Enhanced, chosen per client report, with your own names". It sits right after "PDF export", with a footnote "What each report contains" (appendix E).
+  - It shows only while `report_v2` is on globally (`components/domain/pricing/load-report-tiers-claim.ts`). The loader reads nothing without `DATABASE_URL`, as `registry-store.ts` does, so the unit tests and a build without a database show today's table.
+- **Snapshot (LLD amendment 41):**
+  - `contents_snapshot.reportData` no longer holds the workspace's id, the brand's id or the other audits' ids on the trend. Rendering puts them back from the report's own row (`snapshotReportData(snapshot, { organizationId, brandId })`).
+  - Costs never reach the render input, and the report's Google block carries no provider name.
+- **New tests.** RED on the parent: 23 failed. The picker and panel-tier files can't load there. 14 pass on both because they hold today: Free and Starter refused; everything with `report_v2` off; the table with the setting off; one schedule case where Part 7's hard-coded Enhanced matched.
+  - `tests/integration/report-tiers.integration.test.ts` (22):
+    - per plan: Free and Starter 403, Growth 402 for Enhanced, Agency all three; an unknown tier 400;
+    - the defaults, the default saved, Basic dropping contents, flag off;
+    - PUT of a default above the plan 402; the view's default and locks; `/api/report-tiers` (off, the agency's names, Growth's lock);
+    - the generator: a manual tier; a schedule's tier, the brand's own first; the cap with its log line; flag off is today's report;
+    - the snapshot holds no cost (`llm_cost_usd` seeded), no cost/usd/spend/provider key, and no workspace or brand id;
+    - delivery schedules keep the type; an unknown one is 400; flag off stores Basic.
+  - `tests/unit/components/report-tier-picker.test.tsx` (4) and `report-contents-panel-tiers.test.tsx` (11, including the page's skeleton).
+  - `delivery-schedule-report-type.test.tsx` (2).
+  - `tests/unit/pricing/pricing-reports-row.test.tsx` (7): the plan-claim guard for the row (words from `maxReportTier`, no price or plan name, setting-aware, the loader).
+- **Existing tests changed**, with the contract line quoted:
+  - `tests/unit/components/report-contents-panel.test.tsx` (Part 5's own): the props helper gains `tierOptions` and `initialTier`.
+    - Save's body gains `defaultTier`: "Save without generating … (with default_tier)" (P08.footer).
+    - Growth's Generate body gains `tier`: "the existing generate route with { periodType, tier, contents }" (P08.footer).
+  - `tests/e2e/12-s01-report-contents-panel.spec.ts` gains a Part 8 test: Basic chosen by keyboard, the note, the outline, the tier sent.
+- **Guards caught two things, fixed before the commit:**
+  - `plan-names`: a `{tierName}` JSX child and `${o.tier}` in a template literal read as a plan code printed raw. Renamed the variable to `typeName` and used fixed test ids.
+  - `no-silent-fetch-fallback`: biome split `.json().catch(...)` over lines. Moved it into a one-line `failureBody` helper.
+- **Runs:**
+  - related: 300 files, 3,396 passed, 7 skipped; its one failure was the plan-names guard above, re-run green;
+  - 89 guard files + the tests naming the changed files: 129 files, 2,381 passed; its one failure is the one above, fixed and re-run green;
+  - tsc clean; biome 0 new per changed file.
+- **Playwright** (one at a time, a fresh server each), all passed:
+  - 12-s01-report-contents-panel 3; 06-region-and-pricing 11; 09-google-surfaces 5; 11-s01-part0 5; 13-s01-beyond-ai 2;
+  - sprint4-reports 19; s8-governance 13;
+  - qa f02-region 8, f09-feature-flags 3, f11-pricing-checkout 10, f06-public-pages 4.
+  - Peak tree ≤ 5.1 GB, lowest free 2.56 GB, 0 leftovers.
+
+## Part 9. Enhanced checks before rendering (D-RT4, P08 checks list, P17 statuses) — `35760774`
+
+- **Window logic, one place** (`lib/reports/enhanced-checks.ts`):
+  - the windows: identity 30 days, AI crawler access 7, YouTube 7 (only when a channel is linked and the code gate is on), technical 30;
+  - `planEnhancedChecks` (reuse / run / not linked / off), read from the same tiles the report prints (`getBeyondAiAnswers`);
+  - `applyRefreshOutcomes`: a check that ran but left no newer result prints "Couldn't check on {date}: {reason}" with the refresh's date, never the old result as if fresh. The outcomes ride along as appendix D's `beyondAi.refreshed`;
+  - the P08 list's lines.
+- **The refresh** (`lib/reports/enhanced-refresh.ts`):
+  - reads the checks, runs only the stale ones through their existing functions, waits at most 5 minutes in all (`Promise.race`), reads again and says what happened to each;
+  - a runner that throws is a failed check, never a failed report;
+  - operator log lines `enhanced_check_refreshed` (check, result, reason).
+- **The runners** (`lib/reports/enhanced-check-runners.ts`):
+  - **site**: the existing technical audit runner, `runTechnicalAuditInline(null, brandId, { emitComplete: false })`. One run refreshes identity (the ABR lookup with the GUID), AI crawler access (robots.txt) and the technical score. `runTechnicalAuditInline` now takes `auditId: string | null` (the column allows it) and an option not to send `technical-audit/complete`, so a report's refresh starts none of that event's jobs. Every other caller passes an audit and gets exactly what it did before.
+  - **youtube**: the existing presence check (`buildYoutubePresenceAuditRow`), stored as the monthly cron stores it but under the workspace's RLS context (no `serviceDb`).
+  - Both fetch customer sites only inside the functions they call (S00B's guarded fetcher); no new fetch.
+- **Generator** (`inngest/functions/generate-narrative-report.ts`): the tier is decided first (`decideReportTier`). Basic and Standard are built and stored as in Part 8. An Enhanced report:
+  - is written at once with no contents (the Reports page says "Running checks…");
+  - then step **`refresh-enhanced-checks`** runs the stale checks;
+  - then step **`write-report-snapshot`** builds its contents and snapshot as of then, with the outcomes, before `report/generated` starts the PDF.
+  A run whose first step finished before this change (its step returned the id alone) is still read correctly.
+- **One refresh at a time:** the generator runs in `POST_AUDIT_POOL` (account-wide limit 1), so two Enhanced reports for one brand never refresh together. The second finds the first one's results fresh and runs nothing (tested). There is no separate `brand_id` key (see deviations).
+- **P17 statuses:**
+  - `ReportStatus` gains `running_checks` while an Enhanced report's contents aren't stored; the stall rule still turns it into Failed;
+  - the Reports page, the report page and `ReportStatusBadge` say "Running checks…", and the page keeps polling.
+  - **Found and fixed:** since Part 7 the reports list sent every row's whole `contents_snapshot` (the PDF's render input) on each 4-second poll. The list now selects every column but the snapshot, plus whether one is stored, and `reportForPage` never returns a snapshot.
+- **P08 checks list** (`components/domain/reports/report-checks-list.tsx`), shown for Enhanced only:
+  - "Checks before this report", one row per check, from the view's `checks` (built only for a plan that includes Enhanced): "Checked {age} · will reuse", or "… · will run again (about 1 minute)" in `--warning`;
+  - "No channel linked · shown as not linked"; "From audit #{n}" for the directory profiles;
+  - the contract's note under it.
+- **Found by the new test and fixed:** the read after a refresh used a millisecond `Date` as its "as of" time. A row the runner had just written (Postgres stores microseconds) could fall just after it and be ignored, so the refresh reported its own fresh result as "didn't complete". It now reads one second ahead.
+- **Tests** (new; RED on the parent: 9 failed and `enhanced-checks.test.ts` can't load; 3 pass on both because they hold today: no list for Standard and Basic, and Basic and Standard never refresh):
+  - `tests/unit/reports/enhanced-checks.test.ts` (7, fixed clock, recorded runners): the windows; only stale checks run (the site checks once for all three, YouTube alone); nothing runs when fresh; the timeout and "didn't complete" paths still print every tile; a throwing runner.
+  - `tests/integration/enhanced-refresh.integration.test.tsx` (6), with recorded runners and the step order checked:
+    - the row first ("Running checks"), the stale checks once, then the snapshot (`refreshed`, the new score);
+    - a second Enhanced report runs nothing;
+    - the timeout path prints "Couldn't check on {date}: the check took too long", and the PDF renders;
+    - Basic and Standard never refresh;
+    - the panel's list says what the refresh will do.
+  - `tests/unit/communication/report-running-checks.test.tsx` (4) and `tests/unit/components/report-checks-list.test.tsx` (2).
+- **Existing tests changed:**
+  - `tests/integration/report-tiers.integration.test.ts` (Part 8's) now stubs the refresh runners: an Enhanced report refreshes its checks since this part.
+  - **Its first run under Part 9 used the real runners once**, for its fixture brand: a crawl of the fixture's made-up domain through the guarded fetcher, and a Wikipedia search, i.e. one live call from a test. The fixture rows that run left in `visibleau_integration` were removed (one org, by a script that refuses any other database).
+  - `tests/e2e/12-s01-report-contents-panel.spec.ts` gains a Part 9 test: the five rows with their lines, and none for Standard.
+- **Runs:**
+  - related: 95 files, 1,145 passed;
+  - 89 guard files + the tests naming the changed files: 129 files, 2,303 passed;
+  - the four report integration files together: 33 passed;
+  - tsc clean; biome 0 new.
+- **Playwright** (fresh server each), all passed:
+  - 12-s01-report-contents-panel 4 (the final P08 screenshots `.qa/screens/S01/P08-{1240,390}-{light,dark}.png`: picker, plan, outline, checks list);
+  - sprint4-reports 19;
+  - responsive-shell 8 shards 94 of 94 (12 × 7 + 10).
+
+## Part 10. Reports list, report names, cover name (P17, P18, P09.cover) — `63fab7fd`
+
+- **P17** (`app/api/brands/[brandId]/reports/route.ts`, `app/(auth)/brands/[brandId]/reports/page.tsx`), only while `report_v2` is on:
+  - each row carries `tierName`: the name in its snapshot (a later rename never changes it), else the workspace's name for its tier (a report from before tiers is Basic, so the agency's Basic name). It is read from the snapshot in SQL (`contents_snapshot->>'tierName'`), never by sending the snapshot.
+  - The page shows it as a neutral pill in the Report cell (`p17-report-type`), and the download link is named "Download {name} PDF for {period}".
+  - Statuses as in Part 9 ("Running checks…" → "Generating..." → Ready), with the existing 4-second polling.
+- **P18** ("Report names" on `/settings/report-branding`, only while `report_v2` is on): `components/domain/branding/report-names-card.tsx` under the existing cards (`ReportBrandingForm` gains an optional `footer` slot, default nothing). It has:
+  - three labelled inputs with their help;
+  - a live cover preview (`aria-live="polite"`) with the Enhanced name in capitals;
+  - "Save names", disabled until something changes and while a name breaks the rule, with the error under the field (tied by `aria-describedby`); "Reset to defaults" (still needs Save); inline "Report names saved.";
+  - the read-only "What each report contains" table (the saved names, appendix E's words).
+  - The rule lives in `lib/branding/report-tier-name-rules.ts` (pure; the card imports it): 1–24 characters after trimming, no control characters, unique ignoring case, the same as the migration's CHECK.
+- **`PUT /api/report-branding { reportTierNames }`:**
+  - below Agency: 403 `plan_required` (`tierRefusal`, amendment 30); not an owner or admin: 403; `report_v2` off: 404; a name that breaks the rule: 422 with the contract's words;
+  - saves on the workspace row (made if the workspace has none), trimmed; the defaults are stored as null;
+  - an audit-trail entry `report_branding_changed` with `changed: ["reportTierNames"]`, as other branding changes have;
+  - every other PUT body is handled exactly as before.
+- **P09.cover:** with a cover name (Agency and up, from the snapshot) the PDF prints it in capitals on its own line directly above "AI Visibility Report", JetBrains Mono 500, 8.5/12, tracking .14em, #FCD34D (see deviations). Growth and every report before tiers show no line; the rest of the cover is unchanged.
+- **Tests** (new; RED on the parent: 11 failed, and the card's file can't load; 4 pass on both because they hold today: an analyst refused, the flag-off states, no line without a name, saving the defaults stores nothing):
+  - `tests/integration/report-tier-names.integration.test.ts` (10): saved and trimmed with the audit trail; the defaults stored as null; 422 for each rule (25 characters, empty, a line break, the same ignoring case); an XSS payload stored as typed; Growth 403 `plan_required`; an analyst 403; flag off 404.
+  - `tests/integration/report-list-tiers.integration.test.ts` (2): the snapshot's name, else the workspace's name for the tier; "running_checks"; no snapshot, `hasSnapshot` or render input in the response; flag off, no names.
+  - `tests/unit/components/report-names-card.test.tsx` (5).
+  - `tests/unit/reports/report-cover-tier.test.tsx` (3): the line above the title; the only addition; an XSS payload printed as text.
+  - The snapshot keeping the name: the list test (a row named "Gold" while the workspace's names differ) and Part 7's snapshot test.
+  - e2e: a Part 10 test in `12-s01-report-contents-panel.spec.ts` (the pill on the list; Report names with the live preview), with screenshots `.qa/screens/S01/P17-{1240,390}-light.png` and `P18-{1240,390}-light.png`.
+- **Runs:** related 51 files, 789 passed; 89 guard files + the tests naming the changed files: 124 files, 2,267 passed; tsc clean; biome 0 new.
+- **Playwright:** 12-s01-report-contents-panel 5 of 5 (run twice: the second retook P17/P18 in light), sprint4-reports 19 of 19; peak tree ≤ 4.77 GB, lowest free 2.16 GB, 0 leftovers.
+
+## Part 11. ABN field and ABN suggestion (LLD 8.8.6, P01) — `c2afabfa`
+
+- **ABN field (P01.abnField; not flagged: it was a missing field):**
+  - brand settings (`components/domain/brand/brand-detail-client.tsx`) gains "ABN" under "Also known as", with the help "11 digits, from the Australian Business Register";
+  - spaces as typed are fine and the digits are saved; empty means no ABN;
+  - the ATO digit check runs on blur and on Save (`lib/brands/abn.ts`, using the existing `abnCheckDigitsValid` from `lib/product.ts`), with the contract's two messages under the field; Save is blocked while the ABN is invalid;
+  - read-only until Edit, and Edit is for owners and admins (`manage_brands`).
+- **`PATCH /api/brands/:id`** accepts `abn`, with the same rule (400 `abn: …`). A changed ABN:
+  - goes in the audit trail (`brand_abn_changed`, a new action);
+  - when not empty, queues the entity check with `after()`. That is `lib/brand-entity/entity-check.ts` `runBrandEntityCheck`: the lookups the technical audit runs for Brand & Entity (the ABR with the GUID, Wikipedia AU, .au), stored as a `brand_entity_scores` row under the workspace's RLS context, so the identity tile updates now rather than at the next audit.
+- **ABN suggestion (P01.abn; flag `abn_suggestion`):**
+  - `searchAbnByName(name, { postcode, state })` in `lib/brand-entity/abn-lookup.ts`:
+    - the ABR's `MatchingNames.aspx` (the JSON method takes a name only), kept to current names that are the business's name;
+    - filtered in code by postcode, else state;
+    - a suggestion only when exactly one ABN is left and `AbnDetails` says it is Active;
+    - with no GUID or with `ABN_LOOKUP_BYPASS` set, no lookup at all; the ABR not answering is "failed", never a guess.
+  - `GET /api/brands/:id/abn-suggestion`: for a brand with no ABN in the Australian market, searched once and kept in `brands.abn_suggestion` until answered. A search that found nothing isn't repeated for 30 days (a failed one, for a day). Any member who can see the brand.
+  - `POST { action: "confirm" | "dismiss" }` (owners and admins): Confirm writes `brands.abn` (the same column as the field), goes in the audit trail and queues the entity check; Not mine hides it for good. Flag off: GET says there's none and POST is 404.
+  - The banner (`components/domain/brand/abn-suggestion-banner.tsx`): "Is this your ABN?", the ABR's line in mono ("17 701 710 947 · ASTORIO GROUP PTY LTD · NSW 2765 · Active"), "Found on the Australian Business Register by your business name.", Confirm / Not mine. After Confirm, the field shows the ABN with "ABN saved. We'll check the register now.".
+- **Fixed-host client list:** `tests/unit/fetch/no-unguarded-fetch.test.ts`'s entry for `lib/brand-entity/abn-lookup.ts` (host `abr.business.gov.au`) now counts 2 calls: the name search and its confirmation share one new call site.
+- **Recorded ABR responses** (S01 part 1's, 23 Nov 2026) in the tests; no live ABR call from any test (fetch is stubbed for `abr.business.gov.au` only, and the entity check is recorded).
+- **Tests** (new; RED on the parent: 11 failed, including the fetch guard's count, and the suggestion test file can't load; 8 pass on both because they hold today: an analyst refused, flag-off states, the guard's other checks):
+  - `tests/unit/brands/abn-suggestion.test.ts` (8): the field's rule; the search with recorded responses: one match, another place, two ABNs, not Active, no GUID or bypass, the ABR not answering.
+  - `tests/integration/abn-routes.integration.test.ts` (8):
+    - PATCH: digits saved, audit trail, entity check queued; empty clears it; the same ABN changes nothing; the bad checksum and too few digits in the contract's words; an analyst 403;
+    - the suggestion: looked up once and kept; Confirm writes the ABN, with the audit trail and the check; Not mine for good; none with an ABN, outside Australia or with the flag off; an analyst can't answer.
+  - `tests/unit/brands/brand-abn-field.test.tsx` (5).
+  - `tests/e2e/14-s01-abn.spec.ts` (new, 2): the banner and Confirm with the suggestion route stubbed; the checksum message. Screenshots `.qa/screens/S01/P01-abn-{1240,390}-{light,dark}.png`.
+- **Runs:**
+  - related: 247 files, 2,565 passed, 7 skipped;
+  - 89 guard files + the tests naming the changed files: 135 files, 2,471 passed;
+  - tsc clean; biome 0 new (the brand page and brand settings keep their one existing diagnostic each).
+- **Playwright:** 02-brands-list 8, 03-brand-create 10, 04-brand-detail 9, 05-cross-org-isolation 7, 07-acceptance 5, 10-not-found-and-errors 4, 11-s01-part0 5, the new 14-s01-abn 2: all passed (peak tree ≤ 5.25 GB, lowest free 2.61 GB). Then Claude Code stopped the queue for low system memory: sprint2-workflow (2 shards), sprint3-visibility, s9-autopilot-e2e (2 shards) and responsive-shell (8 shards) are not run (see Read first).
+
+## Part 12. Client portal reports (LLD 8.1.6, P13) — `84a0dc7b`
+
+- **`lib/client-portal/portal-reports.ts`** (`loadPortalReports`), under the invite's workspace RLS context: the invite's brand's generated reports with a stored PDF, newest first (up to 100). Each row has:
+  - the report type's name: the snapshot's, else the workspace's name for its tier, so an old report is Basic;
+  - the period, "Audit #{n}", and the Visibility the PDF printed (from the snapshot's headline; "—" for reports from before S01);
+  - when it was made (in the workspace's time zone);
+  - a download link signed for 10 minutes (`getDownloadUrl(path, 600)`, the existing storage pattern; never a public bucket).
+  Only three fields are read from the snapshot, in SQL. Listed in `DIRECT_GATES` (it reads the plan for the names).
+- **The portal page** (`app/client-portal/[inviteToken]/page.tsx`), only while `report_v2` is on for the agency's workspace:
+  - the "Reports" card (`components/domain/portal/portal-reports.tsx`, P13): "AI visibility reports prepared for you.", the table Report (neutral pill) | Period (sticky on a phone) | Based on | Visibility (by band, D-BAND) | Generated | Download PDF (named "Download PDF for {period}");
+  - the empty state "No reports yet. Your agency will share them here.";
+  - after 10 minutes each link becomes "This download link has expired. Try again" (reloads for fresh links).
+  Flag off: the portal as today.
+- **Isolation:** only the invite's brand, never another brand of the same workspace or another workspace's, and never a report without a PDF (integration test). `tests/e2e/05-cross-org-isolation.spec.ts` gains a describe:
+  - user 2 gets 404 for Org1's reports list, its report contents panel and Generate;
+  - a portal link lists only its own brand's report.
+- **Tests:** `tests/integration/portal-reports.integration.test.tsx` (2; RED on the parent: the list test fails, the flag-off test holds today) with the storage adapter recorded (no storage call). Plus the 05 extension.
+- **Runs:** related 9 files, 76 passed; 89 guard files + the tests naming the changed files + `cancelled-plan-gates`: 100 files, 1,692 passed (the plan-names guard caught a `{r.tierName}` JSX child in the portal table: fixed with a helper and re-run green); tsc clean; biome 0 new.
+- **Playwright:** 05-cross-org-isolation 9 of 9 (with the two new tests), run alone in the foreground after the memory stop (peak tree 4.36 GB, lowest free 2.97 GB, 0 leftovers); the other specs mapped to Part 12 are in Read first.
+
+## PDF page images (the report-back's)
+
+Rendered from recorded fixtures only, as Part 7 did; no production data in the repo:
+- **Hero #54:** `reportDataFixture("39")`.
+- **TechCore #52:** the #39 fixture at 0 of 40, with Part 3's evidence: kangaroo-it.com.au in 27 answers, Claude's "unable to find" sentence, Local Business Guide not linked, ABN not verified.
+
+Splice Marketing is on Agency, so every cover names its tier.
+- The PDFs: `.qa/screens/S01/pdf/{hero54,techcore52}-{basic,standard,enhanced}.pdf`.
+- Every page at 1240 px wide: `.qa/screens/S01/pdf/{fixture}-{tier}-{n}.png`, 49 images.
+
+| | Basic | Standard | Enhanced |
+|---|---|---|---|
+| Hero #54 stand-in | 7 pages | 8 | 9 |
+| TechCore #52 shape | 8 | 8 | 9 |
+
+- **Contact sheets, one per tier:** `.qa/screens/S01/pdf-basic-sheet.png`, `pdf-standard-sheet.png` and `pdf-enhanced-sheet.png`.
+- **What to look at:**
+  - the cover's name line;
+  - Standard and Enhanced page 5–6 "Why, and what to do next": findings first, then measured actions, Splice Marketing's own action, done since the last report, general advice;
+  - Enhanced page 7 "Beyond AI answers", with the directory profiles tile;
+  - the method page's question mix and checks rows.
+- **N15 for Basic:** `tests/unit/reports/report-v2-pdf.test.tsx` passes after Parts 8–12, for both fixtures. Every page of a Basic report matches today's, and the method page adds only the question mix line.
+  - One more difference on Agency and up: the cover's report name (P09.cover, D-RT3), which N15's list doesn't name. Proposed: add it to N15's allowed differences.
+
+## Other screens (screenshots in `.qa/screens/S01/`)
+
+```
+P08 · Report contents panel with the report type (S01 parts 5, 8, 9)
+Nodes: 10 of 10 (header, tier, basicNote, measured + item, agency, addAction, checks, sections, outline, footer)
+States: loading ✓ (skeleton at once) empty ✓ error ✓ planLock ✓ overLimit ✓ (402 inline, falls back) flagOff ✓
+Acceptance: ✓ tier above the plan refused by the server (402); ✓ Growth generates Basic/Standard, can't curate;
+  ✓ Enhanced lists each check with its age and re-runs only stale ones; ✓ re-render uses the snapshot;
+  ✓ the PDF has the tier's pages (render + integration tests)
+Screenshots: P08-1240-light, P08-1240-dark, P08-390-light, P08-390-dark (picker, plan, outline, checks list below)
+
+P17 · Brand → Reports (part 10; statuses part 9)
+Nodes: header, generate, list, table (Report pill in the existing Report cell; existing columns kept)
+States: loading ✓ empty ✓ error ✓ noPermission ✓ (existing) flagOff ✓ (no pill, Generate as today)
+Acceptance: ✓ every row shows its tier name, old rows Basic; ✓ Running checks… → Generating... → Ready;
+  ✓ Try again uses the snapshot (Part 7)
+Screenshots: P17-1240-light, P17-390-light
+
+P18 · Report branding → Report names (part 10)
+Nodes: card, basic, standard, enhanced, preview, actions, contents
+States: error ✓ (under the field) flagOff ✓; planLock: the existing locked page; loading: server-rendered
+Acceptance: ✓ names on the cover (Agency and up), in P17, P08 and the portal; ✓ old reports keep their snapshot's
+  names; ✓ 403 plan_required below Agency, 422 invalid; ✓ XSS stored and shown as text
+Screenshots: P18-1240-light, P18-390-light
+
+P01 · ABN field and suggestion (part 11)
+Nodes: abnField, abn (banner)
+States: flagOff ✓ (no banner, no request); read-only until Edit (manage_brands)
+Acceptance: ✓ the banner never shows when brands.abn is set; ✓ Not mine hides it for good
+Screenshots: P01-abn-1240-light, -dark, P01-abn-390-light, -dark
+
+P13 · Client portal: reports (part 12)
+Nodes: header (existing), reports, table
+States: empty ✓ error ✓ (expired link: Try again) flagOff ✓
+Acceptance: ✓ only the portal's brand reports listed; ✓ signed URLs expire (10 minutes)
+Screenshots: P13-1240-light, P13-390-light
+
+Pricing "Reports" row (part 8): pricing-reports-row-off-1240.png, pricing-reports-row-on-1240.png
+Schedules "Report type" (part 8): component tests only (no Playwright spec covers the schedules form)
+```
+
+## Commits (this session)
+
+```
+b86c754f test(e2e): S01 report-back screenshots -- the pricing page's Reports row ... and the portal's Reports card
+84a0dc7b feat(portal): S01 part 12 -- reports in the client portal ...
+c2afabfa feat(brands): S01 part 11 -- the ABN field and the ABN suggestion ...
+63fab7fd feat(reports): S01 part 10 -- report names and the report type on the list and the cover ...
+35760774 feat(reports): S01 part 9 -- Enhanced checks before rendering ...
+7eefae34 feat(reports): S01 part 8 -- report tiers enforced ...
+b9ce9ebc docs: client-enhancements pack v1.11 (decisions on S01 Parts 6-7, contract v1.3)
+```
+
+`git log origin/main..main --oneline` (`origin/main` = `f1d9ffdb`) holds 22 commits:
+- the 14 S01 commits listed in the v1.11 update step, ending with the Parts 6–7 report `bfb80fd9`;
+- the seven above;
+- this report's commit.
+Nothing is pushed.
+
+`docs/prototypes/token-map.md`: amendment 42's Tailwind note added to the platform section (allowed by the update step), committed with this report.
+
+## Memory and processes (this session)
+
+- Start: 7.44 GB free, 0 node processes.
+- Every Playwright run had its own `next dev` server, with ≥ 6 GB free at its start; peak tree ≤ 5.92 GB, lowest free 1.7 GB. After each run: 0 leftovers and port 3000 free.
+- Claude Code stopped Part 11's background queue for low system memory, as described in "Read first". Afterwards: 0 repo node processes, no queue shells, port 3000 free, 7.29 GB free.
+- End: 7.28 GB free, 0 repo node processes.
+
+## Tests skipped by the testing-scope rules (Parts 8–12)
+
+- Full suites: not run (not asked). No `next build`.
+- Playwright: the not-run list in "Read first".
+
+## Deviations and proposed changes to the documents (Parts 8–12)
+
+- **Enhanced refresh and its concurrency (Part 9):**
+  - The refresh is a step inside `generate-narrative-report`, which already runs one at a time account-wide (`POST_AUDIT_POOL`, limit 1). So refreshes are one per brand, and indeed one per account; the LLD's separate `brand_id` key isn't added (a second constraint or a separate function would change the post-audit pool's tested shape).
+  - Cost: an Enhanced refresh holds that pool for up to 5 minutes (usually about a minute), delaying other post-audit jobs meanwhile.
+  - Proposed: the LLD says "concurrency: one at a time per account (POST_AUDIT_POOL)", or Sri chooses a separate function with its own key.
+- **AI crawler access re-runs the whole technical audit (Part 9):** the tile reads `technical_audits`, and the existing function that writes robots findings is the technical audit runner (a crawl of up to 20 pages). So a 7-day-old crawler check re-runs the technical score too, not "one robots.txt fetch" as LLD 8.1.7 says. Proposed: the LLD says so, or a robots-only result store is added later.
+- **Refresh costs (Part 9):** the ABR and robots calls are free and the YouTube API is quota, not money. There is no existing cost log for these checks, so each refresh is an operator log line (`enhanced_check_refreshed`) and appears in the snapshot's `refreshed`; there is no `/admin/costs` line (LLD 14). Proposed: backlog.
+- **P08 copy added (Part 9):**
+  - "Not checked yet · will run again (about 1 minute)" for a check that has never run;
+  - "Not checked · shown as not checked" for YouTube with the code gate off.
+  The contract has neither case.
+- **P17 (Part 10):**
+  - The existing page's columns stay (Report | Period | Status | Actions), as P17's layout note asks. The report type is a neutral pill inside the existing Report cell, not a new column.
+  - No pagination past 25 rows and no sticky column: the existing page has neither.
+- **P18 plan lock (Part 10):** below Agency the whole Report branding page is already the existing plan-locked page (`PlanLockedPage`, `white_label_reports`), so the card's read-only locked state never shows. The API still answers 403 `plan_required` for names below Agency.
+- **P09.cover colour and weight (Part 10):** the contract's #8A5A00 is for a white page; on this navy cover the tier line uses the amber the evidence block already uses (#FCD34D, well over 4.5:1). Only JetBrains Mono 400/500 are registered for the PDF, so the weight is 500, not 600.
+- **P13 (Part 12):**
+  - Download links are signed for 10 minutes when the page loads, rather than through a new signed-URL route: a route would have to resolve the invite token with a new `serviceDb` read (the portal page's existing bootstrap is the only one).
+  - After 10 minutes each row says "This download link has expired." with Try again (reloads).
+- **The snapshot (amendment 41):** it now leaves out the workspace and brand ids and the other audits' trend ids (rendering restores them from the row). Appendix D could list `reportData` with that note.
+- **Generate without a tier (Part 8):** the route chooses the brand's saved default, else the plan's highest. A schedule whose tier the plan no longer includes is capped and logged. Proposed: LLD 8.1.7 states both.
+- **Not done (privacy, LLD 12):** the data facts / FAQ / privacy draft don't mention ABR name lookups yet (`lib` has no data-facts file); Sri decides the wording.
+## Push notes (the whole sprint)
+
+1. **Migration 0154 first** (`db/prod-fixes/0154-s01-run1-precheck.sql` → `run2-apply` → `run3-post-check`; `run4-rollback` only to undo), after a pg_dump of `generated_reports`, `report_delivery_schedules`, `agency_brand_assets` and `brands`. Unchanged since Part 2: Parts 8–12 needed no schema change. The pushed code selects the new columns with every report, schedule, branding row and brand.
+2. **Inngest resync: yes.** `generate-narrative-report` has two new step ids (`refresh-enhanced-checks`, `write-report-snapshot`, Part 9) and changed `generate-and-insert`'s return for Enhanced reports; `render-report-pdf` changed in Part 7. No function ids or event names changed and no function was added. Push when no report is being generated: a run that started before the push and resumes after it could meet a step it doesn't know (the StepNotFound risk seen before).
+3. **Safe while an audit runs:** yes. Everything new runs only while `report_v2` (or `abn_suggestion`) is on, except Part 0 and the ABN field; the generator with `report_v2` off is today's. The technical audit runner's new options default to today's behaviour.
+4. **Flags off:** `report_v2` and `abn_suggestion`. With `report_v2` off every report, the audit page, the Reports page, delivery schedules, Report branding, the pricing page and the client portal are today's.
+5. **Live on push (not flagged):** Part 0's fixes and the ABN field in brand settings (Part 11).
+6. **Before switching `report_v2` on** (names only): `ABN_LOOKUP_GUID` set and `ABN_LOOKUP_BYPASS` unset (identity checks and the ABN suggestion), `YOUTUBE_API_KEY` set (YouTube; without it the tile says "Not checked"). The pricing page's Reports row appears only when the flag is on globally, so turn it on per workspace first (as planned) and globally last.
+7. **Before the push:** the Playwright specs listed as not run in "Read first" (responsive-shell 8 shards, sprint2-workflow 2 shards, sprint3-visibility, s9-autopilot-e2e 2 shards, and the re-runs after Part 12) must pass, because the ABN field (Part 11) is live on push. Use the runbook's "Run Playwright specs that were skipped for memory" kickoff with that list.

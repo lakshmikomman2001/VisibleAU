@@ -26,7 +26,8 @@ export interface ReportSection {
   order?: number;
 }
 
-export type ReportStatus = "generating" | "ready" | "published" | "failed";
+/** S01 part 9 (contract P17): "running_checks" while an Enhanced report's checks are refreshed, before its PDF. */
+export type ReportStatus = "running_checks" | "generating" | "ready" | "published" | "failed";
 
 /**
  * URGENT PDF reports (1 Nov), part 2 -- why a report's PDF couldn't be
@@ -119,13 +120,20 @@ export interface ConfidenceNote {
 export function deriveReportStatus(
   pdfUrl: string | null,
   emailSentAt: Date | null,
-  pdf: { failureReason?: string | null; updatedAt?: Date | string | null; now?: number } = {},
+  pdf: {
+    failureReason?: string | null;
+    updatedAt?: Date | string | null;
+    now?: number;
+    /** S01 part 9: an Enhanced report whose contents aren't written yet (its checks are being refreshed). */
+    runningChecks?: boolean;
+  } = {},
 ): ReportStatus {
   if (!pdfUrl) {
     if (pdf.failureReason) return "failed";
     const updatedAt = pdf.updatedAt ? new Date(pdf.updatedAt).getTime() : Number.NaN;
     const stalled = (pdf.now ?? Date.now()) - updatedAt >= REPORT_PDF_STALLED_MS;
-    return stalled ? "failed" : "generating";
+    if (stalled) return "failed";
+    return pdf.runningChecks ? "running_checks" : "generating";
   }
   if (!emailSentAt) return "ready";
   return "published";

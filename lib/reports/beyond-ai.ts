@@ -2,6 +2,7 @@ import { and, count, desc, eq, gt, lte } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import {
   brandEntityScores,
+  brands,
   crawlerVisitLogs,
   technicalAudits,
   youtubePresenceAudits,
@@ -361,6 +362,29 @@ export interface BeyondAiBrand {
   suburb?: string | null;
   state?: string | null;
   postcode?: string | null;
+}
+
+/** S01 part 9: what getBeyondAiAnswers needs about a brand, read under the caller's RLS context. */
+export async function loadBeyondAiBrand(
+  db: DbClient,
+  brandId: string,
+): Promise<BeyondAiBrand | null> {
+  const [b] = await db
+    .select({
+      id: brands.id,
+      name: brands.name,
+      domain: brands.domain,
+      region: brands.region,
+      categories: brands.categories,
+      abn: brands.abn,
+      youtubeChannelUrl: brands.youtubeChannelUrl,
+      suburb: brands.suburb,
+      state: brands.state,
+      postcode: brands.postcode,
+    })
+    .from(brands)
+    .where(eq(brands.id, brandId));
+  return b ? { ...b, categories: b.categories ?? [] } : null;
 }
 
 export async function getBeyondAiAnswers(

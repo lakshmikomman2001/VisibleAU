@@ -10,7 +10,16 @@ import { inngest } from "@/lib/inngest/client";
 import type { SiteDependentDimension } from "@/lib/technical-audit/crawl-status";
 import { orchestrateTechnicalAudit } from "@/lib/technical-audit/orchestrate";
 
-export async function runTechnicalAuditInline(auditId: string, brandId: string): Promise<void> {
+/**
+ * S01 part 9 (LLD 8.1.7, D-RT4): an Enhanced report's refresh runs this too, with no audit (`auditId` null: the
+ * technical_audits row has none, as its column allows) and `emitComplete: false`, so it starts none of
+ * technical-audit/complete's follow-up jobs. Every other caller passes an audit and gets exactly what it did before.
+ */
+export async function runTechnicalAuditInline(
+  auditId: string | null,
+  brandId: string,
+  options: { emitComplete?: boolean } = {},
+): Promise<void> {
   const [brand] = await serviceDb.select().from(brands).where(eq(brands.id, brandId));
   if (!brand) {
     console.error(`[tech-audit] Brand ${brandId} not found`);
@@ -125,10 +134,12 @@ export async function runTechnicalAuditInline(auditId: string, brandId: string):
       scoreOf10: entityScoreValue.toFixed(2),
     });
 
-    await inngest.send({
-      name: "technical-audit/complete",
-      data: { brandId, orgId: brand.organizationId, auditId },
-    });
+    if (options.emitComplete !== false) {
+      await inngest.send({
+        name: "technical-audit/complete",
+        data: { brandId, orgId: brand.organizationId, auditId },
+      });
+    }
 
     console.log(`[tech-audit] Complete for ${brand.domain}: composite=${result.scoreComposite}`);
   } catch (err) {

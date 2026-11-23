@@ -4,6 +4,7 @@ import { brands } from "@/db/schema";
 import { isEnabled } from "@/lib/flags/flags";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { getBeyondAiAnswers } from "./beyond-ai";
+import { applyRefreshOutcomes, type RefreshOutcome } from "./enhanced-checks";
 import type { ReportData } from "./report-data";
 import { reportFindings } from "./report-findings";
 import { reportCurationAllowed } from "./report-preferences-service";
@@ -25,7 +26,14 @@ import { loadWhatToDoNext } from "./what-to-do-next";
  */
 export async function buildReportV2(
   db: DbClient,
-  input: { data: ReportData; tier: ReportTier; now: Date; plan?: string },
+  input: {
+    data: ReportData;
+    tier: ReportTier;
+    now: Date;
+    plan?: string;
+    /** S01 part 9: what the Enhanced refresh step did (a check it couldn't finish prints its failure line). */
+    refresh?: RefreshOutcome[];
+  },
 ): Promise<ReportV2> {
   const { data, tier, now } = input;
   const organizationId = data.organizationId;
@@ -67,7 +75,9 @@ export async function buildReportV2(
           brand: { ...brand, categories: brand.categories ?? [] },
           asOf: now,
           basisAuditId: data.basis.auditId,
-        })
+        }).then((answers) =>
+          input.refresh ? applyRefreshOutcomes(answers, input.refresh, now) : answers,
+        )
       : Promise.resolve(null),
   ]);
   return {
@@ -103,6 +113,7 @@ export async function reportV2ForGeneration(
     tier?: ReportTier | null;
     now: Date;
     source?: "manual" | "schedule";
+    refresh?: RefreshOutcome[];
   },
 ): Promise<{
   tier: ReportTier;
@@ -110,6 +121,19 @@ export async function reportV2ForGeneration(
   data: ReportDataV2;
   snapshot: ReportSnapshot;
 } | null> {
+  const decided = await decideReportTier(db, input);
+  if (!decided) return null;
+  return buildDecidedReportV2(db, { ...input, decided });
+}
+
+/**
+ * S01 parts 8-9: the tier a report is (null while report_v2 is off), decided before anything is built -- so an Enhanced
+ * report can be written first, its checks refreshed, and its contents built after (generate-narrative-report).
+ */
+export async function decideReportTier(
+  db: DbClient,
+  input: { data: ReportData; tier?: ReportTier | null; source?: "manual" | "schedule" },
+): Promise<{ tier: ReportTier; plan: string } | null> {
   const organizationId = input.data.organizationId;
   if (!(await isEnabled("report_v2", organizationId))) return null;
   const choice = await chooseReportTier(db, {
@@ -131,7 +155,27 @@ export async function reportV2ForGeneration(
       }),
     );
   }
-  const v2 = await buildReportV2(db, { data: input.data, tier, now: input.now, plan: choice.plan });
+  return { tier, plan: choice.plan };
+}
+
+/** The report's v2 contents and snapshot for a tier already decided (decideReportTier). */
+export async function buildDecidedReportV2(
+  db: DbClient,
+  input: {
+    data: ReportData;
+    decided: { tier: ReportTier; plan: string };
+    now: Date;
+    refresh?: RefreshOutcome[];
+  },
+): Promise<{ tier: ReportTier; plan: string; data: ReportDataV2; snapshot: ReportSnapshot }> {
+  const { tier, plan } = input.decided;
+  const v2 = await buildReportV2(db, {
+    data: input.data,
+    tier,
+    now: input.now,
+    plan,
+    refresh: input.refresh,
+  });
   const data: ReportDataV2 = { ...input.data, v2 };
-  return { tier, plan: choice.plan, data, snapshot: buildReportSnapshot(data) };
+  return { tier, plan, data, snapshot: buildReportSnapshot(data) };
 }

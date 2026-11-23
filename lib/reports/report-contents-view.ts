@@ -4,7 +4,10 @@ import { brands, organizations } from "@/db/schema";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { isEnabled } from "@/lib/flags/flags";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 import { auditFindingsData } from "./audit-findings";
+import { getBeyondAiAnswers, loadBeyondAiBrand } from "./beyond-ai";
+import { checksListRows } from "./enhanced-checks";
 import type { WhatToDoNext } from "./report-contents";
 import { defaultReportPeriodLabel, selectReportBasis } from "./report-data";
 import { reportFindings } from "./report-findings";
@@ -14,7 +17,7 @@ import {
   type SavedReportPreferences,
 } from "./report-preferences-service";
 import { chooseReportTier, type TierOption, tierOptionsFor } from "./report-tier-choice";
-import type { ReportTier } from "./report-tiers";
+import { type ReportTier, reportTierAllowed } from "./report-tiers";
 import { loadWhatToDoNext } from "./what-to-do-next";
 
 /**
@@ -40,6 +43,8 @@ export type ReportContentsView =
       tiers: TierOption[];
       /** The tier the panel opens on: the brand's last choice when the plan includes it, else the plan's highest. */
       defaultTier: ReportTier;
+      /** S01 part 9 (P08.checks): the Enhanced checks with their age and whether they'll be reused or run again. */
+      checks: Array<{ key: string; label: string; status: string; willRun: boolean }>;
     };
 
 export async function buildReportContentsView(
@@ -96,6 +101,16 @@ export async function buildReportContentsView(
       now,
     });
   }
+  // Only for a plan that can make an Enhanced report: four indexed reads, the same the report and the refresh use.
+  const beyondBrand = reportTierAllowed(tier, "enhanced")
+    ? await loadBeyondAiBrand(tx, input.brandId)
+    : null;
+  const checks = beyondBrand
+    ? checksListRows(await getBeyondAiAnswers(tx, { brand: beyondBrand, asOf: now }), now, {
+        youtubeEnabled: TRUST_CHECK_IMPLEMENTED.youtubePresence,
+        basisAuditNumber: basis?.auditNumber ?? null,
+      })
+    : [];
   return {
     enabled: true,
     curated,
@@ -108,5 +123,6 @@ export async function buildReportContentsView(
     agencyName,
     tiers: tierOptionsFor(tier, tierChoice.names),
     defaultTier: tierChoice.tier ?? "basic",
+    checks,
   };
 }

@@ -13,6 +13,7 @@ import {
   type ReportTier,
   tierRankOf,
 } from "@/lib/reports/report-tiers";
+import { type ReportCheckRow, ReportChecksList } from "./report-checks-list";
 import { ReportTierPicker } from "./report-tier-picker";
 
 /**
@@ -45,6 +46,8 @@ export interface ReportContentsPanelProps {
   tierOptions: TierOption[];
   /** The tier the panel opens on: the brand's last choice, else the plan's highest (the view's `defaultTier`). */
   initialTier: ReportTier;
+  /** S01 part 9 (P08.checks): shown for an Enhanced report -- the view's `checks`. */
+  checks?: ReportCheckRow[];
   onClose: () => void;
   /** After Generate was accepted: the page starts waiting for the new report. */
   onGenerated: () => void;
@@ -810,6 +813,7 @@ export function ReportContentsPanel(props: ReportContentsPanelProps) {
                   />
                 </div>
               </section>
+              {tier === "enhanced" && <ReportChecksList rows={props.checks ?? []} />}
             </>
           )}
         </div>

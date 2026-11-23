@@ -33,6 +33,12 @@ vi.mock("@/lib/auth/current-user", () => ({
   })),
 }));
 
+// S01 part 9: an Enhanced report refreshes its stale checks before it's built; here the checks' runners do nothing
+// (tests/integration/enhanced-refresh.integration.test.tsx covers the refresh). No live call from a test.
+vi.mock("@/lib/reports/enhanced-check-runners", () => ({
+  enhancedRunners: () => ({ site: async () => undefined, youtube: async () => undefined }),
+}));
+
 type Handler = (ctx: {
   event: { id: string; data: Record<string, unknown> };
   step: { run: <T>(name: string, fn: () => Promise<T>) => Promise<T> };

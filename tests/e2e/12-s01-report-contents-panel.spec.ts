@@ -153,6 +153,26 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
     await expect(page.getByTestId("p08-panel")).toHaveCount(0);
   });
 
+  test("S01 part 9: Enhanced lists the checks before the report; Standard doesn't", async ({
+    page,
+  }) => {
+    await setFlag(true);
+    await page.goto(`/brands/${brandId}/reports`);
+    await page.getByTestId("generate-report").click();
+    const checks = page.getByTestId("p08-checks");
+    await expect(checks).toContainText("Checks before this report");
+    const rows = page.getByTestId("p08-check");
+    await expect(rows).toHaveCount(5);
+    // The brand has never had a technical audit: those run; no YouTube channel is linked.
+    await expect(rows.nth(0)).toContainText(
+      "Business identity (ABN)Not checked yet · will run again",
+    );
+    await expect(rows.nth(1)).toContainText("No channel linked · shown as not linked");
+    await expect(rows.nth(4)).toContainText("Your directory profilesFrom audit #1");
+    await page.getByRole("radio", { name: "Standard" }).click();
+    await expect(checks).toHaveCount(0);
+  });
+
   test("report_v2 off: Generate starts today's report directly, no panel", async ({ page }) => {
     await setFlag(false);
     // The POST is stubbed (as sprint4-reports does): this checks the page asks for today's report, not the job.

@@ -90,6 +90,12 @@ function PdfAction({
 
 function StatusBadge({ status }: { status: ReportStatus }) {
   const config = {
+    // S01 part 9 (contract P17): an Enhanced report's checks run before its PDF is made.
+    running_checks: {
+      bg: "var(--warning-soft)",
+      color: "var(--warning)",
+      label: "Running checks…",
+    },
     generating: { bg: "var(--warning-soft)", color: "var(--warning)", label: "Generating..." },
     ready: {
       bg: "color-mix(in srgb, var(--success) 15%, transparent)",

@@ -4,9 +4,13 @@ import { generatedReports, reportDeliverySchedules, reportTemplates } from "@/db
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
+import { getBeyondAiAnswers, loadBeyondAiBrand } from "@/lib/reports/beyond-ai";
+import { enhancedRunners } from "@/lib/reports/enhanced-check-runners";
+import { refreshEnhancedChecks } from "@/lib/reports/enhanced-refresh";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
 import { isReportTier, type ReportTier } from "@/lib/reports/report-tiers";
-import { reportV2ForGeneration } from "@/lib/reports/report-v2";
+import { buildDecidedReportV2, decideReportTier } from "@/lib/reports/report-v2";
+import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
 import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 
 export const generateNarrativeReport = inngest.createFunction(
@@ -99,7 +103,7 @@ export const generateNarrativeReport = inngest.createFunction(
       return { skipped: true, reason: "no_active_delivery_schedule" };
     }
 
-    const reportId = await step.run("generate-and-insert", async () => {
+    const generated = await step.run("generate-and-insert", async () => {
       return withRlsContext(organizationId, async (tx) => {
         // DEMO-BLOCKER (1 Nov), part 5 point 1: a report is based on ONE
         // audit -- the latest complete one in the period in which every
@@ -135,14 +139,21 @@ export const generateNarrativeReport = inngest.createFunction(
         // S01 part 7 (LLD 8.1.3, appendix D): while report_v2 is on, the report's v2 contents and the snapshot its PDF
         // and "Try again" render from. Off: null, and the report is today's (no snapshot, rebuilt from live data
         // when rendered). S01 part 8 (LLD 8.1.7): its tier -- the route's for a manual report, the schedule's for a
-        // scheduled one -- decided and capped at the plan on the server (reportV2ForGeneration).
+        // scheduled one -- decided and capped at the plan on the server (decideReportTier).
+        // S01 part 9 (D-RT4): an Enhanced report is written now without its contents ("Running checks..." on the
+        // Reports page); its stale checks run again (refresh-enhanced-checks) and its contents are built after them
+        // (write-report-snapshot). Basic and Standard are built here, as in part 8, and never refresh anything.
         const requested = manual ? event.data.tier : context.scheduleTier;
-        const v2 = await reportV2ForGeneration(tx, {
+        const decided = await decideReportTier(tx, {
           data,
           tier: isReportTier(requested) ? requested : null,
-          now: new Date(),
           source: manual ? "manual" : "schedule",
         });
+        const enhanced = decided?.tier === "enhanced";
+        const v2 =
+          decided && !enhanced
+            ? await buildDecidedReportV2(tx, { data, decided, now: new Date() })
+            : null;
         const narrative = reportNarrative(data);
         const confidenceNotes = [
           ...(data.coverage.note
@@ -177,7 +188,7 @@ export const generateNarrativeReport = inngest.createFunction(
             keyWins: [],
             keyGaps: [],
             confidenceNotes,
-            reportTier: v2?.tier ?? "basic",
+            reportTier: decided?.tier ?? "basic",
             contentsSnapshot: v2?.snapshot ?? null,
           })
           .returning({ id: generatedReports.id });
@@ -189,17 +200,69 @@ export const generateNarrativeReport = inngest.createFunction(
             reportId: row.id,
             organizationId,
             brandId,
-            tier: v2?.tier ?? "basic",
-            plan: v2?.plan ?? null,
+            tier: decided?.tier ?? "basic",
+            plan: decided?.plan ?? null,
             source: manual ? "manual" : "schedule",
           }),
         );
-        return row.id;
+        return enhanced && decided
+          ? {
+              reportId: row.id,
+              refresh: true as const,
+              plan: decided.plan,
+              auditId: basis.auditId,
+              periodType: reportPeriodType,
+            }
+          : row.id;
       });
     });
 
+    // A run that wrote its row before S01 part 9 got the id alone back from this step.
+    const reportId: string | null =
+      generated === null || typeof generated === "string" ? generated : generated.reportId;
     if (!reportId) {
       return { skipped: true, reason: "no_complete_audit" };
+    }
+
+    if (generated && typeof generated === "object" && generated.refresh) {
+      // S01 part 9 (LLD 8.1.7 D-RT4): checks older than their window run again through their existing functions,
+      // five minutes at most in all; one that fails or runs out of time prints its failure line and the report still
+      // renders. This function runs one at a time account-wide (POST_AUDIT_POOL), so two Enhanced reports for one
+      // brand never refresh together: the second finds the first one's results fresh.
+      const outcomes = await step.run("refresh-enhanced-checks", async () => {
+        const brand = await withRlsContext(organizationId, (tx) => loadBeyondAiBrand(tx, brandId));
+        if (!brand) return [];
+        return refreshEnhancedChecks({
+          brand,
+          read: (asOf) =>
+            withRlsContext(organizationId, (tx) => getBeyondAiAnswers(tx, { brand, asOf })),
+          runners: enhancedRunners(organizationId),
+          youtubeEnabled: TRUST_CHECK_IMPLEMENTED.youtubePresence,
+        });
+      });
+      await step.run("write-report-snapshot", async () => {
+        await withRlsContext(organizationId, async (tx) => {
+          const data = await buildReportData(tx, {
+            organizationId,
+            brandId,
+            periodType: generated.periodType,
+            periodLabel,
+            auditId: generated.auditId,
+            sections: context.sections,
+          });
+          if (!data) throw new Error("The report's basis audit couldn't be read");
+          const v2 = await buildDecidedReportV2(tx, {
+            data,
+            decided: { tier: "enhanced", plan: generated.plan },
+            now: new Date(),
+            refresh: outcomes,
+          });
+          await tx
+            .update(generatedReports)
+            .set({ contentsSnapshot: v2.snapshot, updatedAt: new Date() })
+            .where(eq(generatedReports.id, reportId));
+        });
+      });
     }
 
     await step.run("emit-report-generated", async () => {

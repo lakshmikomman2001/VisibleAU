@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -36,9 +36,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     throw e;
   }
 
+  // S01 part 9: every column but the contents snapshot (the PDF's render input, which the page never needs and the
+  // 4-second poll shouldn't carry), and whether one is stored ("Running checks..." until it is, for Enhanced).
+  const { contentsSnapshot: _renderInput, ...listColumns } = getTableColumns(generatedReports);
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const reports = await tx
-      .select()
+      .select({
+        ...listColumns,
+        hasSnapshot: sql<boolean>`${generatedReports.contentsSnapshot} IS NOT NULL`,
+      })
       .from(generatedReports)
       .where(
         and(

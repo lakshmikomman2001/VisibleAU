@@ -7,6 +7,12 @@ interface ReportStatusBadgeProps {
 }
 
 const STATUS_CONFIG: Record<ReportStatus, { label: string; bg: string; fg: string }> = {
+  // S01 part 9 (contract P17): an Enhanced report's checks run before its PDF is made.
+  running_checks: {
+    label: "Running checks…",
+    bg: "var(--warning-soft)",
+    fg: "var(--warning)",
+  },
   generating: {
     label: "Generating…",
     bg: "var(--warning-soft)",

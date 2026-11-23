@@ -12,5 +12,7 @@ export function shouldPollReports(
   awaitingReport: boolean,
 ): boolean {
   if (awaitingReport) return true;
-  return reports.some((r) => (r.status ? r.status === "generating" : !r.pdfUrl));
+  return reports.some((r) =>
+    r.status ? r.status === "generating" || r.status === "running_checks" : !r.pdfUrl,
+  );
 }

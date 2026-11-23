@@ -49,6 +49,12 @@ function statusOf(r: ReportRow): ReportStatus {
 
 function StatusBadge({ status }: { status: ReportStatus }) {
   const config = {
+    // S01 part 9 (contract P17): an Enhanced report's checks are refreshed before its PDF is made.
+    running_checks: {
+      bg: "var(--warning-soft)",
+      color: "var(--warning)",
+      label: "Running checks…",
+    },
     generating: { bg: "var(--warning-soft)", color: "var(--warning)", label: "Generating..." },
     ready: {
       bg: "var(--success-soft, color-mix(in srgb, var(--success) 15%, transparent))",
@@ -241,6 +247,7 @@ export default function ReportsListPage() {
             whatToDoNext={panelView.whatToDoNext}
             tierOptions={panelView.tiers}
             initialTier={panelView.defaultTier}
+            checks={panelView.checks}
             onClose={() => setPanelView(null)}
             onGenerated={startWaiting}
           />
@@ -380,7 +387,7 @@ export default function ReportsListPage() {
                     borderColor: "var(--border-subtle)",
                     background: "var(--bg-elevated)",
                   }}
-                  aria-busy={status === "generating"}
+                  aria-busy={status === "generating" || status === "running_checks"}
                 >
                   <div>
                     <button

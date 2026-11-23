@@ -10,6 +10,14 @@ interface StoredReport {
   /** Migration 0149: the failure's message, for the operator only -- never returned (see reportForPage). */
   pdfFailureDetail?: string | null;
   updatedAt: Date;
+  /** S01: the report's tier (migration 0154); "basic" for every report before tiers. */
+  reportTier?: string;
+  /**
+   * S01: the contents snapshot -- never sent to a page (it's the PDF's render input). A list may select only whether
+   * one is stored (`hasSnapshot`) instead of the snapshot itself.
+   */
+  contentsSnapshot?: unknown;
+  hasSnapshot?: boolean;
 }
 
 /**
@@ -25,7 +33,7 @@ export async function reportForPage<T extends StoredReport>(
   report: T,
   storage: StorageAdapter | null,
 ): Promise<
-  Omit<T, "pdfUrl" | "pdfFailureDetail"> & {
+  Omit<T, "pdfUrl" | "pdfFailureDetail" | "contentsSnapshot" | "hasSnapshot"> & {
     pdfUrl: string | null;
     pdfLinkUnavailable: boolean;
     status: ReportStatus;
@@ -43,7 +51,22 @@ export async function reportForPage<T extends StoredReport>(
   }
   // 14 Nov, part 6: why a PDF failed, in the provider's words (a hostname, a status), is for the operator's
   // /admin/reports; the customer sees the category's plain words (pdfFailureLabel).
-  const { pdfFailureDetail: _operatorOnly, pdfUrl: _storagePath, ...shown } = report;
+  const {
+    pdfFailureDetail: _operatorOnly,
+    pdfUrl: _storagePath,
+    contentsSnapshot: _renderInput,
+    hasSnapshot: _hasSnapshot,
+    ...shown
+  } = report;
+  // S01 part 9: an Enhanced report is written before its checks are refreshed; until its contents are, it's
+  // "Running checks..." (P17).
+  const snapshotStored =
+    report.hasSnapshot ??
+    (report.contentsSnapshot !== undefined && report.contentsSnapshot !== null);
+  const runningChecks =
+    report.reportTier === "enhanced" &&
+    !snapshotStored &&
+    (report.hasSnapshot !== undefined || report.contentsSnapshot !== undefined);
   return {
     ...shown,
     pdfUrl: link,
@@ -51,6 +74,7 @@ export async function reportForPage<T extends StoredReport>(
     status: deriveReportStatus(report.pdfUrl, report.emailSentAt, {
       failureReason: report.pdfFailureReason,
       updatedAt: report.updatedAt,
+      runningChecks,
     }),
   };
 }

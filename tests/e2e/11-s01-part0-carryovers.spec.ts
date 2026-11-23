@@ -73,7 +73,11 @@ test.describe("S01 part 0: carry-over fixes", () => {
     page,
   }) => {
     await page.route("**/api/brands/name-suggestion**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(HERO_ANSWER) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(HERO_ANSWER),
+      }),
     );
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.goto("/brands/wizard");
@@ -88,7 +92,7 @@ test.describe("S01 part 0: carry-over fixes", () => {
     await page.screenshot({ path: `${DIR}/wizard-step1-390-light-${SHOT}.png`, fullPage: false });
     await page.setViewportSize({ width: 1240, height: 900 });
 
-    await expect(notice).toContainText("Use “Hero Home Services”");
+    await expect(notice).toContainText("Use “Hero Home Services” · Keep “herohomeservices”");
     await expect(page.getByLabel("Brand name")).toHaveValue("herohomeservices");
     await page.getByTestId("wizard-use-site-name").click();
     await expect(page.getByLabel("Brand name")).toHaveValue("Hero Home Services");
@@ -96,6 +100,42 @@ test.describe("S01 part 0: carry-over fixes", () => {
       "Suggested from your website's name. Edit if it's different.",
     );
     await expect(notice).toHaveCount(0);
+  });
+
+  test("another typed name: the site's name is offered on its own line (LLD amendment 35 copy)", async ({
+    page,
+  }) => {
+    await page.route("**/api/brands/name-suggestion**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(HERO_ANSWER),
+      }),
+    );
+    await page.setViewportSize({ width: 1240, height: 900 });
+    await page.goto("/brands/wizard");
+    await page.getByLabel("Brand name").fill("Hero Plumbing");
+    await page.getByLabel("Domain").fill("herohomeservices.com.au");
+    await page.getByLabel("Domain").blur();
+    const offer = page.getByTestId("wizard-site-name-offer");
+    await expect(offer).toHaveText(
+      "Your website calls the business “Hero Home Services”. Use “Hero Home Services”",
+    );
+    await page.waitForTimeout(500);
+    await page.screenshot({
+      path: `${DIR}/wizard-step1-offer-1240-light-${SHOT}.png`,
+      fullPage: false,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: `${DIR}/wizard-step1-offer-390-light-${SHOT}.png`,
+      fullPage: false,
+    });
+    await page.setViewportSize({ width: 1240, height: 900 });
+    await expect(page.getByLabel("Brand name")).toHaveValue("Hero Plumbing");
+    await page.getByTestId("wizard-use-site-name").click();
+    await expect(page.getByLabel("Brand name")).toHaveValue("Hero Home Services");
+    await expect(offer).toHaveCount(0);
   });
 
   test("a failed suggestion leaves the first step usable", async ({ page }) => {
@@ -113,7 +153,10 @@ test.describe("S01 part 0: carry-over fixes", () => {
   test("/pricing: the Starter card promises no reports", async ({ page }) => {
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.goto("/pricing");
-    const starter = page.locator("section, div").filter({ hasText: /^Starter/ }).first();
+    const starter = page
+      .locator("section, div")
+      .filter({ hasText: /^Starter/ })
+      .first();
     await page.screenshot({ path: `${DIR}/pricing-1240-light-${SHOT}.png`, fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: `${DIR}/pricing-390-light-${SHOT}.png`, fullPage: true });
@@ -126,9 +169,15 @@ test.describe("S01 part 0: carry-over fixes", () => {
     await page.goto(`/audits/${auditId}`);
     const band = page.locator("[data-visibility-band]");
     await expect(band).toBeVisible();
-    await page.screenshot({ path: `${DIR}/audit-band-edge-1240-light-${SHOT}.png`, fullPage: false });
+    await page.screenshot({
+      path: `${DIR}/audit-band-edge-1240-light-${SHOT}.png`,
+      fullPage: false,
+    });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: `${DIR}/audit-band-edge-390-light-${SHOT}.png`, fullPage: false });
+    await page.screenshot({
+      path: `${DIR}/audit-band-edge-390-light-${SHOT}.png`,
+      fullPage: false,
+    });
     await expect(page.getByText("10%", { exact: true }).first()).toBeVisible();
     await expect(band).toHaveAttribute("data-visibility-band", "developing");
     await expect(band).toHaveText("Developing");

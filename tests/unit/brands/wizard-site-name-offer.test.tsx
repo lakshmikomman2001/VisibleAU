@@ -93,7 +93,7 @@ describe("the wizard offers the site's name when the owner typed another", () =>
     enterDomain("techcoreit.com.au");
     await waitFor(() => expect(screen.getByTestId("wizard-site-name-offer")).toBeInTheDocument());
     expect(screen.getByTestId("wizard-site-name-offer")).toHaveTextContent(
-      "Your website gives the name “TechCore IT”. Use “TechCore IT”",
+      "Your website calls the business “TechCore IT”. Use “TechCore IT”",
     );
     expect(nameField()).toHaveValue("Astorio Group");
     fireEvent.click(screen.getByTestId("wizard-use-site-name"));

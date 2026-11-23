@@ -390,7 +390,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
                   data-testid="wizard-site-name-offer"
                   style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
                 >
-                  Your website gives the name &ldquo;{siteNameOffer}&rdquo;.{" "}
+                  Your website calls the business &ldquo;{siteNameOffer}&rdquo;.{" "}
                   <button
                     type="button"
                     data-testid="wizard-use-site-name"

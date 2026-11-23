@@ -8,7 +8,12 @@ import {
   googleSurfaceBlock,
   loadGoogleSurfaceSummary,
 } from "@/lib/audit/google-surfaces/summary";
+import { PortalReports } from "@/components/domain/portal/portal-reports";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
+import { PORTAL_LINK_SECONDS, loadPortalReports } from "@/lib/client-portal/portal-reports";
+import { storageOrNull } from "@/lib/communication/report-view";
+import { isEnabled } from "@/lib/flags/flags";
+import { reportDate } from "@/lib/reports/report-period";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
@@ -111,6 +116,9 @@ export default async function ClientPortalViewPage({ params }: Props) {
     );
   }
 
+  // S01 part 12 (contract P13; LLD 8.1.6): the reports list, only while report_v2 is on (off: the portal as today).
+  const showReports = await isEnabled("report_v2", invite.organizationId);
+
   // Every query below is scoped to invite.organizationId, now that the
   // invite itself has resolved which tenant this request belongs to.
   const {
@@ -126,6 +134,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     mentionDetail,
     engineCoverage,
     google,
+    reports,
   } = await withRlsContext(invite.organizationId, async (tx) => {
     // Branding: the brand's own value first, then the workspace's, field
     // by field -- as the report PDF does. 2 Nov: the newest workspace row
@@ -228,6 +237,16 @@ export default async function ClientPortalViewPage({ params }: Props) {
       };
     }
 
+    // The portal's brand's generated reports with a PDF, each link signed for a few minutes (never a public bucket).
+    const reports =
+      showReports && brand
+        ? await loadPortalReports(tx, {
+            organizationId: invite.organizationId,
+            brandId: invite.brandId,
+            storage: storageOrNull(),
+          })
+        : null;
+
     return {
       theme,
       brand,
@@ -241,6 +260,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
       mentionDetail,
       engineCoverage,
       google,
+      reports,
     };
   });
 
@@ -537,6 +557,16 @@ export default async function ClientPortalViewPage({ params }: Props) {
                 </div>
               )}
             </>
+          )}
+
+          {reports && (
+            <PortalReports
+              linkSeconds={PORTAL_LINK_SECONDS}
+              reports={reports.map((r) => ({
+                ...r,
+                generated: reportDate(new Date(r.generatedAt), invite.organizationId),
+              }))}
+            />
           )}
 
           {/* Read-only notice */}

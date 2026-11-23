@@ -52,6 +52,8 @@ export const DIRECT_GATES = [
   // Team follow-ups, item 4: an invite to an address with no account is accepted only while there's a seat
   // (tests/integration/invite-new-account.integration.test.ts: a cancelled plan's last seat is taken).
   "lib/auth/invite.ts",
+  // S01 part 12: the client portal's reports read the workspace's report names for its plan (Agency and up rename them).
+  "lib/client-portal/portal-reports.ts",
   "lib/governance/access-control.ts",
   // S01 part 5: whether the workspace curates its reports (Agency and up): the panel's view and its saves.
   "lib/reports/report-contents-view.ts",

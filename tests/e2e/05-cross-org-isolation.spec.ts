@@ -168,3 +168,102 @@ testAsUser2.describe("User 2 cannot access User 1 brands (CLAUDE.md §7)", () =>
     await expect(page.getByText("org1seeded.com.au")).toBeHidden({ timeout: 5_000 });
   });
 });
+
+// S01 part 12 (LLD 11 "Cross-workspace data access", contract P13, P17): reports across workspaces. User 2 can't read
+// or start anything about Org1's brand's reports, and a portal link lists only its own brand's reports.
+testAsUser2.describe("S01: reports stay in their workspace", () => {
+  let reportBrandId = "";
+  let otherBrandId = "";
+  let token = "";
+
+  base.beforeAll(async () => {
+    const [brand] = await db
+      .insert(schema.brands)
+      .values({
+        organizationId: org1Id,
+        name: "Org1 Report Brand",
+        domain: "org1reports.com.au",
+        vertical: "tradies",
+        region: "au",
+        competitors: [],
+        primaryRegions: [],
+      })
+      .returning();
+    reportBrandId = brand.id;
+    const [other] = await db
+      .insert(schema.brands)
+      .values({
+        organizationId: org1Id,
+        name: "Org1 Other Brand",
+        domain: "org1other.com.au",
+        vertical: "tradies",
+        region: "au",
+        competitors: [],
+        primaryRegions: [],
+      })
+      .returning();
+    otherBrandId = other.id;
+    for (const [brandId, headline] of [
+      [reportBrandId, "Portal brand report"],
+      [otherBrandId, "Other brand report"],
+    ] as const) {
+      await db.insert(schema.generatedReports).values({
+        brandId,
+        organizationId: org1Id,
+        reportType: "weekly",
+        periodLabel: brandId === reportBrandId ? "2026-W47" : "2026-W46",
+        headline,
+        narrativeText: "n",
+        pdfUrl: `${org1Id}/${brandId}.pdf`,
+        reportTier: "standard",
+        contentsSnapshot: { schema: 1, tierName: brandId === reportBrandId ? "Gold" : "Silver" },
+      });
+    }
+    token = `e2e-portal-${reportBrandId}`;
+    await db.insert(schema.clientPortalInvites).values({
+      organizationId: org1Id,
+      brandId: reportBrandId,
+      inviteToken: token,
+      inviteeName: "Org1 client",
+    });
+    await db
+      .insert(schema.orgFeatureFlags)
+      .values({ organizationId: org1Id, flagKey: "report_v2", isEnabled: true });
+  });
+
+  base.afterAll(async () => {
+    await db
+      .delete(schema.orgFeatureFlags)
+      .where(eq(schema.orgFeatureFlags.organizationId, org1Id));
+    await db
+      .delete(schema.clientPortalInvites)
+      .where(eq(schema.clientPortalInvites.inviteToken, token));
+    for (const id of [reportBrandId, otherBrandId]) {
+      await db.delete(schema.generatedReports).where(eq(schema.generatedReports.brandId, id));
+      await db.delete(schema.brands).where(eq(schema.brands.id, id));
+    }
+  });
+
+  testAsUser2(
+    "User 2 can't list, start or read the contents of Org1's reports (404)",
+    async ({ page }) => {
+      expect((await page.request.get(`/api/brands/${reportBrandId}/reports`)).status()).toBe(404);
+      expect(
+        (await page.request.get(`/api/brands/${reportBrandId}/report-preferences`)).status(),
+      ).toBe(404);
+      const started = await page.request.post(`/api/brands/${reportBrandId}/reports/generate`, {
+        data: { periodType: "weekly", tier: "basic" },
+      });
+      expect(started.status()).toBe(404);
+    },
+  );
+
+  testAsUser2("a portal link lists only its own brand's reports", async ({ page }) => {
+    await page.goto(`/client-portal/${token}`);
+    const reports = page.getByTestId("p13-reports");
+    await expect(reports).toBeVisible();
+    await expect(page.getByTestId("p13-row")).toHaveCount(1);
+    await expect(reports).toContainText("Gold");
+    await expect(reports).not.toContainText("Silver");
+  });
+});

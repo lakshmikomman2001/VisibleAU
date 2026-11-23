@@ -166,3 +166,142 @@ Start: 7.42 GB free, 0 node processes. Every Playwright run had its own `next de
 
 ## Tests skipped by the testing-scope rules
 Full suites: not run (not asked). No `next build`. `vitest related` on `db/schema/brands.ts` and the other schema files: not run (it selects most of the suite); schema-drift and the integration files on the changed tables covered them, and part 3's related run caught the one golden it missed (`d8883e4f`).
+
+---
+
+# Parts 6–7 (resumed session, 23 Nov 2026; stopped after Part 7)
+
+Resumed with the v1.10 `UPDATE-HERE.md` step: pack v1.10 copied and committed (`94462fa5`; LLD, runbook, sprint prompts S01–S11; the contract typecheck passes). Start of this session: `origin/main` = `f1d9ffdb` (checked with `git fetch origin`), local `main` = that plus the nine S01 commits, tree clean apart from Sri's three untracked items.
+
+## Read first (Parts 6–7)
+
+1. **Stopped after Part 7, at the runbook's S01 stop point** ("if your context is getting full after Part 7, commit, report and stop; Sri resumes from Part 8"). Parts 8–12 are not started. Resume kickoff: `Resume sprint S01 from Part 8. Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order, including docs/Sprints/reports/ and git log origin/main..main), then continue docs/Sprints/S01-report-v2.md from Part 8.`
+2. **Playwright not run (the queue was stopped by Claude Code for low memory, not by a failure):** `tests/e2e/responsive/responsive-shell.spec.ts`, all 8 shards (`--fully-parallel --shard=1/8` … `8/8`), mapped to Part 6's audit page change. They must pass before `report_v2` is switched on. Also re-run `tests/e2e/13-s01-beyond-ai.spec.ts` once: it passed (2 of 2) before the card's column fix, and its re-run retakes `.qa/screens/S01/P07-*.png` with the 4-column layout. Nothing else is outstanding.
+3. **Until Part 8 wires the tier, every report generated with `report_v2` on is the Enhanced set** (Part 7 renders the Enhanced page set behind the flag, as the prompt says). Don't switch `report_v2` on before Part 8 is done.
+4. **Deviations to decide** (details below): a Basic report keeps today's Diagnosis heading (N15) rather than retitling it "Why your score is what it is"; the Summary page's "(see section 04)" now points at "Why, and what to do next" in Standard and Enhanced; two existing guard lists gained the new files.
+
+## Before Part 6: Part 0 follow-up — `25d774b3`
+- `app/(auth)/brands/wizard/wizard-form.tsx:393`: `Your website calls the business “{name}”.` (LLD amendment 35). The run-together notice already read `… Use “{name}” · Keep “{typed}”`.
+- `tests/unit/brands/wizard-site-name-offer.test.tsx`: the own-line test now quotes the new copy (RED on the parent: 1 failed, 8 passed; GREEN 9 of 9).
+- `tests/e2e/11-s01-part0-carryovers.spec.ts`: the run-together check asserts `Use “Hero Home Services” · Keep “herohomeservices”`; new test "another typed name: the site's name is offered on its own line (LLD amendment 35 copy)" with screenshots `.qa/screens/S01/wizard-step1-offer-{1240,390}-light-after.png`; `wizard-step1-*-after.png` retaken.
+- Tests: related 7 files 44 passed; 89 guard files + named 95 files 1,616 passed; the two wizard integration files 13 passed; tsc clean; biome 0 new. Playwright (fresh server): 11-s01-part0 5 of 5 passed (peak tree 4.09 GB, lowest free 3.73 GB, 0 leftovers).
+
+## Part 6. "Beyond AI answers" (LLD 8.1.4, P07) — `7bd8484b`
+- `lib/reports/beyond-ai.ts`:
+  - `getBeyondAiAnswers(db, { brand, asOf, basisAuditId? })`: one indexed query per module, each `<= asOf` (the report's time; now on the audit page): `brand_entity_scores` (latest by `checked_at`), `youtube_presence_audits` (by `audited_at`), `technical_audits` (by `created_at`; robots findings and the score), `crawler_visit_logs` (count by crawler in the 30 days before `asOf`), and, with a basis audit, `getDirectoryCitationsForAudit` for the PDF's directory tile (top 6 by citations, linked = the owner's confirmed profile). `db` is the caller's RLS-scoped transaction; no `serviceDb`.
+  - `buildBeyondAiAnswers` (pure): each tile measured / not checked / failed, with its own `checkedAt` and `stale` (> 30 days before `asOf`).
+  - `beyondTileViews`: the one wording for the audit page, the PDF and the portal (contract P07 copy), plus `directoriesLines` for the PDF tile.
+- **Tile rules:**
+  - Identity: "No ABN on file" + "Add your ABN" (brand settings) when the brand has none; "ABN verified" / "ABN not verified" with `{status} · {entity} · checked {date}` and `.au domain ✓ · Wikipedia: …`; `check_skipped` (no GUID / bypass) is "Not checked yet"; `check_failed` is "Couldn't check on {date}: the Australian Business Register didn't answer".
+  - YouTube: "Channel found" + `{n} videos · last upload {date}` (no "videos cited" line); "No channel linked" + "Add your channel"; a channel whose website doesn't match, or that is unconfirmed, says so. The code gate off or `missing_api_key` is "Not checked" with no customer reason; the reason goes to an operator log line `beyond_ai_not_checked`. Quota or network: "Couldn't check on {date}: …".
+  - Crawlers: "Search crawlers allowed" / "{n} search crawlers blocked" + names, `{allowed} of 4 · checked {date}`. With no robots.txt, the evaluator's verdicts count every search crawler as allowed (RFC 9309). An unreachable robots.txt fails with its date. Visits: `Visits in 30 days: {n} ({bots})` or "Visits: not measured · upload server logs" + link.
+  - Technical: `{score} of {max}` with the audit's own maximum (`technicalScoringOf`), `checked {date} · v{n} scoring`, and the two weakest scored checks (for the PDF). No composite stored is "Couldn't check on {date}: we couldn't reach your website" (or "one of its checks couldn't be measured"), never a 0.
+- Audit page (`app/(auth)/audits/[auditId]/page.tsx`): `beyondAi` loaded inside the page's RLS transaction only while `report_v2` is on, and the card renders after Recommended actions. Off: null, and the page is exactly as before.
+- Card: `components/domain/audit/beyond-ai-card.tsx`. Test ids `p07-beyond`, `p07-beyond-{identity,youtube,crawlers,technical}`; each tile is read as `{label}: {value}, {detail}`; stale lines in `--warning`.
+- **Layout bug found and fixed before the commit:** `sm:grid-cols-2 min-[1100px]:grid-cols-4` gave 2 columns at 1240 because Tailwind v4 emits arbitrary `min-[…]` rules before the named breakpoints (`.next` CSS: `min-[1100px]` at line 2760, `sm:grid-cols-2` at 2803). It is now `min-[641px]:grid-cols-2 min-[1100px]:grid-cols-4`, the contract's own breakpoints, with a component test that no named breakpoint is used.
+- Tests (all new; RED on the parent):
+  - `tests/unit/reports/beyond-ai.test.ts`: 27; every tile measured / not checked / stale / failed, the date rule against `asOf`, no 0 for "not measured", the directory lines.
+  - `tests/unit/components/beyond-ai-card.test.tsx`: 5.
+  - `tests/integration/beyond-ai.integration.test.ts`: 5. A result written after `asOf` is ignored and a later report sees it; visits in the 30-day window; the directory tile; RLS proved as `visibleau_app`, because the local test user is a superuser.
+  - `tests/integration/audit-page-beyond-ai.integration.test.tsx`: 2. Flag off: no card. Flag on: four tiles. The flag-on case fails with the parent's page.
+- **Existing test changed: `tests/unit/technical-audit/score-surfaces.test.ts`.** It lists every reader of `technical_audits`. It gained `lib/reports/beyond-ai.ts` (in `READERS` and in `USES_ITS_OWN_SCORING`) because LLD 8.1.4 makes the audit page, the PDF and the portal show "Website technical score … with its own maximum (compositeMaxFor)".
+- Tests run:
+  - related: 35 files, 194 passed;
+  - 89 guard files + the unit tests naming the changed files: 95 files, 1,642 passed, after the guard entry above;
+  - the 34 integration files that render the audit page or name the new files: 171 passed;
+  - tsc clean; biome 0 new.
+- Playwright (one at a time, fresh server each), all passed:
+  - new `13-s01-beyond-ai` 2 of 2 (before the column fix);
+  - 09-google-surfaces 5; 10-not-found 4; 11-s01-part0 5; running-to-finished 4; f04-audit-results 2; section5-aa 4; sprint6-retrieval 19.
+  - Peak tree ≤ 5.26 GB, lowest free 2.58 GB.
+  - responsive-shell: **not run**. The queue was stopped by Claude Code for low system memory while shard 1 was starting. Afterwards: 0 repo node processes, 0 Playwright browsers, port 3000 free, 7.66 GB free. Per that notice it wasn't restarted in this session.
+
+```
+P07 · Audit page additions (S01: the Beyond AI answers card; findings were part 3)
+Nodes: P07.beyond + its 4 tiles built (P07.reachRow, P07.mix, P07.split: S03/S04)
+States: stale ✓ empty ✓ (neutral pill + action link, never a 0) flagOff ✓; loading: server-rendered with the page
+  (no separate skeleton: the page loads as one, as the contract's api line says)
+Acceptance:
+  ✓ Every Beyond tile shows its own date; none shows a 0 for "not measured" (unit + component tests)
+  ✓ A 0% audit shows findings g-j and Recommended actions (part 3)
+Screenshots: .qa/screens/S01/P07-1240-light.png, P07-1240-dark.png, P07-390-light.png, P07-390-dark.png
+  (taken before the column fix: 2 columns at 1240; re-run 13-s01-beyond-ai to retake them at 4)
+Deviations: the PDF/portal-only "Your directory profiles" tile isn't on the audit page (contract: four tiles there)
+```
+
+## Part 7. PDF pages and the snapshot (LLD 8.1.2, 8.1.3, appendix D, P09) — `70b5404e`
+- **`lib/reports/report-tiers.ts`:** `REPORT_TIERS`, the default names, appendix E's descriptions, `pagesForTier`, `reportTierAllowed`, `capTierAtPlan`, `tierNamesFrom` and `lowestPlanForTier`.
+  - `lib/pricing/tiers.ts` gains `maxReportTier` on each plan (Free and Starter null, Growth `standard`, Agency and up `enhanced`) and `reportTierNames` (Agency and up).
+  - Nothing enforces the tier yet: that is Part 8.
+- **`lib/reports/report-v2.ts`:**
+  - `buildReportV2(db, { data, tier, now })` builds "What to do next" (`loadWhatToDoNext`, Part 5) for Standard and Enhanced, and "Beyond AI answers" as of generation time for Enhanced. It also sets the page set, the tier's name, the cover name (Agency and up only) and the question mix.
+  - `reportV2ForGeneration` returns null while `report_v2` is off.
+- **`lib/reports/report-snapshot.ts`:** appendix D's fields plus `reportData` (the render input itself), so a re-render prints the same figures, items, notes and check dates. Also `questionMixLine` (appendix E, zero parts omitted).
+- **`lib/reports/report-render-input.ts`:** `loadReportRenderData` renders from the snapshot when there is one, and otherwise uses today's `buildReportData`.
+- **`inngest/functions/generate-narrative-report.ts`:** inside the existing `generate-and-insert` step (no new step id), it calls `reportV2ForGeneration(tx, { data, tier: "enhanced" })` and stores `report_tier` and `contents_snapshot`. With `report_v2` off: `basic` and null, as today.
+- **`inngest/functions/render-report-pdf.ts`:** selects `contents_snapshot` and renders through `loadReportRenderData`, so "Try again" re-renders the same report.
+- **`lib/reports/pdf/report-document.tsx`:**
+  - `reportPlan` follows the tier's page set. With no v2 contents the pages are today's.
+  - New `NextPage` (P09.next):
+    - eyebrow `{nn} · Why, and what to do next`, provenance `Measured · Audit #{n}`, title "What we found, and what to do next", and the contract's lede naming the agency;
+    - today's finding cards, then the groups MEASURED ACTIONS, RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT and GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (only when non-empty and switched on; hidden actions left out);
+    - action cards show priority and status pills, the evidence in mono and "Note from {agency}: …", in agency violet #5B21B6 on #EDE9FE.
+  - New `BeyondPage` (P09.beyond): `{nn} · Beyond AI answers`, "Separate checks · own dates", "What AI can read about you elsewhere", the footer sentence, 2 × 2 tiles, then "Your directory profiles" (`FROM AUDIT #{n} · {DATE}`).
+  - The Over time page drops the prioritised list in Standard and Enhanced.
+  - The method page adds "Questions asked: {mix line}" in every v2 tier, and "Checks outside AI answers: identity {date} · YouTube {date} · crawlers {date} · technical {date}" in Enhanced only.
+  - Fonts, the palette and the cover are unchanged.
+- Fixtures (no production data in the repo): `reportDataFixture("39")` stands in for Hero #54 and `reportDataFixture("37")` for Omega #55. TechCore #52's shape is the #39 fixture at 0 of 40 with Part 3's evidence (`kangaroo-it.com.au` 27 answers, Claude's "unable to find" quote, Local Business Guide not linked, ABN not verified). The snapshot test seeds a #52-shaped audit with `tests/helpers/report-fixture.ts`.
+- Tests:
+  - `tests/unit/reports/report-v2-pdf.test.tsx` (11):
+    - **N15** for both fixtures: a Basic report's every page matches today's, and the method page adds only the mix line;
+    - **N14**: in Enhanced, the cover, summary, engines and directories pages are identical apart from the footer's "of N" page count;
+    - the next page's groups and lede, hidden actions left out; no "Prioritised by impact" in Standard; the Beyond page's five tiles and dates; the method lines; section numbers in order; TechCore's g–j with non-empty actions;
+    - no Basic or Standard PDF names another tier, "upgrade", a plan or a price.
+    - RED on the parent's `report-document.tsx`: 7 failed. The 4 that pass on both (unchanged pages, numbering, no upsell) hold today too.
+  - `tests/unit/reports/report-tiers.test.ts`: 9.
+  - `tests/integration/report-snapshot.integration.test.tsx`: 3.
+    - Flag on: the snapshot and `report_tier` are stored, and rendering reads them.
+    - Editing the action, its note and the agency action afterwards leaves the re-render byte-for-byte the same data.
+    - Flag off: no snapshot, and the report rebuilds from live data.
+- **Summary page pointer:** the narrative's "(see section 04)" pointed at Diagnosis. In Standard and Enhanced it now points at "Why, and what to do next", where the findings are (`report-document.tsx:892`); found by the N14 test.
+- **Existing helper changed: `tests/helpers/plan-gates.ts`.** `DIRECT_GATES` gained `lib/reports/report-v2.ts`, which calls `effectiveTier` for curation and tier names, as `report-contents-view.ts` did in Part 5.
+- Tests run:
+  - related: 295 files, 3,354 passed, 7 skipped;
+  - 89 guard files + the unit tests naming the changed files: 1,898 passed, after the entry above (`effective-tier-guard` caught it);
+  - the plan-gates users: 151 passed;
+  - 19 integration files naming the changed files, plus `cancelled-plan-gates`: 486 passed;
+  - tsc clean; biome 0 new (the two `step: any` warnings were there before).
+- Playwright: not needed (no UI change: PDF rendering, the jobs and the data only).
+
+## Commits (this session)
+```
+70b5404e feat(reports): S01 part 7 -- PDF pages and the report snapshot ...
+7bd8484b feat(reports): S01 part 6 -- "Beyond AI answers" ...
+25d774b3 fix(wizard): S01 part 0 follow-up -- the site-name offer uses the copy in LLD amendment 35 ...
+94462fa5 docs: client-enhancements pack v1.10 (decisions on S01 Parts 0-5)
+```
+`git log origin/main..main --oneline`: the nine commits before this session, these four, and this report's commit. Nothing pushed.
+
+## Push notes (whole sprint so far; for when S01 is finished, not now)
+1. **Migration 0154 first** (unchanged since Part 2).
+2. **Inngest resync: yes.** `generate-narrative-report` and `render-report-pdf` changed inside existing steps; no new step ids so far.
+3. **Safe while an audit runs:** yes. Generation and rendering change only while `report_v2` is on, and reports made before keep rebuilding as today.
+4. **Flags off:** `report_v2` and `abn_suggestion`. With `report_v2` off, every report, the audit page and the Reports page are today's.
+5. Don't switch `report_v2` on before Part 8 (tiers) and the not-run Playwright specs above have passed.
+
+## Proposed changes to the documents (Parts 6–7)
+- **P09.next / S01 prompt Part 7 vs N15:** "Basic keeps today's Diagnosis page … titled 'Why your score is what it is'" conflicts with N15, whose allowed differences don't include a new title. Built: the Basic page keeps today's heading ("Why AI isn't recommending you more, and what's working"), and "Why your score is what it is" is P08's outline label for it. Proposed: say so in P09.next.
+- **LLD 8.1.2:** the Summary page's narrative refers to the findings' section by number; in Standard and Enhanced that is "Why, and what to do next" (built).
+- **P07.beyond.identity:** the LLD's ABR link and the ABN number aren't in the contract's tile copy. Built to the contract (status, entity, date); the ABN shows only when it couldn't be checked.
+- **Today's PDF has no general-advice list** (Part 4 found this). Basic's "general advice (evidence-backed)" therefore adds nothing; general advice appears only in What to do next.
+- **Tailwind v4:** arbitrary `min-[…]` breakpoints don't combine with the named ones (`sm:`, `md:`) on the same property. New screens should use one kind per property (token-map.md platform section).
+
+## Memory and processes (this session)
+- Start: 7.45 GB free, 0 node processes.
+- Every Playwright run had its own `next dev` server, with ≥ 6 GB free at its start; peak tree ≤ 5.26 GB.
+- Claude Code stopped the Part 6 queue for low system memory while responsive shard 1 was starting. Its processes were gone afterwards (0 repo node processes, 0 browsers, port 3000 free).
+- End: 7.87 GB free, 0 node processes.
+
+## Tests skipped by the testing-scope rules (Parts 6–7)
+- Full suites: not run (not asked). No `next build`.
+- `responsive-shell` (8 shards) and the `13-s01-beyond-ai` re-run: not run (see "Read first", point 2).

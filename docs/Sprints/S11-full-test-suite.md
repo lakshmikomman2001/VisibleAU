@@ -19,6 +19,7 @@ Sri has **explicitly asked for the full test suites** in this run. The project r
 - Discover every suite from `package.json` scripts, test configs and `CLAUDE.md` ("Testing scope"): typecheck, lint, source-scan guards (plan-claim, cost-visibility, GST and any others), unit, integration (database), RLS/tenant-isolation, API route, component, PDF render, accessibility (axe), production build, Playwright end-to-end. List each with its command and how it's configured.
 - Find the pre-sprint baseline hash in the S00 report (the hash S00 started from; `15f287b` or later).
 - **Known under load (from S00B):** `tests/unit/crawler/failed-checks-not-negative.test.ts` timed out once while the machine was busy and passed alone (18 of 18). If it fails in the full run, run it alone before calling it a failure, and report it as flaky under load.
+- **Seen once in S01 Part 0:** `tests/e2e/sprint3/sprint3-visibility.spec.ts` "FE-2 … 1. Empty visibility hub shows 'Run an audit' message" failed once on a strict-mode match (both empty-state sentences on the page), then passed alone and 16 of 16 on a re-run. If it fails again, check whether the page briefly renders both empty states (a real UI race) before calling it flaky.
 - Find how tests switch feature flags on and off (S00 Part 2 scaffold, per-workspace overrides in tests). Never through the production settings store.
 - Report the plan (suites in order, commands, configurations, safety check results), then start Part 1.
 

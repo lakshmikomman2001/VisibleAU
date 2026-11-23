@@ -1,6 +1,6 @@
 # Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01–S10, then the S11 full test suite)
 
-Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.4 · 23 Nov 2026 (after S00B)
+Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.5 · 23 Nov 2026 (after S01 Parts 0–5)
 
 Follow this file at the start of every sprint session, before Part 1. Its rules apply on top of the sprint prompt. If a sprint prompt is stricter, the sprint prompt wins.
 
@@ -8,7 +8,7 @@ Follow this file at the start of every sprint session, before Part 1. Its rules 
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.5): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
+| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.6): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
 | `docs/lld/design/Vunnara-client-improvements-design.pdf`, `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` | Design documents: the reasoning behind the LLD. Read only where a sprint names them. The LLD wins over them | Sri / Claude (chat) |
 | `docs/lld/as-is-verification.md` | What the code actually does, checked against the LLD (S00 Part 1). Where it says the LLD is wrong, it wins | You, in S00 |
 | `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.2): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
@@ -61,6 +61,9 @@ Then reply with a short plan: the parts in order, the files you expect to touch,
 - One commit per numbered part, made in a separate step after its tests finish, never chained with `;`, never amended. **Never push.** Commit messages end with the two attribution lines the sprint prompt gives.
 - Targeted tests only (related tests, new tests RED on the parent then GREEN, typecheck with `.next` excluded, lint compared with the parent per changed file (the whole repo had 339 lint errors before S00), named guards). Full suites only if Sri asks (S11 is that ask).
 - **Every source-scan guard file, in every part.** At the end of each part, run all of the repo's source-scan guard tests (85 files and about 1,500 tests in S00B), not only the ones the sprint names: S00 ran only its named guards and shipped a failure (`no-silent-fetch-fallback`, fixed in S01 Part 0). A guard that already fails on the sprint's start hash is listed in the report; a new failure is fixed before the part's commit.
+- **Schema files and golden files.** When a part changes a `db/schema/*` file, also run every test that reads a golden file under `tests/**/__golden__/`, plus schema-drift (S01 part 2 missed one golden this way, `d8883e4f`).
+- **The sprint's migration stays editable until it is applied.** While the sprint's migration isn't applied in production (it never is before the sprint ends), a later part that needs a schema change amends that migration and its run set and re-tests run1 → run2 → run3 → run4 → run1 locally, instead of adding a new migration number.
+- **Plan refusals** (LLD amendment 30): a feature the plan doesn't include answers 403 `plan_required` through `tierRefusal`; over a limit inside a feature the plan has answers 402 with a specific code, handled inline by the component.
 - **Playwright only where the UI changed.** Run it in a part only if that part changes a screen or a shared UI component: the specs `scripts/qa/e2e-specs-for.ts` maps to the changed files, one at a time, ≥ 6 GB free (otherwise "not run: memory", listing the specs). Take the per-screen screenshots once, when a screen is finished, not after every part. Parts that change only data, jobs, scoring, APIs or PDF rendering report "Playwright: not needed (no UI change)". Never run the whole Playwright suite unless Sri asks.
 - **Playwright memory** (measured in S00's run on 22 Nov 2026: Sri's machine has 16 GB with about 7.5 GB free once other apps are closed; one run peaks at 3.5–6.7 GB, nearly all of it the `next dev` server, which keeps every page it compiles). For every Playwright run: one worker; a fresh server for each spec or shard, never reused; ≥ 6 GB free before it starts (if not, wait 60 seconds and check again, up to 3 times, then mark it "not run: memory"); stop the run if free memory falls below 1.2 GB while it runs. A stopped run is not a failure: rerun only the tests it didn't reach, by `file:line`, on a fresh server; the spec counts as passed only if every test passed on a clean server. Run these specs in shards, one shard after another (`--shard=i/N`, as S00's run did): `tests/e2e/sprint9/s9-autopilot-e2e.spec.ts` (2), `tests/e2e/sprint2/sprint2-workflow.spec.ts` (2), `tests/e2e/responsive/responsive-shell.spec.ts` (8). Report each run's peak memory and lowest free memory, and name any other spec whose run peaked above 6 GB so it joins this list. After each run, check its server and browser processes have exited and the server's port is free.
 - On Windows, don't watch a log file with `tail -F` (or anything that keeps it open) while it is being written: the writer loses lines (S00's run lost 52). Write each run's result to its own record and read the logs when the run ends.
@@ -102,7 +105,7 @@ Build every screen from the contract as `docs/prototypes/PROTOTYPE-GUIDE.md` say
 ## 9. End of every sprint
 
 1. Give the report-back exactly as the sprint asks (per part: file:line, changes, tests RED/GREEN by name, guards, Playwright or "not run: memory"; UI blocks; commit hashes; `git log origin/main..main --oneline`; push notes: migration run set first, Inngest resync yes/no, safe while an audit runs, flags off).
-2. Save the same report to `docs/Sprints/reports/Sxx-report.md` and commit it as the sprint's last commit (`docs(sprints): Sxx report`).
+2. Save the same report to `docs/Sprints/reports/Sxx-report.md` and commit it as the sprint's last commit (`docs(sprints): Sxx report`). A resumed sprint adds a new section ("Parts 6–12", say) to the same file and keeps the earlier parts' section as it was.
 3. List every Playwright spec that was "not run: memory" in one place at the top of the report. They must pass **before Sri switches the sprint's flag on** (flag off keeps production as today, so the push itself is safe). S00 is the exception: D-UI1 is not behind a flag, so its specs and screenshots must run before the push.
 4. Stop. Sri reviews the report with Claude (chat), applies the migration run set in production, pushes, resyncs Inngest if needed, has any "not run" Playwright specs run, switches the sprint's flag on for one workspace, checks, and only then starts the next sprint.
 
@@ -116,7 +119,7 @@ Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order and pre-flight), then execute
 
 **Start a sprint with a docs update first** (when Claude (chat) sends a newer pack)
 ```
-Read docs/latets/Enhancements/vunnara-client-enhancements-v1.9/vunnara-enhancements/UPDATE-HERE.md and do what it says.
+Read docs/latets/Enhancements/vunnara-client-enhancements-v1.10/vunnara-enhancements/UPDATE-HERE.md and do what it says.
 ```
 
 **Resume an interrupted sprint** (local commits from earlier parts exist)
@@ -138,7 +141,7 @@ Continue sprint S05 from Part 2: I've approved the taxonomy seed (my edits, if a
 |---|---|---|
 | S00 | `S00-verify-quick-wins-flags.md` | Done (one-time start step) |
 | S00B | `S00B-guarded-fetcher.md` | Done (pushed 23 Nov 2026, `f1d9ffdb`; live check passed) |
-| S01 | `S01-report-v2.md` | S00B pushed, report reviewed, live name-suggestion check passed (23 Nov 2026); starts with the v1.9 `UPDATE-HERE.md` step |
+| S01 | `S01-report-v2.md` | S00B pushed, report reviewed, live name-suggestion check passed (23 Nov 2026); started with the v1.9 `UPDATE-HERE.md` step; Parts 0–5 done, resumed from Part 6 with the v1.10 `UPDATE-HERE.md` step |
 | S02 | `S02-question-library.md` | S01 pushed, 0154 applied, PDFs checked in all three tiers |
 | S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production |
 | S04 | `S04-visibility-reach.md` | S03 pushed, 0156 applied, checked |

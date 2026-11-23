@@ -1,8 +1,8 @@
-# Vunnara client enhancements: low-level design (LLD) v1.5
+# Vunnara client enhancements: low-level design (LLD) v1.6
 
 | | |
 |---|---|
-| Version | 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
+| Version | 1.6, 23 Nov 2026: decisions on S01 Parts 0–5 (amendments 30–36, backlog additions). 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
 | Owner | Sri |
 | Repo location | `docs/lld/vunnara-client-enhancements-lld-v1.md` (commit it there with the prototype files in `docs/prototypes/`, listed in the next rows) |
 | Builds on | `main` at `15f287b` (20 Nov 2026) or later |
@@ -19,7 +19,7 @@
 ---
 
 
-## 0. What changed after S00 and S00B (v1.5, read first)
+## 0. What changed after S00, S00B and S01 Parts 0–5 (v1.6, read first)
 
 S00 checked every VERIFY statement against the code (`docs/lld/as-is-verification.md`, with file:line evidence) and mapped the UI contract onto the app (`docs/prototypes/token-map.md`). Sri decided the open points on 22 Nov 2026. Where this section and older text below differ, this section wins; the most load-bearing passages below are also corrected in place.
 
@@ -71,6 +71,13 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | 27 | Reports list (P17) | No report-type column today; the list learns a PDF is ready by polling every 4 s for up to 12 minutes; statuses generating, ready, published (emailed), failed |
 | 28 | Profile-link rule (7.7, 8.6.4) | The table doesn't store a pattern. `loadDirectoryRegistry()` (`lib/directories/registry-store.ts`) reads the rows and caches them per server process for 5 minutes; `profileUrlPatternFor()` (`lib/directories/registry.ts`) builds each directory's `profileUrlPattern` from its `directory_key` and `domain_pattern`: hipages `/connect/{slug}` (fixed in code by key), Google Business Profile any path on its domains, every other directory its first domain plus a non-empty path under the row's path prefix (for example `/company` for LinkedIn). `profile_url_hint` is description only. The same pattern drives the PUT route's check, own-profile suggestions and citation counts. A row change takes up to 5 minutes to apply. No test yet shows a row change moving the rule: S07 adds one |
 | 29 | Guarded fetcher as built (8.6.2) | The exchange is Node's `fetch` (`redirect: 'manual'`) with an undici 7 dispatcher whose connect lookup is the guard's (direct dependency `undici` 7.27.2, the version cheerio already installed); IP literals are checked before every hop. Hard caps for every caller: 60 s and 50 MB. Existing callers keep their own user agent, timeout, redirect handling, size limit and `http:` handling (`allowHttp`); robots.txt (`obeyRobots`) and per-host pace are off for them. Refusal codes add `blocked_credentials` and `blocked_by_robots`. `lib/fetch` reads no environment variable and has no switch that turns it off (guard test). The LLD's earlier 10 s / 2 MB / 3 redirects / HTML-only figures are the S06+ analysis preset, not limits on existing callers |
+| 30 | Plan refusals (11, 8.1.7, 8.3.5, all sprints) | Two kinds. **A feature the plan doesn't include** (reports below Growth, curation and agency actions below Agency, report names below Agency, and the like) answers with the app's existing plan refusal: **403 `plan_required`** through `tierRefusal` (`lib/governance/access-control.ts`), which the client recognises (`isPlanRefusal`, `lib/pricing/plan-refusal.ts`) and shows as its plan lock. **Over a limit inside a feature the plan has** (a report tier above the plan, more questions, reaches or custom types than included) answers **402 with a specific code** (`report_tier_not_in_plan`, the appendix E limit messages), handled inline by the component (P08.overLimit, P03, P05). Where older text says "402 for plan" about a whole feature, read 403 `plan_required` |
+| 31 | YouTube (8.1.4, S01 Part 1) | The code gate `TRUST_CHECK_IMPLEMENTED.youtubePresence` is already on (`lib/trust/stub-implementation-status.ts`); production lookups need only `YOUTUBE_API_KEY` (without it a row stores `unavailable` / `missing_api_key`). The org flag key `youtube_audit_enabled` is defined but never read (backlog). Plan: Growth and up; monthly cron |
+| 32 | Finding rules g and h (8.1.5, appendix C1) | Rule g ("others named instead") is measured by citations of other businesses' own sites only: naming a business without a citation would need a model to read names, which the evidence rules exclude. Appendix C1's phrase list belongs to rule **h** (heading corrected) |
+| 33 | "What to do next" (8.1.3, appendix D) | Measured actions are the basis audit's findings (the audit page's "from this audit"), each joined to its Action Center item when there is one (status; the agency's choice is saved against it), then the other measured items. Items for findings g–j exist only for audits run with `report_v2` on, so findings carry older audits such as TechCore #52. A finding with no item (`actionItemId` null) is always included |
+| 34 | Aliases and the name suggestion (8.8.2, P01.aliases, C-27) | Built in S01 Part 0: aliases unique ignoring case (a list saved before S01 stays as it is); the name-suggestion route returns `aliases: []` (field kept); `brands.name_suggestion` cut to 120 characters on write (S00 refused the whole brand over 100) |
+| 35 | Wizard: the site's name (S00 part 4, fixed in S01 Part 0) | When the name-suggestion route returns a name and the name field holds a different one, the wizard offers it; a typed name is replaced only by the click. Copy: `Your website calls the business “{name}”.` with the link-button `Use “{name}”`; inside the run-together notice: `… Use “{name}” · Keep “{typed}”` |
+| 36 | Directories cited (7.7, 8.6.4) | The audit page's "Directories AI cited", the PDF's "Where AI looks", findings, the Action Center's directory advice and own-profile suggestions use only enabled directories of the brand's market (`getDirectoryCitationsForAudit`). The Google Search AI section's "Directories cited" (`lib/audit/google-surfaces/summary.ts` → `findDirectoryForSource`) and recommendation titles (`directoriesNamedIn`) search every market, inactive rows included, as they did before S00: a `yelp.com` link shows "Yelp" there. Unchanged in S01 (backlog) |
 
 S00 also proposed (and this version adopts): the contract typecheck command `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts`; the sprint prompts and reports live in `docs/Sprints/` (capital S, as git tracks it); S11 compares lint with the pre-S00 baseline (339 errors in the whole repo).
 
@@ -78,12 +85,17 @@ S00's Playwright run (22 Nov 2026): all 15 specs, 216 of 216 tests passed agains
 
 S00B (23 Nov 2026): 12 of 12 fetch sites migrated; every migrated caller's output on recorded public sites is byte for byte what it was before; each refusal is proven against a local stand-in for an internal address; no migration, flag or Inngest change. Pushed 23 Nov 2026 (`f1d9ffdb`): production had no webhook endpoints, `RATE_LIMIT_IP_SALT` is set in Vercel (Production), and the name suggestion for herohomeservices.com.au, omegaservices.com.au and techcoreit.com.au returned identical results before and after the push. It also found that S00 left one source-scan guard failing (`no-silent-fetch-fallback`, the wizard's name-suggestion request): fixed in S01 Part 0, and the runbook now has every guard file run in every part.
 
+S01 Parts 0–5 (23 Nov 2026): carry-overs, Beyond-AI sources, migration 0154 (written and tested locally, not applied), findings g–j, evidence-backed general advice, "What to do next" and the contents panel (P08, 7 of 10 nodes). Stopped at a clean boundary before Part 6 because the session's context was full; resumed with the v1.10 update step. Decisions: amendments 30–36.
+
 ### 0.3 Backlog (found, not scheduled; Sri schedules)
 
 | Item | Found in | Note |
 |---|---|---|
 | Brand domain shape | S00B inventory | `POST` and `PATCH /api/brands` accept any text up to 253 characters as the domain, cleaned of scheme and slashes only (an IP address is accepted). Harmless for fetching since S00B (refused), but junk can be stored. Validate on create and whenever the domain changes, with the name suggestion's host rule (`suggestionHost`, `lib/brands/name-suggestion.ts`); existing brands untouched |
-| Removing `POST /api/crawl` | S00B inventory | If S01 Part 0 finds no caller in the app, Sri decides whether to remove the route; until then it keeps working, with a per-user limit |
+| Removing `POST /api/crawl` | S00B inventory; S01 Part 0 | S01 found **no caller** in app code, scripts or e2e specs (only S00B's parity test). Recommended: remove the route and its parity test. Until then it works for signed-in members with `run_audit`, 10 crawls per user per hour, through the guarded fetcher |
+| Inactive directories in two places | S01 Part 0 (amendment 36) | Recommended: the Google Search AI section and recommendation titles use the same filter as the audit page (enabled directories of the brand's market), so the same audit never names a directory in one place and not another; a `yelp.com` link then counts as an ordinary cited site |
+| `youtube_audit_enabled` | S01 Part 1 | Org flag key defined in `lib/governance/feature-flags.ts`, never read: remove it, or wire it if Sri wants a per-workspace YouTube switch |
+| Second ABR call | S00, S01 Part 1 | `lib/trust/entity-checker.ts` (`refresh-entity-score`) calls the ABR without a GUID; consolidate onto `lib/brand-entity/abn-lookup.ts` |
 
 ## 1. Scope and traceability
 
@@ -1272,7 +1284,7 @@ Current hard-coded list (VERIFY) plus the domains AI cited in recent audits:
 
 ## Appendix C. Phrase lists
 
-**C1. "Couldn't find the business" (finding rule g)**, matched case-insensitively in answers to questions that name the business; the containing sentence is quoted:
+**C1. "Couldn't find the business" (finding rule h)**, matched case-insensitively in answers to questions that name the business; the containing sentence is quoted:
 "unable to find any (verified )?information", "could not find any information", "couldn't find any information", "no information available (online )?about", "I don't have (any )?(specific )?information about", "there is no (publicly available )?information about", "I could not verify", "no results for a (company|business) (named|called)", "may be referring to", "did not return any listings".
 
 **C2. Instruction-like question screen (8.3.2)**: starts with or contains "ignore (all |any )?(previous|prior) instructions", "you are (now )?", "pretend", "act as", "system prompt", "developer message", "jailbreak", "respond only with", "do not mention".

@@ -15,6 +15,7 @@ import {
   brandNeedsClassificationConfirmation,
   classificationState,
 } from "@/lib/brands/needs-confirmation";
+import { isEnabled } from "@/lib/flags/flags";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
@@ -324,6 +325,7 @@ export default async function BrandDetailPage({
           mentions: Number(e.mentions),
           noAnswerReason: e.noAnswerReason,
         }))}
+        abnSuggestionEnabled={await isEnabled("abn_suggestion", currentUser.organizationId)}
       />
       <div style={{ padding: "0 24px 24px" }}>
         <DirectoryListingsCard brandId={brand.id} />

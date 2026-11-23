@@ -33,6 +33,8 @@ export type AuditAction =
   | "directory_listing_confirmed"
   /** 2 Nov: Account -> Report branding saved, or a brand's override removed. */
   | "report_branding_changed"
+  /** S01 part 11 (LLD 8.8.6): a brand's ABN set or changed in brand settings, or a suggested ABN confirmed. */
+  | "brand_abn_changed"
   /**
    * 15 Nov, part 3 (Sri's decision): Vunnara excluded one of the workspace's audits from trends, included it
    * again, or changed why (lib/admin/trend-exclusions.ts). metadata.summary is the sentence the trail shows:

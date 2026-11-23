@@ -1,18 +1,25 @@
 import { and, eq, ne } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { auditSchedules, brands, reportDeliverySchedules } from "@/db/schema";
 import { verticalEnum } from "@/db/schema/enums";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { runBrandEntityCheck } from "@/lib/brand-entity/entity-check";
 import { getBrandForOrg } from "@/lib/brands";
+import { normaliseAbnInput } from "@/lib/brands/abn";
 import { checkAliases, MAX_ALIASES } from "@/lib/brands/aliases";
 import { MAX_COMPARISON_COMPETITORS } from "@/lib/brands/competitor-limits";
 import { competitorWebsitesToStore } from "@/lib/brands/competitor-websites";
 import { reactivateScheduleIfReady } from "@/lib/brands/needs-confirmation";
 import { normalizeBrandName } from "@/lib/brands/normalize";
 import { AU_STATES } from "@/lib/constants/au";
-import { assertBrandAccess, brandAccessErrorResponse, roleRefusal } from "@/lib/governance";
+import {
+  assertBrandAccess,
+  brandAccessErrorResponse,
+  recordAction,
+  roleRefusal,
+} from "@/lib/governance";
 import { SUBURB_ENTRY_REGEX } from "@/lib/locations";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
 
@@ -67,6 +74,9 @@ const updateBrandSchema = z.object({
   // S00 part 4 (LLD 8.8.2): "Also known as" -- the whole list, checked against the name the brand will have
   // (lib/brands/aliases.ts: up to 10, 2-60 characters, unique ignoring case, never the name itself).
   aliases: z.array(z.string().max(200)).max(MAX_ALIASES).optional(),
+  // S01 part 11 (LLD 8.8.6, amendment 25; contract P01.abnField): the brand's ABN, spaces allowed as typed, digits
+  // saved, empty for none; checked with the ATO's digit check here as in the field (lib/brands/abn.ts).
+  abn: z.string().max(40).nullable().optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -138,7 +148,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
 
     // Websites are kept for the competitors the brand has after this change: a removed or renamed
     // competitor's website goes with it.
-    const { competitorWebsites: websiteChanges, aliases: sentAliases, ...fields } = parsed.data;
+    const {
+      competitorWebsites: websiteChanges,
+      aliases: sentAliases,
+      abn: sentAbn,
+      ...fields
+    } = parsed.data;
+    let abnUpdate: { abn?: string | null } = {};
+    if (sentAbn !== undefined) {
+      const abn = normaliseAbnInput(sentAbn ?? "");
+      if (!abn.ok) return NextResponse.json({ error: `abn: ${abn.error}` }, { status: 400 });
+      if (abn.abn !== (existing.abn ?? null)) abnUpdate = { abn: abn.abn };
+    }
     const websites = competitorWebsitesToStore(
       fields.competitors ?? existing.competitors,
       existing.competitorWebsites,
@@ -167,6 +188,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       .set({
         ...fields,
         ...aliasUpdate,
+        ...abnUpdate,
         competitorWebsites: websites.websites,
         // Confirming a location (fixed or online-only) is what makes
         // it count as confirmed -- set once here, next to the fields
@@ -200,6 +222,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     // needs_confirmation. See that function's own comment for why this
     // is the only resume path.
     await reactivateScheduleIfReady(tx, updated);
+
+    // S01 part 11: a new ABN goes in the audit trail, and the register is checked now (the existing entity check),
+    // not at the next audit.
+    if (abnUpdate.abn !== undefined) {
+      await recordAction(
+        {
+          organizationId: currentUser.organizationId,
+          userId: currentUser.id,
+          action: "brand_abn_changed",
+          resourceType: "brand",
+          resourceId: brandId,
+          metadata: { source: "brand_settings", abn: abnUpdate.abn },
+        },
+        tx,
+      );
+      if (abnUpdate.abn) after(() => runBrandEntityCheck(currentUser.organizationId, brandId));
+    }
 
     return NextResponse.json({ brand: updated });
   });

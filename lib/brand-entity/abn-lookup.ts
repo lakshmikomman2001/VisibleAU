@@ -111,3 +111,94 @@ export async function lookupAbn(abn: string | null | undefined): Promise<AbnLook
 
   return failed;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// S01 part 11 (LLD 8.8.6, T8; contract P01.abn): an ABN suggestion by business name.
+
+/** A confident match: the business's name on the ABR, in its place, with an Active ABN (confirmed with AbnDetails). */
+export interface AbnSuggestion {
+  abn: string;
+  entity: string | null;
+  businessName: string;
+  postcode: string | null;
+  state: string | null;
+  abnStatus: string;
+  checkedAt: string;
+}
+
+export type AbnSearchResult =
+  | { status: "found"; suggestion: AbnSuggestion }
+  | { status: "none" }
+  | { status: "skipped" }
+  | { status: "failed" };
+
+const ABR_JSON = "https://abr.business.gov.au/json";
+
+/** One ABR JSON call (JSONP: callback(...)); null when it didn't answer. The GUID goes only in the query string. */
+async function abrJson(
+  path: string,
+  params: Record<string, string>,
+): Promise<Record<string, unknown> | null> {
+  const query = new URLSearchParams(params).toString().replace(/\+/g, "%20");
+  try {
+    const res = await fetch(`${ABR_JSON}/${path}?${query}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    const json: unknown = JSON.parse(text.replace(/^callback\(/, "").replace(/\)\s*$/, ""));
+    return typeof json === "object" && json !== null ? (json as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+const sameName = (a: string, b: string) =>
+  a.toLowerCase().replace(/[^a-z0-9]/g, "") === b.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * The ABR's MatchingNames for `name` (the JSON method takes a name only), kept to current names that are the
+ * business's name, filtered in code by postcode when the brand has one, else by state; each remaining ABN confirmed
+ * with AbnDetails. A suggestion only when exactly one ABN is left and it is Active. Never with ABN_LOOKUP_BYPASS set
+ * or no GUID (no lookup), and the ABR not answering is "failed", never a guess.
+ */
+export async function searchAbnByName(
+  name: string,
+  place: { postcode?: string | null; state?: string | null } = {},
+): Promise<AbnSearchResult> {
+  const guid = process.env.ABN_LOOKUP_GUID;
+  if (!guid || process.env.ABN_LOOKUP_BYPASS) return { status: "skipped" };
+  const found = await abrJson("MatchingNames.aspx", { name: name.trim(), maxResults: "10", guid });
+  if (!found) return { status: "failed" };
+  const names = Array.isArray(found.Names) ? (found.Names as Array<Record<string, unknown>>) : [];
+  const postcode = place.postcode?.trim() || null;
+  const state = place.state?.trim().toUpperCase() || null;
+  const candidates = names.filter(
+    (n) =>
+      n.IsCurrent === true &&
+      typeof n.Abn === "string" &&
+      typeof n.Name === "string" &&
+      sameName(n.Name, name) &&
+      (postcode
+        ? n.Postcode === postcode
+        : state
+          ? String(n.State ?? "").toUpperCase() === state
+          : true),
+  );
+  const abns = [...new Set(candidates.map((n) => n.Abn as string))];
+  if (abns.length !== 1) return { status: "none" };
+  const details = await abrJson("AbnDetails.aspx", { abn: abns[0], guid });
+  if (!details) return { status: "failed" };
+  if (details.AbnStatus !== "Active" || details.Abn !== abns[0]) return { status: "none" };
+  const match = candidates[0];
+  return {
+    status: "found",
+    suggestion: {
+      abn: abns[0],
+      entity: typeof details.EntityName === "string" ? details.EntityName : null,
+      businessName: match.Name as string,
+      postcode: typeof details.AddressPostcode === "string" ? details.AddressPostcode : null,
+      state: typeof details.AddressState === "string" ? details.AddressState : null,
+      abnStatus: "Active",
+      checkedAt: new Date().toISOString(),
+    },
+  };
+}

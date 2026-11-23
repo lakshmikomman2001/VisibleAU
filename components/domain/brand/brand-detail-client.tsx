@@ -38,7 +38,9 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
+import { formatAbn, normaliseAbnInput } from "@/lib/brands/abn";
 import { aliasProblem, MAX_ALIASES } from "@/lib/brands/aliases";
+import { AbnSuggestionBanner } from "./abn-suggestion-banner";
 import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import { brandBusinessLabel } from "@/lib/brands/business-label";
@@ -106,6 +108,8 @@ interface BrandDetailClientProps {
     name: string;
     /** S00 part 4: "Also known as" (brands.aliases); optional for callers that don't pass it. */
     aliases?: string[];
+    /** S01 part 11 (P01.abnField): the brand's ABN (digits), or null. */
+    abn?: string | null;
     /** The name the wizard suggested from the site; the help line shows while the name still equals it. */
     nameSuggestion?: string | null;
     domain: string;
@@ -220,6 +224,8 @@ interface BrandDetailClientProps {
     /** Why it has no answers in the latest audit (its calls failed), when it has none. */
     noAnswerReason?: string | null;
   }>;
+  /** S01 part 11 (flag abn_suggestion): offer an ABN found on the ABR by the business's name. */
+  abnSuggestionEnabled?: boolean;
 }
 
 /** One KPI tile; detail and color only where a tile has them (Visibility). */
@@ -252,6 +258,7 @@ export function BrandDetailClient({
   avgPosition,
   totalMentions,
   engineStats,
+  abnSuggestionEnabled = false,
 }: BrandDetailClientProps) {
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -276,6 +283,11 @@ export function BrandDetailClient({
   const [aliasInput, setAliasInput] = useState("");
   const [addingAlias, setAddingAlias] = useState(false);
   const [aliasError, setAliasError] = useState<string | null>(null);
+  // S01 part 11 (UI contract P01.abnField): the ABN as typed (spaces fine), checked with the ATO's digit check as the
+  // server does; empty means no ABN.
+  const [abnInput, setAbnInput] = useState(brand.abn ? formatAbn(brand.abn) : "");
+  const [abnError, setAbnError] = useState<string | null>(null);
+  const [abnStatus, setAbnStatus] = useState<string | null>(null);
   const [changingLocation, setChangingLocation] = useState(false);
 
   // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
@@ -433,12 +445,19 @@ export function BrandDetailClient({
     const savedAliases = brand.aliases ?? [];
     const aliasesChanged =
       aliasList.length !== savedAliases.length || aliasList.some((a, i) => a !== savedAliases[i]);
+    const abn = normaliseAbnInput(abnInput);
+    if (!abn.ok) {
+      setAbnError(abn.error);
+      return;
+    }
+    const abnChanged = abn.abn !== (brand.abn ?? null);
     void brandSave.save({
       name,
       domain,
       vertical,
       ...(competitorsChanged ? { competitors: competitorList } : {}),
       ...(aliasesChanged ? { aliases: aliasList } : {}),
+      ...(abnChanged ? { abn: abn.abn } : {}),
     });
   };
   const addAlias = () => {
@@ -1873,6 +1892,71 @@ export function BrandDetailClient({
               </p>
             )}
           </fieldset>
+          {/* S01 part 11 (UI contract P01.abn, flag abn_suggestion): for a brand with no ABN in Australia. */}
+          {abnSuggestionEnabled && !brand.abn && !abnInput && brand.region === "au" && (
+            <AbnSuggestionBanner
+              brandId={brand.id}
+              canEdit={canEditBrand}
+              onConfirmed={(confirmed) => {
+                setAbnInput(formatAbn(confirmed));
+                setAbnStatus("ABN saved. We'll check the register now.");
+              }}
+            />
+          )}
+          {/* S01 part 11 (UI contract P01.abnField; amendment 25): 11 digits with the ABN checksum, empty allowed. */}
+          <div data-testid="p01-abn-field">
+            <label
+              htmlFor="brand-settings-abn"
+              style={{
+                display: "block",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+                marginBottom: 6,
+              }}
+            >
+              ABN
+            </label>
+            <input
+              id="brand-settings-abn"
+              inputMode="numeric"
+              autoComplete="off"
+              value={abnInput}
+              onChange={(e) => {
+                setAbnInput(e.target.value);
+                setAbnError(null);
+              }}
+              onBlur={() => {
+                const r = normaliseAbnInput(abnInput);
+                setAbnError(r.ok ? null : r.error);
+              }}
+              disabled={!editMode}
+              aria-invalid={abnError ? true : undefined}
+              aria-describedby="brand-settings-abn-help"
+              style={inputStyle(editMode)}
+            />
+            {abnError ? (
+              <p
+                id="brand-settings-abn-help"
+                role="alert"
+                style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}
+              >
+                {abnError}
+              </p>
+            ) : (
+              <p
+                id="brand-settings-abn-help"
+                style={{ fontSize: 12, color: "var(--text-tertiary)", margin: "6px 0 0" }}
+              >
+                11 digits, from the Australian Business Register
+              </p>
+            )}
+            {abnStatus && (
+              <p role="status" style={{ fontSize: 12, color: "var(--success)", margin: "6px 0 0" }}>
+                {abnStatus}
+              </p>
+            )}
+          </div>
           <div>
             <label
               htmlFor="brand-settings-vertical"

@@ -42,9 +42,10 @@ const FIXED_HOST_CLIENTS: ReadonlyArray<{
   },
   {
     file: "lib/brand-entity/abn-lookup.ts",
-    count: 1,
+    // S01 part 11 (LLD 8.8.6): the ABN suggestion's name search and its AbnDetails confirmation share one more call.
+    count: 2,
     host: "abr.business.gov.au",
-    why: "the ABR web service (the ABN is a query parameter)",
+    why: "the ABR web service (the ABN, or for the ABN suggestion the business's name, is a query parameter)",
   },
   {
     file: "lib/brand-entity/wikipedia-au.ts",

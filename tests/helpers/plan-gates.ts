@@ -58,6 +58,8 @@ export const DIRECT_GATES = [
   "lib/reports/report-preferences-service.ts",
   // S01 part 7: a report's v2 contents -- curation (Agency and up) and the tier names (Agency and up, D-RT3).
   "lib/reports/report-v2.ts",
+  // S01 part 8: which report tier a report is -- the plan's highest, the brand's default, or a refusal above the plan.
+  "lib/reports/report-tier-choice.ts",
   // Google AI surfaces (Phase 1, part 1): Growth and up only, the workspace override included.
   "lib/governance/google-surfaces.ts",
   "lib/platform/budget-policy.service.ts",

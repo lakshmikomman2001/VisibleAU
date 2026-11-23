@@ -116,6 +116,43 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
     await expect(panel).toHaveCount(0);
   });
 
+  test("S01 part 8: the report type -- Basic shows today's pages, and Generate sends the tier", async ({
+    page,
+  }) => {
+    await setFlag(true);
+    // The POST is stubbed: this checks what the panel asks for, not the job.
+    let body: Record<string, unknown> | null = null;
+    await page.route(`**/api/brands/${brandId}/reports/generate`, (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: '{"message":"Report generation started"}',
+      });
+    });
+    await page.goto(`/brands/${brandId}/reports`);
+    await page.getByTestId("generate-report").click();
+    await expect(page.getByTestId("p08-panel")).toBeVisible();
+    const enhanced = page.getByRole("radio", { name: "Enhanced" });
+    await expect(enhanced).toHaveAttribute("aria-checked", "true");
+    await expect(enhanced).toBeFocused();
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.getByRole("radio", { name: "Basic" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect(page.getByTestId("p08-basic-note")).toContainText(
+      "A Basic report has today's report pages",
+    );
+    await expect(page.getByTestId("p08-outline")).toContainText("Why your score is what it is");
+    await expect(page.getByTestId("p08-outline")).not.toContainText("Beyond AI answers");
+    await page.getByTestId("p08-generate").click();
+    await expect.poll(() => body?.tier).toBe("basic");
+    expect(body).not.toHaveProperty("contents");
+    await expect(page.getByTestId("p08-panel")).toHaveCount(0);
+  });
+
   test("report_v2 off: Generate starts today's report directly, no panel", async ({ page }) => {
     await setFlag(false);
     // The POST is stubbed (as sprint4-reports does): this checks the page asks for today's report, not the job.

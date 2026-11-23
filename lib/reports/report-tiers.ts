@@ -1,4 +1,8 @@
-import { getTierDefinition } from "@/lib/pricing/tiers";
+import {
+  getTierDefinition,
+  REPORT_TIER_DEFAULT_NAMES,
+  REPORT_TIER_DESCRIPTIONS,
+} from "@/lib/pricing/tiers";
 
 /**
  * S01 (LLD 8.1.7, R6, decisions D-RT1 revised and D-RT2/D-RT3): report tiers -- Basic, Standard, Enhanced -- three depths
@@ -10,21 +14,11 @@ import { getTierDefinition } from "@/lib/pricing/tiers";
 export const REPORT_TIERS = ["basic", "standard", "enhanced"] as const;
 export type ReportTier = (typeof REPORT_TIERS)[number];
 
-export const DEFAULT_TIER_NAMES: Record<ReportTier, string> = {
-  basic: "Basic",
-  standard: "Standard",
-  enhanced: "Enhanced",
-};
+/** S01 part 8: the copy lives in lib/pricing/tiers.ts (public claims go through it, N10); the same objects here. */
+export const DEFAULT_TIER_NAMES: Record<ReportTier, string> = REPORT_TIER_DEFAULT_NAMES;
 
 /** Appendix E: what each tier contains, in plain words (the P08 cards, the pricing footnote, P18's table). */
-export const TIER_DESCRIPTIONS: Record<ReportTier, string> = {
-  basic:
-    "Score, engine by engine, Google Search AI, where AI looks, competitors, trend, and why your score is what it is.",
-  standard:
-    "Everything in Basic, plus an action plan: what to do next, the evidence for each action, and what was done since the last report.",
-  enhanced:
-    "Everything in Standard, plus checks beyond AI answers: business identity and ABN, YouTube, AI crawler access, website technical health and your directory profiles.",
-};
+export const TIER_DESCRIPTIONS: Record<ReportTier, string> = REPORT_TIER_DESCRIPTIONS;
 
 export function isReportTier(value: unknown): value is ReportTier {
   return typeof value === "string" && (REPORT_TIERS as readonly string[]).includes(value);

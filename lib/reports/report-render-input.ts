@@ -21,7 +21,10 @@ export async function loadReportRenderData(
     contentsSnapshot: unknown;
   },
 ): Promise<{ data: ReportDataV2 | null; fromSnapshot: boolean }> {
-  const stored = snapshotReportData(report.contentsSnapshot);
+  const stored = snapshotReportData(report.contentsSnapshot, {
+    organizationId: report.organizationId,
+    brandId: report.brandId,
+  });
   if (stored) return { data: stored, fromSnapshot: true };
   const data = await buildReportData(db, {
     organizationId: report.organizationId,

@@ -1,10 +1,11 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { generatedReports, reportDeliverySchedules, reportTemplates } from "@/db/schema";
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
+import { isReportTier, type ReportTier } from "@/lib/reports/report-tiers";
 import { reportV2ForGeneration } from "@/lib/reports/report-v2";
 import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 
@@ -32,6 +33,8 @@ export const generateNarrativeReport = inngest.createFunction(
          * part 5 point 6); older events have only periodLabel. */
         reportPeriodLabel?: string;
         manual?: boolean;
+        /** S01 part 8: the report type the generate route decided (report_v2 on); scheduled reports read theirs. */
+        tier?: string;
       };
     };
     step: any;
@@ -40,13 +43,19 @@ export const generateNarrativeReport = inngest.createFunction(
     const periodLabel = event.data.reportPeriodLabel ?? event.data.periodLabel;
 
     const context = await step.run("check-schedule-and-template", async () => {
+      let scheduleTier: ReportTier | null = null;
       if (!manual) {
         // DEMO-BLOCKER (1 Nov), part 5 point 7: a weekly report for THIS
         // brand only when it has its own active schedule or the workspace
         // has a workspace-wide one (brand_id IS NULL). Any active schedule
         // in the workspace used to make reports for every brand in it.
+        // S01 part 8 (LLD 8.1.7, amendment 14): the schedule's report type is read too -- the brand's own
+        // schedule before the workspace-wide one -- and capped at the plan when the report is made.
         const [schedule] = await serviceDb
-          .select({ id: reportDeliverySchedules.id })
+          .select({
+            id: reportDeliverySchedules.id,
+            reportTier: reportDeliverySchedules.reportTier,
+          })
           .from(reportDeliverySchedules)
           .where(
             and(
@@ -58,9 +67,11 @@ export const generateNarrativeReport = inngest.createFunction(
               ),
             ),
           )
+          .orderBy(sql`${reportDeliverySchedules.brandId} IS NULL`)
           .limit(1);
 
         if (!schedule) return null;
+        scheduleTier = schedule.reportTier;
       }
 
       // Part 5 point 9: the subscription tier and brand name read here only
@@ -80,6 +91,7 @@ export const generateNarrativeReport = inngest.createFunction(
       return {
         templateId: template?.id ?? null,
         sections: (template?.sections as ReportSection[] | undefined) ?? null,
+        scheduleTier,
       };
     });
 
@@ -121,9 +133,16 @@ export const generateNarrativeReport = inngest.createFunction(
         });
         if (!data) return null;
         // S01 part 7 (LLD 8.1.3, appendix D): while report_v2 is on, the report's v2 contents and the snapshot its PDF
-        // and "Try again" render from. Until part 8 wires the tier, every v2 report is the Enhanced set. Off: null, and
-        // the report is today's (no snapshot, rebuilt from live data when rendered).
-        const v2 = await reportV2ForGeneration(tx, { data, tier: "enhanced", now: new Date() });
+        // and "Try again" render from. Off: null, and the report is today's (no snapshot, rebuilt from live data
+        // when rendered). S01 part 8 (LLD 8.1.7): its tier -- the route's for a manual report, the schedule's for a
+        // scheduled one -- decided and capped at the plan on the server (reportV2ForGeneration).
+        const requested = manual ? event.data.tier : context.scheduleTier;
+        const v2 = await reportV2ForGeneration(tx, {
+          data,
+          tier: isReportTier(requested) ? requested : null,
+          now: new Date(),
+          source: manual ? "manual" : "schedule",
+        });
         const narrative = reportNarrative(data);
         const confidenceNotes = [
           ...(data.coverage.note
@@ -163,6 +182,18 @@ export const generateNarrativeReport = inngest.createFunction(
           })
           .returning({ id: generatedReports.id });
 
+        // LLD 8.1.7 "Observability": operators learn which tiers agencies sell, per plan.
+        console.info(
+          JSON.stringify({
+            event: "report_generated",
+            reportId: row.id,
+            organizationId,
+            brandId,
+            tier: v2?.tier ?? "basic",
+            plan: v2?.plan ?? null,
+            source: manual ? "manual" : "schedule",
+          }),
+        );
         return row.id;
       });
     });

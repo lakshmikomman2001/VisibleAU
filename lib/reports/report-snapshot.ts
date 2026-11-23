@@ -58,7 +58,30 @@ export interface ReportSnapshot {
   beyondAi: BeyondAiAnswers | null;
   sections: ReportSectionKey[];
   branding: { agencyName: string | null };
-  reportData: ReportDataV2;
+  /** The render input, as stored: what the PDF prints (LLD amendment 41; storedReportData). */
+  reportData: StoredReportData;
+}
+
+/**
+ * LLD amendment 41: a snapshot holds only what the PDF prints -- never an operator-only cost, a provider name the
+ * report doesn't show, or an id beyond appendix D's. The render input carries the workspace's and the brand's ids
+ * (dates and links are worked out from them) and the other audits' ids on the trend (chart keys only): they're left
+ * out here and put back from the report's own row when it renders (snapshotReportData). The report's Google block
+ * carries no provider name. Costs never reach the render input at all (tests/unit/costs/no-cost-for-customers.test.ts
+ * scans lib/reports; tests/integration/report-tiers.integration.test.ts checks a stored snapshot).
+ */
+export type StoredReportData = Omit<ReportDataV2, "organizationId" | "brand" | "trend"> & {
+  brand: Omit<ReportDataV2["brand"], "id">;
+  trend: Omit<ReportDataV2["trend"], "points"> & {
+    points: Array<Omit<ReportDataV2["trend"]["points"][number], "auditId">>;
+  };
+};
+
+export function storedReportData(data: ReportDataV2): StoredReportData {
+  const { organizationId: _org, brand, trend, ...rest } = data;
+  const { id: _brandId, ...storedBrand } = brand;
+  const points = trend.points.map(({ auditId: _auditId, ...p }) => p);
+  return { ...rest, brand: storedBrand, trend: { ...trend, points } };
 }
 
 /** The mix line (appendix E; zero parts omitted). Before S03 every everyday question is AI-suggested. */
@@ -119,14 +142,29 @@ export function buildReportSnapshot(data: ReportDataV2): ReportSnapshot {
     beyondAi: v2?.beyondAi ?? null,
     sections: v2?.sections ?? pagesForTier(tier),
     branding: { agencyName: data.agency.name },
-    reportData: data,
+    reportData: storedReportData(data),
   };
 }
 
-/** The render input stored in a snapshot, or null when the row has none (or one this code can't read). */
-export function snapshotReportData(snapshot: unknown): ReportDataV2 | null {
+/**
+ * The render input stored in a snapshot, with the ids the report's own row holds put back (amendment 41), or null when
+ * the row has none (or one this code can't read). Trend points get a key from their audit number (the chart's keys).
+ */
+export function snapshotReportData(
+  snapshot: unknown,
+  row: { organizationId: string; brandId: string },
+): ReportDataV2 | null {
   if (typeof snapshot !== "object" || snapshot === null) return null;
   const s = snapshot as { schema?: unknown; reportData?: unknown };
   if (s.schema !== 1 || typeof s.reportData !== "object" || s.reportData === null) return null;
-  return s.reportData as ReportDataV2;
+  const stored = s.reportData as StoredReportData;
+  return {
+    ...stored,
+    organizationId: row.organizationId,
+    brand: { ...stored.brand, id: row.brandId },
+    trend: {
+      ...stored.trend,
+      points: stored.trend.points.map((p) => ({ ...p, auditId: `audit-${p.auditNumber}` })),
+    },
+  } as ReportDataV2;
 }

@@ -1,6 +1,6 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { agencyBrandAssets, brands } from "@/db/schema";
+import { brands } from "@/db/schema";
 import { isEnabled } from "@/lib/flags/flags";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { getBeyondAiAnswers } from "./beyond-ai";
@@ -13,7 +13,8 @@ import {
   type ReportSnapshot,
   type ReportV2,
 } from "./report-snapshot";
-import { pagesForTier, planNamesTiers, type ReportTier, tierNamesFrom } from "./report-tiers";
+import { chooseReportTier, loadTierNames } from "./report-tier-choice";
+import { pagesForTier, planNamesTiers, type ReportTier } from "./report-tiers";
 import { loadWhatToDoNext } from "./what-to-do-next";
 
 /**
@@ -24,12 +25,12 @@ import { loadWhatToDoNext } from "./what-to-do-next";
  */
 export async function buildReportV2(
   db: DbClient,
-  input: { data: ReportData; tier: ReportTier; now: Date },
+  input: { data: ReportData; tier: ReportTier; now: Date; plan?: string },
 ): Promise<ReportV2> {
   const { data, tier, now } = input;
   const organizationId = data.organizationId;
-  const plan = await effectiveTier(db, organizationId);
-  const [[brand], [branding]] = await Promise.all([
+  const plan = input.plan ?? (await effectiveTier(db, organizationId));
+  const [[brand], names] = await Promise.all([
     db
       .select({
         id: brands.id,
@@ -45,20 +46,9 @@ export async function buildReportV2(
       })
       .from(brands)
       .where(eq(brands.id, data.brand.id)),
-    db
-      .select({ names: agencyBrandAssets.reportTierNames })
-      .from(agencyBrandAssets)
-      .where(
-        and(
-          eq(agencyBrandAssets.organizationId, organizationId),
-          isNull(agencyBrandAssets.brandId),
-        ),
-      )
-      // The workspace row (brand_id IS NULL); the newest wins if duplicated (lib/branding/agency-assets.ts's order).
-      .orderBy(desc(agencyBrandAssets.updatedAt), desc(agencyBrandAssets.id))
-      .limit(1),
+    // The workspace row's names (brand_id IS NULL; the newest wins if duplicated), Agency and up.
+    loadTierNames(db, organizationId, plan),
   ]);
-  const names = tierNamesFrom(branding?.names, plan);
   const withActions = tier !== "basic";
   const [whatToDoNext, beyondAi] = await Promise.all([
     withActions
@@ -99,13 +89,49 @@ export async function buildReportV2(
 /**
  * At generation (generate-narrative-report): while report_v2 is on, the report's v2 contents for its tier and the
  * snapshot to store on the row; off, null -- the report is today's, with no snapshot, and renders as today.
+ *
+ * S01 part 8 (LLD 8.1.7): the tier is decided here, on the server, from the workspace's live plan. `tier` is the one
+ * asked for -- the generate route's (already checked against the plan there), or the delivery schedule's -- and none
+ * means the brand's saved default, else the plan's highest (chooseReportTier). A tier above the plan (the plan changed
+ * since, or a schedule saved on a higher plan) is capped at the plan, with an operator log line; a plan with no
+ * reports at all gets today's report (Basic), as a schedule did before tiers.
  */
 export async function reportV2ForGeneration(
   db: DbClient,
-  input: { data: ReportData; tier: ReportTier; now: Date },
-): Promise<{ tier: ReportTier; data: ReportDataV2; snapshot: ReportSnapshot } | null> {
-  if (!(await isEnabled("report_v2", input.data.organizationId))) return null;
-  const v2 = await buildReportV2(db, input);
+  input: {
+    data: ReportData;
+    tier?: ReportTier | null;
+    now: Date;
+    source?: "manual" | "schedule";
+  },
+): Promise<{
+  tier: ReportTier;
+  plan: string;
+  data: ReportDataV2;
+  snapshot: ReportSnapshot;
+} | null> {
+  const organizationId = input.data.organizationId;
+  if (!(await isEnabled("report_v2", organizationId))) return null;
+  const choice = await chooseReportTier(db, {
+    organizationId,
+    brandId: input.data.brand.id,
+    requested: input.tier ?? null,
+  });
+  const tier = choice.tier ?? "basic";
+  if (choice.overLimit || choice.tier === null) {
+    console.info(
+      JSON.stringify({
+        event: "report_tier_capped",
+        organizationId,
+        brandId: input.data.brand.id,
+        plan: choice.plan,
+        requested: input.tier ?? null,
+        tier,
+        source: input.source ?? "manual",
+      }),
+    );
+  }
+  const v2 = await buildReportV2(db, { data: input.data, tier, now: input.now, plan: choice.plan });
   const data: ReportDataV2 = { ...input.data, v2 };
-  return { tier: input.tier, data, snapshot: buildReportSnapshot(data) };
+  return { tier, plan: choice.plan, data, snapshot: buildReportSnapshot(data) };
 }

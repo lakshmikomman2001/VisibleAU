@@ -5,8 +5,10 @@ import { withRlsContext } from "@/db/client";
 import { reportDeliverySchedules } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { isTierAtLeast } from "@/lib/brands";
-import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { isEnabled } from "@/lib/flags/flags";
 import { roleRefusal } from "@/lib/governance";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { REPORT_TIERS } from "@/lib/reports/report-tiers";
 
 const createScheduleSchema = z
   .object({
@@ -18,6 +20,9 @@ const createScheduleSchema = z
     timeOfDay: z.string().default("23:00"),
     recipientEmails: z.array(z.email()).min(1),
     isActive: z.boolean().default(true),
+    // S01 part 8 (LLD 8.1.7, amendment 14): the report type scheduled reports use (default Basic). Kept only while
+    // report_v2 is on; the generator reads it and caps it at the plan when the report is made.
+    reportTier: z.enum(REPORT_TIERS).optional(),
   })
   .refine((d) => d.frequency !== "weekly" || d.dayOfWeek != null, {
     message: "day_of_week required for weekly",
@@ -98,6 +103,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         timeOfDay: parsed.data.timeOfDay,
         recipientEmails: parsed.data.recipientEmails,
         isActive: parsed.data.isActive,
+        ...(parsed.data.reportTier && (await isEnabled("report_v2", currentUser.organizationId))
+          ? { reportTier: parsed.data.reportTier }
+          : {}),
       })
       .returning();
 

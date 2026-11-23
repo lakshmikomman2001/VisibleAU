@@ -370,10 +370,69 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
 ];
 
 /**
+ * S01 part 8 (LLD 8.1.7, appendix E): the three report types' default names and what each contains, in appendix E's
+ * plain words -- the one copy for the report contents panel's cards (P08), Report branding's table (P18), the pricing
+ * page's "Reports" row and its footnote. lib/reports/report-tiers.ts re-exports them (DEFAULT_TIER_NAMES,
+ * TIER_DESCRIPTIONS). No prices: report types are part of the plans.
+ */
+export const REPORT_TIER_DEFAULT_NAMES = {
+  basic: "Basic",
+  standard: "Standard",
+  enhanced: "Enhanced",
+} as const;
+export const REPORT_TIER_DESCRIPTIONS = {
+  basic:
+    "Score, engine by engine, Google Search AI, where AI looks, competitors, trend, and why your score is what it is.",
+  standard:
+    "Everything in Basic, plus an action plan: what to do next, the evidence for each action, and what was done since the last report.",
+  enhanced:
+    "Everything in Standard, plus checks beyond AI answers: business identity and ABN, YouTube, AI crawler access, website technical health and your directory profiles.",
+} as const;
+const REPORT_TIER_ORDER = ["basic", "standard", "enhanced"] as const;
+
+export const REPORTS_ROW_LABEL = "Reports";
+
+/**
+ * A plan's cell on the "Reports" row, from its maxReportTier and reportTierNames (never a list of plans): "—" with no
+ * reports (Free, Starter), "Basic and Standard" (Growth), "Basic, Standard and Enhanced, chosen per client report,
+ * with your own names" (Agency plans).
+ */
+export function reportsRowValue(tier: TierDefinition): string {
+  if (tier.maxReportTier === null) return "—";
+  const names = REPORT_TIER_ORDER.slice(0, REPORT_TIER_ORDER.indexOf(tier.maxReportTier) + 1).map(
+    (t) => REPORT_TIER_DEFAULT_NAMES[t],
+  );
+  const list =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  return tier.reportTierNames ? `${list}, chosen per client report, with your own names` : list;
+}
+
+/** The row's footnote: what each report type contains (appendix E). */
+export function reportsFootnote(): string[] {
+  return REPORT_TIER_ORDER.map(
+    (t) => `${REPORT_TIER_DEFAULT_NAMES[t]}: ${REPORT_TIER_DESCRIPTIONS[t]}`,
+  );
+}
+
+const REPORTS_ROW: ComparisonRow = { label: REPORTS_ROW_LABEL, value: reportsRowValue };
+
+/**
  * 16 Nov: the table's rows, with Google's AI answers after the Growth rows while the global setting has them on
  * (`googleAi`, from publicGoogleAi), ticked from GOOGLE_AI_FROM_TIER up; COMPARISON_ROWS as they are otherwise.
+ * S01 part 8: with `reportTiers` (report_v2 on globally: components/domain/pricing/load-report-tiers-claim.ts), the
+ * "Reports" row right after "PDF export".
  */
-export function comparisonRows(googleAi: PublicGoogleAi | null): ComparisonRow[] {
+export function comparisonRows(
+  googleAi: PublicGoogleAi | null,
+  options: { reportTiers?: boolean } = {},
+): ComparisonRow[] {
+  const rows = rowsWithGoogleAi(googleAi);
+  if (!options.reportTiers) return rows;
+  const at = rows.findIndex((r) => "label" in r && r.label === "PDF export");
+  return [...rows.slice(0, at + 1), REPORTS_ROW, ...rows.slice(at + 1)];
+}
+
+function rowsWithGoogleAi(googleAi: PublicGoogleAi | null): ComparisonRow[] {
   if (!googleAi) return COMPARISON_ROWS;
   // 19 Nov: with the grey line the rows below have: its own section, the score, where it's checked from.
   const row: ComparisonRow = {

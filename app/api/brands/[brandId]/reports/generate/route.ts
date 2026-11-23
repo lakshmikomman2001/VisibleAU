@@ -16,6 +16,8 @@ import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { reportPreferencesSchema } from "@/lib/reports/report-contents";
 import { defaultReportPeriodLabel } from "@/lib/reports/report-data";
 import { saveReportPreferences, workspaceCurates } from "@/lib/reports/report-preferences-service";
+import { chooseReportTier, tierNotInPlanBody } from "@/lib/reports/report-tier-choice";
+import { REPORT_TIERS, type ReportTier } from "@/lib/reports/report-tiers";
 
 const generateSchema = z.object({
   periodLabel: z.string().optional(),
@@ -24,6 +26,10 @@ const generateSchema = z.object({
   // on and the plan curates (Agency and up), it is saved as the brand's choices before the report starts, so the
   // report and the next panel use it. Otherwise it is ignored, as today. The server still picks the basis audit.
   contents: reportPreferencesSchema.optional(),
+  // S01 part 8 (LLD 8.1.7, P08.footer): the report type. While report_v2 is on the server checks it against the plan
+  // (402 report_tier_not_in_plan above it) and derives the page set from it; none sent means the brand's saved
+  // default, else the plan's highest. With report_v2 off it is ignored, as today.
+  tier: z.enum(REPORT_TIERS).optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ brandId: string }> }) {
@@ -73,18 +79,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       }),
     ));
 
-  const contents = parsed.data.contents;
-  if (contents && (await isEnabled("report_v2", currentUser.organizationId))) {
-    await withRlsContext(currentUser.organizationId, async (tx) => {
-      if (!(await workspaceCurates(tx, currentUser.organizationId))) return;
-      await saveReportPreferences(tx, {
+  // S01 part 8 (LLD 8.1.7 "Server enforcement", amendment 30): the tier, checked against the workspace's live plan.
+  // A tier the plan doesn't include is a limit inside a feature the plan has (reports): 402 with its code, which the
+  // panel shows inline (P08.overLimit), and nothing starts. Contents a Basic report doesn't print are dropped.
+  let tier: ReportTier | null = null;
+  if (await isEnabled("report_v2", currentUser.organizationId)) {
+    const requested = parsed.data.tier ?? null;
+    const contents = parsed.data.contents;
+    const decided = await withRlsContext(currentUser.organizationId, async (tx) => {
+      const choice = await chooseReportTier(tx, {
         organizationId: currentUser.organizationId,
         brandId,
-        userId: currentUser.id,
-        curated: true,
-        preferences: contents,
+        requested,
       });
+      if (choice.overLimit) return { refused: tierNotInPlanBody(choice), tier: null };
+      const curates =
+        choice.tier !== "basic" && (await workspaceCurates(tx, currentUser.organizationId));
+      // The tier asked for becomes the brand's default (P08.tier); the panel's choices are saved before the report
+      // starts, so the report and the next panel use them (Agency and up, Standard and Enhanced only).
+      if (requested !== null || (contents && curates)) {
+        await saveReportPreferences(tx, {
+          organizationId: currentUser.organizationId,
+          brandId,
+          userId: currentUser.id,
+          curated: curates,
+          preferences: {
+            ...(curates && contents ? contents : {}),
+            ...(requested !== null ? { defaultTier: requested } : {}),
+          },
+        });
+      }
+      return { refused: null, tier: choice.tier };
     });
+    if (decided.refused) return NextResponse.json(decided.refused, { status: 402 });
+    tier = decided.tier;
   }
 
   await inngest.send({
@@ -95,8 +123,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
       periodLabel,
       periodType,
       manual: true,
+      ...(tier ? { tier } : {}),
     },
   });
 
-  return NextResponse.json({ message: "Report generation started", periodLabel }, { status: 202 });
+  return NextResponse.json(
+    { message: "Report generation started", periodLabel, ...(tier ? { tier } : {}) },
+    { status: 202 },
+  );
 }

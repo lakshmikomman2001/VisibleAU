@@ -7,7 +7,11 @@ import { RetryPdfButton } from "@/components/domain/communication/retry-pdf-butt
 import { usePlanTier } from "@/components/domain/plan-tier-context";
 import { useBrandFeatureGate } from "@/components/domain/pricing/brand-feature-gate";
 import { PlanGatedLink, PlanLockedPage } from "@/components/domain/pricing/plan-lock";
-import { ReportContentsPanel } from "@/components/domain/reports/report-contents-panel";
+import {
+  ReportContentsPanel,
+  ReportContentsPanelLoading,
+} from "@/components/domain/reports/report-contents-panel";
+import { useReportV2 } from "@/components/domain/reports/report-v2-context";
 import { useCan } from "@/components/domain/role-context";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
@@ -151,18 +155,35 @@ export default function ReportsListPage() {
   const canGenerate = useCan("generate_reports");
 
   // S01 part 5 (LLD 8.1.3, contract P08): while report_v2 is on, "Generate report" opens the report contents panel.
-  // The panel's view is asked for when Generate is pressed, so the page loads exactly as before; with report_v2 off
-  // (`{ enabled: false }`), or when the view can't be read, Generate starts today's report directly, as before.
+  // The panel's view is asked for when Generate is pressed, so the page loads exactly as before; when the view says
+  // report_v2 is off (`{ enabled: false }`), or can't be read, Generate starts today's report directly, as before.
+  // S01 part 8 (P08.states.loading): the Reports layout says on the server whether report_v2 is on (useReportV2), so
+  // with it on the panel opens at once with its skeleton while the view loads, and the button never says
+  // "Generating..." for that (nothing is being generated yet). With it off the page is today's: Generate starts the
+  // report directly, with no request for a view.
+  const reportV2 = useReportV2();
+  const [panelLoading, setPanelLoading] = useState(false);
+  // Closing the skeleton before the view arrives means no panel: each open gets a ticket, and closing spends it.
+  const panelTicket = useRef(0);
+  const closePanelLoading = () => {
+    panelTicket.current += 1;
+    setPanelLoading(false);
+  };
   const [panelView, setPanelView] = useState<Extract<ReportContentsView, { enabled: true }> | null>(
     null,
   );
   const openPanelOrGenerate = async () => {
-    setGenerating(true);
+    if (!reportV2) {
+      await handleGenerate();
+      return;
+    }
+    setPanelLoading(true);
+    const ticket = ++panelTicket.current;
     let view: ReportContentsView | null = null;
     try {
       const res = await fetchOrFail(`/api/brands/${brandId}/report-preferences`);
       if (await planRefused(res)) {
-        setGenerating(false);
+        setPanelLoading(false);
         return;
       }
       view = res.ok ? await readJson<ReportContentsView>(res) : null;
@@ -170,7 +191,8 @@ export default function ReportsListPage() {
       // No view: Generate makes today's report, as it did before the panel.
       view = null;
     }
-    setGenerating(false);
+    if (ticket !== panelTicket.current) return;
+    setPanelLoading(false);
     if (view?.enabled === true) setPanelView(view);
     else await handleGenerate();
   };
@@ -207,6 +229,7 @@ export default function ReportsListPage() {
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 32 }}>
+        {panelLoading && <ReportContentsPanelLoading onClose={closePanelLoading} />}
         {panelView && (
           <ReportContentsPanel
             brandId={brandId}
@@ -216,6 +239,8 @@ export default function ReportsListPage() {
             agencyName={panelView.agencyName}
             curated={panelView.curated}
             whatToDoNext={panelView.whatToDoNext}
+            tierOptions={panelView.tiers}
+            initialTier={panelView.defaultTier}
             onClose={() => setPanelView(null)}
             onGenerated={startWaiting}
           />
@@ -263,7 +288,7 @@ export default function ReportsListPage() {
                   color: "var(--layer-communication-fg)",
                 }}
                 onClick={openPanelOrGenerate}
-                disabled={generating}
+                disabled={generating || panelLoading}
                 data-testid="generate-report"
               >
                 {generating ? "Generating..." : "Generate report"}

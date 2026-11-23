@@ -20,6 +20,7 @@ import {
   saveReportPreferences,
   workspaceCurates,
 } from "@/lib/reports/report-preferences-service";
+import { chooseReportTier, tierNotInPlanBody } from "@/lib/reports/report-tier-choice";
 
 /**
  * S01 part 5 (LLD 8.1.3, contract P08): the report contents panel's data.
@@ -83,9 +84,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ brandId:
 
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const curated = await workspaceCurates(tx, currentUser.organizationId);
-    const { defaultTier: _tier, ...curation } = parsed.data;
+    const { defaultTier, ...curation } = parsed.data;
     if (!curated && Object.keys(curation).length > 0)
       return tierRefusal(new TierInsufficientError(REPORT_CURATION_FROM_TIER));
+    // S01 part 8 (LLD 8.1.7, amendment 30): a default report type above the plan is refused like Generate's.
+    if (defaultTier) {
+      const choice = await chooseReportTier(tx, {
+        organizationId: currentUser.organizationId,
+        brandId,
+        requested: defaultTier,
+      });
+      if (choice.overLimit) return NextResponse.json(tierNotInPlanBody(choice), { status: 402 });
+    }
     try {
       const preferences = await saveReportPreferences(tx, {
         organizationId: currentUser.organizationId,

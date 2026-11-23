@@ -15,6 +15,7 @@ import {
   type ReportContentsPanelProps,
 } from "@/components/domain/reports/report-contents-panel";
 import type { WhatToDoNext } from "@/lib/reports/report-contents";
+import { TIER_DESCRIPTIONS } from "@/lib/reports/report-tiers";
 
 const ITEM_A = "11111111-1111-4111-8111-111111111111";
 const ITEM_B = "22222222-2222-4222-8222-222222222222";
@@ -68,6 +69,14 @@ function props(over: Partial<ReportContentsPanelProps> = {}): ReportContentsPane
     agencyName: "Splice Marketing",
     curated: true,
     whatToDoNext: NEXT,
+    // S01 part 8 (P08.tier): the panel opens with its report type; Enhanced here, as every v2 report was in part 5.
+    tierOptions: (["basic", "standard", "enhanced"] as const).map((tier) => ({
+      tier,
+      name: tier[0].toUpperCase() + tier.slice(1),
+      description: TIER_DESCRIPTIONS[tier],
+      lockedPlan: null,
+    })),
+    initialTier: "enhanced",
     onClose: vi.fn(),
     onGenerated: vi.fn(),
     ...over,
@@ -142,6 +151,8 @@ describe("Agency and up", () => {
         { actionItemId: ITEM_A, included: true, position: 0, note: "We claimed it on 18 Nov" },
         { actionItemId: ITEM_B, included: true, position: 1, note: null },
       ],
+      // S01 part 8, contract P08.footer: "Save without generating ... (with default_tier)".
+      defaultTier: "enhanced",
     });
   });
 
@@ -245,7 +256,8 @@ describe("Growth: read-only with the Agency lock", () => {
     fireEvent.click(screen.getByTestId("p08-generate"));
     await waitFor(() => expect(fetchImpl).toHaveBeenCalled());
     const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toEqual({ periodType: "weekly" });
+    // S01 part 8, contract P08.footer: "the existing generate route with { periodType, tier, contents }".
+    expect(JSON.parse(String(init.body))).toEqual({ periodType: "weekly", tier: "enhanced" });
   });
 });
 

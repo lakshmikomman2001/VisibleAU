@@ -7,6 +7,8 @@ import {
   comparisonIncludes,
   comparisonRows,
   PLAN_FEATURE_COPY,
+  REPORTS_ROW_LABEL,
+  reportsFootnote,
   TIER_DEFINITIONS,
 } from "@/lib/pricing/tiers";
 
@@ -23,15 +25,21 @@ function rowKey(row: ComparisonRow): string {
  * described as the app's locks name it.
  * 16 Nov: with Google's AI answers' row while the global setting has them on (`googleAi`, the pricing page's
  * loadGoogleAiClaim()).
+ * S01 part 8: with the "Reports" row and its footnote while report_v2 is on globally (`reportTiers`, the pricing
+ * page's loadReportTiersClaim()).
  */
 export function TierComparisonTable({
   showFreeTier,
   googleAi = null,
+  reportTiers = false,
 }: {
   showFreeTier: boolean;
   googleAi?: PublicGoogleAi | null;
+  reportTiers?: boolean;
 }) {
   const tiers = showFreeTier ? TIER_DEFINITIONS : TIER_DEFINITIONS.filter((t) => t.key !== "free");
+  const rows = comparisonRows(googleAi, { reportTiers });
+  const withReports = rows.some((r) => "label" in r && r.label === REPORTS_ROW_LABEL);
 
   return (
     <div className="mt-16">
@@ -66,7 +74,7 @@ export function TierComparisonTable({
             </tr>
           </thead>
           <tbody>
-            {comparisonRows(googleAi).map((row) => (
+            {rows.map((row) => (
               <tr
                 key={rowKey(row)}
                 data-row={rowKey(row)}
@@ -136,6 +144,20 @@ export function TierComparisonTable({
           </tbody>
         </table>
       </div>
+      {withReports && (
+        <div
+          className="mt-3 text-xs"
+          style={{ color: "var(--text-tertiary)" }}
+          data-reports-footnote=""
+        >
+          <p className="font-medium">What each report contains</p>
+          <ul className="mt-1 space-y-0.5">
+            {reportsFootnote().map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

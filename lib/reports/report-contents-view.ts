@@ -13,6 +13,8 @@ import {
   reportCurationAllowed,
   type SavedReportPreferences,
 } from "./report-preferences-service";
+import { chooseReportTier, type TierOption, tierOptionsFor } from "./report-tier-choice";
+import type { ReportTier } from "./report-tiers";
 import { loadWhatToDoNext } from "./what-to-do-next";
 
 /**
@@ -34,6 +36,10 @@ export type ReportContentsView =
       whatToDoNext: WhatToDoNext | null;
       preferences: SavedReportPreferences;
       agencyName: string;
+      /** S01 part 8 (P08.tier): the three report types, named and locked for the plan. */
+      tiers: TierOption[];
+      /** The tier the panel opens on: the brand's last choice when the plan includes it, else the plan's highest. */
+      defaultTier: ReportTier;
     };
 
 export async function buildReportContentsView(
@@ -50,7 +56,7 @@ export async function buildReportContentsView(
     periodType: "weekly",
     now,
   });
-  const [basis, preferences, assets, [org], [brand]] = await Promise.all([
+  const [basis, preferences, assets, [org], [brand], tierChoice] = await Promise.all([
     selectReportBasis(tx, {
       organizationId: input.organizationId,
       brandId: input.brandId,
@@ -64,6 +70,11 @@ export async function buildReportContentsView(
       .from(organizations)
       .where(eq(organizations.id, input.organizationId)),
     tx.select({ name: brands.name }).from(brands).where(eq(brands.id, input.brandId)),
+    chooseReportTier(tx, {
+      organizationId: input.organizationId,
+      brandId: input.brandId,
+      plan: tier,
+    }),
   ]);
   const agencyName =
     themeAssetFrom(assets.brand, assets.workspace)?.agencyName ?? org?.name ?? "your agency";
@@ -95,5 +106,7 @@ export async function buildReportContentsView(
     whatToDoNext,
     preferences,
     agencyName,
+    tiers: tierOptionsFor(tier, tierChoice.names),
+    defaultTier: tierChoice.tier ?? "basic",
   };
 }

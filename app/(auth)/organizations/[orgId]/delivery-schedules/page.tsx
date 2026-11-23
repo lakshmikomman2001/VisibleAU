@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { LayerBadge } from "@/components/phase2/layer-badge";
 import { TierGate } from "@/components/phase2/tier-gate";
 import { LoadError } from "@/components/shared/load-error";
-import { useLoad } from "@/lib/hooks/use-load";
+import { useJson, useLoad } from "@/lib/hooks/use-load";
 import { actionFailureMessage, fetchOrFail, readJson } from "@/lib/load/fetch-json";
+import type { TierOption } from "@/lib/reports/report-tier-choice";
+import type { ReportTier } from "@/lib/reports/report-tiers";
 
 interface Schedule {
   id: string;
@@ -19,7 +21,12 @@ interface Schedule {
   isActive: boolean;
   lastSentAt: string | null;
   createdAt: string;
+  /** S01 part 8: the report type the schedule's reports use (Basic before tiers). */
+  reportTier?: ReportTier;
 }
+
+/** GET /api/report-tiers: the workspace's report types while report_v2 is on. */
+type ReportTypes = { enabled: false } | { enabled: true; tiers: TierOption[] };
 
 const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -36,6 +43,16 @@ export default function DeliverySchedulesPage() {
   const [emails, setEmails] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // S01 part 8 (LLD 8.1.7, amendment 14): "Report type", only while report_v2 is on. If the types can't be read the
+  // form is today's, and the schedule's reports are Basic (the server's default), as before tiers.
+  const reportTypes = useJson<ReportTypes>("/api/report-tiers");
+  const tierOptions =
+    reportTypes.data?.enabled === true
+      ? reportTypes.data.tiers.filter((t) => t.lockedPlan === null)
+      : [];
+  const [reportTier, setReportTier] = useState<ReportTier>("basic");
+  const reportTypeName = (tier: ReportTier | undefined) =>
+    tierOptions.find((t) => t.tier === (tier ?? "basic"))?.name ?? null;
 
   // Follow-ups from af8de42..d1eb5a1, part 1: a failed fetch (other than the plan's 403) showed the
   // empty list, as if nothing were scheduled. It says it couldn't load now, with Try again.
@@ -84,6 +101,7 @@ export default function DeliverySchedulesPage() {
           timeOfDay,
           recipientEmails: emails,
           isActive: true,
+          ...(tierOptions.length > 0 ? { reportTier } : {}),
         }),
       });
 
@@ -96,6 +114,7 @@ export default function DeliverySchedulesPage() {
         setDayOfMonth(1);
         setTimeOfDay("09:00");
         setEmails([]);
+        setReportTier("basic");
       } else {
         setError(await actionFailureMessage(res, "The schedule couldn't be created."));
       }
@@ -228,6 +247,43 @@ export default function DeliverySchedulesPage() {
                 </div>
               )}
             </div>
+
+            {tierOptions.length > 0 && (
+              <div className="mb-4">
+                <label
+                  htmlFor="schedule-report-type"
+                  className="block text-[11px] font-medium mb-1"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Report type
+                </label>
+                <select
+                  id="schedule-report-type"
+                  value={reportTier}
+                  onChange={(e) => setReportTier(e.target.value as ReportTier)}
+                  aria-describedby="schedule-report-type-help"
+                  className="w-full h-9 px-3 rounded-md text-[13px] md:w-60"
+                  style={{
+                    backgroundColor: "var(--bg-base)",
+                    border: "1px solid var(--border-default)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  {tierOptions.map((t) => (
+                    <option key={t.tier} value={t.tier}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <p
+                  id="schedule-report-type-help"
+                  className="mt-1 text-[11px]"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Scheduled reports use this report type.
+                </p>
+              </div>
+            )}
 
             <div className="mb-4">
               <label
@@ -416,6 +472,7 @@ export default function DeliverySchedulesPage() {
                 </div>
                 <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
                   {s.recipientEmails.length} recipient{s.recipientEmails.length !== 1 ? "s" : ""}
+                  {reportTypeName(s.reportTier) && <> · {reportTypeName(s.reportTier)} report</>}
                   {s.lastSentAt && <> · Last sent {new Date(s.lastSentAt).toLocaleDateString()}</>}
                 </p>
               </div>

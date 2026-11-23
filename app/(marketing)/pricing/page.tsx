@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { loadGoogleAiClaim } from "@/components/domain/google-ai/load-google-ai-claim";
+import { loadReportTiersClaim } from "@/components/domain/pricing/load-report-tiers-claim";
 import PricingTableClient from "@/components/domain/pricing/pricing-table-client";
 import { TierComparisonTable } from "@/components/domain/pricing/tier-comparison-table";
 import type { Region } from "@/db/schema/enums";
@@ -25,6 +26,8 @@ export default async function PricingPage() {
   const isAu = region === "au";
   // 16 Nov (Sri): Growth and up list Google's AI answers only while the global setting has them on.
   const googleAi = await loadGoogleAiClaim();
+  // S01 part 8 (LLD 8.1.7): the "Reports" row only while report_v2 is on globally.
+  const reportTiers = await loadReportTiersClaim();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-16" data-pricing-region={region}>
@@ -39,7 +42,11 @@ export default async function PricingPage() {
         defaultGstInclusive={isAu}
         googleAi={googleAi}
       />
-      <TierComparisonTable showFreeTier={showFreeTier} googleAi={googleAi} />
+      <TierComparisonTable
+        showFreeTier={showFreeTier}
+        googleAi={googleAi}
+        reportTiers={reportTiers}
+      />
     </div>
   );
 }

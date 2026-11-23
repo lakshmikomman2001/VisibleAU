@@ -29,6 +29,15 @@ import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { EVIDENCE_ARCHIVE_SENTENCE } from "@/lib/trust/evidence-archiver";
 import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
 import { type AgencyLogo, agencyInitials } from "../agency-branding";
+import {
+  BEYOND_FOOTER,
+  type BeyondAiAnswers,
+  type BeyondTileView,
+  type BeyondTone,
+  beyondTileViews,
+  directoriesLines,
+  formatCheckDate,
+} from "../beyond-ai";
 import type { ReportData, ReportMatrixRow, ReportTrendPoint } from "../report-data";
 import { type EvidenceTone, type Finding, reportFindings } from "../report-findings";
 import {
@@ -48,6 +57,7 @@ import {
 } from "../report-format";
 import { countWord, reportNarrative } from "../report-narrative";
 import { reportDate, reportDateTime, reportShortDate } from "../report-period";
+import { questionMixLine, type ReportDataV2 } from "../report-snapshot";
 import { BAND, C, COVER_BAND, ENGINE_DOT, FONT, PAGE, px } from "./tokens";
 
 /**
@@ -379,28 +389,50 @@ export interface ReportPlan {
   google: string | null;
   directories: string;
   diagnosis: string | null;
+  /** S01 part 7: "Why, and what to do next" (Standard and Enhanced; replaces diagnosis). */
+  next: string | null;
+  /** S01 part 7: "Beyond AI answers" (Enhanced). */
+  beyond: string | null;
   trend: string | null;
   recommended: string | null;
   method: string | null;
 }
 
 /** Section numbers ("01"...) for the sections this report includes. */
-export function reportPlan(data: ReportData, findings: Finding[]): ReportPlan {
+export function reportPlan(data: ReportDataV2, findings: Finding[]): ReportPlan {
   let n = 0;
   const next = () => String(++n).padStart(2, "0");
+  // S01 part 7 (LLD 8.1.7, appendix D): the tier's page set, derived on the server (report-tiers.ts pagesForTier).
+  // Without report v2 contents, today's pages.
+  const pages = data.v2?.sections ?? null;
+  const has = (key: string) => pages === null || pages.includes(key as never);
   const summary = next();
   const engines = next();
   const google = data.google ? next() : null;
   const directories = next();
-  const diagnosis = data.sections.diagnosis ? next() : null;
+  const diagnosis = data.sections.diagnosis && has("diagnosis") ? next() : null;
+  const nextSteps = pages?.includes("next") ? next() : null;
+  const beyond = pages?.includes("beyond_ai") && data.v2?.beyondAi ? next() : null;
   const trend = data.sections.trend ? next() : null;
-  const recommended = data.sections.recommended_next && findings.length > 0 ? next() : null;
+  const recommended =
+    data.sections.recommended_next && findings.length > 0 && has("recommended") ? next() : null;
   const method = data.sections.method ? next() : null;
-  return { summary, engines, google, directories, diagnosis, trend, recommended, method };
+  return {
+    summary,
+    engines,
+    google,
+    directories,
+    diagnosis,
+    next: nextSteps,
+    beyond,
+    trend,
+    recommended,
+    method,
+  };
 }
 
 interface Ctx {
-  data: ReportData;
+  data: ReportDataV2;
   findings: Finding[];
   plan: ReportPlan;
   basisProv: string;
@@ -856,7 +888,10 @@ function SummaryPage({ ctx }: { ctx: Ctx }) {
   const { data } = ctx;
   const h = headlineFigures(data);
   const band = h.band ? BAND[h.band] : { text: C.ink3, soft: C.surface2, fill: C.neutralFill };
-  const narrative = reportNarrative(data, { diagnosisSection: ctx.plan.diagnosis });
+  // S01 part 7: in Standard and Enhanced the findings are in "Why, and what to do next", so the pointer follows them.
+  const narrative = reportNarrative(data, {
+    diagnosisSection: ctx.plan.diagnosis ?? ctx.plan.next,
+  });
   const detail = {
     mentionedCount: data.mentionedCount,
     rankedCount: data.rankedCount,
@@ -2040,6 +2075,323 @@ function DiagnosisPage({ ctx }: { ctx: Ctx }) {
   );
 }
 
+// ------------------------------------------- S01 part 7: why, and what to do next
+
+/** P09: agency violet on its soft fill (7.65:1), and the action card's pills. */
+const AGENCY = { fg: "#5B21B6", bg: "#EDE9FE" } as const;
+const PRIORITY_PILL: Record<string, { label: string; bg: string; fg: string }> = {
+  high: { label: "HIGH", bg: C.lowSoft, fg: C.low },
+  medium: { label: "MEDIUM", bg: C.midSoft, fg: C.mid },
+  low: { label: "LOW", bg: C.surface2, fg: C.ink2 },
+  strength: { label: "STRENGTH", bg: C.goodSoft, fg: C.good },
+};
+const STATUS_LABEL: Record<string, string> = {
+  open: "OPEN",
+  in_progress: "IN PROGRESS",
+  done: "DONE",
+};
+
+function SmallPill({ text, bg, fg }: { text: string; bg: string; fg: string }) {
+  return (
+    <Text
+      style={{
+        fontSize: px(7.5),
+        fontWeight: 700,
+        letterSpacing: ls(7.5, 0.08),
+        color: fg,
+        backgroundColor: bg,
+        borderRadius: 999,
+        paddingVertical: px(2.5),
+        paddingHorizontal: px(7),
+      }}
+    >
+      {text}
+    </Text>
+  );
+}
+
+function GroupLabel({ children }: { children: string }) {
+  return (
+    <Text
+      style={{
+        fontSize: px(8),
+        fontWeight: 700,
+        letterSpacing: ls(8, 0.12),
+        color: C.ink3,
+        marginTop: px(18),
+        marginBottom: px(6),
+      }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+function ActionCard({
+  priority,
+  status,
+  title,
+  evidence,
+  note,
+  agencyName,
+  agency,
+}: {
+  priority: string;
+  status: string | null;
+  title: string;
+  evidence: string | null;
+  note: string | null;
+  agencyName: string | null;
+  agency?: boolean;
+}) {
+  const pill = PRIORITY_PILL[priority] ?? PRIORITY_PILL.medium;
+  return (
+    <View
+      wrap={false}
+      style={{
+        borderWidth: 0.75,
+        borderStyle: "solid",
+        borderColor: C.line,
+        borderRadius: px(6),
+        padding: px(10),
+        marginBottom: px(6),
+      }}
+    >
+      <View style={{ flexDirection: "row", gap: px(6), marginBottom: px(4) }}>
+        <SmallPill text={pill.label} bg={pill.bg} fg={pill.fg} />
+        {status ? (
+          <SmallPill text={STATUS_LABEL[status] ?? "OPEN"} bg={C.surface2} fg={C.ink2} />
+        ) : null}
+        {agency ? <SmallPill text="AGENCY" bg={AGENCY.bg} fg={AGENCY.fg} /> : null}
+      </View>
+      <Text style={{ fontSize: px(11), fontWeight: 600, color: C.ink }}>{title}</Text>
+      {evidence ? (
+        <Text style={{ fontFamily: FONT.mono, fontSize: px(8.5), color: C.ink2, marginTop: px(3) }}>
+          {evidence}
+        </Text>
+      ) : null}
+      {note ? (
+        <Text style={{ fontSize: px(9.5), color: AGENCY.fg, marginTop: px(4) }}>
+          {agencyName ? `Note from ${agencyName}: ` : "Note: "}
+          {note}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * P09.next (Standard and Enhanced): today's findings first, then the groups -- measured actions, recommended by the
+ * agency, done since the last report, general advice (each only when non-empty and switched on). Never "No finding
+ * rule matched".
+ */
+function NextPage({ ctx }: { ctx: Ctx }) {
+  const v2 = ctx.data.v2;
+  const next = v2?.whatToDoNext ?? null;
+  const agencyName = v2?.agencyName ?? null;
+  const measured = (next?.measured ?? []).filter((m) => m.included);
+  const agency = next?.agencyActions ?? [];
+  const done = next?.includeDoneSinceLast ? next.doneSinceLast : [];
+  const advice = next?.includeGeneralAdvice ? next.generalAdvice : [];
+  return (
+    <Page size="A4" style={s.page}>
+      <RunningHeader title={ctx.runningTitle} />
+      <View style={{ marginTop: px(28) }}>
+        <SectionLabel
+          icon="search"
+          eyebrow={`${ctx.plan.next} · Why, and what to do next`}
+          provenance={`Measured · Audit #${ctx.data.basis.auditNumber}`}
+        />
+        <Text style={s.h2}>What we found, and what to do next</Text>
+        <Text style={s.lede}>
+          {agencyName
+            ? `Each action shows the evidence from this audit. Notes and actions from ${agencyName} are labelled.`
+            : "Each action shows the evidence from this audit."}
+        </Text>
+      </View>
+      {ctx.findings.length > 0 ? (
+        ctx.findings.map((f) => <FindingCard key={f.rule} finding={f} />)
+      ) : (
+        <View style={{ ...s.tile, marginTop: px(12) }}>
+          <Text style={{ fontSize: px(10.5), color: C.ink2 }}>{FINDINGS_CHECKED}</Text>
+        </View>
+      )}
+      {measured.length > 0 ? (
+        <View>
+          <GroupLabel>MEASURED ACTIONS</GroupLabel>
+          {measured.map((m) => (
+            <ActionCard
+              key={m.key}
+              priority={m.priority}
+              status={m.status}
+              title={m.title}
+              evidence={m.evidence}
+              note={m.note}
+              agencyName={agencyName}
+            />
+          ))}
+        </View>
+      ) : null}
+      {agency.length > 0 ? (
+        <View>
+          <GroupLabel>{`RECOMMENDED BY ${(agencyName ?? "your agency").toUpperCase()}`}</GroupLabel>
+          {agency.map((a) => (
+            <ActionCard
+              key={a.id}
+              priority={a.priority}
+              status={a.status}
+              title={a.title}
+              evidence={a.detail}
+              note={null}
+              agencyName={agencyName}
+              agency
+            />
+          ))}
+        </View>
+      ) : null}
+      {done.length > 0 ? (
+        <View wrap={false}>
+          <GroupLabel>DONE SINCE THE LAST REPORT</GroupLabel>
+          {done.map((d) => (
+            <Text
+              key={`${d.title}-${d.doneAt}`}
+              style={{ fontSize: px(10), color: C.ink2, marginBottom: px(3) }}
+            >
+              ✓ {d.title} · {reportDate(new Date(d.doneAt), ctx.data.organizationId)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      {advice.length > 0 ? (
+        <View>
+          <GroupLabel>GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT</GroupLabel>
+          {advice.map((a) => (
+            <ActionCard
+              key={a.title}
+              priority="low"
+              status={null}
+              title={a.title}
+              evidence={a.evidence}
+              note={null}
+              agencyName={agencyName}
+            />
+          ))}
+        </View>
+      ) : null}
+      <RunningFooter left={ctx.footerLeft} />
+    </Page>
+  );
+}
+
+// ---------------------------------------------- S01 part 7: beyond AI answers
+
+const BEYOND_TONE: Record<BeyondTone, { bg: string; fg: string }> = {
+  good: { bg: C.goodSoft, fg: C.good },
+  warn: { bg: C.midSoft, fg: C.mid },
+  bad: { bg: C.lowSoft, fg: C.low },
+  neutral: { bg: C.surface2, fg: C.ink2 },
+};
+
+function BeyondTile({ view }: { view: BeyondTileView }) {
+  return (
+    <View wrap={false} style={{ ...s.tile, flex: 1, minHeight: px(96) }}>
+      <Text style={s.tileK}>{view.label}</Text>
+      {view.value ? (
+        <Text style={s.tileV}>
+          {view.value.main} <Text style={s.tileSmall}>{view.value.of}</Text>
+        </Text>
+      ) : null}
+      {view.pill ? (
+        <View style={{ flexDirection: "row", marginTop: px(4) }}>
+          <SmallPill
+            text={view.pill.text}
+            bg={BEYOND_TONE[view.pill.tone].bg}
+            fg={BEYOND_TONE[view.pill.tone].fg}
+          />
+        </View>
+      ) : null}
+      {view.lines.map((l) => (
+        <Text
+          key={l.text}
+          style={{
+            fontFamily: FONT.mono,
+            fontSize: px(8.5),
+            color: l.tone === "warn" ? C.mid : C.ink2,
+            marginTop: px(3),
+          }}
+        >
+          {l.text}
+        </Text>
+      ))}
+      {view.action ? (
+        <Text
+          style={{ fontSize: px(8.5), color: C.ink3, marginTop: px(3) }}
+        >{`Next step: ${view.action.text}`}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** P09.beyond (Enhanced): 2 x 2 tiles, then "Your directory profiles" across both columns; the footer sentence. */
+function BeyondPage({ ctx }: { ctx: Ctx }) {
+  const answers = ctx.data.v2?.beyondAi;
+  if (!answers) return null;
+  const views = beyondTileViews(answers, ctx.data.brand.id);
+  const dir = answers.directories;
+  return (
+    <Page size="A4" style={s.page}>
+      <RunningHeader title={ctx.runningTitle} />
+      <View style={{ marginTop: px(28) }}>
+        <SectionLabel
+          icon="list"
+          eyebrow={`${ctx.plan.beyond} · Beyond AI answers`}
+          provenance="Separate checks · own dates"
+        />
+        <Text style={s.h2}>What AI can read about you elsewhere</Text>
+        <Text style={s.lede}>{BEYOND_FOOTER}</Text>
+      </View>
+      <View style={{ flexDirection: "row", gap: px(10), marginTop: px(12) }}>
+        <BeyondTile view={views[0]} />
+        <BeyondTile view={views[1]} />
+      </View>
+      <View style={{ flexDirection: "row", gap: px(10), marginTop: px(10) }}>
+        <BeyondTile view={views[2]} />
+        <BeyondTile view={views[3]} />
+      </View>
+      {dir ? (
+        <View wrap={false} style={{ ...s.tile, marginTop: px(10) }}>
+          <Text style={s.tileK}>Your directory profiles</Text>
+          <Text
+            style={{
+              fontSize: px(8),
+              fontWeight: 700,
+              letterSpacing: ls(8, 0.08),
+              color: C.ink3,
+              marginTop: px(2),
+            }}
+          >
+            {`FROM AUDIT #${ctx.data.basis.auditNumber} · ${reportDate(new Date(ctx.data.basis.completedAt), ctx.data.organizationId).toUpperCase()}`}
+          </Text>
+          {directoriesLines(dir).map((line, i) => (
+            <Text
+              key={line}
+              style={{
+                fontSize: px(i === 0 ? 10 : 9.5),
+                fontWeight: i === 0 ? 600 : 400,
+                color: i === 0 ? C.ink : C.ink2,
+                marginTop: px(i === 0 ? 6 : 3),
+              }}
+            >
+              {line}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <RunningFooter left={ctx.footerLeft} />
+    </Page>
+  );
+}
+
 // --------------------------------------------------- over time + next steps
 
 /**
@@ -2277,6 +2629,18 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
 
 // ------------------------------------------------------------------- method
 
+/** P09.method: "identity {date} · YouTube {date} · crawlers {date} · technical {date}". */
+function checksOutsideLine(a: BeyondAiAnswers): string {
+  const when = (checkedAt: string | null, missing: string) =>
+    checkedAt ? formatCheckDate(checkedAt) : missing;
+  return [
+    `identity ${when(a.identity.checkedAt, "not checked")}`,
+    `YouTube ${when(a.youtube.checkedAt, a.youtube.state === "not_linked" ? "not linked" : "not checked")}`,
+    `crawlers ${when(a.crawlers.checkedAt, "not checked")}`,
+    `technical ${when(a.technical.checkedAt, "not checked")}`,
+  ].join(" · ");
+}
+
 function MethodPage({ ctx }: { ctx: Ctx }) {
   const { data } = ctx;
   const h = headlineFigures(data);
@@ -2314,6 +2678,13 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
       ? [["Model note", data.modelDrift.map(modelDriftNote).join("; ")] as [string, string]]
       : []),
     ...(location ? [["Location", location] as [string, string]] : []),
+    // S01 part 7 (LLD 8.1.2, P09.method, appendix E): the question mix; the checks outside AI answers in Enhanced.
+    ...(data.v2
+      ? [["Questions asked", questionMixLine(data.v2.questionMix)] as [string, string]]
+      : []),
+    ...(data.v2?.beyondAi
+      ? [["Checks outside AI answers", checksOutsideLine(data.v2.beyondAi)] as [string, string]]
+      : []),
   ];
   const glossary: Array<[string, string]> = [
     [
@@ -2441,7 +2812,7 @@ export function footerLeftText(agency: FooterAgency, brandName: string): string 
   ].join(" · ");
 }
 
-export function reportContext(data: ReportData): Ctx {
+export function reportContext(data: ReportDataV2): Ctx {
   const findings = reportFindings(data);
   const plan = reportPlan(data, findings);
   return {
@@ -2513,7 +2884,7 @@ export function ReportDocument({
   data,
   logo = null,
 }: {
-  data: ReportData;
+  data: ReportDataV2;
   logo?: AgencyLogo | null;
 }) {
   const ctx = reportContext(data);
@@ -2529,6 +2900,8 @@ export function ReportDocument({
       <EnginesPages ctx={ctx} />
       <DirectoriesPage ctx={ctx} />
       {ctx.plan.diagnosis && <DiagnosisPage ctx={ctx} />}
+      {ctx.plan.next && <NextPage ctx={ctx} />}
+      {ctx.plan.beyond && <BeyondPage ctx={ctx} />}
       {(ctx.plan.trend || ctx.plan.recommended) && <TrendAndNextPage ctx={ctx} />}
       {ctx.plan.method && <MethodPage ctx={ctx} />}
     </Document>

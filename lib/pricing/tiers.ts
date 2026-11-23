@@ -67,11 +67,20 @@ export interface TierDefinition {
    */
   googleAi?: true;
   popular?: boolean;
+  /**
+   * S01 (LLD 7.6, 8.1.7; D-RT1 revised): the deepest report tier the plan can generate -- null for Free and Starter (no
+   * reports), Growth Basic and Standard, Agency and up all three, chosen per report (D-RT2). Read through
+   * lib/reports/report-tiers.ts (reportTierAllowed) by every server path.
+   */
+  maxReportTier: "basic" | "standard" | "enhanced" | null;
+  /** S01 (D-RT3): the plan renames the three tiers and shows the name on the cover (Agency and up). */
+  reportTierNames?: true;
 }
 
 export const TIER_DEFINITIONS: TierDefinition[] = [
   {
     key: "free",
+    maxReportTier: null,
     name: "Free",
     monthlyPriceCentsIncGst: 0,
     annualPriceCentsIncGst: 0,
@@ -85,6 +94,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
   {
     key: "starter",
+    maxReportTier: null,
     name: "Starter",
     monthlyPriceCentsIncGst: 9900,
     annualPriceCentsIncGst: 99000,
@@ -99,6 +109,7 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
   {
     key: "growth",
+    maxReportTier: "standard",
     name: "Growth",
     monthlyPriceCentsIncGst: 29900,
     annualPriceCentsIncGst: 299000,
@@ -114,6 +125,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
   {
     key: "agency",
+    maxReportTier: "enhanced",
+    reportTierNames: true,
     name: "Agency",
     monthlyPriceCentsIncGst: 49900,
     annualPriceCentsIncGst: 499000,
@@ -128,6 +141,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
   {
     key: "agency_pro",
+    maxReportTier: "enhanced",
+    reportTierNames: true,
     name: "Agency Pro",
     monthlyPriceCentsIncGst: 149900,
     annualPriceCentsIncGst: 1499000,
@@ -143,6 +158,8 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   },
   {
     key: "enterprise",
+    maxReportTier: "enhanced",
+    reportTierNames: true,
     name: "Enterprise",
     monthlyPriceCentsIncGst: 0,
     annualPriceCentsIncGst: 0,

@@ -56,6 +56,8 @@ export const DIRECT_GATES = [
   // S01 part 5: whether the workspace curates its reports (Agency and up): the panel's view and its saves.
   "lib/reports/report-contents-view.ts",
   "lib/reports/report-preferences-service.ts",
+  // S01 part 7: a report's v2 contents -- curation (Agency and up) and the tier names (Agency and up, D-RT3).
+  "lib/reports/report-v2.ts",
   // Google AI surfaces (Phase 1, part 1): Growth and up only, the workspace override included.
   "lib/governance/google-surfaces.ts",
   "lib/platform/budget-policy.service.ts",

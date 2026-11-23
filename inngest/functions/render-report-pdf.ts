@@ -13,7 +13,7 @@ import type { ReportSection } from "@/lib/communication/types";
 import { loadScopedOrAbort } from "@/lib/governance/inngest-scope-guard";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
-import { buildReportData } from "@/lib/reports/report-data";
+import { loadReportRenderData } from "@/lib/reports/report-render-input";
 import { reportPeriodLabel } from "@/lib/reports/report-period";
 import { getStorage } from "@/lib/storage";
 import { storageConfigProblem } from "@/lib/storage/config-check";
@@ -60,6 +60,7 @@ export const renderReportPdf = inngest.createFunction(
               templateId: generatedReports.templateId,
               reportType: generatedReports.reportType,
               periodLabel: generatedReports.periodLabel,
+              contentsSnapshot: generatedReports.contentsSnapshot,
             })
             .from(generatedReports)
             .where(eq(generatedReports.id, reportId))
@@ -104,7 +105,10 @@ export const renderReportPdf = inngest.createFunction(
             .limit(1)
         : [];
       const periodType = report.reportType === "monthly" ? "monthly" : "weekly";
-      const data = await buildReportData(serviceDb, {
+      // S01 part 7 (LLD 8.1.3, 8.1.7): a report with a contents snapshot renders from it, now and on "Try again", so it
+      // never changes afterwards; one without (every report before S01, and every one while report_v2 is off) keeps
+      // today's rebuild from live data.
+      const { data } = await loadReportRenderData(serviceDb, {
         organizationId,
         brandId,
         periodType,
@@ -112,6 +116,7 @@ export const renderReportPdf = inngest.createFunction(
           report.periodLabel ?? reportPeriodLabel(new Date(), periodType, organizationId),
         auditId: report.auditId,
         sections: (template?.sections as ReportSection[] | undefined) ?? null,
+        contentsSnapshot: report.contentsSnapshot,
       });
       if (!data) {
         throw new NonRetriableError("No complete audit to base this report on");

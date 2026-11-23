@@ -6,7 +6,7 @@ import {
   type BrandingPreviewProps,
   ReportDocument,
 } from "@/lib/reports/pdf/report-document";
-import type { ReportData } from "@/lib/reports/report-data";
+import type { ReportDataV2 } from "@/lib/reports/report-snapshot";
 
 /**
  * DEMO-BLOCKER (1 Nov), part 4 -- the report PDF: the approved seven-page
@@ -17,7 +17,7 @@ import type { ReportData } from "@/lib/reports/report-data";
  * storage, a web address within 5 s (lib/reports/agency-logo-loader.ts);
  * without it the cover draws the agency's initials.
  */
-export async function buildReportPdf(data: ReportData): Promise<Buffer> {
+export async function buildReportPdf(data: ReportDataV2): Promise<Buffer> {
   registerReportFonts();
   const logo = await loadAgencyLogo(data.agency.logoUrl);
   return renderToBuffer(<ReportDocument data={data} logo={logo} />);

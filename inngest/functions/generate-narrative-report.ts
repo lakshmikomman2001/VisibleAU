@@ -5,6 +5,7 @@ import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
+import { reportV2ForGeneration } from "@/lib/reports/report-v2";
 import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 
 export const generateNarrativeReport = inngest.createFunction(
@@ -119,6 +120,10 @@ export const generateNarrativeReport = inngest.createFunction(
           sections: context.sections,
         });
         if (!data) return null;
+        // S01 part 7 (LLD 8.1.3, appendix D): while report_v2 is on, the report's v2 contents and the snapshot its PDF
+        // and "Try again" render from. Until part 8 wires the tier, every v2 report is the Enhanced set. Off: null, and
+        // the report is today's (no snapshot, rebuilt from live data when rendered).
+        const v2 = await reportV2ForGeneration(tx, { data, tier: "enhanced", now: new Date() });
         const narrative = reportNarrative(data);
         const confidenceNotes = [
           ...(data.coverage.note
@@ -153,6 +158,8 @@ export const generateNarrativeReport = inngest.createFunction(
             keyWins: [],
             keyGaps: [],
             confidenceNotes,
+            reportTier: v2?.tier ?? "basic",
+            contentsSnapshot: v2?.snapshot ?? null,
           })
           .returning({ id: generatedReports.id });
 

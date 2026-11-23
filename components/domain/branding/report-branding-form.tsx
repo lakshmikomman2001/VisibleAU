@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { LogoUploader } from "@/components/domain/branding/logo-uploader";
 import { possessive } from "@/lib/copy/possessive";
 import { PDF_PAPER_COLOUR } from "@/lib/pdf/theme";
@@ -33,6 +33,8 @@ interface Props {
   /** brand id -> that brand's own branding. */
   overrides: Record<string, BrandingScopeValues>;
   brands: Array<{ id: string; name: string }>;
+  /** S01 part 10 (contract P18): cards below the existing branding cards (Report names, while report_v2 is on). */
+  footer?: ReactNode;
 }
 
 const WORKSPACE = "workspace";
@@ -68,7 +70,7 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced;
 }
 
-export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
+export function ReportBrandingForm({ workspace, overrides, brands, footer = null }: Props) {
   const ids = {
     scope: useId(),
     name: useId(),
@@ -475,6 +477,7 @@ export function ReportBrandingForm({ workspace, overrides, brands }: Props) {
             </p>
           </section>
         </div>
+        {footer}
       </div>
     </div>
   );

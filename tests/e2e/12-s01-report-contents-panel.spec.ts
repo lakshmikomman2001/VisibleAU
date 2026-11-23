@@ -173,6 +173,56 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
     await expect(checks).toHaveCount(0);
   });
 
+  test("S01 part 10: the reports list names each report's type; Report names on Report branding", async ({
+    page,
+  }) => {
+    await setFlag(true);
+    const sql = postgres(e2eDatabaseUrl(), { max: 1 });
+    try {
+      const [audit] = await sql<
+        { id: string }[]
+      >`SELECT id FROM audits WHERE brand_id = ${brandId} LIMIT 1`;
+      await sql`INSERT INTO generated_reports (brand_id, organization_id, audit_id, report_type, period_label,
+          narrative_text, headline, report_tier, contents_snapshot, pdf_failure_reason)
+        VALUES (${brandId}, ${account.organizationId}, ${audit.id}, 'weekly', '2026-W47', 'n',
+          'TechCore IT: AI visibility, week 47', 'standard', ${sql.json({ schema: 1, tierName: "Growth Plan" })},
+          'render_error')`;
+    } finally {
+      await sql.end();
+    }
+    await page.goto(`/brands/${brandId}/reports`);
+    await expect(page.getByTestId("p17-report-type").first()).toHaveText("Growth Plan");
+    const light = async () => {
+      await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+      // The theme's colours ease in (120-160 ms transitions): wait them out before the screenshot.
+      await page.waitForTimeout(800);
+    };
+    await light();
+    for (const [w, h] of [
+      [1240, 900],
+      [390, 844],
+    ] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.screenshot({ path: `${DIR}/P17-${w}-light.png` });
+    }
+    await page.setViewportSize({ width: 1240, height: 900 });
+    await page.goto("/settings/report-branding");
+    const card = page.getByTestId("p18-card");
+    await expect(card).toContainText("Report names");
+    await page.getByLabel("Enhanced report name").fill("Premium Audit");
+    await expect(page.getByTestId("p18-preview")).toContainText("PREMIUM AUDIT");
+    await light();
+    await card.scrollIntoViewIfNeeded();
+    for (const [w, h] of [
+      [1240, 900],
+      [390, 844],
+    ] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await card.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${DIR}/P18-${w}-light.png` });
+    }
+  });
+
   test("report_v2 off: Generate starts today's report directly, no panel", async ({ page }) => {
     await setFlag(false);
     // The POST is stubbed (as sprint4-reports does): this checks the page asks for today's report, not the job.

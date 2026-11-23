@@ -136,3 +136,8 @@ export async function workspaceTierOptions(
   const names = await loadTierNames(db, organizationId, plan);
   return { plan, maxTier: maxReportTierFor(plan), options: tierOptionsFor(plan, names) };
 }
+
+/** S01 part 10 (P17): the workspace's report names for its live plan (Agency and up rename them; else the defaults). */
+export async function workspaceTierNames(db: DbClient, organizationId: string): Promise<TierNames> {
+  return loadTierNames(db, organizationId, await effectiveTier(db, organizationId));
+}

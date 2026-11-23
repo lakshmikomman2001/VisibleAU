@@ -4,6 +4,7 @@ import {
   type BrandingScopeValues,
   ReportBrandingForm,
 } from "@/components/domain/branding/report-branding-form";
+import { ReportNamesCard } from "@/components/domain/branding/report-names-card";
 import { PlanLockedPage } from "@/components/domain/pricing/plan-lock";
 import { withRlsContext } from "@/db/client";
 import { agencyBrandAssets, brands } from "@/db/schema";
@@ -13,8 +14,10 @@ import {
   loadAgencyAssetRows,
   orgHasReportBranding,
 } from "@/lib/branding/agency-assets";
+import { isEnabled } from "@/lib/flags/flags";
 import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { PRODUCT_NAME } from "@/lib/product";
+import { workspaceTierNames } from "@/lib/reports/report-tier-choice";
 
 /**
  * 2 Nov ("where does Sri set the agency name and logo for the report
@@ -81,7 +84,11 @@ export default async function ReportBrandingPage() {
       .from(brands)
       .where(and(eq(brands.organizationId, organizationId), isNull(brands.deletedAt)))
       .orderBy(asc(brands.name));
-    return { workspace, overrideRows, brandList };
+    // S01 part 10 (contract P18): the report names, while report_v2 is on (this page is Agency and up already).
+    const tierNames = (await isEnabled("report_v2", organizationId))
+      ? await workspaceTierNames(tx, organizationId)
+      : null;
+    return { workspace, overrideRows, brandList, tierNames };
   });
 
   const values = (row: {
@@ -115,6 +122,7 @@ export default async function ReportBrandingPage() {
           .map((r) => [r.brandId, values(r)]),
       )}
       brands={data.brandList}
+      footer={data.tierNames ? <ReportNamesCard initial={data.tierNames} /> : null}
     />
   );
 }

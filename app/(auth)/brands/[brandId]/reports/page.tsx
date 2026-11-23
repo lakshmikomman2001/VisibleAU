@@ -41,6 +41,13 @@ interface ReportRow {
   pdfFailureReason?: string | null;
   /** The report has a PDF, but its download link couldn't be made just now. */
   pdfLinkUnavailable?: boolean;
+  /** S01 part 10 (P17): the report type's name, while report_v2 is on (old rows read the Basic name). */
+  tierName?: string;
+}
+
+/** The row's report type name, while report_v2 is on (P17's Report pill). */
+function reportTypeOf(r: ReportRow): string | null {
+  return r.tierName ?? null;
 }
 
 function statusOf(r: ReportRow): ReportStatus {
@@ -390,6 +397,19 @@ export default function ReportsListPage() {
                   aria-busy={status === "generating" || status === "running_checks"}
                 >
                   <div>
+                    {reportV2 && reportTypeOf(r) && (
+                      <span
+                        data-testid="p17-report-type"
+                        className="mb-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={{
+                          background: "var(--bg-subtle)",
+                          border: "1px solid var(--border-default)",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        {reportTypeOf(r)}
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => router.push(`/brands/${brandId}/reports/${r.id}`)}
@@ -457,7 +477,11 @@ export default function ReportsListPage() {
                           color: r.pdfUrl ? "var(--accent-primary)" : "var(--text-tertiary)",
                           pointerEvents: r.pdfUrl ? "auto" : "none",
                         }}
-                        aria-label={`Download ${r.headline}`}
+                        aria-label={
+                          reportV2 && reportTypeOf(r)
+                            ? `Download ${reportTypeOf(r)} PDF for ${r.periodLabel ?? r.headline}`
+                            : `Download ${r.headline}`
+                        }
                       >
                         {r.pdfUrl ? "Download PDF" : "Pending..."}
                       </a>

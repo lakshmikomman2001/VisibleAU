@@ -4,7 +4,9 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { brands } from "@/db/schema";
 import { type CurrentUser, getCurrentUser } from "@/lib/auth/current-user";
+import { reportTierNamesSchema, saveReportTierNames } from "@/lib/branding/report-tier-names";
 import {
+  BRANDING_NOT_ON_PLAN,
   type BrandingFields,
   brandingRefusal,
   canManageBranding,
@@ -15,7 +17,14 @@ import {
   removeBrandOverride,
   saveAgencyBranding,
 } from "@/lib/branding/agency-assets";
-import { assertBrandAccess, brandAccessErrorResponse, recordAction } from "@/lib/governance";
+import { isEnabled } from "@/lib/flags/flags";
+import {
+  assertBrandAccess,
+  brandAccessErrorResponse,
+  recordAction,
+  TierInsufficientError,
+  tierRefusal,
+} from "@/lib/governance";
 import { DEFAULT_REPORT_COLOURS } from "@/lib/pdf/theme";
 import { resolveAgencyBranding } from "@/lib/reports/agency-branding";
 
@@ -133,18 +142,55 @@ export async function GET(req: Request) {
   });
 }
 
+/**
+ * S01 part 10 (contract P18; LLD 7.5, 8.1.7 D-RT3, amendment 30): the report names, saved on their own (the Report
+ * names card sends only them). Agency and up -- below it, the app's plan refusal (403 plan_required); owners and
+ * admins; only while report_v2 is on. 422 for a name that breaks the rule. On the workspace row; audit-trail entry.
+ */
+async function saveTierNames(
+  currentUser: CurrentUser,
+  refusal: string | null,
+  value: unknown,
+): Promise<Response> {
+  if (refusal === BRANDING_NOT_ON_PLAN) return tierRefusal(new TierInsufficientError("agency"));
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
+  if (!(await isEnabled("report_v2", currentUser.organizationId)))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const parsed = reportTierNamesSchema.safeParse(value);
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid report names" },
+      { status: 422 },
+    );
+  const changed = await withRlsContext(currentUser.organizationId, (tx) =>
+    saveReportTierNames(tx, currentUser.organizationId, parsed.data),
+  );
+  if (changed) await audit(currentUser, null, { changed: ["reportTierNames"] });
+  return NextResponse.json({
+    saved: { reportTierNames: parsed.data },
+    changed: changed ? ["reportTierNames"] : [],
+  });
+}
+
 export async function PUT(req: Request) {
   const currentUser = await getCurrentUser();
   if (!currentUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const refusal = await brandingRefusal(currentUser);
-  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
+    if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  if (typeof body === "object" && body !== null && "reportTierNames" in body)
+    return saveTierNames(
+      currentUser,
+      refusal,
+      (body as { reportTierNames: unknown }).reportTierNames,
+    );
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 403 });
   const parsed = saveSchema.safeParse(body);
   if (!parsed.success) {
     const message = parsed.error.issues

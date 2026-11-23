@@ -16,7 +16,10 @@ import {
   TierInsufficientError,
   tierRefusal,
 } from "@/lib/governance";
+import { isEnabled } from "@/lib/flags/flags";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
+import { workspaceTierNames } from "@/lib/reports/report-tier-choice";
+import { isReportTier } from "@/lib/reports/report-tiers";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ brandId: string }> }) {
   const currentUser = await getCurrentUser();
@@ -44,6 +47,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .select({
         ...listColumns,
         hasSnapshot: sql<boolean>`${generatedReports.contentsSnapshot} IS NOT NULL`,
+        snapshotTierName: sql<string | null>`${generatedReports.contentsSnapshot}->>'tierName'`,
       })
       .from(generatedReports)
       .where(
@@ -56,7 +60,22 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
 
     const hasPdfs = reports.some((r) => r.pdfUrl);
     const storage = hasPdfs ? storageOrNull() : null;
-    const withStatus = await Promise.all(reports.map((r) => reportForPage(r, storage)));
+    // S01 part 10 (contract P17): each row's report type name, while report_v2 is on -- the name in its snapshot (a
+    // later rename never changes it), else the workspace's name for its tier (reports from before tiers are Basic).
+    const names = (await isEnabled("report_v2", currentUser.organizationId))
+      ? await workspaceTierNames(tx, currentUser.organizationId)
+      : null;
+    const withStatus = await Promise.all(
+      reports.map(async ({ snapshotTierName, ...r }) => ({
+        ...(await reportForPage(r, storage)),
+        ...(names
+          ? {
+              tierName:
+                snapshotTierName ?? names[isReportTier(r.reportTier) ? r.reportTier : "basic"],
+            }
+          : {}),
+      })),
+    );
     warnUnavailableLinks("reports-list", withStatus);
 
     return NextResponse.json(withStatus);

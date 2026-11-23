@@ -48,6 +48,9 @@ export const C = {
   coverMuted: "#94A3B8",
   coverSoft: "#CBD5E1",
   coverEyebrow: "#93C5FD",
+  // S01 part 10 (contract P09.cover): the report type's name above the cover's title. The contract's #8A5A00 is for a
+  // white page; on this navy cover the evidence block's amber (evCmp) keeps it well over 4.5:1.
+  coverTier: "#FCD34D",
   coverChip: "#E2E8F0",
   coverWarn: "#FDE68A",
   // Deviation: react-pdf draws rgba() borders wrongly, so the prototype's

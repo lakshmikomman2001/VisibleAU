@@ -1,7 +1,8 @@
 /* =============================================================================
  * Vunnara UI contract: client enhancements (canonical)
  * Repo path : docs/prototypes/vunnara-ui-config.ts
- * Version   : 1.2 · 22 Nov 2026 (1.2: S00's token map and as-is verification folded in: app token names and
+ * Version   : 1.3 · 23 Nov 2026 (1.3: a Basic report keeps today's Diagnosis heading, N15; "Why your score is what
+ *             it is" is P08's outline label only. 1.2: S00's token map and as-is verification folded in: app token names and
  *             values, roles, ABN field, branded limit 5, findings g–j, D-UI2–D-UI6; C-25–C-34. 1.1: report tiers)
  * Pairs with: docs/lld/vunnara-client-enhancements-lld-v1.md (behaviour, data, APIs)
  *             docs/prototypes/client-enhancements-v2.html (the visual, rendered from this file's data)
@@ -1097,10 +1098,10 @@ const P09: ScreenSpec = {
   id: 'P09', title: 'PDF pages: cover, what to do next, beyond AI answers, reach row', route: 'PDF (react-pdf)', sprints: ['S01', 'S04'], flags: ['report_v2', 'visibility_reach'],
   frame: { kind: 'pdf', width: 1240, mobile: false },
   access: { roles: 'Report readers', plans: 'All plans that have reports; pages by tier (8.1.7)' },
-  layout: ['A4 pages with the existing header/footer; agency branding unchanged', 'Basic: today\'s pages (Diagnosis titled "Why your score is what it is", findings only). Standard: page 05 "Why, and what to do next". Enhanced: plus page 06 "Beyond AI answers"'],
+  layout: ['A4 pages with the existing header/footer; agency branding unchanged', 'Basic: today\'s pages (today\'s Diagnosis page with its heading unchanged, findings a–j; N15). Standard: page 05 "Why, and what to do next". Enhanced: plus page 06 "Beyond AI answers"'],
   nodes: [
     { id: 'P09.cover', component: 'PdfPage', variant: 'cover (existing)', copy: '{TIER NAME}', showWhen: 'Agency and up (D-RT3)', style: 'Eyebrow style (JetBrains Mono 600 8.5/12, tracking .14em, #8A5A00) on its own line directly above the existing cover title; uppercase of the tier name', behaviour: ['The rest of the cover is unchanged (illustrative in the prototype)', 'Never shown for Starter or Growth'] },
-    { id: 'P09.next', component: 'PdfPage', copy: '{nn} · WHY, AND WHAT TO DO NEXT|MEASURED · AUDIT #{n}|What we found, and what to do next|Each action shows the evidence from this audit. Notes and actions from {agencyName} are labelled.', showWhen: 'tier = standard or enhanced (Basic keeps today\'s Diagnosis page with findings a–j, titled "Why your score is what it is")', behaviour: ['Findings first (existing card style), then groups MEASURED ACTIONS, RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT, GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (when switched on)', 'Groups render only when non-empty; never prints "No finding rule matched"'] },
+    { id: 'P09.next', component: 'PdfPage', copy: '{nn} · WHY, AND WHAT TO DO NEXT|MEASURED · AUDIT #{n}|What we found, and what to do next|Each action shows the evidence from this audit. Notes and actions from {agencyName} are labelled.', showWhen: 'tier = standard or enhanced (Basic keeps today\'s Diagnosis page and its heading, with findings a–j (N15); P08\'s outline calls it "Why your score is what it is")', behaviour: ['Findings first (existing card style), then groups MEASURED ACTIONS, RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT, GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (when switched on)', 'Groups render only when non-empty; never prints "No finding rule matched"'] },
     { id: 'P09.next.action', component: 'PdfPage', variant: 'action card', copy: '{PRIORITY}|{STATUS}|{title}|{evidence}|Note from {agencyName}: {note}' },
     { id: 'P09.beyond', component: 'PdfPage', copy: '{nn} · BEYOND AI ANSWERS|SEPARATE CHECKS · OWN DATES|What AI can read about you elsewhere|These checks are separate from the Visibility score and don\'t change it.', showWhen: 'tier = enhanced', behaviour: ['2 × 2 tiles: Business identity, YouTube, AI crawlers, Website technical; then "Your directory profiles" across both columns; each prints its own date line', 'Missing data prints "Not checked" + how to enable; older than 30 days prints "may be out of date"; a failed refresh prints "Couldn\'t check on {date}: {reason}"'] },
     { id: 'P09.beyond.directories', component: 'PdfPage', variant: 'wide tile', copy: 'Your directory profiles|FROM AUDIT #{n} · {DATE}|Linked {linked} of {cited} directories AI cites for your questions.|{directory}: linked · cited in {n} answers|{directory}: not linked (cited in {n} answers)', showWhen: 'tier = enhanced', behaviour: ['Directories from the basis audit citations over directory_registry, top 6 by citations; linked status from the brand\'s directory links (S7 adds confirmed listing matches)', 'None linked: "No profiles linked yet." + the cited directories'] },
@@ -1419,7 +1420,7 @@ export const uiDecisions = [
 ] as const;
 
 export const uiConfig = {
-  version: '1.2',
+  version: '1.3',
   date: '2026-11-21',
   precedence, color, contrast, fontFamily, typography, typeRule, space, spaceRule, radius, shadow, motion, zIndex,
   breakpoints, layout, icons, scoreBands, reachLabels, engines, intents, components, screens, conflicts, uiDecisions,

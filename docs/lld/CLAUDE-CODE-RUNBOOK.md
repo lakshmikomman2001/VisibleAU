@@ -1,6 +1,6 @@
 # Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01–S10, then the S11 full test suite)
 
-Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.5 · 23 Nov 2026 (after S01 Parts 0–5)
+Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.6 · 23 Nov 2026 (after S01 Parts 0–7)
 
 Follow this file at the start of every sprint session, before Part 1. Its rules apply on top of the sprint prompt. If a sprint prompt is stricter, the sprint prompt wins.
 
@@ -8,10 +8,10 @@ Follow this file at the start of every sprint session, before Part 1. Its rules 
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.6): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
+| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.7): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
 | `docs/lld/design/Vunnara-client-improvements-design.pdf`, `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` | Design documents: the reasoning behind the LLD. Read only where a sprint names them. The LLD wins over them | Sri / Claude (chat) |
 | `docs/lld/as-is-verification.md` | What the code actually does, checked against the LLD (S00 Part 1). Where it says the LLD is wrong, it wins | You, in S00 |
-| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.2): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
+| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.3): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
 | `docs/prototypes/client-enhancements-v2.html`, `docs/prototypes/screens/*.png` | The visual reference, rendered from the contract | Sri / Claude (chat) |
 | `docs/prototypes/PROTOTYPE-GUIDE.md` | How to build a screen from the contract and report on it | Sri / Claude (chat) |
 | `docs/prototypes/token-map.md` | Contract tokens and components mapped to the app's own (S00 Part 0b) | You, in S00 |
@@ -87,7 +87,7 @@ Then reply with a short plan: the parts in order, the files you expect to touch,
 
 ## 7. UI work
 
-Build every screen from the contract as `docs/prototypes/PROTOTYPE-GUIDE.md` says: colours with each token's `app` variable, type and components through `token-map.md` (no Radix, no toast library: follow the app's existing patterns listed there); nodes in order with exact copy; `data-testid` from `testIdOf(node id)`; every listed state; responsive and accessibility rules. Screenshots of what you built at 1240 and 390 wide (light; dark too for P01, P02, P07, P08, P10) go to `.qa/screens/<sprint>/` (gitignored). Report each screen in the guide's per-screen format.
+Build every screen from the contract as `docs/prototypes/PROTOTYPE-GUIDE.md` says: colours with each token's `app` variable, type and components through `token-map.md` (no Radix, no toast library: follow the app's existing patterns listed there); nodes in order with exact copy; `data-testid` from `testIdOf(node id)`; every listed state; responsive and accessibility rules. Screenshots of what you built at 1240 and 390 wide (light; dark too for P01, P02, P07, P08, P10) go to `.qa/screens/<sprint>/` (gitignored). Report each screen in the guide's per-screen format. Tailwind v4: never mix arbitrary `min-[…]` breakpoints with named ones (`sm:`, `md:`) on the same property; use `min-[641px]` / `min-[901px]` / `min-[1100px]` for the contract's breakpoints (LLD amendment 42).
 
 ## 8. Stop points (wait for Sri)
 
@@ -95,7 +95,7 @@ Build every screen from the contract as `docs/prototypes/PROTOTYPE-GUIDE.md` say
 |---|---|
 | S00 | If any design file is missing, or the contract doesn't compile. Part 1 (as-is verification) is the gate for every later sprint: Sri reviews it before S01 |
 | S00B | Part 2 (the guarded fetcher) must pass all its security tests before Part 3 moves any caller onto it |
-| S01 | Optional: if your context is getting full after Part 7, commit, report and stop; Sri resumes from Part 8 |
+| S01 | If your context is getting full, stop after any committed part (Parts 8–12 are each a clean boundary), add to the report and stop; Sri resumes from the next part |
 | S05 | After Part 1 (taxonomy seed): Sri reviews and approves the taxonomy before Part 2 |
 | S06 | Part 1 (the analysis fetch preset) must pass its tests before any other part fetches anything |
 | S10 | After Part 1 (cost table): Sri sets prices and creates the Stripe prices before Part 2 |
@@ -119,7 +119,7 @@ Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order and pre-flight), then execute
 
 **Start a sprint with a docs update first** (when Claude (chat) sends a newer pack)
 ```
-Read docs/latets/Enhancements/vunnara-client-enhancements-v1.10/vunnara-enhancements/UPDATE-HERE.md and do what it says.
+Read docs/latets/Enhancements/vunnara-client-enhancements-v1.11/vunnara-enhancements/UPDATE-HERE.md and do what it says.
 ```
 
 **Resume an interrupted sprint** (local commits from earlier parts exist)
@@ -141,7 +141,7 @@ Continue sprint S05 from Part 2: I've approved the taxonomy seed (my edits, if a
 |---|---|---|
 | S00 | `S00-verify-quick-wins-flags.md` | Done (one-time start step) |
 | S00B | `S00B-guarded-fetcher.md` | Done (pushed 23 Nov 2026, `f1d9ffdb`; live check passed) |
-| S01 | `S01-report-v2.md` | S00B pushed, report reviewed, live name-suggestion check passed (23 Nov 2026); started with the v1.9 `UPDATE-HERE.md` step; Parts 0–5 done, resumed from Part 6 with the v1.10 `UPDATE-HERE.md` step |
+| S01 | `S01-report-v2.md` | S00B pushed, report reviewed, live name-suggestion check passed (23 Nov 2026); started with the v1.9 `UPDATE-HERE.md` step; Parts 0–5 done, resumed from Part 6 with the v1.10 `UPDATE-HERE.md` step; Parts 6–7 done, resumed from Part 8 with the v1.11 `UPDATE-HERE.md` step |
 | S02 | `S02-question-library.md` | S01 pushed, 0154 applied, PDFs checked in all three tiers |
 | S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production |
 | S04 | `S04-visibility-reach.md` | S03 pushed, 0156 applied, checked |

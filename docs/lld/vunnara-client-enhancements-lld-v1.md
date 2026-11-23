@@ -1,8 +1,8 @@
-# Vunnara client enhancements: low-level design (LLD) v1.6
+# Vunnara client enhancements: low-level design (LLD) v1.7
 
 | | |
 |---|---|
-| Version | 1.6, 23 Nov 2026: decisions on S01 Parts 0–5 (amendments 30–36, backlog additions). 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
+| Version | 1.7, 23 Nov 2026: decisions on S01 Parts 6–7 (amendments 37–42; contract v1.3). 1.6, 23 Nov 2026: decisions on S01 Parts 0–5 (amendments 30–36, backlog additions). 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
 | Owner | Sri |
 | Repo location | `docs/lld/vunnara-client-enhancements-lld-v1.md` (commit it there with the prototype files in `docs/prototypes/`, listed in the next rows) |
 | Builds on | `main` at `15f287b` (20 Nov 2026) or later |
@@ -19,7 +19,7 @@
 ---
 
 
-## 0. What changed after S00, S00B and S01 Parts 0–5 (v1.6, read first)
+## 0. What changed after S00, S00B and S01 Parts 0–7 (v1.7, read first)
 
 S00 checked every VERIFY statement against the code (`docs/lld/as-is-verification.md`, with file:line evidence) and mapped the UI contract onto the app (`docs/prototypes/token-map.md`). Sri decided the open points on 22 Nov 2026. Where this section and older text below differ, this section wins; the most load-bearing passages below are also corrected in place.
 
@@ -78,6 +78,12 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | 34 | Aliases and the name suggestion (8.8.2, P01.aliases, C-27) | Built in S01 Part 0: aliases unique ignoring case (a list saved before S01 stays as it is); the name-suggestion route returns `aliases: []` (field kept); `brands.name_suggestion` cut to 120 characters on write (S00 refused the whole brand over 100) |
 | 35 | Wizard: the site's name (S00 part 4, fixed in S01 Part 0) | When the name-suggestion route returns a name and the name field holds a different one, the wizard offers it; a typed name is replaced only by the click. Copy: `Your website calls the business “{name}”.` with the link-button `Use “{name}”`; inside the run-together notice: `… Use “{name}” · Keep “{typed}”` |
 | 36 | Directories cited (7.7, 8.6.4) | The audit page's "Directories AI cited", the PDF's "Where AI looks", findings, the Action Center's directory advice and own-profile suggestions use only enabled directories of the brand's market (`getDirectoryCitationsForAudit`). The Google Search AI section's "Directories cited" (`lib/audit/google-surfaces/summary.ts` → `findDirectoryForSource`) and recommendation titles (`directoriesNamedIn`) search every market, inactive rows included, as they did before S00: a `yelp.com` link shows "Yelp" there. Unchanged in S01 (backlog) |
+| 37 | Basic report's findings page (8.1.2, P09; contract v1.3) | A Basic report keeps today's Diagnosis page **and its heading** ("Why AI isn't recommending you more, and what's working"), with findings a–j, as N15 requires. "Why your score is what it is" is only P08's outline label and the tier description for that page |
+| 38 | Summary page pointer (8.1.2) | The Summary page's narrative points to the findings by section number; in Standard and Enhanced that section is "Why, and what to do next" (built in S01 Part 7) |
+| 39 | Identity tile (8.1.4, P07.beyond.identity) | Built to the contract: status, entity name and check date (the ABN shows only when it couldn't be checked). The LLD's ABN number and link to the public ABR record are not shown (backlog) |
+| 40 | General advice in reports (8.1.3, 8.8.5) | Today's PDF has no general-advice list, so a Basic report has none; evidence-backed general advice appears only in "What to do next" (Standard and Enhanced) and on the audit page |
+| 41 | Report snapshot (8.1.7, appendix D) | `contents_snapshot` also stores the render input (`reportData`), so a re-render or "Try again" prints the same figures, items, notes and check dates. It may hold only what the PDF prints: no operator-only costs, provider names beyond what the report shows, or internal ids beyond appendix D's |
+| 42 | Tailwind v4 breakpoints (UI) | Arbitrary `min-[…]` variants are emitted before the named ones (`sm:`, `md:`, `lg:`), so mixing the two on one property gives the wrong layout (S01 Part 6: two columns at 1240). Use one kind per property; for the contract's breakpoints use `min-[641px]`, `min-[901px]`, `min-[1100px]` throughout |
 
 S00 also proposed (and this version adopts): the contract typecheck command `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts`; the sprint prompts and reports live in `docs/Sprints/` (capital S, as git tracks it); S11 compares lint with the pre-S00 baseline (339 errors in the whole repo).
 
@@ -87,6 +93,8 @@ S00B (23 Nov 2026): 12 of 12 fetch sites migrated; every migrated caller's outpu
 
 S01 Parts 0–5 (23 Nov 2026): carry-overs, Beyond-AI sources, migration 0154 (written and tested locally, not applied), findings g–j, evidence-backed general advice, "What to do next" and the contents panel (P08, 7 of 10 nodes). Stopped at a clean boundary before Part 6 because the session's context was full; resumed with the v1.10 update step. Decisions: amendments 30–36.
 
+S01 Parts 6–7 (23 Nov 2026): the Part 0 copy follow-up, "Beyond AI answers" (audit page card behind `report_v2`), the PDF pages for Standard and Enhanced and the report snapshot. Stopped at the planned point after Part 7; resumed from Part 8 with the v1.11 update step. Outstanding before `report_v2` is switched on: `responsive-shell` (8 shards) and a re-run of `13-s01-beyond-ai`, scheduled at the start of the Part 8 session. Decisions: amendments 37–42.
+
 ### 0.3 Backlog (found, not scheduled; Sri schedules)
 
 | Item | Found in | Note |
@@ -95,6 +103,7 @@ S01 Parts 0–5 (23 Nov 2026): carry-overs, Beyond-AI sources, migration 0154 (w
 | Removing `POST /api/crawl` | S00B inventory; S01 Part 0 | S01 found **no caller** in app code, scripts or e2e specs (only S00B's parity test). Recommended: remove the route and its parity test. Until then it works for signed-in members with `run_audit`, 10 crawls per user per hour, through the guarded fetcher |
 | Inactive directories in two places | S01 Part 0 (amendment 36) | Recommended: the Google Search AI section and recommendation titles use the same filter as the audit page (enabled directories of the brand's market), so the same audit never names a directory in one place and not another; a `yelp.com` link then counts as an ordinary cited site |
 | `youtube_audit_enabled` | S01 Part 1 | Org flag key defined in `lib/governance/feature-flags.ts`, never read: remove it, or wire it if Sri wants a per-workspace YouTube switch |
+| ABN on the identity tile | S01 Part 6 (amendment 39) | Show the ABN and a link to its public ABR record on the identity tile (audit page, PDF, portal), as LLD 8.1.4 first intended: a contract change plus a small UI change |
 | Second ABR call | S00, S01 Part 1 | `lib/trust/entity-checker.ts` (`refresh-entity-score`) calls the ABR without a GUID; consolidate onto `lib/brand-entity/abn-lookup.ts` |
 
 ## 1. Scope and traceability

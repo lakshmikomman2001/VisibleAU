@@ -1,4 +1,4 @@
-# S11 — Full test suite after all sprints (S00, S00B, S01–S10)
+# S11 — Full test suite after all sprints (S00, S00B, S01, S01B, S02–S10)
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report to `docs/Sprints/reports/S11-report.md` and commit it as the last commit.
 
@@ -13,7 +13,7 @@ Sri has **explicitly asked for the full test suites** in this run. The project r
 - A full run took over 3 hours before. Don't stop part-way because it's slow; do stop on any safety check above.
 
 ## 0. Read and plan (no runs yet)
-- Read order from the runbook, including **all** reports in `docs/Sprints/reports/` (S00, S00B, S01–S10) and LLD sections 4 (N1–N15), 15 (testing) and 17 (flags).
+- Read order from the runbook, including **all** reports in `docs/Sprints/reports/` (S00, S00B, S01, S01B, S02–S10) and LLD sections 4 (N1–N15), 15 (testing) and 17 (flags).
 - Pre-flight: `main` equals `origin/main` and includes S10; working tree clean; state the hash. Sri's kickoff confirms migrations 0153–0161 are applied in production (if not stated, ask and stop). Dependencies installed from the lockfile without changing it.
 - **Known baselines (from S00):** whole-repo lint (`biome check .`) already had 339 errors, 277 warnings and 251 infos before S00, so lint passes when it has **no more than the baseline** and no new diagnostics in files the sprints changed (compare with the pre-sprint hash); plain `tsc` fails on the stale `.next/types/validator.ts`, so typecheck runs with `.next` excluded, as S00 did.
 - Discover every suite from `package.json` scripts, test configs and `CLAUDE.md` ("Testing scope"): typecheck, lint, source-scan guards (plan-claim, cost-visibility, GST and any others), unit, integration (database), RLS/tenant-isolation, API route, component, PDF render, accessibility (axe), production build, Playwright end-to-end. List each with its command and how it's configured.

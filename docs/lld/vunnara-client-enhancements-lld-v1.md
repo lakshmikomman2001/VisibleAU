@@ -1,8 +1,8 @@
-# Vunnara client enhancements: low-level design (LLD) v1.7
+# Vunnara client enhancements: low-level design (LLD) v1.8
 
 | | |
 |---|---|
-| Version | 1.7, 23 Nov 2026: decisions on S01 Parts 6–7 (amendments 37–42; contract v1.3). 1.6, 23 Nov 2026: decisions on S01 Parts 0–5 (amendments 30–36, backlog additions). 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
+| Version | 1.8, 24 Nov 2026: S01 as built and live (amendments 43–55), the PDF review, and the S01B sprint. 1.7, 23 Nov 2026: decisions on S01 Parts 6–7 (amendments 37–42; contract v1.3). 1.6, 23 Nov 2026: decisions on S01 Parts 0–5 (amendments 30–36, backlog additions). 1.5, 23 Nov 2026: S00B as built and checked live (amendment 19 corrected, amendment 29, section 8.6.2 rewritten) and the backlog (0.3). 1.4, 22 Nov 2026: amendment 28 (the profile-link rule) and in-place corrections after S00's Playwright run (216 of 216 passed); the Playwright memory rules are in the runbook, section 5. 1.3, 22 Nov 2026: the 27 amendments from S00's as-is verification and Sri's six decisions, summarised in section 0 (read it first). 1.2 added report tiers Basic, Standard and Enhanced (R6, 8.1.7, P17–P18, D-RT1–D-RT4). 1.1 added the UI contract `vunnara-ui-config.ts`, prototype v2, conflicts C-01–C-22 and decision D-UI1 |
 | Owner | Sri |
 | Repo location | `docs/lld/vunnara-client-enhancements-lld-v1.md` (commit it there with the prototype files in `docs/prototypes/`, listed in the next rows) |
 | Builds on | `main` at `15f287b` (20 Nov 2026) or later |
@@ -19,7 +19,7 @@
 ---
 
 
-## 0. What changed after S00, S00B and S01 Parts 0–7 (v1.7, read first)
+## 0. What changed after S00, S00B and S01 (v1.8, read first)
 
 S00 checked every VERIFY statement against the code (`docs/lld/as-is-verification.md`, with file:line evidence) and mapped the UI contract onto the app (`docs/prototypes/token-map.md`). Sri decided the open points on 22 Nov 2026. Where this section and older text below differ, this section wins; the most load-bearing passages below are also corrected in place.
 
@@ -84,6 +84,19 @@ S00 checked every VERIFY statement against the code (`docs/lld/as-is-verificatio
 | 40 | General advice in reports (8.1.3, 8.8.5) | Today's PDF has no general-advice list, so a Basic report has none; evidence-backed general advice appears only in "What to do next" (Standard and Enhanced) and on the audit page |
 | 41 | Report snapshot (8.1.7, appendix D) | `contents_snapshot` also stores the render input (`reportData`), so a re-render or "Try again" prints the same figures, items, notes and check dates. It may hold only what the PDF prints: no operator-only costs, provider names beyond what the report shows, or internal ids beyond appendix D's |
 | 42 | Tailwind v4 breakpoints (UI) | Arbitrary `min-[…]` variants are emitted before the named ones (`sm:`, `md:`, `lg:`), so mixing the two on one property gives the wrong layout (S01 Part 6: two columns at 1240). Use one kind per property; for the contract's breakpoints use `min-[641px]`, `min-[901px]`, `min-[1100px]` throughout |
+| 43 | Reports list (P17), as built | The report type is a neutral pill inside the existing Report cell; the page keeps its columns (Report, Period, Status, Actions) and has no pagination, as today. The download link is named "Download {name} PDF for {period}" |
+| 44 | Report names (P18) below Agency | The whole Report branding page is already the existing plan-locked page (`white_label_reports`), so the card's own locked state never shows; `PUT /api/report-branding` answers 403 `plan_required` for names below Agency |
+| 45 | Cover name (P09.cover) | On the navy cover the report name prints in amber #FCD34D (the evidence block's amber, well over 4.5:1), JetBrains Mono 500 (the registered weights are 400 and 500) |
+| 46 | Portal reports (P13) | Download links are signed for 10 minutes when the portal page loads (no new route, so no new `serviceDb` read); afterwards each row says "This download link has expired." with Try again (reloads) |
+| 47 | Choosing a report's tier (8.1.7) | Without a tier in the request: the brand's saved default when the plan includes it, else the plan's highest. A schedule whose tier the plan no longer includes is capped at the plan, with the operator log line `report_tier_capped` |
+| 48 | Snapshot contents (appendix D) | `contents_snapshot.reportData` is the render input, without the workspace id, the brand id or the trend's other audit ids; rendering restores those from the report's own row. No operator-only cost ever enters it (tested) |
+| 49 | Enhanced checks (8.1.7, D-RT4) | S01 runs the refresh as a step of `generate-narrative-report`, inside `POST_AUDIT_POOL` (account-wide limit 1), which can delay every post-audit job by up to 5 minutes: **S01B moves it into its own function, one per brand and at most 2 account-wide**. AI crawler access is refreshed by re-running the brand's technical audit (the only writer of robots findings), so the technical score refreshes with it; those rows have no `audit_id`, and every reader of `technical_audits` must handle that (S01B Part 2). Refreshes are recorded as the operator log line `enhanced_check_refreshed` and in the snapshot's `refreshed`; ABR and robots.txt are free and YouTube uses quota, so there is no cost line (backlog) |
+| 50 | Tests and the network (15) | No unit or integration test may reach the network: the test setups refuse every connection except localhost and the test database (S01B Part 3). S01 Part 9 once crawled a made-up domain and searched Wikipedia from a test |
+| 51 | PDF fixtures and consistency (15, P09) | Report render tests and report images use invented businesses seeded as real audits in the integration database and rendered through the real path (`buildReportData` → `buildReportV2` → snapshot → render), never hand-composed input. A test checks that every figure printed on more than one page (each directory's cited count and linked status, Visibility, each engine's figure) is identical everywhere |
+| 52 | PDF layout (8.1.2, P09; contract v1.4) | **Each finding appears once:** in Standard and Enhanced its card carries its Action Center item's priority and status pills and the agency's note; the next group, OTHER ACTIONS FROM THIS AUDIT, lists only measured items not shown as a finding. **Today's findings limit stays in every tier:** at most 3 problem findings and 1 strength, by impact; the rest appear only as actions and in the Action Center. **Pages flow** in Standard and Enhanced from "Why, and what to do next" onwards: a section starts on the current page when at least a third of it is left; headings stay with their first item; cards never split. Basic keeps today's page breaks |
+| 53 | N15 (4) | A Basic report on an Agency plan also gains the cover's report name line (D-RT3); N15's allowed differences include it |
+| 54 | ABR name lookups and privacy (12) | The public FAQ, the privacy page or draft and any data-facts list say, where they list the other services data goes to: "To confirm your business, we look up your business name and ABN on the Australian Business Register (abr.business.gov.au), the government's public register. We keep what it returns (ABN, entity name, status, postcode and state) with your brand, and delete it when the brand is deleted." (Sri may edit this wording before S01B starts) |
+| 55 | Small copy (P07, P08, P09) | Mono text uses words, never symbols the PDF font lacks: ".au domain: yes" / "no". The crawlers tile says "Visits: not measured" once, with the single "Next step: Upload server logs". P08's checks list adds "Not checked yet · will run again (about {duration})" (a check that never ran) and "Not checked · shown as not checked" (YouTube with its code gate off) |
 
 S00 also proposed (and this version adopts): the contract typecheck command `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts`; the sprint prompts and reports live in `docs/Sprints/` (capital S, as git tracks it); S11 compares lint with the pre-S00 baseline (339 errors in the whole repo).
 
@@ -95,6 +108,8 @@ S01 Parts 0–5 (23 Nov 2026): carry-overs, Beyond-AI sources, migration 0154 (w
 
 S01 Parts 6–7 (23 Nov 2026): the Part 0 copy follow-up, "Beyond AI answers" (audit page card behind `report_v2`), the PDF pages for Standard and Enhanced and the report snapshot. Stopped at the planned point after Part 7; resumed from Part 8 with the v1.11 update step. Outstanding before `report_v2` is switched on: `responsive-shell` (8 shards) and a re-run of `13-s01-beyond-ai`, scheduled at the start of the Part 8 session. Decisions: amendments 37–42.
 
+S01 Parts 8–12 and the push (24 Nov 2026): report tiers enforced, Enhanced checks, report names and the cover line, the ABN field and suggestion, portal reports. Playwright 196 of 196 (plus every spec run per part); migration 0154 applied in production (all run3 checks as expected: 12 existing reports, all Basic); pushed as `bb5248d5`; Inngest resynced (49 functions); live checks passed with every flag off. Sri's PDF review found layout and consistency problems, and Claude (chat)'s report review found three hardening items: **S01B** fixes them before `report_v2` is switched on, even for Splice. Decisions: amendments 43–55.
+
 ### 0.3 Backlog (found, not scheduled; Sri schedules)
 
 | Item | Found in | Note |
@@ -103,6 +118,8 @@ S01 Parts 6–7 (23 Nov 2026): the Part 0 copy follow-up, "Beyond AI answers" (a
 | Removing `POST /api/crawl` | S00B inventory; S01 Part 0 | S01 found **no caller** in app code, scripts or e2e specs (only S00B's parity test). Recommended: remove the route and its parity test. Until then it works for signed-in members with `run_audit`, 10 crawls per user per hour, through the guarded fetcher |
 | Inactive directories in two places | S01 Part 0 (amendment 36) | Recommended: the Google Search AI section and recommendation titles use the same filter as the audit page (enabled directories of the brand's market), so the same audit never names a directory in one place and not another; a `yelp.com` link then counts as an ordinary cited site |
 | `youtube_audit_enabled` | S01 Part 1 | Org flag key defined in `lib/governance/feature-flags.ts`, never read: remove it, or wire it if Sri wants a per-workspace YouTube switch |
+| Robots-only check store | S01 Part 9 (amendment 49) | A light robots.txt result store so a 7-day crawler-access refresh needn't re-run the whole technical audit |
+| Refresh costs on `/admin/costs` | S01 Part 9 (amendment 49) | Enhanced refreshes are visible only as operator log lines; add a line (count, and YouTube quota) to the operator costs page |
 | ABN on the identity tile | S01 Part 6 (amendment 39) | Show the ABN and a link to its public ABR record on the identity tile (audit page, PDF, portal), as LLD 8.1.4 first intended: a contract change plus a small UI change |
 | Second ABR call | S00, S01 Part 1 | `lib/trust/entity-checker.ts` (`refresh-entity-score`) calls the ABR without a GUID; consolidate onto `lib/brand-entity/abn-lookup.ts` |
 
@@ -231,7 +248,7 @@ These behaviours exist today and must be identical after every sprint unless thi
 | N12 | No mock, seed or placeholder data in production | Placeholder guard; production writes only through run1–run4 sets |
 | N13 | Inngest app id `visibleau` and existing function ids unchanged; new functions only added | Function-id snapshot test |
 | N14 | Existing PDF sections and their figures for a Local-only brand with no new data | Render test compares page text for Hero #54 fixture, allowing only the added sections |
-| N15 | A **Basic** report contains today's report pages. Allowed differences only: findings g–j replace "No finding rule matched" (T5), general advice only when backed by evidence (T7), the question mix line (S3) and the reach row (S4) | Render test: Basic PDF for Hero #54 and Omega #55 fixtures vs today's page text, diff limited to the allowed items |
+| N15 | A **Basic** report contains today's report pages. Allowed differences only: findings g–j replace "No finding rule matched" (T5), within today's limit of 3 problem findings and 1 strength (amendment 52); general advice only when backed by evidence (T7); the question mix line (S3); the reach row (S4); and the cover's report name line on Agency plans (D-RT3, amendment 53) | Render test: Basic PDF for Hero #54 and Omega #55 fixtures vs today's page text, diff limited to the allowed items |
 
 **Feature flags.** Every new behaviour ships behind a flag that is off in production until Sri has checked it in the Splice workspace (section 17). Flags never change data; turning one off returns the old behaviour.
 
@@ -1183,6 +1200,7 @@ Note on `question_library`: from S2 onward audits always read the current set (w
 | S0 | Verify, quick wins, flags | As-is verification; T2, T3, T6; flag scaffold | `main` | 0153 | No | As-is report reviewed by Sri; guards green |
 | S0B | Security: guarded fetcher | D-SEC1: one guarded fetch path for every existing caller | S0 | none expected | Only if a function changes | Fetcher security tests and every migrated caller's tests green |
 | S1 | Report v2 and report tiers | C1, R3, R6, T5, T7, T8; portal reports | S0 | 0154 | Yes (render job, Enhanced checks) | Hero/Omega/TechCore PDFs checked in all three tiers |
+| S1B | Report polish and hardening | Amendments 49–55: Enhanced checks in their own function, refresh-made technical audits, no network from tests, PDF consistency and layout, ABR privacy wording | S1 | none | Yes (new function `refresh-enhanced-checks`) | PDFs of three seeded fixtures in all three tiers reviewed by Sri; then `report_v2` on for Splice and real Hero PDFs checked |
 | S2 | Question library | C2b/C4 foundation | S0 | 0155 | Yes (audit runners) | run3: hash parity; N1–N3 tests |
 | S3 | Agency questions and settings page | C2b, C4, plan limits | S2 | 0156 | No | Apply flow e2e; Splice check |
 | S4 | Visibility reach | S1, S2, S5, T4 | S3 | 0157 | Yes | Existing brands unchanged; 4-reach test brand |

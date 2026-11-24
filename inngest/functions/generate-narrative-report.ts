@@ -4,14 +4,16 @@ import { generatedReports, reportDeliverySchedules, reportTemplates } from "@/db
 import type { ReportSection } from "@/lib/communication/types";
 import { inngest } from "@/lib/inngest/client";
 import { POST_AUDIT_POOL } from "@/lib/inngest/concurrency";
-import { getBeyondAiAnswers, loadBeyondAiBrand } from "@/lib/reports/beyond-ai";
-import { enhancedRunners } from "@/lib/reports/enhanced-check-runners";
-import { refreshEnhancedChecks } from "@/lib/reports/enhanced-refresh";
+import {
+  ENHANCED_CHECKS_REQUESTED,
+  type EnhancedChecksRequest,
+  runEnhancedRefresh,
+  writeEnhancedSnapshot,
+} from "@/lib/reports/enhanced-report-steps";
 import { buildReportData, selectReportBasis } from "@/lib/reports/report-data";
+import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 import { isReportTier, type ReportTier } from "@/lib/reports/report-tiers";
 import { buildDecidedReportV2, decideReportTier } from "@/lib/reports/report-v2";
-import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
-import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
 
 export const generateNarrativeReport = inngest.createFunction(
   {
@@ -141,8 +143,9 @@ export const generateNarrativeReport = inngest.createFunction(
         // when rendered). S01 part 8 (LLD 8.1.7): its tier -- the route's for a manual report, the schedule's for a
         // scheduled one -- decided and capped at the plan on the server (decideReportTier).
         // S01 part 9 (D-RT4): an Enhanced report is written now without its contents ("Running checks..." on the
-        // Reports page); its stale checks run again (refresh-enhanced-checks) and its contents are built after them
-        // (write-report-snapshot). Basic and Standard are built here, as in part 8, and never refresh anything.
+        // Reports page); its stale checks run again and its contents are built after them -- since S01B part 1 in
+        // the refresh-enhanced-checks function, not here. Basic and Standard are built here, as in part 8, and never
+        // refresh anything.
         const requested = manual ? event.data.tier : context.scheduleTier;
         const decided = await decideReportTier(tx, {
           data,
@@ -209,6 +212,9 @@ export const generateNarrativeReport = inngest.createFunction(
           ? {
               reportId: row.id,
               refresh: true as const,
+              // S01B part 1: the checks run in refresh-enhanced-checks. A run whose row was written before S01B
+              // returned this object without `checksIn` and still runs them here (below).
+              checksIn: "refresh-enhanced-checks" as const,
               plan: decided.plan,
               auditId: basis.auditId,
               periodType: reportPeriodType,
@@ -225,44 +231,35 @@ export const generateNarrativeReport = inngest.createFunction(
     }
 
     if (generated && typeof generated === "object" && generated.refresh) {
-      // S01 part 9 (LLD 8.1.7 D-RT4): checks older than their window run again through their existing functions,
-      // five minutes at most in all; one that fails or runs out of time prints its failure line and the report still
-      // renders. This function runs one at a time account-wide (POST_AUDIT_POOL), so two Enhanced reports for one
-      // brand never refresh together: the second finds the first one's results fresh.
-      const outcomes = await step.run("refresh-enhanced-checks", async () => {
-        const brand = await withRlsContext(organizationId, (tx) => loadBeyondAiBrand(tx, brandId));
-        if (!brand) return [];
-        return refreshEnhancedChecks({
-          brand,
-          read: (asOf) =>
-            withRlsContext(organizationId, (tx) => getBeyondAiAnswers(tx, { brand, asOf })),
-          runners: enhancedRunners(organizationId),
-          youtubeEnabled: TRUST_CHECK_IMPLEMENTED.youtubePresence,
-        });
-      });
-      await step.run("write-report-snapshot", async () => {
-        await withRlsContext(organizationId, async (tx) => {
-          const data = await buildReportData(tx, {
-            organizationId,
-            brandId,
-            periodType: generated.periodType,
-            periodLabel,
-            auditId: generated.auditId,
-            sections: context.sections,
+      const request: EnhancedChecksRequest = {
+        organizationId,
+        brandId,
+        reportId,
+        auditId: generated.auditId,
+        periodType: generated.periodType,
+        periodLabel,
+        plan: generated.plan,
+        sections: context.sections,
+      };
+      if (generated.checksIn === "refresh-enhanced-checks") {
+        // S01B part 1 (LLD amendment 49, D-RT4): the refresh runs in its own function, one per brand and at most two
+        // account-wide, so this run -- and the post-audit pool it holds -- ends as soon as the row is written. That
+        // function builds the snapshot and sends report/generated when its checks are done. The event id makes a
+        // retried send start one refresh, not two.
+        await step.run("request-enhanced-checks", async () => {
+          await inngest.send({
+            id: `enhanced-checks-${reportId}`,
+            name: ENHANCED_CHECKS_REQUESTED,
+            data: request,
           });
-          if (!data) throw new Error("The report's basis audit couldn't be read");
-          const v2 = await buildDecidedReportV2(tx, {
-            data,
-            decided: { tier: "enhanced", plan: generated.plan },
-            now: new Date(),
-            refresh: outcomes,
-          });
-          await tx
-            .update(generatedReports)
-            .set({ contentsSnapshot: v2.snapshot, updatedAt: new Date() })
-            .where(eq(generatedReports.id, reportId));
         });
-      });
+        return { reportId, brandId, periodLabel, enhancedChecks: "requested" as const };
+      }
+      // S01 part 9's two steps, kept under their ids for a run already in flight when S01B was deployed (its row was
+      // written by the code before S01B, so Inngest may ask for these steps by id). Every new run takes the branch
+      // above; the steps themselves are the same functions the new function runs.
+      const outcomes = await step.run("refresh-enhanced-checks", () => runEnhancedRefresh(request));
+      await step.run("write-report-snapshot", () => writeEnhancedSnapshot(request, outcomes));
     }
 
     await step.run("emit-report-generated", async () => {

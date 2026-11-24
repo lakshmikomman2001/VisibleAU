@@ -807,7 +807,9 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
     }
   });
 
-  it("serve() array has 47 functions total (S1-S9 = no dropped registrations)", () => {
+  it("serve() array has 48 functions total (S1-S9 = no dropped registrations)", () => {
+    // 24 Nov: 48 -- refreshEnhancedChecksFn added (S01B part 1, LLD amendment 49: an Enhanced report's checks in
+    // their own function). The ids themselves: tests/unit/inngest/function-ids.test.ts (N13).
     // 11 Nov: 47 -- collectGoogleSurfacesFn added (Google AI surfaces, Phase 1: runs only when a surface is on).
     // 7 Nov: 46 -- notifyModelDrift added (Sri's decision 6: a provider answered with another model).
     // 7 Nov: 45 again -- calculate-share-of-voice retired (one Share of Voice).
@@ -825,7 +827,7 @@ describe("SEAM 6: event seam — audit.complete + serve() array", () => {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    expect(fnNames).toHaveLength(47);
+    expect(fnNames).toHaveLength(48);
   });
 
   it("S1 + S2 functions NOT dropped from serve() (regression check)", () => {

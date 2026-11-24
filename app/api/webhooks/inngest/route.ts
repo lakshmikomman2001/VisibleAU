@@ -31,6 +31,7 @@ import { notifyEngineTotalFailure } from "@/inngest/functions/notify-engine-tota
 import { notifyModelDrift } from "@/inngest/functions/notify-model-drift";
 import { parseCrawlerLogFn } from "@/inngest/functions/parse-crawler-log";
 import { refreshBotIpRangesFn } from "@/inngest/functions/refresh-bot-ip-ranges";
+import { refreshEnhancedChecksFn } from "@/inngest/functions/refresh-enhanced-checks";
 import { refreshEntityScoreFn } from "@/inngest/functions/refresh-entity-score";
 import { renderReportPdf } from "@/inngest/functions/render-report-pdf";
 import { runAudit } from "@/inngest/functions/run-audit";
@@ -79,6 +80,8 @@ export const { GET, POST, PUT } = serve({
     trackBrandWebMentionsFn,
     generateNarrativeReport,
     renderReportPdf,
+    // S01B part 1: an Enhanced report's checks (one per brand; at most two account-wide; not in POST_AUDIT_POOL).
+    refreshEnhancedChecksFn,
     sendScheduledReports,
     detectHallucinationsFn,
     captureEvidenceSnapshot,

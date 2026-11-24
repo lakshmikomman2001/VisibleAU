@@ -1,6 +1,7 @@
 /**
  * S01 part 9 (LLD 8.1.7 "Enhanced checks before rendering", D-RT4; contract P08.checks, P17 statuses): the refresh step
- * in the generator, on a real database with a fixed set of check dates and recorded runners (no live provider calls).
+ * -- since S01B part 1 in its own function, refresh-enhanced-checks, which the generator asks for -- on a real database
+ * with a fixed set of check dates and recorded runners (no live provider calls).
  * - Enhanced: the row is written first with no snapshot ("Running checks..." on P17), the stale checks run once, then
  *   the snapshot is written (the tiles' new dates, `refreshed`) and the PDF can render.
  * - Only stale checks run (technical and identity 40 days old: the site checks; YouTube 2 days old: not).
@@ -17,6 +18,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { ReportDocument } from "@/lib/communication/pdf-builder";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
 import { type ReportFixture, seedReportFixture } from "@/tests/helpers/report-fixture";
+import { runReportGeneration } from "@/tests/helpers/report-generation";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const runners = vi.hoisted(() => ({
@@ -42,11 +44,6 @@ vi.mock("@/lib/reports/enhanced-checks", async (orig) => ({
   // The real step waits five minutes; this one gives up quickly so the timeout path can run in a test.
   ENHANCED_REFRESH_TIMEOUT_MS: 300,
 }));
-
-type Handler = (ctx: {
-  event: { id: string; data: Record<string, unknown> };
-  step: { run: <T>(name: string, fn: () => Promise<T>) => Promise<T> };
-}) => Promise<unknown>;
 
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 let fx: ReportFixture;
@@ -109,37 +106,36 @@ beforeEach(async () => {
 });
 
 async function generate(tier: string) {
-  const { inngest } = await import("@/lib/inngest/client");
-  const send = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["x"] });
   const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+  // S01B part 1 (LLD amendment 49): the generator writes the row and asks for the checks; refresh-enhanced-checks runs
+  // them, writes the snapshot and sends report/generated. Both run here, as Inngest would run them; each step is
+  // recorded as "{function}: {step}".
   const steps: string[] = [];
   const rowAfter: Record<string, { report_tier: string; has_snapshot: boolean } | undefined> = {};
-  const { generateNarrativeReport } = await import("@/inngest/functions/generate-narrative-report");
   try {
-    const out = (await (generateNarrativeReport as unknown as { fn: Handler }).fn({
-      event: {
-        id: `evt-${randomUUID()}`,
-        data: {
-          brandId: fx.brandId,
-          organizationId: fx.orgId,
-          periodLabel: "2026-W47",
-          periodType: "weekly",
-          manual: true,
-          tier,
-        },
+    const { generator: out, sent } = await runReportGeneration({
+      eventId: `evt-${randomUUID()}`,
+      data: {
+        brandId: fx.brandId,
+        organizationId: fx.orgId,
+        periodLabel: "2026-W47",
+        periodType: "weekly",
+        manual: true,
+        tier,
       },
-      step: {
+      step: (fnId) => ({
         run: async (name, fn) => {
-          steps.push(name);
+          const key = `${fnId}: ${name}`;
+          steps.push(key);
           const result = await fn();
           const [r] = await sql<{ report_tier: string; has_snapshot: boolean }[]>`
             SELECT report_tier, contents_snapshot IS NOT NULL AS has_snapshot FROM generated_reports
             WHERE brand_id = ${fx.brandId} ORDER BY created_at DESC LIMIT 1`;
-          rowAfter[name] = r;
+          rowAfter[key] = r;
           return result;
         },
-      },
-    })) as { reportId?: string };
+      }),
+    });
     if (!out.reportId) throw new Error(`no report: ${JSON.stringify(out)}`);
     const [row] = await sql<
       { id: string; report_tier: string; contents_snapshot: Record<string, unknown> | null }[]
@@ -149,10 +145,9 @@ async function generate(tier: string) {
       row,
       steps,
       rowAfter,
-      events: send.mock.calls.map((c) => (c[0] as { name: string }).name),
+      events: sent.map((e) => e.name),
     };
   } finally {
-    send.mockRestore();
     info.mockRestore();
   }
 }
@@ -179,18 +174,21 @@ async function pdfText(reportId: string): Promise<string> {
 describe("the Enhanced refresh step", () => {
   it("writes the row first (Running checks), runs only the stale checks once, then the snapshot", async () => {
     const { row, steps, rowAfter, events } = await generate("enhanced");
+    // S01B part 1 (LLD amendment 49: "S01B moves it into its own function, one per brand and at most 2
+    // account-wide"): the same steps, the checks and snapshot now in refresh-enhanced-checks.
     expect(steps).toEqual([
-      "check-schedule-and-template",
-      "generate-and-insert",
-      "refresh-enhanced-checks",
-      "write-report-snapshot",
-      "emit-report-generated",
+      "generate-narrative-report: check-schedule-and-template",
+      "generate-narrative-report: generate-and-insert",
+      "generate-narrative-report: request-enhanced-checks",
+      "refresh-enhanced-checks: refresh-enhanced-checks",
+      "refresh-enhanced-checks: write-report-snapshot",
+      "refresh-enhanced-checks: emit-report-generated",
     ]);
-    expect(rowAfter["generate-and-insert"]).toEqual({
+    expect(rowAfter["generate-narrative-report: generate-and-insert"]).toEqual({
       report_tier: "enhanced",
       has_snapshot: false,
     });
-    expect(rowAfter["write-report-snapshot"]).toEqual({
+    expect(rowAfter["refresh-enhanced-checks: write-report-snapshot"]).toEqual({
       report_tier: "enhanced",
       has_snapshot: true,
     });
@@ -237,7 +235,8 @@ describe("the Enhanced refresh step", () => {
   it.each(["basic", "standard"])("a %s report never refreshes", async (tier) => {
     const { row, steps } = await generate(tier);
     expect(runners.site).toEqual([]);
-    expect(steps).not.toContain("refresh-enhanced-checks");
+    // Neither the generator's request nor the refresh function ran (S01B part 1: steps are "{function}: {step}").
+    expect(steps.filter((s) => s.includes("enhanced-checks"))).toEqual([]);
     expect(row.report_tier).toBe(tier);
     expect(row.contents_snapshot).not.toBeNull();
   });

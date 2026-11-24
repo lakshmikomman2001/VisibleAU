@@ -18,6 +18,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { pagesForTier } from "@/lib/reports/report-tiers";
 import { type ReportFixture, seedReportFixture } from "@/tests/helpers/report-fixture";
+import { runReportGeneration } from "@/tests/helpers/report-generation";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 const USER = randomUUID();
@@ -38,11 +39,6 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("@/lib/reports/enhanced-check-runners", () => ({
   enhancedRunners: () => ({ site: async () => undefined, youtube: async () => undefined }),
 }));
-
-type Handler = (ctx: {
-  event: { id: string; data: Record<string, unknown> };
-  step: { run: <T>(name: string, fn: () => Promise<T>) => Promise<T> };
-}) => Promise<unknown>;
 
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 let fx: ReportFixture;
@@ -311,8 +307,6 @@ describe("the default report type and the workspace's types", () => {
 
 describe("the generator", () => {
   async function runGenerator(data: Record<string, unknown>) {
-    const { inngest } = await import("@/lib/inngest/client");
-    const send = vi.spyOn(inngest, "send").mockResolvedValue({ ids: ["x"] });
     const logs: Array<Record<string, unknown>> = [];
     const info = vi.spyOn(console, "info").mockImplementation((line: unknown) => {
       try {
@@ -321,23 +315,19 @@ describe("the generator", () => {
         /* not a JSON log line */
       }
     });
-    const { generateNarrativeReport } = await import(
-      "@/inngest/functions/generate-narrative-report"
-    );
     try {
-      const out = (await (generateNarrativeReport as unknown as { fn: Handler }).fn({
-        event: {
-          id: `evt-${randomUUID()}`,
-          data: {
-            brandId: fx.brandId,
-            organizationId: fx.orgId,
-            periodLabel: "2026-W47",
-            periodType: "weekly",
-            ...data,
-          },
+      // S01B part 1 (LLD amendment 49): an Enhanced report's snapshot is written by refresh-enhanced-checks, which the
+      // generator asks for; the helper runs both, as Inngest would.
+      const { generator: out } = await runReportGeneration({
+        eventId: `evt-${randomUUID()}`,
+        data: {
+          brandId: fx.brandId,
+          organizationId: fx.orgId,
+          periodLabel: "2026-W47",
+          periodType: "weekly",
+          ...data,
         },
-        step: { run: (_name, fn) => fn() },
-      })) as { reportId?: string };
+      });
       if (!out.reportId) throw new Error(`no report: ${JSON.stringify(out)}`);
       const [row] = await sql<
         { report_tier: string; contents_snapshot: Record<string, unknown> | null }[]
@@ -345,7 +335,6 @@ describe("the generator", () => {
         SELECT report_tier, contents_snapshot FROM generated_reports WHERE id = ${out.reportId}`;
       return { row, logs };
     } finally {
-      send.mockRestore();
       info.mockRestore();
     }
   }

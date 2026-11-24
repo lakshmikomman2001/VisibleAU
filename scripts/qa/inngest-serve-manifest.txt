@@ -28,6 +28,7 @@ ingestAiReferralsFn
 llmstxtRefreshFn
 parseCrawlerLogFn
 refreshBotIpRangesFn
+refreshEnhancedChecksFn
 refreshEntityScoreFn
 renderReportPdf
 runAudit

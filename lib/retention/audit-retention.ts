@@ -1,4 +1,4 @@
-import { and, asc, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { db as DbForType } from "@/db/client";
 import {
   actionItems,
@@ -7,6 +7,7 @@ import {
   citations,
   driftAlerts,
   engineCallFailures,
+  technicalAudits,
 } from "@/db/schema";
 
 /**
@@ -27,6 +28,8 @@ import {
  * - Deleted by the audits row's own ON DELETE CASCADE: audit_cost_snapshots, citation_source_intelligence,
  *   comparison_prompt_results, google_ai_mode_results, query_fan_out_results, share_of_voice_snapshots and
  *   technical_audits.
+ * - Deleted on the same cutoff, after the audits (S01B part 2): technical_audits rows with no audit -- an Enhanced
+ *   report's refresh re-runs the brand's technical audit without one (LLD amendment 49) -- which nothing cascades to.
  * - Kept, with the reference set to NULL:
  *   - action_items that are in_progress or done: someone's own work, shown in the Action Center across audits.
  *     Migration 0143 makes audit_id nullable with ON DELETE SET NULL; this sets it explicitly.
@@ -54,7 +57,12 @@ export interface ExpiredAuditDeletion {
   deletedAuditExports: number;
   deletedActionItems: number;
   keptActionItems: number;
-  /** True when the batch cap stopped the run with audits still past the cutoff: the next run continues. */
+  /**
+   * S01B part 2 (LLD amendment 49): technical audits that belong to no audit -- an Enhanced report's refresh runs the
+   * technical audit with no audit id -- past the same cutoff. Audit-linked ones go with their audit (ON DELETE CASCADE).
+   */
+  deletedUnlinkedTechnicalAudits: number;
+  /** True when the batch cap stopped the run with audits (or unlinked technical audits) still past the cutoff. */
   more: boolean;
 }
 
@@ -75,9 +83,11 @@ export async function deleteExpiredAudits(
     deletedAuditExports: 0,
     deletedActionItems: 0,
     keptActionItems: 0,
+    deletedUnlinkedTechnicalAudits: 0,
     more: false,
   };
 
+  let auditsDone = false;
   for (let batch = 0; batch < maxBatches; batch++) {
     const done = await db.transaction(async (tx) => {
       const expired = await tx
@@ -136,13 +146,52 @@ export async function deleteExpiredAudits(
       totals.deletedAudits += deletedAudits.length;
       return expired.length < batchSize;
     });
-    if (done) return totals;
+    if (done) {
+      auditsDone = true;
+      break;
+    }
   }
+
+  // S01B part 2: a technical audit with no audit (an Enhanced report's refresh, LLD amendment 49) has no audit row to
+  // cascade from, so it is deleted here on the same cutoff, in the same bounded, idempotent batches.
+  const unlinked = and(isNull(technicalAudits.auditId), lt(technicalAudits.createdAt, cutoff));
+  let unlinkedDone = false;
+  for (let batch = 0; batch < maxBatches; batch++) {
+    const deleted = await db.transaction(async (tx) => {
+      const expired = await tx
+        .select({ id: technicalAudits.id })
+        .from(technicalAudits)
+        .where(unlinked)
+        .orderBy(asc(technicalAudits.createdAt))
+        .limit(batchSize);
+      if (expired.length === 0) return 0;
+      const gone = await tx
+        .delete(technicalAudits)
+        .where(
+          inArray(
+            technicalAudits.id,
+            expired.map((t) => t.id),
+          ),
+        )
+        .returning({ id: technicalAudits.id });
+      return gone.length;
+    });
+    totals.deletedUnlinkedTechnicalAudits += deleted;
+    if (deleted < batchSize) {
+      unlinkedDone = true;
+      break;
+    }
+  }
+  if (auditsDone && unlinkedDone) return totals;
 
   const [left] = await db
     .select({ c: sql<number>`count(*)::int` })
     .from(audits)
     .where(lt(audits.createdAt, cutoff));
-  totals.more = Number(left?.c ?? 0) > 0;
+  const [leftUnlinked] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(technicalAudits)
+    .where(unlinked);
+  totals.more = Number(left?.c ?? 0) > 0 || Number(leftUnlinked?.c ?? 0) > 0;
   return totals;
 }

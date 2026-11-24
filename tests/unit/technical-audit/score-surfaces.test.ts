@@ -37,6 +37,9 @@ const READERS: Record<string, string> = {
   // S01 part 6 (LLD 8.1.4): "Beyond AI answers" -- the audit page card, the Enhanced PDF page and the portal show the
   // latest technical score "with its own maximum (compositeMaxFor)" and the robots.txt findings.
   "lib/reports/beyond-ai.ts": "Beyond AI answers: technicalScoringOf",
+  // S01B part 2 (LLD amendment 49): the weekly retention job deletes technical audits that belong to no audit (an
+  // Enhanced report's refresh) past the audits' cutoff; it shows no score.
+  "lib/retention/audit-retention.ts": "retention: ids only, no score",
 };
 
 const USES_ITS_OWN_SCORING = [

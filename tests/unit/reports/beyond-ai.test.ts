@@ -78,7 +78,8 @@ describe("business identity", () => {
     expect(v.pill).toEqual({ text: "ABN verified", tone: "good" });
     expect(v.lines.map((l) => l.text)).toEqual([
       "Active · ASTORIO GROUP PTY LTD · checked 22 Nov 2026",
-      ".au domain ✓ · Wikipedia: no article",
+      // S01B part 4f (LLD amendment 55: "Mono text uses words, never symbols the PDF font lacks: '.au domain: yes'").
+      ".au domain: yes · Wikipedia: no article",
     ]);
     expect(v.action).toBeNull();
   });
@@ -213,7 +214,9 @@ describe("AI crawlers", () => {
     expect(v.pill).toEqual({ text: "Search crawlers allowed", tone: "good" });
     expect(v.lines.map((l) => l.text)).toEqual([
       "4 of 4 · checked 22 Nov 2026",
-      "Visits: not measured · upload server logs",
+      // S01B part 4g (amendment 55: "The crawlers tile says 'Visits: not measured' once, with the single 'Next step:
+      // Upload server logs'"): the next step is the action below, printed once.
+      "Visits: not measured",
     ]);
     expect(v.action).toEqual({
       text: "Upload server logs",

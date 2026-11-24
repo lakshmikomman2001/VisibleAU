@@ -38,8 +38,9 @@ import {
   directoriesLines,
   formatCheckDate,
 } from "../beyond-ai";
+import type { WhatToDoNext } from "../report-contents";
 import type { ReportData, ReportMatrixRow, ReportTrendPoint } from "../report-data";
-import { type EvidenceTone, type Finding, reportFindings } from "../report-findings";
+import { type EvidenceTone, type Finding, reportFindings, shownFindings } from "../report-findings";
 import {
   answeringEngineNames,
   basisReasonText,
@@ -1926,9 +1927,22 @@ const EV_COLOUR: Record<EvidenceTone, string> = {
   plain: C.evText,
 };
 
-function FindingCard({ finding }: { finding: Finding }) {
+/**
+ * S01B part 4c (LLD amendment 52; contract P09.next): in Standard and Enhanced a finding's card carries its Action
+ * Center item -- the priority and status pills in place of the impact label, and the agency's note under the fix -- so
+ * the finding isn't shown again as an action. Basic's cards (and a finding whose action the agency hid) are today's.
+ */
+export interface FindingCardAction {
+  priority: string;
+  status: string | null;
+  note: string | null;
+  agencyName: string | null;
+}
+
+function FindingCard({ finding, action }: { finding: Finding; action?: FindingCardAction | null }) {
   const kind = KIND_COLOURS[finding.kind];
   const sev = SEV_COLOURS[finding.severity.tone];
+  const pill = action ? (PRIORITY_PILL[action.priority] ?? PRIORITY_PILL.medium) : null;
   return (
     <View
       wrap={false}
@@ -1985,22 +1999,31 @@ function FindingCard({ finding }: { finding: Finding }) {
             {finding.explanation}
           </Text>
         </View>
-        <Text
-          style={{
-            alignSelf: "flex-start",
-            fontSize: px(8.5),
-            fontWeight: 700,
-            letterSpacing: ls(8.5, 0.06),
-            textTransform: "uppercase",
-            borderRadius: 999,
-            paddingVertical: px(4),
-            paddingHorizontal: px(9),
-            backgroundColor: sev.bg,
-            color: sev.fg,
-          }}
-        >
-          {finding.severity.label}
-        </Text>
+        {action && pill ? (
+          <View style={{ alignSelf: "flex-start", flexDirection: "row", gap: px(6) }}>
+            <SmallPill text={pill.label} bg={pill.bg} fg={pill.fg} />
+            {action.status ? (
+              <SmallPill text={STATUS_LABEL[action.status] ?? "OPEN"} bg={C.surface2} fg={C.ink2} />
+            ) : null}
+          </View>
+        ) : (
+          <Text
+            style={{
+              alignSelf: "flex-start",
+              fontSize: px(8.5),
+              fontWeight: 700,
+              letterSpacing: ls(8.5, 0.06),
+              textTransform: "uppercase",
+              borderRadius: 999,
+              paddingVertical: px(4),
+              paddingHorizontal: px(9),
+              backgroundColor: sev.bg,
+              color: sev.fg,
+            }}
+          >
+            {finding.severity.label}
+          </Text>
+        )}
       </View>
       <View
         style={{
@@ -2054,6 +2077,23 @@ function FindingCard({ finding }: { finding: Finding }) {
           {finding.fix}
         </Text>
       </View>
+      {action?.note ? (
+        <Text
+          style={{
+            fontSize: px(9.5),
+            color: AGENCY.fg,
+            backgroundColor: AGENCY.bg,
+            borderRadius: px(6),
+            marginHorizontal: px(16),
+            marginBottom: px(12),
+            paddingVertical: px(6),
+            paddingHorizontal: px(10),
+          }}
+        >
+          {action.agencyName ? `Note from ${action.agencyName}: ` : "Note: "}
+          {action.note}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -2198,105 +2238,166 @@ function ActionCard({
 }
 
 /**
- * P09.next (Standard and Enhanced): today's findings first, then the groups -- measured actions, recommended by the
- * agency, done since the last report, general advice (each only when non-empty and switched on). Never "No finding
- * rule matched".
+ * S01B part 4e (LLD amendment 52; contract P09 layout): from "Why, and what to do next" onwards, Standard and Enhanced
+ * flow instead of starting each section on a new page. A section starts on the current page when at least a third of
+ * the page's content area is left, otherwise on the next (react-pdf's minPresenceAhead on a marker before it: it moves
+ * to the next page only when less than this is left and what follows doesn't fit). A heading is held with its first
+ * item (one unbreakable block) and a card never splits. Basic keeps today's pages and page breaks (N15).
  */
-function NextPage({ ctx }: { ctx: Ctx }) {
+export const PAGE_THIRD = (PAGE.height - PAGE.padTop - PAGE.padBottom) / 3;
+
+function SectionStart() {
+  return <View minPresenceAhead={PAGE_THIRD} />;
+}
+
+/** A group's label held with its first item; the rest follow as their own blocks, so the group may cross a page. */
+function Group({ label, items }: { label: string; items: ReactNode[] }) {
+  if (items.length === 0) return null;
+  return (
+    <>
+      <View wrap={false}>
+        <GroupLabel>{label}</GroupLabel>
+        {items[0]}
+      </View>
+      {items.slice(1)}
+    </>
+  );
+}
+
+/** The measured action a shown finding carries (its card's pills and note), when the agency didn't hide it. */
+function actionForFinding(
+  finding: Finding,
+  next: WhatToDoNext | null,
+): WhatToDoNext["measured"][number] | null {
+  const items = (next?.measured ?? []).filter((m) => m.included);
+  return (
+    items.find((m) =>
+      m.findingRule ? m.findingRule === finding.rule : m.title === finding.recommendation.title,
+    ) ?? null
+  );
+}
+
+/**
+ * P09.next (Standard and Enhanced): each finding once (S01B part 4c, amendment 52) -- at most 3 problems and 1
+ * strength (shownFindings), each card carrying its Action Center item's priority and status and the agency's note --
+ * then OTHER ACTIONS FROM THIS AUDIT (measured items not shown as a finding, findings beyond the limit included),
+ * RECOMMENDED BY {AGENCY}, DONE SINCE THE LAST REPORT and GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT (each only when
+ * non-empty and switched on). Never "No finding rule matched".
+ */
+function NextSection({ ctx }: { ctx: Ctx }) {
   const v2 = ctx.data.v2;
   const next = v2?.whatToDoNext ?? null;
   const agencyName = v2?.agencyName ?? null;
-  const measured = (next?.measured ?? []).filter((m) => m.included);
+  const shownRules = new Set(ctx.findings.map((f) => f.rule));
+  const shownTitles = new Set(ctx.findings.map((f) => f.recommendation.title));
+  const others = (next?.measured ?? []).filter(
+    (m) =>
+      m.included && (m.findingRule ? !shownRules.has(m.findingRule) : !shownTitles.has(m.title)),
+  );
   const agency = next?.agencyActions ?? [];
   const done = next?.includeDoneSinceLast ? next.doneSinceLast : [];
   const advice = next?.includeGeneralAdvice ? next.generalAdvice : [];
+  const findingCards: ReactNode[] =
+    ctx.findings.length > 0
+      ? ctx.findings.map((f) => {
+          const action = actionForFinding(f, next);
+          return (
+            <FindingCard
+              key={f.rule}
+              finding={f}
+              action={
+                action
+                  ? {
+                      priority: action.priority,
+                      status: action.status,
+                      note: action.note,
+                      agencyName,
+                    }
+                  : null
+              }
+            />
+          );
+        })
+      : [
+          <View key="checked" style={{ ...s.tile, marginTop: px(12) }}>
+            <Text style={{ fontSize: px(10.5), color: C.ink2 }}>{FINDINGS_CHECKED}</Text>
+          </View>,
+        ];
   return (
-    <Page size="A4" style={s.page}>
-      <RunningHeader title={ctx.runningTitle} />
-      <View style={{ marginTop: px(28) }}>
-        <SectionLabel
-          icon="search"
-          eyebrow={`${ctx.plan.next} · Why, and what to do next`}
-          provenance={`Measured · Audit #${ctx.data.basis.auditNumber}`}
-        />
-        <Text style={s.h2}>What we found, and what to do next</Text>
-        <Text style={s.lede}>
-          {agencyName
-            ? `Each action shows the evidence from this audit. Notes and actions from ${agencyName} are labelled.`
-            : "Each action shows the evidence from this audit."}
-        </Text>
+    <>
+      <SectionStart />
+      <View wrap={false}>
+        <View style={{ marginTop: px(28) }}>
+          <SectionLabel
+            icon="search"
+            eyebrow={`${ctx.plan.next} · Why, and what to do next`}
+            provenance={`Measured · Audit #${ctx.data.basis.auditNumber}`}
+          />
+          <Text style={s.h2}>What we found, and what to do next</Text>
+          <Text style={s.lede}>
+            {agencyName
+              ? `Each action shows the evidence from this audit. Notes and actions from ${agencyName} are labelled.`
+              : "Each action shows the evidence from this audit."}
+          </Text>
+        </View>
+        {findingCards[0]}
       </View>
-      {ctx.findings.length > 0 ? (
-        ctx.findings.map((f) => <FindingCard key={f.rule} finding={f} />)
-      ) : (
-        <View style={{ ...s.tile, marginTop: px(12) }}>
-          <Text style={{ fontSize: px(10.5), color: C.ink2 }}>{FINDINGS_CHECKED}</Text>
-        </View>
-      )}
-      {measured.length > 0 ? (
-        <View>
-          <GroupLabel>MEASURED ACTIONS</GroupLabel>
-          {measured.map((m) => (
-            <ActionCard
-              key={m.key}
-              priority={m.priority}
-              status={m.status}
-              title={m.title}
-              evidence={m.evidence}
-              note={m.note}
-              agencyName={agencyName}
-            />
-          ))}
-        </View>
-      ) : null}
-      {agency.length > 0 ? (
-        <View>
-          <GroupLabel>{`RECOMMENDED BY ${(agencyName ?? "your agency").toUpperCase()}`}</GroupLabel>
-          {agency.map((a) => (
-            <ActionCard
-              key={a.id}
-              priority={a.priority}
-              status={a.status}
-              title={a.title}
-              evidence={a.detail}
-              note={null}
-              agencyName={agencyName}
-              agency
-            />
-          ))}
-        </View>
-      ) : null}
-      {done.length > 0 ? (
-        <View wrap={false}>
-          <GroupLabel>DONE SINCE THE LAST REPORT</GroupLabel>
-          {done.map((d) => (
-            <Text
-              key={`${d.title}-${d.doneAt}`}
-              style={{ fontSize: px(10), color: C.ink2, marginBottom: px(3) }}
-            >
-              ✓ {d.title} · {reportDate(new Date(d.doneAt), ctx.data.organizationId)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-      {advice.length > 0 ? (
-        <View>
-          <GroupLabel>GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT</GroupLabel>
-          {advice.map((a) => (
-            <ActionCard
-              key={a.title}
-              priority="low"
-              status={null}
-              title={a.title}
-              evidence={a.evidence}
-              note={null}
-              agencyName={agencyName}
-            />
-          ))}
-        </View>
-      ) : null}
-      <RunningFooter left={ctx.footerLeft} />
-    </Page>
+      {findingCards.slice(1)}
+      <Group
+        label="OTHER ACTIONS FROM THIS AUDIT"
+        items={others.map((m) => (
+          <ActionCard
+            key={m.key}
+            priority={m.priority}
+            status={m.status}
+            title={m.title}
+            evidence={m.evidence}
+            note={m.note}
+            agencyName={agencyName}
+          />
+        ))}
+      />
+      <Group
+        label={`RECOMMENDED BY ${(agencyName ?? "your agency").toUpperCase()}`}
+        items={agency.map((a) => (
+          <ActionCard
+            key={a.id}
+            priority={a.priority}
+            status={a.status}
+            title={a.title}
+            evidence={a.detail}
+            note={null}
+            agencyName={agencyName}
+            agency
+          />
+        ))}
+      />
+      <Group
+        label="DONE SINCE THE LAST REPORT"
+        items={done.map((d) => (
+          <Text
+            key={`${d.title}-${d.doneAt}`}
+            style={{ fontSize: px(10), color: C.ink2, marginBottom: px(3) }}
+          >
+            ✓ {d.title} · {reportDate(new Date(d.doneAt), ctx.data.organizationId)}
+          </Text>
+        ))}
+      />
+      <Group
+        label="GENERAL ADVICE, NOT DRAWN FROM THIS AUDIT"
+        items={advice.map((a) => (
+          <ActionCard
+            key={a.title}
+            priority="low"
+            status={null}
+            title={a.title}
+            evidence={a.evidence}
+            note={null}
+            agencyName={agencyName}
+          />
+        ))}
+      />
+    </>
   );
 }
 
@@ -2349,29 +2450,34 @@ function BeyondTile({ view }: { view: BeyondTileView }) {
   );
 }
 
-/** P09.beyond (Enhanced): 2 x 2 tiles, then "Your directory profiles" across both columns; the footer sentence. */
-function BeyondPage({ ctx }: { ctx: Ctx }) {
+/**
+ * P09.beyond (Enhanced): 2 x 2 tiles, then "Your directory profiles" across both columns; the footer sentence. Since
+ * S01B part 4e a section of the flowing pages: its heading held with the first row of tiles, each row unbreakable.
+ */
+function BeyondSection({ ctx }: { ctx: Ctx }) {
   const answers = ctx.data.v2?.beyondAi;
   if (!answers) return null;
   const views = beyondTileViews(answers, ctx.data.brand.id);
   const dir = answers.directories;
   return (
-    <Page size="A4" style={s.page}>
-      <RunningHeader title={ctx.runningTitle} />
-      <View style={{ marginTop: px(28) }}>
-        <SectionLabel
-          icon="list"
-          eyebrow={`${ctx.plan.beyond} · Beyond AI answers`}
-          provenance="Separate checks · own dates"
-        />
-        <Text style={s.h2}>What AI can read about you elsewhere</Text>
-        <Text style={s.lede}>{BEYOND_FOOTER}</Text>
+    <>
+      <SectionStart />
+      <View wrap={false}>
+        <View style={{ marginTop: px(28) }}>
+          <SectionLabel
+            icon="list"
+            eyebrow={`${ctx.plan.beyond} · Beyond AI answers`}
+            provenance="Separate checks · own dates"
+          />
+          <Text style={s.h2}>What AI can read about you elsewhere</Text>
+          <Text style={s.lede}>{BEYOND_FOOTER}</Text>
+        </View>
+        <View style={{ flexDirection: "row", gap: px(10), marginTop: px(12) }}>
+          <BeyondTile view={views[0]} />
+          <BeyondTile view={views[1]} />
+        </View>
       </View>
-      <View style={{ flexDirection: "row", gap: px(10), marginTop: px(12) }}>
-        <BeyondTile view={views[0]} />
-        <BeyondTile view={views[1]} />
-      </View>
-      <View style={{ flexDirection: "row", gap: px(10), marginTop: px(10) }}>
+      <View wrap={false} style={{ flexDirection: "row", gap: px(10), marginTop: px(10) }}>
         <BeyondTile view={views[2]} />
         <BeyondTile view={views[3]} />
       </View>
@@ -2404,8 +2510,7 @@ function BeyondPage({ ctx }: { ctx: Ctx }) {
           ))}
         </View>
       ) : null}
-      <RunningFooter left={ctx.footerLeft} />
-    </Page>
+    </>
   );
 }
 
@@ -2508,8 +2613,23 @@ function TrendChart({ data }: { data: ReportData }) {
   );
 }
 
+/** Basic's Over time page, as today: the trend, then the prioritised list (S01B: its two blocks are shared). */
 function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
-  const { data, plan, findings } = ctx;
+  const { plan } = ctx;
+  return (
+    <Page size="A4" style={s.page}>
+      <RunningHeader title={ctx.runningTitle} />
+      {plan.trend && <TrendBlock ctx={ctx} />}
+      {plan.trend && plan.recommended && <View style={s.rule} />}
+      {plan.recommended && <RecommendedBlock ctx={ctx} />}
+      <RunningFooter left={ctx.footerLeft} />
+    </Page>
+  );
+}
+
+/** "Over time": the trend chart with its caption, one unbreakable block (its heading included). */
+function TrendBlock({ ctx }: { ctx: Ctx }) {
+  const { data, plan } = ctx;
   const points = data.trend.points;
   const numbers = points.map((p) => p.auditNumber);
   const trendProv =
@@ -2528,119 +2648,129 @@ function TrendAndNextPage({ ctx }: { ctx: Ctx }) {
       : trendComparisonLine(data),
   ].filter((line): line is string => !!line);
   return (
-    <Page size="A4" style={s.page}>
-      <RunningHeader title={ctx.runningTitle} />
-      {plan.trend && (
-        <View wrap={false} style={{ marginTop: px(28) }}>
-          <SectionLabel icon="trend" eyebrow={`${plan.trend} · Over time`} provenance={trendProv} />
-          <Text style={s.h2}>Visibility across recent audits</Text>
-          <TrendChart data={data} />
-          <View style={{ flexDirection: "row", paddingLeft: px(40) }}>
-            {points.map((p) => (
-              <View key={p.auditId} style={{ flex: 1, alignItems: "center" }}>
-                {/* "Audit #32 · 23 Oct" fits a column up to 6 points; past
+    <View wrap={false} style={{ marginTop: px(28) }}>
+      <SectionLabel icon="trend" eyebrow={`${plan.trend} · Over time`} provenance={trendProv} />
+      <Text style={s.h2}>Visibility across recent audits</Text>
+      <TrendChart data={data} />
+      <View style={{ flexDirection: "row", paddingLeft: px(40) }}>
+        {points.map((p) => (
+          <View key={p.auditId} style={{ flex: 1, alignItems: "center" }}>
+            {/* "Audit #32 · 23 Oct" fits a column up to 6 points; past
                     that, the date goes on its own line instead of wrapping. */}
-                {points.length > 6 ? (
-                  <>
-                    <Text style={{ fontSize: px(9.5), fontWeight: 700, color: C.ink }}>
-                      Audit #{p.auditNumber}
-                    </Text>
-                    <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
-                      {reportShortDate(new Date(p.completedAt), data.organizationId)}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
-                    <Text style={{ fontWeight: 700, color: C.ink }}>Audit #{p.auditNumber}</Text> ·{" "}
-                    {reportShortDate(new Date(p.completedAt), data.organizationId)}
-                  </Text>
-                )}
-                <Text
-                  style={{
-                    fontSize: px(9.5),
-                    color: trendPointHollow(p) ? C.mid : C.ink2,
-                  }}
-                >
-                  {trendPointHollow(p) ? "○ " : ""}
-                  {p.enginesAnswered} of {p.enginesPlanned} engines
-                  {p.value === null ? " · not enough answers" : ""}
+            {points.length > 6 ? (
+              <>
+                <Text style={{ fontSize: px(9.5), fontWeight: 700, color: C.ink }}>
+                  Audit #{p.auditNumber}
                 </Text>
-              </View>
-            ))}
+                <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
+                  {reportShortDate(new Date(p.completedAt), data.organizationId)}
+                </Text>
+              </>
+            ) : (
+              <Text style={{ fontSize: px(9.5), color: C.ink2 }}>
+                <Text style={{ fontWeight: 700, color: C.ink }}>Audit #{p.auditNumber}</Text> ·{" "}
+                {reportShortDate(new Date(p.completedAt), data.organizationId)}
+              </Text>
+            )}
+            <Text
+              style={{
+                fontSize: px(9.5),
+                color: trendPointHollow(p) ? C.mid : C.ink2,
+              }}
+            >
+              {trendPointHollow(p) ? "○ " : ""}
+              {p.enginesAnswered} of {p.enginesPlanned} engines
+              {p.value === null ? " · not enough answers" : ""}
+            </Text>
           </View>
-          <Text style={{ ...s.cap, marginTop: px(10) }}>{caption.join(" ")}</Text>
-        </View>
-      )}
+        ))}
+      </View>
+      <Text style={{ ...s.cap, marginTop: px(10) }}>{caption.join(" ")}</Text>
+    </View>
+  );
+}
+
+/** Basic's "Recommended next": the findings, prioritised by impact, one unbreakable block. */
+function RecommendedBlock({ ctx }: { ctx: Ctx }) {
+  const { plan, findings } = ctx;
+  return (
+    <View wrap={false} style={{ marginTop: plan.trend ? 0 : px(28) }}>
+      <SectionLabel
+        icon="check"
+        eyebrow={`${plan.recommended} · Recommended next`}
+        provenance={
+          plan.diagnosis
+            ? `From findings in section ${plan.diagnosis}`
+            : "From this audit's findings"
+        }
+      />
+      <Text style={s.h2}>Prioritised by impact</Text>
+      <Text style={{ ...s.cap, marginTop: px(4) }}>
+        We don't project score gains: AI answers vary, and we only report what we measure. Progress
+        shows up in your next audits.
+      </Text>
+      <View style={{ marginTop: px(8) }}>
+        {findings.map((f, i) => (
+          <View
+            key={f.rule}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: px(12),
+              paddingVertical: px(11),
+              borderBottomWidth: i === findings.length - 1 ? 0 : 0.75,
+              borderBottomStyle: "solid",
+              borderBottomColor: C.line,
+            }}
+          >
+            <Text
+              style={{
+                width: px(26),
+                fontFamily: FONT.display,
+                fontWeight: 600,
+                fontSize: px(17),
+                color: C.brand,
+              }}
+            >
+              {i + 1}
+            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: px(11.5), fontWeight: 600 }}>{f.recommendation.title}</Text>
+              <Text style={{ fontSize: px(9.5), color: C.ink2, marginTop: px(2) }}>
+                {f.recommendation.detail}
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontSize: px(8.5),
+                fontWeight: 600,
+                color: C.brandOnSoft,
+                backgroundColor: C.brandSoft,
+                borderRadius: 999,
+                paddingVertical: px(4),
+                paddingHorizontal: px(9),
+              }}
+            >
+              {plan.diagnosis ? `Finding ${i + 1} · ${f.severity.short}` : f.severity.short}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** S01B part 4e: "Over time" in the flowing pages (Standard and Enhanced drop the prioritised list, LLD 8.1.2). */
+function TrendSection({ ctx }: { ctx: Ctx }) {
+  const { plan } = ctx;
+  if (!plan.trend && !plan.recommended) return null;
+  return (
+    <>
+      <SectionStart />
+      {plan.trend && <TrendBlock ctx={ctx} />}
       {plan.trend && plan.recommended && <View style={s.rule} />}
-      {plan.recommended && (
-        <View wrap={false} style={{ marginTop: plan.trend ? 0 : px(28) }}>
-          <SectionLabel
-            icon="check"
-            eyebrow={`${plan.recommended} · Recommended next`}
-            provenance={
-              plan.diagnosis
-                ? `From findings in section ${plan.diagnosis}`
-                : "From this audit's findings"
-            }
-          />
-          <Text style={s.h2}>Prioritised by impact</Text>
-          <Text style={{ ...s.cap, marginTop: px(4) }}>
-            We don't project score gains: AI answers vary, and we only report what we measure.
-            Progress shows up in your next audits.
-          </Text>
-          <View style={{ marginTop: px(8) }}>
-            {findings.map((f, i) => (
-              <View
-                key={f.rule}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: px(12),
-                  paddingVertical: px(11),
-                  borderBottomWidth: i === findings.length - 1 ? 0 : 0.75,
-                  borderBottomStyle: "solid",
-                  borderBottomColor: C.line,
-                }}
-              >
-                <Text
-                  style={{
-                    width: px(26),
-                    fontFamily: FONT.display,
-                    fontWeight: 600,
-                    fontSize: px(17),
-                    color: C.brand,
-                  }}
-                >
-                  {i + 1}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: px(11.5), fontWeight: 600 }}>
-                    {f.recommendation.title}
-                  </Text>
-                  <Text style={{ fontSize: px(9.5), color: C.ink2, marginTop: px(2) }}>
-                    {f.recommendation.detail}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    fontSize: px(8.5),
-                    fontWeight: 600,
-                    color: C.brandOnSoft,
-                    backgroundColor: C.brandSoft,
-                    borderRadius: 999,
-                    paddingVertical: px(4),
-                    paddingHorizontal: px(9),
-                  }}
-                >
-                  {plan.diagnosis ? `Finding ${i + 1} · ${f.severity.short}` : f.severity.short}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-      <RunningFooter left={ctx.footerLeft} />
-    </Page>
+      {plan.recommended && <RecommendedBlock ctx={ctx} />}
+    </>
   );
 }
 
@@ -2658,7 +2788,11 @@ function checksOutsideLine(a: BeyondAiAnswers): string {
   ].join(" · ");
 }
 
-function MethodPage({ ctx }: { ctx: Ctx }) {
+/**
+ * The method page's content: heading, the two columns, the rule and the closing line. Basic's page holds it alone, as
+ * today; in the flowing pages (S01B part 4e) the heading needs room below it (`headPresence`) so it isn't left alone.
+ */
+function MethodContent({ ctx, headPresence }: { ctx: Ctx; headPresence?: number }) {
   const { data } = ctx;
   const h = headlineFigures(data);
   const location = locationText(data);
@@ -2722,9 +2856,11 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
     ],
   ];
   return (
-    <Page size="A4" style={s.page}>
-      <RunningHeader title={ctx.runningTitle} />
-      <View style={{ marginTop: px(28) }}>
+    <>
+      <View
+        style={{ marginTop: px(28) }}
+        {...(headPresence ? { minPresenceAhead: headPresence } : {})}
+      >
         <SectionLabel
           icon={null}
           eyebrow={`${ctx.plan.method} · Method and notes`}
@@ -2803,10 +2939,45 @@ function MethodPage({ ctx }: { ctx: Ctx }) {
         {data.agency.name ? ` for ${data.agency.name}` : ""}. Figures come from the audit records
         listed above and match the {PRODUCT_NAME} dashboard.
       </Text>
+    </>
+  );
+}
+
+function MethodPage({ ctx }: { ctx: Ctx }) {
+  return (
+    <Page size="A4" style={s.page}>
+      <RunningHeader title={ctx.runningTitle} />
+      <MethodContent ctx={ctx} />
       <RunningFooter left={ctx.footerLeft} />
     </Page>
   );
 }
+
+/**
+ * S01B part 4e (LLD amendment 52; contract P09 layout): Standard and Enhanced from "Why, and what to do next" onwards,
+ * one flowing run of pages -- Why and what to do next, Beyond AI answers (Enhanced), Over time, Method and notes -- with
+ * the running header and footer on each page.
+ */
+function FlowingPages({ ctx }: { ctx: Ctx }) {
+  return (
+    <Page size="A4" style={s.page}>
+      <RunningHeader title={ctx.runningTitle} />
+      {ctx.plan.next && <NextSection ctx={ctx} />}
+      {ctx.plan.beyond && <BeyondSection ctx={ctx} />}
+      <TrendSection ctx={ctx} />
+      {ctx.plan.method && (
+        <>
+          <SectionStart />
+          <MethodContent ctx={ctx} headPresence={METHOD_HEAD_PRESENCE} />
+        </>
+      )}
+      <RunningFooter left={ctx.footerLeft} />
+    </Page>
+  );
+}
+
+/** Room the method heading needs below it on its page: the first lines of both columns. */
+const METHOD_HEAD_PRESENCE = px(140);
 
 // ----------------------------------------------------------------- document
 
@@ -2830,7 +3001,8 @@ export function footerLeftText(agency: FooterAgency, brandName: string): string 
 }
 
 export function reportContext(data: ReportDataV2): Ctx {
-  const findings = reportFindings(data);
+  // S01B part 4d (LLD amendment 52): today's limit in every tier -- at most 3 problems and 1 strength (shownFindings).
+  const findings = shownFindings(reportFindings(data));
   const plan = reportPlan(data, findings);
   return {
     data,
@@ -2917,10 +3089,15 @@ export function ReportDocument({
       <EnginesPages ctx={ctx} />
       <DirectoriesPage ctx={ctx} />
       {ctx.plan.diagnosis && <DiagnosisPage ctx={ctx} />}
-      {ctx.plan.next && <NextPage ctx={ctx} />}
-      {ctx.plan.beyond && <BeyondPage ctx={ctx} />}
-      {(ctx.plan.trend || ctx.plan.recommended) && <TrendAndNextPage ctx={ctx} />}
-      {ctx.plan.method && <MethodPage ctx={ctx} />}
+      {ctx.plan.next ? (
+        // S01B part 4e: Standard and Enhanced flow from "Why, and what to do next" onwards.
+        <FlowingPages ctx={ctx} />
+      ) : (
+        <>
+          {(ctx.plan.trend || ctx.plan.recommended) && <TrendAndNextPage ctx={ctx} />}
+          {ctx.plan.method && <MethodPage ctx={ctx} />}
+        </>
+      )}
     </Document>
   );
 }

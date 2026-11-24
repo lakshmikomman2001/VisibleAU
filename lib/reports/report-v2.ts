@@ -33,6 +33,11 @@ export async function buildReportV2(
     plan?: string;
     /** S01 part 9: what the Enhanced refresh step did (a check it couldn't finish prints its failure line). */
     refresh?: RefreshOutcome[];
+    /**
+     * S01B part 4: the report these contents are for, when its row is already written (an Enhanced report's are built
+     * after its checks), so "Done since the last report" is measured from the report before it, not from itself.
+     */
+    reportId?: string;
   },
 ): Promise<ReportV2> {
   const { data, tier, now } = input;
@@ -68,6 +73,7 @@ export async function buildReportV2(
           findings: reportFindings(data),
           curated: reportCurationAllowed(plan),
           now,
+          excludeReportId: input.reportId,
         })
       : Promise.resolve(null),
     tier === "enhanced" && brand
@@ -166,6 +172,8 @@ export async function buildDecidedReportV2(
     decided: { tier: ReportTier; plan: string };
     now: Date;
     refresh?: RefreshOutcome[];
+    /** S01B part 4: the report's own row, when it's already written (see buildReportV2). */
+    reportId?: string;
   },
 ): Promise<{ tier: ReportTier; plan: string; data: ReportDataV2; snapshot: ReportSnapshot }> {
   const { tier, plan } = input.decided;
@@ -175,6 +183,7 @@ export async function buildDecidedReportV2(
     now: input.now,
     plan,
     refresh: input.refresh,
+    reportId: input.reportId,
   });
   const data: ReportDataV2 = { ...input.data, v2 };
   return { tier, plan, data, snapshot: buildReportSnapshot(data) };

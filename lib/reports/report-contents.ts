@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import type { FindingRule } from "./report-findings";
 
 /**
  * S01 part 5 (LLD 8.1.3, contract P08): what a brand's report says it will do next, and the rules for what the report
@@ -124,6 +125,12 @@ export interface MeasuredActionSource {
   evidence: string;
   priority: MeasuredPriority;
   status: ActionStatus;
+  /**
+   * S01B part 4c (LLD amendment 52): the finding this action comes from, when it does, so the PDF shows each finding
+   * once -- its card carries this action's pills and note -- and lists only the other actions after the findings.
+   * Absent on snapshots written before S01B (the PDF then matches by title).
+   */
+  findingRule?: FindingRule;
 }
 
 export interface SavedChoice {

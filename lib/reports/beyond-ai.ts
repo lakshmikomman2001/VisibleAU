@@ -597,7 +597,8 @@ const NOT_CHECKED = { text: "Not checked yet", tone: "neutral" as const };
 
 export function identityView(t: IdentityTile, brandId: string): BeyondTileView {
   const label = "Business identity";
-  const extras = `.au domain ${t.auDomain ? "✓" : "no"} · Wikipedia: ${t.wikipedia === null ? "not checked" : t.wikipedia ? "article found" : "no article"}`;
+  // S01B part 4f (LLD amendment 55): words, never symbols, in mono text -- the PDF's mono font has no tick.
+  const extras = `.au domain: ${t.auDomain ? "yes" : "no"} · Wikipedia: ${t.wikipedia === null ? "not checked" : t.wikipedia ? "article found" : "no article"}`;
   if (!t.abnOnFile) {
     return {
       key: "identity",
@@ -731,7 +732,8 @@ export function crawlersView(t: CrawlersTile, brandId: string): BeyondTileView {
             .map((v) => v.name)
             .join(", ")})`,
         }
-      : { text: "Visits: not measured · upload server logs" };
+      : // S01B part 4g (LLD amendment 55): the next step is the tile's action, printed once ("Next step: ...").
+        { text: "Visits: not measured" };
   const action =
     t.visits.status === "measured"
       ? null

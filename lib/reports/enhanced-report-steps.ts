@@ -100,6 +100,8 @@ export async function writeEnhancedSnapshot(
       decided: { tier: "enhanced", plan: req.plan },
       now: new Date(),
       refresh: outcomes,
+      // S01B part 4: its row is already written; "Done since the last report" counts from the report before it.
+      reportId: req.reportId,
     });
     await tx
       .update(generatedReports)

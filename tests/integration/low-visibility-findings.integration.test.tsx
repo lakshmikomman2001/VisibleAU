@@ -123,7 +123,10 @@ describe("TechCore IT #52's shape on a real database", () => {
     expect(text).toContain("AI recommends other providers instead");
     expect(text).toContain("Claude couldn't find information about TechCore IT");
     expect(text).toContain("AI cites directories you're not on yet");
-    expect(text).toContain("Your business identity isn't verified yet");
+    // S01B part 4d (LLD amendment 52: "Today's findings limit stays in every tier: at most 3 problem findings and 1
+    // strength, by impact; the rest appear only as actions and in the Action Center"): g and h are high impact, i
+    // and j medium, so j (rule order after i) is the fourth problem and isn't a card; its Action Center item is below.
+    expect(text).not.toContain("Your business identity isn't verified yet");
   });
 
   it("report_v2 on: the four Action Center items, Frequency or Source citation", async () => {

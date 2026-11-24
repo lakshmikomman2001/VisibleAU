@@ -416,6 +416,29 @@ function strengthFinding(data: FindingsData): Finding | null {
  * rules g, h, i, j, each when its condition holds -- only while report_v2 is on (data.lowVisibility set); a-f and
  * their order are unchanged either way.
  */
+/** S01B part 4d (LLD amendment 52): how many problem findings a PDF shows, in every tier (today's limit). */
+export const SHOWN_PROBLEM_FINDINGS = 3;
+const RULE_ORDER: readonly FindingRule[] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+
+/**
+ * S01B part 4d (LLD amendment 52; contract P09): the findings a PDF shows as cards, in every tier, Basic included:
+ * today's limit of at most 3 problem findings and 1 strength. Problems rank by impact (high before medium), then rule
+ * order. With rules a-f alone that is exactly today's choice (a and b are high; c, e and f medium, in that order), so
+ * a report without g-j is unchanged (N15). The rest appear only as actions (Standard and Enhanced) and in the Action
+ * Center, which keeps every finding's item (findingRecommendations reads reportFindings, not this).
+ */
+export function shownFindings(findings: readonly Finding[]): Finding[] {
+  const impact = (f: Finding) => (f.severity.tone === "high" ? 0 : 1);
+  const problems = findings
+    .filter((f) => f.kind !== "strength")
+    .sort(
+      (x, y) => impact(x) - impact(y) || RULE_ORDER.indexOf(x.rule) - RULE_ORDER.indexOf(y.rule),
+    )
+    .slice(0, SHOWN_PROBLEM_FINDINGS);
+  const strength = findings.find((f) => f.kind === "strength");
+  return strength ? [...problems, strength] : problems;
+}
+
 export function reportFindings(data: FindingsData): Finding[] {
   const problems = [
     directoryFinding(data),

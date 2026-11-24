@@ -85,7 +85,7 @@ beforeAll(async () => {
     await sql`INSERT INTO technical_audits (brand_id, organization_id, score_composite, findings)
       VALUES (${brandId}, ${orgId}, '41.00', ${sql.json({ robots: ROBOTS })})`;
     await sql`INSERT INTO brand_entity_scores (brand_id, abn_verified, abn_number, abn_entity_name, abn_status)
-      VALUES (${brandId}, true, '51824753556', 'WATTLE CREEK PTY LTD', 'Active')`;
+      VALUES (${brandId}, true, '51824753557', 'WATTLE CREEK PTY LTD', 'Active')`;
   };
 }, 60_000);
 
@@ -112,7 +112,7 @@ beforeEach(async () => {
     await sql`INSERT INTO technical_audits (brand_id, organization_id, score_composite, findings, created_at)
       VALUES (${fx.brandId}, ${fx.orgId}, '38.00', ${sql.json({ robots: ROBOTS })}, now() - interval '40 days 1 hour')`;
     await sql`INSERT INTO brand_entity_scores (brand_id, abn_verified, abn_number, abn_entity_name, abn_status, checked_at)
-      VALUES (${fx.brandId}, true, '51824753556', 'WATTLE CREEK PTY LTD', 'Active', now() - interval '40 days 1 hour')`;
+      VALUES (${fx.brandId}, true, '51824753557', 'WATTLE CREEK PTY LTD', 'Active', now() - interval '40 days 1 hour')`;
   }
 });
 

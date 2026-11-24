@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lte, ne } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import {
   actionItems,
@@ -73,6 +73,12 @@ export async function loadWhatToDoNext(
     /** Agency and up: the agency's choices, notes, actions and toggles apply (D1). */
     curated: boolean;
     now: Date;
+    /**
+     * S01B part 4: the report being built, when its row is already written (an Enhanced report's contents are built
+     * after its checks run). Never its own "last report": without this, an Enhanced report never had anything "Done
+     * since the last report", because the newest report before `now` was itself.
+     */
+    excludeReportId?: string;
   },
 ): Promise<WhatToDoNext> {
   const { brandId, basisAuditId } = input;
@@ -109,7 +115,11 @@ export async function loadWhatToDoNext(
         .select({ createdAt: generatedReports.createdAt })
         .from(generatedReports)
         .where(
-          and(eq(generatedReports.brandId, brandId), lte(generatedReports.createdAt, input.now)),
+          and(
+            eq(generatedReports.brandId, brandId),
+            lte(generatedReports.createdAt, input.now),
+            input.excludeReportId ? ne(generatedReports.id, input.excludeReportId) : undefined,
+          ),
         )
         .orderBy(desc(generatedReports.createdAt))
         .limit(1),
@@ -138,6 +148,8 @@ export async function loadWhatToDoNext(
       evidence: `${f.recommendation.detail}${suffix}`,
       priority: findingPriority(f),
       status: item ? asStatus(item.status) : "open",
+      // S01B part 4c: the PDF puts this action's pills and note on the finding's own card.
+      findingRule: f.rule,
     };
   });
   // 2. Then the other measured items (a dated check, an owner's own statement), in the audit page's order.

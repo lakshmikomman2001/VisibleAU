@@ -93,7 +93,14 @@ function callerFile(stack: string | undefined): string | null {
     const at = line.toLowerCase().indexOf(root);
     if (at === -1) continue;
     const m = SOURCE_FILE.exec(line.slice(at + root.length));
-    if (m && !m[1].startsWith("node_modules/") && !m[1].includes("no-database")) return m[1];
+    // S01B part 3: the network guard (tests/helpers/no-network-guard.ts) wraps the same connect; it isn't the caller.
+    if (
+      m &&
+      !m[1].startsWith("node_modules/") &&
+      !m[1].includes("no-database") &&
+      !m[1].includes("no-network")
+    )
+      return m[1];
   }
   return null;
 }

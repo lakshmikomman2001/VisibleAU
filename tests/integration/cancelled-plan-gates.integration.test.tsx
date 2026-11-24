@@ -26,6 +26,12 @@ import { ASSERT_TIER_GATES, DIRECT_GATES } from "@/tests/helpers/plan-gates";
 import { solidPng } from "@/tests/helpers/png";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
+// S01B part 3 (LLD amendment 50): the Agent Analytics routes fetch the fixture brand's made-up site (robots.txt,
+// pages) through the guarded fetcher; it answers as a site with nothing on it would (404), never the network.
+vi.mock("@/lib/fetch/guarded-fetch", async (importOriginal) =>
+  (await import("@/tests/helpers/recorded-network")).recordedEmptySite(importOriginal),
+);
+
 const currentUser = vi.hoisted(() => ({ value: null as Record<string, unknown> | null }));
 const captured = vi.hoisted(() => ({
   shell: null as Record<string, unknown> | null,

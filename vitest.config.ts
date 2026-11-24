@@ -19,7 +19,9 @@ export default defineConfig({
           // Unit tests never reach a database, even when an integration file in the same run has loaded
           // .env.test.local into the process they're forked from (9 Nov). Refuses every Postgres connection
           // and fails the test that opened it: tests/helpers/no-database-guard.ts.
-          setupFiles: ["./tests/unit/no-database.setup.ts"],
+          // S01B part 3 (LLD amendment 50): nor the network -- only this machine is reachable
+          // (tests/helpers/no-network-guard.ts).
+          setupFiles: ["./tests/unit/no-database.setup.ts", "./tests/no-network.setup.ts"],
         },
       }),
       defineProject({
@@ -37,6 +39,9 @@ export default defineConfig({
           // 13 Nov, part 6: their own database, visibleau_integration -- never Playwright's visibleau_e2e
           // (tests/helpers/integration-database.ts; global-setup.ts refuses anything else).
           env: integrationProjectEnv(resolve(__dirname, ".env.test.local")),
+          // S01B part 3 (LLD amendment 50): no test reaches the network -- only this machine and the test database's
+          // host are reachable (tests/helpers/no-network-guard.ts).
+          setupFiles: ["./tests/no-network.setup.ts"],
           // Task #46 (7th follow-up): refuses to run against anything
           // but a disposable local DB, fails fast on schema drift, and
           // seeds the shared fixture rows the pre-existing visibleau_prod-

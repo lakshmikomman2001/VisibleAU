@@ -13,6 +13,12 @@ import type { Engine } from "@/lib/llm/interface";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
+// S01B part 3 (LLD amendment 50): the inline runner's recommendation step searches Wikipedia for the business; the
+// search is answered from a recording (no article for an invented name), never the network.
+vi.mock("@/lib/brand-entity/wikipedia-au", async (importOriginal) =>
+  (await import("@/tests/helpers/recorded-network")).recordedWikipedia(importOriginal),
+);
+
 const ORG_ID = randomUUID();
 const INLINE_BRAND = randomUUID();
 const INNGEST_BRAND = randomUUID();

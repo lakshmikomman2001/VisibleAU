@@ -10,13 +10,19 @@ import { resolve } from "path";
 config({ path: resolve(__dirname, "../../../.env.test.local") });
 
 import { eq } from "drizzle-orm";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { actionItems } from "@/db/schema/action-items";
 import { citations } from "@/db/schema/citations";
 import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { CONTEXT_SCORE_MAP } from "@/lib/scoring/constants";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { audits, brands, organizations, seedOrganization, testDb } from "./helpers/test-db";
+
+// S01B part 3 (LLD amendment 50): the inline runner's recommendation step searches Wikipedia for the business; the
+// search is answered from a recording (no article for an invented name), never the network.
+vi.mock("@/lib/brand-entity/wikipedia-au", async (importOriginal) =>
+  (await import("@/tests/helpers/recorded-network")).recordedWikipedia(importOriginal),
+);
 
 // ---------------------------------------------------------------------------
 // K — invisible brands must score ~0, not 13.75.

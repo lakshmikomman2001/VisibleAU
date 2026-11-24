@@ -31,6 +31,12 @@ import {
 import { deleteOrgRows } from "@/tests/helpers/delete-org-rows";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
+// S01B part 3 (LLD amendment 50): the inline runner's recommendation step searches Wikipedia for the business; the
+// search is answered from a recording (no article for an invented name), never the network.
+vi.mock("@/lib/brand-entity/wikipedia-au", async (importOriginal) =>
+  (await import("@/tests/helpers/recorded-network")).recordedWikipedia(importOriginal),
+);
+
 const ORG = randomUUID();
 const QUESTIONS = recordedQuestions();
 let client: ReturnType<typeof postgres>;

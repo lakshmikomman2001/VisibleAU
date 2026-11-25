@@ -1248,7 +1248,8 @@ function EngineRows({ data }: { data: ReportData }) {
               <Text
                 style={{ marginLeft: px(134), marginTop: px(4), fontSize: px(9.5), color: C.low }}
               >
-                {e.failureReason}
+                {/* S01C part 1 (LLD amendment 58): the customer's reason, "a problem on our side". */}
+                Didn't answer: {e.failureReason}
               </Text>
             )}
           </View>

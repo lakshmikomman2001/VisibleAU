@@ -8,6 +8,12 @@
  * everyday answers mention the brand), and a full-engine audit for which
  * nothing may change.
  *
+ * S01C part 1, LLD amendment 58: "Customers see only plain reasons for an engine that failed, stopped or was
+ * skipped: anything on our side (spend limit, quota, credit, billing, keys, rate limits, outages, timeouts, model
+ * errors) reads 'a problem on our side' ... This covers the PDF ..., the client portal, emails and exports." The
+ * note, the trend line and the email give the plain reason; the email no longer prints the operator's "What to
+ * check".
+ *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
@@ -63,7 +69,7 @@ const USAGE_LIMIT =
 const MENTION = "Good local options: Omega Services, a Bondi plumber with fast call-outs.";
 const NONE = "Good local options: Alpha Plumbing and Beta Plumbing.";
 const NOTE =
-  "Based on 3 of 4 engines. Claude returned an error for every question: Provider spend limit reached (a monthly limit set in the provider's console).";
+  "Based on 3 of 4 engines. Claude returned an error for every question: a problem on our side.";
 
 let client: ReturnType<typeof postgres>;
 
@@ -247,16 +253,14 @@ describe("narrative report (1 Nov, item 4)", () => {
     const { coverageLine } = await import("@/lib/reports/report-format");
     const data = await report(BRAND_PARTIAL, PARTIAL);
     expect(data.coverage.note).toBe(NOTE);
-    expect(coverageLine(data)).toBe(
-      "3 of 4 engines · Claude: Provider spend limit reached (a monthly limit set in the provider's console)",
-    );
+    expect(coverageLine(data)).toBe("3 of 4 engines · Claude didn't answer: a problem on our side");
   });
 
   it("#37's week: the trend names #37 as partial and never compares it", async () => {
     const { trendLines } = await import("@/lib/reports/report-format");
     const lines = trendLines(await report(BRAND_PARTIAL));
     expect(lines).toContain(
-      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared.",
+      "Audit #37 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared.",
     );
   });
 
@@ -291,16 +295,15 @@ describe("audit-complete email (1 Nov, item 4)", () => {
     return resend.delivered.slice(before);
   }
 
-  it("#37: the subject says '(3 of 4 engines)'; the body has the reason and what to check", async () => {
+  it("#37: the subject says '(3 of 4 engines)'; the body has the plain reason, no operator steps", async () => {
     const [email] = await sendFor(PARTIAL);
     expect(email.to).toBe(OWNER);
     expect(email.subject).toBe(
       "Audit #37 complete: Omega Services — Visibility 17% (3 of 4 engines)",
     );
     expect(email.text).toContain(NOTE);
-    expect(email.text).toContain(
-      "What to check: Raise the monthly spend limit in the provider's console, or wait for it to reset.",
-    );
+    expect(email.text).not.toContain("What to check");
+    expect(email.text).not.toContain("spend limit");
     expect(email.text).toContain("Drift alerts and the weekly trend leave this audit out.");
     expect(email.text).not.toContain("specified API usage limits");
   });

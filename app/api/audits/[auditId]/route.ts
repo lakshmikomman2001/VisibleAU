@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
 import { audits, citations, engineCallFailures } from "@/db/schema";
 import { getAnsweredCount } from "@/lib/audit/answered-count";
+import { customerEngineReasonLabel } from "@/lib/audit/customer-reasons";
 import { summarizeEngineFailures } from "@/lib/audit/engine-failure";
 import { loadGoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -86,8 +87,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ auditId
         answered,
         failed,
         total: perEngineTotal,
-        /** e.g. "Provider error: account/credit issue"; null with no failures. */
-        failureReason: failure ? failure.reason.label : null,
+        /**
+         * "A problem on our side"; null with no failures. S01C part 1 (LLD amendment 58): the customer's reason,
+         * never the operator's label ("Provider error: account/credit issue").
+         */
+        failureReason: failure ? customerEngineReasonLabel(failure.reason) : null,
       };
     });
     const failedCount = failureRows.length;

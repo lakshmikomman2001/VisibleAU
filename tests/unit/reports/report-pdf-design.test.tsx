@@ -154,15 +154,16 @@ describe("valid details, never placeholders", () => {
 });
 
 describe("the partial-engine audit (#37)", () => {
+  // S01C part 1, LLD amendment 58: "The real reports printed 'Claude: provider spend limit reached' under the
+  // over-time chart; it now reads 'Claude didn't answer: a problem on our side'" -- and so does every other place
+  // the PDF gives the reason.
   it("says 3 of 4 engines, with the plain reason, next to the headline", () => {
     const p = pages(reportDataFixture("37"));
     expect(p[0]).toContain("3 of 4 engines answered");
     expect(p[1]).toContain(
-      "This audit is based on 3 of 4 engines. Claude returned an error for all 13 questions (provider spend limit reached), so its answers aren't counted. Visibility uses the 30 answers from ChatGPT, Gemini and Perplexity.",
+      "This audit is based on 3 of 4 engines. Claude returned an error for all 13 questions (a problem on our side), so its answers aren't counted. Visibility uses the 30 answers from ChatGPT, Gemini and Perplexity.",
     );
-    expect(p[2]).toContain(
-      "Provider spend limit reached (a monthly limit set in the provider's console)",
-    );
+    expect(p[2]).toContain("Didn't answer: a problem on our side");
   });
 });
 
@@ -312,7 +313,8 @@ describe("over time", () => {
   it("below the minimum: the measured figures and 'not enough comparable audits', no verdict", () => {
     const p = pages(reportDataFixture("39"));
     expect(p[5]).toContain(
-      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+      // S01C part 1, LLD amendment 58 (quoted above): the plain reason.
+      "Audit #37 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
     );
   });
 

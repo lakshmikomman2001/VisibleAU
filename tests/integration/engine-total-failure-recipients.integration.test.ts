@@ -184,13 +184,17 @@ describe("the whole-engine-failure alert reaches owners and admins (1 Nov, item 
       "[Omega Services] Claude returned an error for every question in Audit #37",
     );
     expect(admin?.text).toContain("You're an owner or admin of this organisation");
-    // Item 1: #37's real cause, by its plain reason -- never the provider's sentence.
-    expect(admin?.text).toContain(
-      "Provider spend limit reached (a monthly limit set in the provider's console)",
-    );
+    // Item 1: #37's real cause, by its plain reason -- never the provider's sentence. S01C part 1, LLD amendment
+    // 58: "Customers see only plain reasons ... anything on our side (spend limit, ...) reads 'a problem on our
+    // side'; operator pages keep the detail": the org copy says "A problem on our side", the operator copy the cause.
+    expect(admin?.text).toContain("A problem on our side");
+    expect(admin?.text).not.toContain("spend limit");
     expect(admin?.text).not.toContain("specified API usage limits");
     const operator = delivered.find((d) => d.to === OPERATOR);
     expect(operator?.subject).toMatch(/^\[ops\] /);
+    expect(operator?.text).toContain(
+      "Provider spend limit reached (a monthly limit set in the provider's console)",
+    );
   });
 
   it("a replay (Inngest re-running the function) sends no second copy", async () => {

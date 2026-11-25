@@ -1,3 +1,5 @@
+import { PROBLEM_ON_OUR_SIDE } from "@/lib/audit/customer-reasons";
+
 /**
  * Part 14 (Sri, 13 Nov): what Vunnara pays its providers -- LLM spend, provider usage, DataForSEO's cost,
  * any per-audit or per-feature cost -- is for operators only, and only on /admin pages (lib/admin/costs.ts).
@@ -38,13 +40,22 @@ export const DAILY_LIMIT_CUSTOMER_MESSAGE =
   "Today's audit limit for this workspace is reached. Audits resume after midnight (Sydney time).";
 
 /**
+ * S01C part 1 (LLD amendment 58): the question generator's own failure. Its stored error ends with the model call's
+ * message in brackets ("... before running the audit (HTTP 400 invalid_request_error: You have reached your
+ * specified API usage limits ...)"), which is on our side; the customer gets the plain reason.
+ */
+export const QUESTIONS_NOT_REFRESHED_CUSTOMER_MESSAGE = `Could not refresh this brand's questions before running the audit (${PROBLEM_ON_OUR_SIDE}).`;
+
+/**
  * A failed audit's stored error, as a customer may read it. An audit stopped by the daily spending limit
  * stored the limit's amounts (before 13 Nov in the message itself); those audits read the customer wording.
+ * A reason about the customer's own setup (an unconfirmed business type) is kept as it is.
  */
 export function customerAuditError(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const { error, errorCode } = metadata as { error?: unknown; errorCode?: unknown };
   if (errorCode === "DailySpendCapExceededError") return DAILY_LIMIT_CUSTOMER_MESSAGE;
+  if (errorCode === "PromptPackGenerationError") return QUESTIONS_NOT_REFRESHED_CUSTOMER_MESSAGE;
   if (typeof error !== "string") return null;
   if (/^Daily spending limit reached/.test(error)) return DAILY_LIMIT_CUSTOMER_MESSAGE;
   return error;

@@ -10,6 +10,11 @@
  * client portal. And diag-0108's message_category, run in PostgreSQL,
  * agrees with the TypeScript on every sample.
  *
+ * S01C part 1, LLD amendment 58: "Customers see only plain reasons ... anything on our side (... rate limits ...)
+ * reads 'a problem on our side'; operator pages keep the detail." The banner, the owner's copy of the email and the
+ * portal give the plain reason; the operator's copy keeps the rate-limit label and what to check, and still never
+ * says "check billing".
+ *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { randomUUID } from "node:crypto";
@@ -141,8 +146,9 @@ describe("Gemini's 429 RESOURCE_EXHAUSTED ('check your plan and billing details'
     expect(banner.textContent).toContain(
       "Gemini returned an error for all 13 questions, so this audit's Visibility is based on 3 engines (30 answers).",
     );
-    expect(banner.textContent).toContain(LABEL);
-    expect(banner.textContent).toContain(CHECK);
+    expect(banner.textContent).toContain("Why: a problem on our side.");
+    expect(banner.textContent).not.toContain(LABEL);
+    expect(banner.textContent).not.toContain(CHECK);
     expect(banner.textContent).not.toContain("account/credit");
     expect(banner.textContent).not.toMatch(/billing/i);
   });
@@ -159,6 +165,7 @@ describe("Gemini's 429 RESOURCE_EXHAUSTED ('check your plan and billing details'
       {
         engine: "gemini",
         reasonLabel: LABEL,
+        customerReason: "A problem on our side",
         reasonCheck: CHECK,
         errorClass: "rate_limited",
         statusCode: 429,
@@ -175,9 +182,11 @@ describe("Gemini's 429 RESOURCE_EXHAUSTED ('check your plan and billing details'
       audience: "operator",
       auditUrl: "https://example.test/audits/41",
     });
-    expect(owner.text).toContain(LABEL);
-    expect(owner.text).toContain(CHECK);
+    expect(owner.text).toContain("A problem on our side");
+    expect(owner.text).not.toContain(LABEL);
+    expect(owner.text).not.toContain(CHECK);
     expect(operator.text).toContain(`${LABEL} (rate_limited, HTTP 429)`);
+    expect(operator.text).toContain(CHECK);
     for (const email of [owner, operator]) {
       expect(email.text).not.toContain("account/credit");
       expect(email.text).not.toContain("Check billing");
@@ -191,8 +200,9 @@ describe("Gemini's 429 RESOURCE_EXHAUSTED ('check your plan and billing details'
       await Page({ params: Promise.resolve({ inviteToken: TOKEN }) }),
     );
     expect(html).toContain(
-      `Based on 3 of 4 engines. Gemini returned an error for every question: ${LABEL}.`,
+      "Based on 3 of 4 engines. Gemini returned an error for every question: a problem on our side.",
     );
+    expect(html).not.toContain(LABEL);
     expect(html).not.toContain("account/credit");
     expect(html).not.toContain("check your plan");
   });

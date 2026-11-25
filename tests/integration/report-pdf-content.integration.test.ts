@@ -246,6 +246,9 @@ describe("the W44 report PDF says what the audit pages say", () => {
     }
   });
 
+  // S01C part 1, LLD amendment 58: "The real reports printed 'Claude: provider spend limit reached' under the
+  // over-time chart; it now reads 'Claude didn't answer: a problem on our side'" -- and so does the summary's
+  // sentence and the cover's coverage line.
   it("shows the trend as measured, marks #37 as not comparable, and makes no trend claim below the minimum", () => {
     // The chart's point labels, and each audit's label under it.
     for (const label of ["17%", "23%", "18%"]) expect(w44.text).toContain(label);
@@ -253,7 +256,7 @@ describe("the W44 report PDF says what the audit pages say", () => {
     expect(w44.text).toContain("Audit #38 · 1 Nov\n4 of 4 engines");
     expect(w44.text).toContain("Audit #39 · 1 Nov\n4 of 4 engines");
     expect(w44.text).toContain(
-      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
+      "Audit #37 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared. Not enough comparable audits for a trend yet (minimum 3); figures are shown as measured, without a trend claim.",
     );
   });
 
@@ -272,12 +275,10 @@ describe("the W44 report PDF says what the audit pages say", () => {
     expect(text).toContain("95% CI 7–34%");
     expect(text).toContain("3 of 4 engines answered");
     expect(text).toContain(
-      "This audit is based on 3 of 4 engines. Claude returned an error for all 13 questions (provider spend limit reached), so its answers aren't counted. Visibility uses the 30 answers from ChatGPT, Gemini and Perplexity.",
+      "This audit is based on 3 of 4 engines. Claude returned an error for all 13 questions (a problem on our side), so its answers aren't counted. Visibility uses the 30 answers from ChatGPT, Gemini and Perplexity.",
     );
     expect(text).toContain("Claude\nNot counted\n13 errors");
-    expect(text).toContain(
-      "3 of 4 engines · Claude: Provider spend limit reached (a monthly limit set in the provider's console)",
-    );
+    expect(text).toContain("3 of 4 engines · Claude didn't answer: a problem on our side");
   });
 });
 

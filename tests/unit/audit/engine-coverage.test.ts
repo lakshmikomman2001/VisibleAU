@@ -2,6 +2,11 @@
  * Engine-failure follow-ups (1 Nov), item 4 -- the shared "3 of 4
  * engines" note every client-facing surface shows, and the PDF's
  * like-for-like caveat.
+ *
+ * S01C part 1, LLD amendment 58: "Customers see only plain reasons for an engine that failed, stopped or was
+ * skipped: anything on our side (spend limit, quota, credit, billing, keys, rate limits, outages, timeouts, model
+ * errors) reads 'a problem on our side'; operator pages keep the detail." The note is the customer's; the checks
+ * stay the operator's.
  */
 import { describe, expect, it } from "vitest";
 import { engineCoverageChecks, engineCoverageFrom } from "@/lib/audit/engine-coverage";
@@ -26,7 +31,7 @@ describe("engineCoverageFrom", () => {
       enginesAnswered: 3,
       fullyFailedEngines: ["claude"],
       label: "3 of 4 engines",
-      note: "Based on 3 of 4 engines. Claude returned an error for every question: Provider spend limit reached (a monthly limit set in the provider's console).",
+      note: "Based on 3 of 4 engines. Claude returned an error for every question: a problem on our side.",
     });
     expect(engineCoverageChecks(c)).toEqual([
       "Raise the monthly spend limit in the provider's console, or wait for it to reset.",
@@ -34,7 +39,7 @@ describe("engineCoverageFrom", () => {
     expect(JSON.stringify(c)).not.toContain("specified API usage limits");
   });
 
-  it("two engines with different reasons: each named", () => {
+  it("two engines with different operator reasons: one plain reason for both (amendment 58)", () => {
     const c = engineCoverageFrom(
       {
         engines: ENGINES,
@@ -48,7 +53,7 @@ describe("engineCoverageFrom", () => {
     );
     expect(c.label).toBe("2 of 4 engines");
     expect(c.note).toBe(
-      "Based on 2 of 4 engines. Claude and Gemini returned an error for every question. Claude: Provider spend limit reached (a monthly limit set in the provider's console). Gemini: Provider error: API key rejected.",
+      "Based on 2 of 4 engines. Claude and Gemini returned an error for every question: a problem on our side.",
     );
     expect(engineCoverageChecks(c)).toHaveLength(2);
   });

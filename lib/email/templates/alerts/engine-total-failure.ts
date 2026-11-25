@@ -1,3 +1,4 @@
+import { customerEngineReasonLabel } from "@/lib/audit/customer-reasons";
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import { type RenderedEmail, renderEmail } from "../layout";
@@ -6,8 +7,13 @@ const ENGINE_NAMES: Record<string, string> = { ...ENGINE_DISPLAY_NAMES };
 
 export interface EngineTotalFailureEmailEngine {
   engine: string;
-  /** e.g. "Provider error: account/credit issue". */
+  /** e.g. "Provider error: account/credit issue": the operator copy's reason. */
   reasonLabel: string;
+  /**
+   * "A problem on our side": the org copy's (S01C part 1, LLD amendment 58). Optional: an alert found by a step
+   * that ran before S01C was pushed has none, and its org copy still gets the plain reason.
+   */
+  customerReason?: string;
   reasonCheck: string;
   errorClass: string;
   statusCode: number | null;
@@ -19,7 +25,9 @@ export interface EngineTotalFailureEmailEngine {
  * follow-ups, 1 Nov, item 3), the "operator" copy to PLATFORM_ADMIN_EMAILS.
  * Never carries a provider's raw message: the reason is
  * lib/audit/engine-failure.ts's plain label, and the operator copy adds
- * only the error class and HTTP status.
+ * only the error class and HTTP status. S01C part 1 (LLD amendment 58): the
+ * org copy gives only the customer's reason ("A problem on our side"), not the
+ * operator's label or its "what to check" steps; the operator copy keeps both.
  */
 export function engineTotalFailureEmail(i: {
   audience: "org" | "operator";
@@ -35,9 +43,9 @@ export function engineTotalFailureEmail(i: {
     ENGINE_NAMES[e.engine] ?? e.engine,
     i.audience === "operator"
       ? `${e.reasonLabel} (${e.errorClass}${e.statusCode !== null ? `, HTTP ${e.statusCode}` : ""})`
-      : e.reasonLabel,
+      : (e.customerReason ?? customerEngineReasonLabel(null)),
   ]);
-  const checks = [...new Set(i.engines.map((e) => e.reasonCheck))];
+  const checks = i.audience === "operator" ? [...new Set(i.engines.map((e) => e.reasonCheck))] : [];
   return renderEmail({
     category: "alert",
     subject: `${i.audience === "operator" ? "[ops] " : ""}[${i.brandName}] ${who} returned an error for every question in Audit #${i.auditNumber}`,

@@ -10,6 +10,7 @@ import {
   engineTotalFailureEmail,
 } from "@/lib/email/templates/alerts/engine-total-failure";
 import { resolveAuditDimensionsAndHeadline } from "@/lib/scoring/resolve-audit-dimensions";
+import { customerEngineReasonLabel } from "./customer-reasons";
 import {
   describeEngineFailure,
   engineTotalFailureSentence,
@@ -118,6 +119,7 @@ export async function findEngineTotalFailures(
     return {
       engine,
       reasonLabel: reason.label,
+      customerReason: customerEngineReasonLabel(reason),
       reasonCheck: reason.check,
       errorClass,
       statusCode,

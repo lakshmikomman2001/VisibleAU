@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands } from "@/db/schema";
-import { engineCoverageChecks, resolveEngineCoverage } from "@/lib/audit/engine-coverage";
+import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { googleSurfaceBlock, loadGoogleSurfaceSummary } from "@/lib/audit/google-surfaces/summary";
 import { appUrl } from "@/lib/email/links";
 import { resolveNotificationRecipients } from "@/lib/email/recipients";
@@ -47,8 +47,9 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         auditId,
       );
       // Engine-failure follow-ups (1 Nov), item 4: a whole engine failed --
-      // "(3 of 4 engines)" in the subject, the banner's reason and "What to
-      // check" in the body. Null for a full-engine audit (no change).
+      // "(3 of 4 engines)" in the subject and the plain reason in the body
+      // (S01C part 1: no operator "What to check"). Null for a full-engine
+      // audit (no change).
       const coverage = await resolveEngineCoverage(serviceDb, audit);
       // Google AI surfaces (Phase 1, part 3): only for an audit that ran with Google; absent otherwise.
       const googleSummary = await loadGoogleSurfaceSummary(serviceDb, auditId);
@@ -62,9 +63,7 @@ export const sendAuditCompleteEmail = inngest.createFunction(
         mentionedCount,
         completedAt: audit.completedAt?.toISOString() ?? null,
         engineCoverage:
-          coverage.label && coverage.note
-            ? { label: coverage.label, note: coverage.note, checks: engineCoverageChecks(coverage) }
-            : null,
+          coverage.label && coverage.note ? { label: coverage.label, note: coverage.note } : null,
         ...(googleLines
           ? { google: { labelLine: googleLines.labelLine, lines: googleLines.lines } }
           : {}),

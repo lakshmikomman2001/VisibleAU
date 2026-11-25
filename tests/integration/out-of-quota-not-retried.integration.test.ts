@@ -116,7 +116,10 @@ describe("an OpenAI account out of quota, through the inline runner (1 Nov)", ()
     ).toEqual(["chatgpt"]);
   });
 
-  it("the whole-engine-failure alert still fires, with the credit/quota reason in its email", async () => {
+  // S01C part 1, LLD amendment 58: "Customers see only plain reasons ... anything on our side (spend limit, quota,
+  // credit, billing, ...) reads 'a problem on our side'; operator pages keep the detail." The org copy gives the
+  // plain reason; the operator copy keeps the credit/quota reason and what to check.
+  it("the whole-engine-failure alert still fires: the credit/quota reason in the operator copy, the plain reason in the org's", async () => {
     const alert = await findEngineTotalFailures(AUDIT_ID);
     expect(alert).not.toBeNull();
     if (!alert) return;
@@ -124,6 +127,7 @@ describe("an OpenAI account out of quota, through the inline runner (1 Nov)", ()
       {
         engine: "chatgpt",
         reasonLabel: CREDIT_LABEL,
+        customerReason: "A problem on our side",
         reasonCheck: CREDIT_CHECK,
         errorClass: "other",
         statusCode: 429,
@@ -134,7 +138,15 @@ describe("an OpenAI account out of quota, through the inline runner (1 Nov)", ()
       audience: "org",
       auditUrl: "https://example.test/audits/1",
     });
-    expect(email.text).toContain(CREDIT_LABEL);
-    expect(email.text).toContain(CREDIT_CHECK);
+    expect(email.text).toContain("A problem on our side");
+    expect(email.text).not.toContain(CREDIT_LABEL);
+    expect(email.text).not.toContain(CREDIT_CHECK);
+    const operator = engineTotalFailureEmail({
+      ...alert,
+      audience: "operator",
+      auditUrl: "https://example.test/audits/1",
+    });
+    expect(operator.text).toContain(CREDIT_LABEL);
+    expect(operator.text).toContain(CREDIT_CHECK);
   });
 });

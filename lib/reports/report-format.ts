@@ -1,3 +1,4 @@
+import { customerNoAnswerClause } from "@/lib/audit/customer-reasons";
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { PRODUCT_NAME } from "@/lib/product";
 import { MIN_SUCCESSFUL_ANSWERS_FOR_HEADLINE } from "@/lib/scoring/dimension-result";
@@ -72,12 +73,15 @@ export function headlineFigures(data: ReportData): HeadlineFigures {
   };
 }
 
-/** "4 of 4 engines", or "3 of 4 engines · Claude: Provider spend limit reached (…)". */
+/**
+ * "4 of 4 engines", or "3 of 4 engines · Claude didn't answer: a problem on our side" (S01C part 1, LLD amendment
+ * 58: it gave the operator's reason, "Claude: Provider spend limit reached (…)").
+ */
 export function coverageLine(data: ReportData): string {
   const base = `${data.coverage.enginesAnswered} of ${data.coverage.enginesPlanned} ${plural(data.coverage.enginesPlanned, "engine")}`;
   const failed = data.engines.filter((e) => e.fullyFailed);
   if (failed.length === 0) return base;
-  return `${base} · ${failed.map((e) => `${e.name}: ${e.failureReason ?? "every call failed"}`).join(" · ")}`;
+  return `${base} · ${customerNoAnswerClause(failed.map((e) => ({ name: e.name, reason: e.failureReason ?? "every call failed" })))}`;
 }
 
 /** The engines that answered, as "ChatGPT, Gemini and Perplexity". */
@@ -126,15 +130,23 @@ export function relevantCitedDirectories(
   return citedDirectories(data).filter((r) => r.relevantToBrand !== false);
 }
 
-/** A failure reason inside a sentence: "provider spend limit reached" (its parenthetical dropped). */
+/**
+ * A failure reason inside a sentence, its parenthetical dropped. Reports built since S01C part 1 hold the plain
+ * reason already ("a problem on our side"); a snapshot written before keeps what it printed.
+ */
 function reasonInSentence(label: string): string {
   const short = label.replace(/\s*\([^)]*\)\s*$/, "");
   return short.charAt(0).toLowerCase() + short.slice(1);
 }
 
-/** "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared." */
+/**
+ * "Audit #47 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared."
+ * S01C part 1 (LLD amendment 58): the real reports printed "(Claude: provider spend limit reached)".
+ */
 export function partialTrendLine(p: ReportTrendPoint): string {
-  const why = p.failedEngines.map((f) => `${f.name}: ${reasonInSentence(f.reason)}`).join("; ");
+  const why = customerNoAnswerClause(
+    p.failedEngines.map((f) => ({ name: f.name, reason: reasonInSentence(f.reason) })),
+  );
   return `Audit #${p.auditNumber} used ${p.enginesAnswered} of ${p.enginesPlanned} ${plural(p.enginesPlanned, "engine")}${why ? ` (${why})` : ""}, so it's shown but not compared.`;
 }
 

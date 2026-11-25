@@ -1,9 +1,6 @@
 import { TriangleAlert } from "lucide-react";
-import {
-  type EngineFailureReason,
-  engineNameList,
-  engineTotalFailureSentence,
-} from "@/lib/audit/engine-failure";
+import { customerEngineReason } from "@/lib/audit/customer-reasons";
+import { type EngineFailureReason, engineTotalFailureSentence } from "@/lib/audit/engine-failure";
 
 export interface FullyFailedEngine {
   engine: string;
@@ -17,6 +14,13 @@ export interface FullyFailedEngine {
  * print next to a normal-looking 17%. The reason comes from
  * lib/audit/engine-failure.ts (error class, status code, a fixed list of
  * message patterns) -- never the provider's raw message.
+ *
+ * S01C part 1 (LLD amendment 58): customers see only the plain reason
+ * ("a problem on our side"). The banner printed the operator's label
+ * ("Provider spend limit reached (a monthly limit set in the provider's
+ * console)") and, under "What to check", the operator's steps ("Raise the
+ * monthly spend limit in the provider's console"); the operator copy of the
+ * whole-engine failure email keeps them.
  */
 export function EngineTotalFailureBanner({
   failedEngines,
@@ -30,16 +34,7 @@ export function EngineTotalFailureBanner({
   answerCount: number;
 }) {
   if (failedEngines.length === 0) return null;
-  // One line per distinct reason, naming the engines it applies to.
-  const byReason = new Map<string, { reason: EngineFailureReason; engines: string[] }>();
-  for (const f of failedEngines) {
-    const entry = byReason.get(f.reason.key) ?? { reason: f.reason, engines: [] };
-    entry.engines.push(f.engine);
-    byReason.set(f.reason.key, entry);
-  }
-  const reasons = [...byReason.values()];
-  const prefix = (engines: string[]) =>
-    failedEngines.length > 1 ? `${engineNameList(engines)}: ` : "";
+  const reasons = [...new Set(failedEngines.map((f) => customerEngineReason(f.reason)))];
   return (
     <div
       role="alert"
@@ -68,23 +63,9 @@ export function EngineTotalFailureBanner({
             answerCount,
           })}
         </p>
-        {reasons.map(({ reason, engines }) => (
-          <p key={reason.key} style={{ margin: "4px 0 0", color: "var(--text-secondary)" }}>
-            {prefix(engines)}
-            {reason.label}
-          </p>
-        ))}
-        <details style={{ marginTop: 8 }}>
-          <summary style={{ cursor: "pointer", color: "var(--accent-blue)", fontWeight: 500 }}>
-            What to check
-          </summary>
-          {reasons.map(({ reason, engines }) => (
-            <p key={reason.key} style={{ margin: "6px 0 0", color: "var(--text-secondary)" }}>
-              {prefix(engines)}
-              {reason.check} Drift alerts and the weekly trend leave this audit out.
-            </p>
-          ))}
-        </details>
+        <p style={{ margin: "4px 0 0", color: "var(--text-secondary)" }} data-engine-failure-why>
+          Why: {reasons.join("; ")}. Drift alerts and the weekly trend leave this audit out.
+        </p>
       </div>
     </div>
   );

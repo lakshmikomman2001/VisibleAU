@@ -168,6 +168,10 @@ async function pollBody(auditId: string) {
   return { raw: await res.clone().text(), body: await res.json() };
 }
 
+// S01C part 1, LLD amendment 58: "Customers see only plain reasons for an engine that failed, stopped or was skipped:
+// anything on our side (spend limit, quota, credit, billing, keys, ...) reads 'a problem on our side'; operator pages
+// keep the detail. This covers ... the audit page ..." The poll data, the running page and the banner say it; the
+// banner no longer has the operator's "What to check".
 describe("running page: answered and failed are separate", () => {
   it("the poll endpoint: Claude 0 answered, 13 failed, a plain reason -- never the message", async () => {
     const { raw, body } = await pollBody(RUNNING);
@@ -178,7 +182,7 @@ describe("running page: answered and failed are separate", () => {
       answered: 0,
       failed: 13,
       total: 13,
-      failureReason: "Provider error: account/credit issue",
+      failureReason: "A problem on our side",
     });
     expect(chatgpt).toMatchObject({ answered: 13, failed: 0, failureReason: null });
     expect(body.failedCount).toBe(13);
@@ -232,7 +236,7 @@ describe("running page: answered and failed are separate", () => {
     expect(failed.textContent).toContain("13 failed");
     expect(failed.style.color).toBe("var(--danger)");
     const reason = claudeRow.querySelector("[data-failure-reason]") as HTMLElement;
-    expect(reason.textContent).toBe("Provider error: account/credit issue");
+    expect(reason.textContent).toBe("A problem on our side");
     expect(reason.style.color).toBe("var(--danger)");
 
     const chatgptRow = container.querySelector('[data-engine-row="chatgpt"]') as HTMLElement;
@@ -269,8 +273,9 @@ describe("finished page: a banner above the headline", () => {
     expect(banner.textContent).toContain(
       "Claude returned an error for all 13 questions, so this audit's Visibility is based on 3 engines (30 answers).",
     );
-    expect(banner.textContent).toContain("Provider error: account/credit issue");
-    expect(within(banner).getByText("What to check")).toBeInTheDocument();
+    expect(banner.textContent).toContain("Why: a problem on our side.");
+    expect(banner.textContent).not.toContain("account/credit");
+    expect(within(banner).queryByText("What to check")).toBeNull();
     // Above the headline: the banner comes before the "Visibility" label.
     const html = document.body.innerHTML;
     expect(html.indexOf("data-engine-total-failure")).toBeLessThan(html.indexOf(">Visibility<"));

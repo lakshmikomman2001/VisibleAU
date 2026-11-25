@@ -21,7 +21,9 @@ const MODELS: Record<string, string> = {
   gemini: "gemini-2.5-flash",
   perplexity: "sonar",
 };
-const SPEND_LIMIT = "Provider spend limit reached (a monthly limit set in the provider's console)";
+// S01C part 1 (LLD amendment 58): report data holds the customer's plain reason for an engine that didn't answer
+// (lib/reports/report-data.ts), never the operator's label ("Provider spend limit reached (a monthly limit ...)").
+const SPEND_LIMIT = "a problem on our side";
 
 function engines(
   mentions: Record<string, number[]>,

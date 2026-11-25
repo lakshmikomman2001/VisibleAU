@@ -277,7 +277,10 @@ function silentEngineFinding(data: FindingsData): Finding | null {
   };
 }
 
-/** "Provider spend limit reached (a monthly limit ...)" -> "provider spend limit reached". */
+/**
+ * The reason inside the evidence line, its parenthetical dropped: "a problem on our side" for reports built since
+ * S01C part 1 (LLD amendment 58), whose engine rows hold the customer's reason, never the operator's label.
+ */
 function shortReason(reason: string | null): string {
   if (!reason) return "every call failed";
   const head = reason.split(" (")[0];
@@ -296,7 +299,8 @@ function failedEngineFinding(data: FindingsData): Finding | null {
     kind: "watch",
     icon: "failed",
     title: `${names} couldn't be measured this time`,
-    explanation: `Every ${names} request failed for a provider reason, so we don't yet know how ${failed.length === 1 ? names : "they"} ${failed.length === 1 ? "sees" : "see"} you.`,
+    // S01C part 1 (LLD amendment 58): "failed for a provider reason" told the client about our provider accounts.
+    explanation: `Every ${names} request failed because of a problem on our side, so we don't yet know how ${failed.length === 1 ? names : "they"} ${failed.length === 1 ? "sees" : "see"} you.`,
     severity: RERUN,
     evidenceLabel: "Evidence · engine coverage",
     evidence: failed.map((e, i) => [

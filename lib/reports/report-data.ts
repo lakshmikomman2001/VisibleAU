@@ -8,6 +8,7 @@ import {
   citations,
   engineCallFailures,
 } from "@/db/schema";
+import { customerEngineReason } from "@/lib/audit/customer-reasons";
 import { resolveEngineCoverage } from "@/lib/audit/engine-coverage";
 import { engineCoverageLabel, fullyFailedEngines } from "@/lib/audit/engine-failure";
 import {
@@ -97,7 +98,10 @@ export interface ReportEngineRow {
   failedCount: number;
   /** Every one of this engine's calls failed. */
   fullyFailed: boolean;
-  /** The plain reason (describeEngineFailure's label) when fullyFailed. */
+  /**
+   * The customer's plain reason when fullyFailed ("a problem on our side"; S01C part 1, LLD amendment 58: it was
+   * describeEngineFailure's operator label, "Provider spend limit reached (...)").
+   */
   failureReason: string | null;
   /** Model ids this engine answered with, from the audit's own answers. */
   models: string[];
@@ -163,8 +167,8 @@ export interface ReportTrendPoint {
   /** A provider answered this audit with another model than the one asked for, e.g. "Perplexity answered
    * with sonar instead of sonar-pro (12 of 13 answers)": drawn hollow, never compared. Null when none did. */
   modelDrift: string | null;
-  /** The engines that answered nothing, with the plain reason
-   * (describeEngineFailure's label); empty unless partial. */
+  /** The engines that answered nothing, with the customer's plain reason
+   * (customerEngineReason, S01C part 1); empty unless partial. */
   failedEngines: Array<{ name: string; reason: string }>;
   /**
    * 15 Nov, part 2 (Sri, Hero's #48 and #50): asked other everyday questions than the basis audit
@@ -658,7 +662,7 @@ export async function basisAuditEvidence(
         .length,
       failedCount: failureRows.filter((r) => r.engine === engine).length,
       fullyFailed: fullyFailed.has(engine),
-      failureReason: failure ? failure.reason.label : null,
+      failureReason: failure ? customerEngineReason(failure.reason) : null,
       models: [
         ...new Set(
           answerRows
@@ -927,7 +931,7 @@ export async function buildReportData(
       modelDrift: driftOf(a).length > 0 ? driftOf(a).map(modelDriftNote).join("; ") : null,
       failedEngines: (trendCoverage.get(a.id)?.failures ?? []).map((f) => ({
         name: engineName(f.engine),
-        reason: f.reason.label,
+        reason: customerEngineReason(f.reason),
       })),
       otherQuestions: !sameQuestions(a),
       questionsChange: questionNotes.get(a.id) ?? null,

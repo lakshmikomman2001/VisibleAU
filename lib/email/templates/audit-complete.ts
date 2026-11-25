@@ -17,10 +17,13 @@ export interface AuditCompleteEmailInput {
   /**
    * Engine-failure follow-ups (1 Nov), item 4 (lib/audit/engine-coverage.ts):
    * set only when a whole engine failed -- the subject says "(3 of 4
-   * engines)", and the body carries the audit page banner's reason and
-   * "What to check". Absent or null: the email is unchanged.
+   * engines)", and the body carries the plain reason. Absent or null: the
+   * email is unchanged. S01C part 1 (LLD amendment 58): the body no longer
+   * prints the operator's "What to check" steps ("Raise the monthly spend
+   * limit in the provider's console"); customers aren't asked to act on our
+   * provider accounts.
    */
-  engineCoverage?: { label: string; note: string; checks: string[] } | null;
+  engineCoverage?: { label: string; note: string } | null;
   /**
    * Google AI surfaces (Phase 1, part 3): the audit's Google Search AI lines, only when it ran with Google
    * (lib/audit/google-surfaces/summary.ts). Absent or null: the email is unchanged.
@@ -64,7 +67,6 @@ export function auditCompleteEmail(i: AuditCompleteEmailInput): RenderedEmail {
       ...(coverage
         ? [
             { kind: "paragraph" as const, text: coverage.note },
-            { kind: "paragraph" as const, text: `What to check: ${coverage.checks.join(" ")}` },
             { kind: "note" as const, text: LEFT_OUT_LINE },
           ]
         : []),

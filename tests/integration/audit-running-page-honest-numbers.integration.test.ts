@@ -252,13 +252,15 @@ describe("GET /api/audits/[auditId] -- real per-engine progress, failures counte
     );
     // URGENT audit #37 (31 Oct), item 2: answered and failed are separate,
     // with a plain reason for the failures -- done is still their sum.
+    // S01C part 1, LLD amendment 58: "anything on our side (... outages, timeouts, model errors) reads 'a problem
+    // on our side'" -- the customer's reason, not the operator's "Timed out".
     expect(byEngine.get("chatgpt")).toEqual({
       engine: "chatgpt",
       done: 9,
       answered: 7,
       failed: 2,
       total: 13,
-      failureReason: "Timed out",
+      failureReason: "A problem on our side",
     });
     const clean = (engine: string, answered: number) => ({
       engine,

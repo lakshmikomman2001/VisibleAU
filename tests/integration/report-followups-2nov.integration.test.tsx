@@ -64,7 +64,10 @@ type Handler = (ctx: {
 
 /** Mon 2 Nov 2026, 7:13 pm AEDT -- when Sri clicked "Generate report". */
 const MONDAY_EVENING = new Date("2026-11-02T08:13:00Z");
-const SPEND_LIMIT = "Provider spend limit reached (a monthly limit set in the provider's console)";
+// S01C part 1, LLD amendment 58: "The real reports printed 'Claude: provider spend limit reached' under the over-time
+// chart; it now reads 'Claude didn't answer: a problem on our side'" -- the report's trend points hold the customer's
+// plain reason.
+const SPEND_LIMIT = "a problem on our side";
 
 /** Earlier full audits, same question pack and methodology: #30-#32 in Week 43, #33-#36 in Week 44. */
 const EARLIER: FixtureAuditSpec[] = [
@@ -293,7 +296,7 @@ describe("1. the report's week", () => {
     const trend = trendPage(pages);
     expect(trend).toContain("Audit #37\n31 Oct\n○ 3 of 4 engines");
     expect(trend).toContain(
-      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared.",
+      "Audit #37 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared.",
     );
     expect(trendChartHollow(root)).toEqual([false, false, false, false, false, true, false, false]);
   }, 180_000);
@@ -349,7 +352,7 @@ describe("2. partial audits in the trend", () => {
     const trend = trendPage(collectPdfPages(root));
     expect(trend).toContain("Audit #37\n31 Oct\n○ 3 of 4 engines");
     expect(trend).toContain(
-      "Audit #37 used 3 of 4 engines (Claude: provider spend limit reached), so it's shown but not compared. The chart shows the latest 8 audits; 2 earlier audits are left out. From Audit #32 to #39 the change is within the margin of error: their 95% confidence intervals overlap.",
+      "Audit #37 used 3 of 4 engines (Claude didn't answer: a problem on our side), so it's shown but not compared. The chart shows the latest 8 audits; 2 earlier audits are left out. From Audit #32 to #39 the change is within the margin of error: their 95% confidence intervals overlap.",
     );
   });
 });

@@ -1,3 +1,4 @@
+import { PROBLEM_ON_OUR_SIDE as OUR_SIDE } from "@/lib/audit/customer-reasons";
 import type { GoogleOutcome } from "@/lib/audit/google-surfaces/summary";
 import {
   dataForSeoErrorCategory,
@@ -37,8 +38,8 @@ export const GOOGLE_STORED_REASON = {
     `Not sent: the provider answered ${code} (${GOOGLE_PROVIDER_ERROR_LABELS[category]}) earlier in this audit, so the rest weren't sent.`,
 } as const;
 
-const PROBLEM_ON_OUR_SIDE =
-  "Google couldn't be checked this time because of a problem on our side. It will be checked again on the next audit.";
+// S01C part 1 (LLD amendment 58): the engines' plain reason is the same words (lib/audit/customer-reasons.ts).
+const PROBLEM_ON_OUR_SIDE = `Google couldn't be checked this time because of ${OUR_SIDE}. It will be checked again on the next audit.`;
 
 /** What a customer is told for each category (12 Nov; no codes, no provider names or URLs). */
 export const GOOGLE_CUSTOMER_REASONS: Record<GoogleProviderErrorCategory, string> = {

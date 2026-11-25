@@ -109,9 +109,10 @@ describe("TechCore IT #52's shape on a real database", () => {
       "kangaroo-it.com.au → cited in 27 of 40 answers",
     );
     expect(byRule.h.explanation).toContain(CLAUDE_SENTENCE);
+    // S01B part 6e, LLD amendment 56: "Evidence lines print ... 'your profile: not linked yet' in lower case".
     expect(byRule.i.evidence.map((l) => l.map((p) => p.text).join(""))).toEqual([
-      "Local Business Guide → cited in 9 of 40 answers · your profile: Not linked yet",
-      "Cylex → cited in 2 of 40 answers · your profile: Not linked yet",
+      "Local Business Guide → cited in 9 of 40 answers · your profile: not linked yet",
+      "Cylex → cited in 2 of 40 answers · your profile: not linked yet",
     ]);
     expect(byRule.j.evidence[0].map((p) => p.text).join("")).toBe("ABN → No ABN on file");
   });

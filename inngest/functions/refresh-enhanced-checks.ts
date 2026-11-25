@@ -11,7 +11,9 @@ import {
  * step of generate-narrative-report, which runs in POST_AUDIT_POOL (account-wide limit 1), so one refresh (up to five
  * minutes) held every workspace's post-audit jobs. Here:
  * - one refresh per brand at a time (two Enhanced reports for one brand: the second finds the first one's results
- *   fresh and runs nothing), and at most two account-wide -- never in POST_AUDIT_POOL;
+ *   fresh and runs nothing), and at most one account-wide -- never in POST_AUDIT_POOL. S01B part 6 (amendment 49
+ *   revised, 25 Nov): one, not two -- Sri's Inngest plan runs 5 steps at once account-wide, a second concurrent
+ *   refresh would take a slot from a running audit, and Enhanced reports are occasional;
  * - the same steps as before: the stale checks (refresh-enhanced-checks), then the contents and snapshot as of then
  *   (write-report-snapshot), then report/generated starts the PDF (emit-report-generated).
  */
@@ -20,7 +22,7 @@ export const ENHANCED_CHECKS_CONCURRENCY: [
   { scope: "account"; key: string; limit: number },
 ] = [
   { key: "event.data.brandId", limit: 1 },
-  { scope: "account", key: '"enhanced-checks"', limit: 2 },
+  { scope: "account", key: '"enhanced-checks"', limit: 1 },
 ];
 
 export const refreshEnhancedChecksFn = inngest.createFunction(

@@ -242,8 +242,8 @@ export const generateNarrativeReport = inngest.createFunction(
         sections: context.sections,
       };
       if (generated.checksIn === "refresh-enhanced-checks") {
-        // S01B part 1 (LLD amendment 49, D-RT4): the refresh runs in its own function, one per brand and at most two
-        // account-wide, so this run -- and the post-audit pool it holds -- ends as soon as the row is written. That
+        // S01B part 1 (LLD amendment 49, D-RT4): the refresh runs in its own function, one per brand and at most one
+        // account-wide (part 6), so this run -- and the post-audit pool it holds -- ends as soon as the row is written. That
         // function builds the snapshot and sends report/generated when its checks are done. The event id makes a
         // retried send start one refresh, not two.
         await step.run("request-enhanced-checks", async () => {

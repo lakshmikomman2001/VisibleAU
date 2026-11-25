@@ -88,7 +88,11 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
     await page.goto(`/brands/${brandId}/reports`);
     await page.getByTestId("generate-report").click();
     const panel = page.getByTestId("p08-panel");
-    await expect(panel).toBeVisible();
+    // S01B part 6g: "If the warm times match and stay well under a second, raise that one expectation's wait to 15 s
+    // (approved: a change to S01's test, with this line quoted)". The panel's GET report-preferences took 4.1-4.9 s on
+    // a cold dev server (3.5-4.6 s of it compiling the route), on the parent of S01B and on S01B alike, against the
+    // 5 s default; warm, 0.19-0.47 s on both.
+    await expect(panel).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("p08-header")).toContainText("TechCore IT · based on audit #1");
     await expect(page.getByTestId("p08-measured-item").first()).toContainText(
       "See why AI recommends other providers",

@@ -18,6 +18,19 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;
 }
 
+/**
+ * "22 Nov 2026": a check's date as the Beyond AI answers tiles print it (S01 part 6), and, since S01B part 6e (LLD
+ * amendment 56), the findings' evidence lines too (never "2026-11-22").
+ */
+export function formatCheckDate(iso: string, timeZone = "Australia/Sydney"): string {
+  return new Date(iso).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone,
+  });
+}
+
 /** "9–32%", exactly as the audit page prints the headline's interval. */
 export function formatCi(ci: { lower: number; upper: number }): string {
   return `${ci.lower.toFixed(0)}–${ci.upper.toFixed(0)}%`;

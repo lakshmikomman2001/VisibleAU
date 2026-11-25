@@ -16,6 +16,7 @@ import {
   technicalScoringOf,
 } from "@/lib/technical-audit/scoring-version";
 import { TRUST_CHECK_IMPLEMENTED } from "@/lib/trust/stub-implementation-status";
+import { formatCheckDate } from "./report-format";
 
 /**
  * S01 part 6 (LLD 8.1.4, contract P07.beyond / P09.beyond): the checks outside AI answers -- business identity, YouTube,
@@ -559,14 +560,8 @@ export interface BeyondTileView {
   action: { text: string; href: string } | null;
 }
 
-export function formatCheckDate(iso: string, timeZone = "Australia/Sydney"): string {
-  return new Date(iso).toLocaleDateString("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone,
-  });
-}
+// S01B part 6e: in report-format.ts, so the findings print their check dates the same way ("22 Nov 2026").
+export { formatCheckDate };
 
 function dateLines(tile: TileBase): Array<{ text: string; tone?: "warn" }> {
   if (!tile.checkedAt) return [];

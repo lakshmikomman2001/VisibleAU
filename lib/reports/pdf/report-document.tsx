@@ -1942,7 +1942,14 @@ export interface FindingCardAction {
 function FindingCard({ finding, action }: { finding: Finding; action?: FindingCardAction | null }) {
   const kind = KIND_COLOURS[finding.kind];
   const sev = SEV_COLOURS[finding.severity.tone];
-  const pill = action ? (PRIORITY_PILL[action.priority] ?? PRIORITY_PILL.medium) : null;
+  // S01B part 6c (amendment 52, contract v1.5 P09.next): a strength card shows only its STRENGTH label, never its
+  // item's priority or status (Bluegum's printed "STRENGTH · OPEN").
+  const strength = finding.kind === "strength";
+  const pill = action
+    ? strength
+      ? PRIORITY_PILL.strength
+      : (PRIORITY_PILL[action.priority] ?? PRIORITY_PILL.medium)
+    : null;
   return (
     <View
       wrap={false}
@@ -2002,7 +2009,7 @@ function FindingCard({ finding, action }: { finding: Finding; action?: FindingCa
         {action && pill ? (
           <View style={{ alignSelf: "flex-start", flexDirection: "row", gap: px(6) }}>
             <SmallPill text={pill.label} bg={pill.bg} fg={pill.fg} />
-            {action.status ? (
+            {action.status && !strength ? (
               <SmallPill text={STATUS_LABEL[action.status] ?? "OPEN"} bg={C.surface2} fg={C.ink2} />
             ) : null}
           </View>
@@ -2790,9 +2797,9 @@ function checksOutsideLine(a: BeyondAiAnswers): string {
 
 /**
  * The method page's content: heading, the two columns, the rule and the closing line. Basic's page holds it alone, as
- * today; in the flowing pages (S01B part 4e) the heading needs room below it (`headPresence`) so it isn't left alone.
+ * today; in the flowing pages it is kept whole (S01B part 6b).
  */
-function MethodContent({ ctx, headPresence }: { ctx: Ctx; headPresence?: number }) {
+function MethodContent({ ctx }: { ctx: Ctx }) {
   const { data } = ctx;
   const h = headlineFigures(data);
   const location = locationText(data);
@@ -2857,10 +2864,7 @@ function MethodContent({ ctx, headPresence }: { ctx: Ctx; headPresence?: number 
   ];
   return (
     <>
-      <View
-        style={{ marginTop: px(28) }}
-        {...(headPresence ? { minPresenceAhead: headPresence } : {})}
-      >
+      <View style={{ marginTop: px(28) }}>
         <SectionLabel
           icon={null}
           eyebrow={`${ctx.plan.method} · Method and notes`}
@@ -2965,19 +2969,18 @@ function FlowingPages({ ctx }: { ctx: Ctx }) {
       {ctx.plan.next && <NextSection ctx={ctx} />}
       {ctx.plan.beyond && <BeyondSection ctx={ctx} />}
       <TrendSection ctx={ctx} />
+      {/* S01B part 6b (amendment 52, contract v1.5 P09 layout): Method and notes is kept whole -- one unbreakable
+          block, so it starts on a new page when it doesn't fit in the space left. Both Standard seeds ended with a
+          page 7 holding only Method's last lines. (Basic's own Method page holds it alone, so it fits on one.) */}
       {ctx.plan.method && (
-        <>
-          <SectionStart />
-          <MethodContent ctx={ctx} headPresence={METHOD_HEAD_PRESENCE} />
-        </>
+        <View wrap={false}>
+          <MethodContent ctx={ctx} />
+        </View>
       )}
       <RunningFooter left={ctx.footerLeft} />
     </Page>
   );
 }
-
-/** Room the method heading needs below it on its page: the first lines of both columns. */
-const METHOD_HEAD_PRESENCE = px(140);
 
 // ----------------------------------------------------------------- document
 

@@ -222,19 +222,24 @@ describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence",
     );
   });
 
-  it("i: directories beyond the brand's type, cited twice or more, with 'Your profile: Not linked yet'", () => {
+  // S01B part 6e, LLD amendment 56: "Evidence lines print ... 'your profile: not linked yet' in lower case".
+  it("i: directories beyond the brand's type, cited twice or more, with 'your profile: not linked yet'", () => {
     const i = lowVisibilityFindings(techCore()).find((f) => f.rule === "i");
     expect(i?.evidence.map((line) => line.map((p) => p.text).join(""))).toEqual([
-      "Local Business Guide → cited in 40 of 40 answers · your profile: Not linked yet",
-      "Cylex → cited in 2 of 40 answers · your profile: Not linked yet",
-      "LinkedIn → cited in 2 of 40 answers · your profile: Not linked yet",
+      "Local Business Guide → cited in 40 of 40 answers · your profile: not linked yet",
+      "Cylex → cited in 2 of 40 answers · your profile: not linked yet",
+      "LinkedIn → cited in 2 of 40 answers · your profile: not linked yet",
     ]);
   });
 
+  // S01B part 6d, LLD amendment 56: "No ABN, or the ABN isn't verified: 'Your business identity isn't verified yet',
+  // with the ABR result ... No finding or action claims what AI engines read (the earlier 'AI engines read the ABR' is
+  // removed)." The engine that cited the ABR stays in the evidence (a measured fact).
   it("j: no ABN on file, no Google Business Profile, and the engine that cited the ABR", () => {
     const j = lowVisibilityFindings(techCore()).find((f) => f.rule === "j");
+    expect(j?.title).toBe("Your business identity isn't verified yet");
     expect(j?.explanation).toBe(
-      "Your ABN isn't verified yet; AI engines read the ABR (ChatGPT cited abr.business.gov.au), and no Google Business Profile is linked.",
+      "There's no ABN in brand settings yet, so we can't check your business on the Australian Business Register, and no Google Business Profile is linked in brand settings.",
     );
     expect(j?.evidence.map((line) => line.map((p) => p.text).join(""))).toEqual([
       "ABN → No ABN on file",

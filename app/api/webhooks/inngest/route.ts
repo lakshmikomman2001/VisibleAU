@@ -80,7 +80,7 @@ export const { GET, POST, PUT } = serve({
     trackBrandWebMentionsFn,
     generateNarrativeReport,
     renderReportPdf,
-    // S01B part 1: an Enhanced report's checks (one per brand; at most two account-wide; not in POST_AUDIT_POOL).
+    // S01B part 1: an Enhanced report's checks (one per brand; at most one account-wide; not in POST_AUDIT_POOL).
     refreshEnhancedChecksFn,
     sendScheduledReports,
     detectHallucinationsFn,

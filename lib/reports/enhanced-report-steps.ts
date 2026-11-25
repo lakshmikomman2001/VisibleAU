@@ -13,7 +13,7 @@ import { buildDecidedReportV2 } from "./report-v2";
 /**
  * S01B part 1 (LLD amendment 49, D-RT4): the two steps an Enhanced report runs after its row is written -- its stale
  * checks run again, then its contents and snapshot are built as of then. Since S01B they run in their own function,
- * `refresh-enhanced-checks` (one per brand, at most 2 account-wide), so a refresh never holds `POST_AUDIT_POOL`.
+ * `refresh-enhanced-checks` (one per brand, at most 1 account-wide), so a refresh never holds `POST_AUDIT_POOL`.
  * `generate-narrative-report` sends ENHANCED_CHECKS_REQUESTED once the row is written and is done; the new function
  * runs these two steps and then sends `report/generated`, as the generator did before.
  */

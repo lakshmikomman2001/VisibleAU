@@ -1,6 +1,6 @@
 /**
  * S01B part 1 (LLD amendment 49, D-RT4): an Enhanced report's checks run in their own function,
- * `refresh-enhanced-checks`, one per brand and at most two account-wide, and never in POST_AUDIT_POOL -- so a refresh
+ * `refresh-enhanced-checks`, one per brand and at most one account-wide, and never in POST_AUDIT_POOL -- so a refresh
  * (up to five minutes) no longer holds every workspace's post-audit jobs.
  *
  * Inngest's scheduler can't run locally (tests/unit/inngest/post-audit-concurrency.test.ts says the same), so this reads
@@ -8,7 +8,7 @@
  * evaluated for the event (a quoted string is a fixed key; `event.data.x` the event's value), `scope` defaults to the
  * function, and a run starts only when every one of its keys has a free slot.
  */
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 interface Constraint {
   key?: string;
@@ -78,14 +78,21 @@ async function load() {
 }
 
 describe("refresh-enhanced-checks: its concurrency", () => {
-  it("is one per brand and at most two account-wide, and none of its keys is POST_AUDIT_POOL's", async () => {
+  // The first load imports the Inngest functions, which can outlast a test's 5 s beside a heavy run; pay for it here.
+  beforeAll(async () => {
+    await load();
+  }, 60_000);
+
+  // S01B part 6a, LLD amendment 49 (revised 25 Nov): "S01B moves it into its own function refresh-enhanced-checks, one
+  // per brand and at most 1 account-wide" (it was 2): the account-wide expectations below change with it.
+  it("is one per brand and at most one account-wide, and none of its keys is POST_AUDIT_POOL's", async () => {
     const { refreshEnhancedChecksFn, ENHANCED_CHECKS_CONCURRENCY, POST_AUDIT_POOL, opts } =
       await load();
     expect(opts(refreshEnhancedChecksFn).id).toBe("refresh-enhanced-checks");
     expect(opts(refreshEnhancedChecksFn).concurrency).toBe(ENHANCED_CHECKS_CONCURRENCY);
     expect(ENHANCED_CHECKS_CONCURRENCY).toEqual([
       { key: "event.data.brandId", limit: 1 },
-      { scope: "account", key: '"enhanced-checks"', limit: 2 },
+      { scope: "account", key: '"enhanced-checks"', limit: 1 },
     ]);
     expect(ENHANCED_CHECKS_CONCURRENCY.map((c) => c.key)).not.toContain(POST_AUDIT_POOL.key);
   });
@@ -95,19 +102,19 @@ describe("refresh-enhanced-checks: its concurrency", () => {
     expect(runningTogether([refresh("brand-a"), refresh("brand-a")])).toEqual([0]);
   });
 
-  it("an Enhanced report for brand A doesn't wait for brand B's refresh", async () => {
+  it("brand A's refresh waits for brand B's (one account-wide); A's generator doesn't (the integration test)", async () => {
     const { refresh } = await load();
-    expect(runningTogether([refresh("brand-b"), refresh("brand-a")])).toEqual([0, 1]);
+    expect(runningTogether([refresh("brand-b"), refresh("brand-a")])).toEqual([0]);
   });
 
-  it("at most two refreshes run account-wide", async () => {
+  it("at most one refresh runs account-wide", async () => {
     const { refresh } = await load();
-    expect(runningTogether([refresh("a"), refresh("b"), refresh("c")])).toEqual([0, 1]);
+    expect(runningTogether([refresh("a"), refresh("b"), refresh("c")])).toEqual([0]);
   });
 
   it("while refreshes run, a post-audit job in POST_AUDIT_POOL starts without waiting (and the other way round)", async () => {
     const { refresh, postAudit } = await load();
-    expect(runningTogether([refresh("a"), refresh("b"), postAudit("c")])).toEqual([0, 1, 2]);
+    expect(runningTogether([refresh("a"), refresh("b"), postAudit("c")])).toEqual([0, 2]);
     // The pool full (its limit is 1): a refresh still starts.
     expect(runningTogether([postAudit("c"), refresh("a")])).toEqual([0, 1]);
     // Before S01B the refresh was a step of the generator, so a second post-audit job waited for it.

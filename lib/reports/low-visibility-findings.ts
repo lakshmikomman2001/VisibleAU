@@ -1,12 +1,13 @@
 import { citedSourcesOf, isBrandDomain } from "@/lib/audit/extract-citations";
-import { directoryProfileStatus } from "@/lib/directories/profile-status";
+import { formatAbn } from "@/lib/brands/abn";
+import { directoryProfileStatus, PROFILE_NOT_LINKED_LABEL } from "@/lib/directories/profile-status";
 import { findDirectoryForSource } from "@/lib/directories/registry";
 import { isGoogleGroundingRedirect } from "@/lib/llm/web-search-config";
 import { classifySourceTypeWithBrand } from "@/lib/visibility/citation-source-classifier";
 import { couldNotFindQuote } from "./could-not-find";
 import type { FindingsData } from "./report-data";
 import type { EvidenceLine, Finding } from "./report-findings";
-import { plural } from "./report-format";
+import { formatCheckDate, plural } from "./report-format";
 
 /**
  * S01 part 3 (LLD 8.1.5, T5): the finding rules g-j, for an audit where AI rarely or never names the business.
@@ -18,7 +19,9 @@ import { plural } from "./report-format";
  *   (h) AI couldn't find the business: an engine said so, in an answer to a question that names it (appendix C1);
  *   (i) directories you're not on: a registry directory outside the brand's own type that AI cited in at least two
  *       everyday answers, with no linked profile (the brand's own type's directories are rule a, as before);
- *   (j) identity not verified: the ABN isn't verified on the ABR, or no Google Business Profile is linked.
+ *   (j) identity not verified: the ABN isn't verified on the ABR, or no Google Business Profile is linked. By cause
+ *       since S01B part 6d (LLD amendment 56): "Your business identity isn't verified yet" for the ABN, "Your Google
+ *       Business Profile isn't linked yet" when the ABN is verified and only the profile is missing.
  * Shown only while report_v2 is on for the workspace (the evidence is built only then).
  */
 
@@ -149,6 +152,9 @@ export const OTHERS_NAMED_MIN_ANSWER_SHARE = 0.5;
 /** Rule i: cited in at least this many everyday answers (rule a's threshold too). */
 export const DIRECTORY_MIN_CITED = 2;
 
+/** "your profile: not linked yet": the evidence lines' words, in lower case (LLD amendment 56). */
+const NOT_LINKED_YET = PROFILE_NOT_LINKED_LABEL.toLowerCase();
+
 function list(items: string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
@@ -189,6 +195,21 @@ function othersNamedFinding(data: LowVisibilityData): Finding | null {
   };
 }
 
+/** Rule h's quotes, one per engine and sentence, each with every question it answered, in the order first met. */
+function sameQuoteOnce(
+  quotes: LowVisibilityEvidence["couldNotFind"],
+): Array<{ engineName: string; quote: string; questions: string[] }> {
+  const groups = new Map<string, { engineName: string; quote: string; questions: string[] }>();
+  for (const c of quotes) {
+    const key = `${c.engine}\u0000${c.quote}`;
+    const group = groups.get(key);
+    if (group) {
+      if (!group.questions.includes(c.question)) group.questions.push(c.question);
+    } else groups.set(key, { engineName: c.engineName, quote: c.quote, questions: [c.question] });
+  }
+  return [...groups.values()];
+}
+
 function couldNotFindFinding(data: LowVisibilityData): Finding | null {
   const lv = data.lowVisibility;
   if (!lv || lv.couldNotFind.length === 0) return null;
@@ -203,13 +224,17 @@ function couldNotFindFinding(data: LowVisibilityData): Finding | null {
     explanation: `Asked about ${brandName} by name, ${first.engineName} said: “${first.quote}”`,
     severity: HIGH,
     evidenceLabel: `Evidence · Audit #${data.basis.auditNumber} · questions that name the business`,
-    evidence: lv.couldNotFind.slice(0, 3).map(
-      (c): EvidenceLine => [
-        { text: `${c.engineName} → `, tone: "plain" },
-        { text: `“${c.quote}”`, tone: "abs" },
-        { text: ` · asked “${c.question}”`, tone: "plain" },
-      ],
-    ),
+    // S01B part 6f (LLD amendment 56): an engine that gave the same sentence to several questions is quoted once,
+    // followed by the questions (Kurrajong's printed one Claude sentence three times).
+    evidence: sameQuoteOnce(lv.couldNotFind)
+      .slice(0, 3)
+      .map(
+        (c): EvidenceLine => [
+          { text: `${c.engineName} → `, tone: "plain" },
+          { text: `“${c.quote}”`, tone: "abs" },
+          { text: ` · asked ${list(c.questions.map((q) => `“${q}”`))}`, tone: "plain" },
+        ],
+      ),
     fix: "Make your business easy to confirm: the same name, address and services on your site, Google Business Profile and directory listings",
     recommendation: {
       title: `Help AI find ${brandName}`,
@@ -245,7 +270,8 @@ function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
         { text: `cited in ${r.citedCount} of ${total} answers`, tone: "cmp" },
         { text: " · ", tone: "plain" },
         {
-          text: `your profile: ${status.label}`,
+          // S01B part 6e (LLD amendment 56): "your profile: not linked yet" in lower case, as rule a prints it.
+          text: `your profile: ${status.kind === "not_linked" ? NOT_LINKED_YET : status.label}`,
           tone: "abs",
         },
       ];
@@ -253,7 +279,7 @@ function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
     fix: `Create or claim your ${list(names)} ${plural(names.length, "profile")}, then link ${names.length === 1 ? "it" : "them"} in brand settings`,
     recommendation: {
       title: `Get listed on ${list(names)}`,
-      detail: `${rows.map((r) => `${r.name} was cited in ${r.citedCount} of ${total} answers`).join("; ")}; your profile: Not linked yet.`,
+      detail: `${rows.map((r) => `${r.name} was cited in ${r.citedCount} of ${total} answers`).join("; ")}; your profile: ${NOT_LINKED_YET}.`,
     },
   };
 }
@@ -263,32 +289,47 @@ function identityFinding(data: LowVisibilityData): Finding | null {
   if (!lv) return null;
   const id = lv.identity;
   if (id.abnVerified && id.gbpLinked) return null;
-  const abnLine = !id.abn
+  // S01B part 6e (LLD amendment 56): the ABN in groups ("51 824 753 557"), not "ABN → ABN 51824753557".
+  const abn = id.abn ? formatAbn(id.abn) : null;
+  const notChecked =
+    id.abnStatus === "check_skipped" || id.abnStatus === "check_failed" || id.abnStatus === null;
+  const abnLine = !abn
     ? "No ABN on file"
-    : id.abnStatus === "check_skipped" || id.abnStatus === "check_failed" || id.abnStatus === null
-      ? `ABN ${id.abn}: not checked yet`
+    : notChecked
+      ? `${abn}: not checked yet`
       : id.abnVerified
-        ? `ABN ${id.abn}: ${id.abnStatus} on the ABR`
-        : `ABN ${id.abn}: ${id.abnStatus} on the ABR, not verified`;
-  const abr = id.abrCitedBy.length > 0 ? ` (${list(id.abrCitedBy)} cited abr.business.gov.au)` : "";
-  const parts: string[] = [];
-  if (!id.abnVerified) parts.push(`your ABN isn't verified yet; AI engines read the ABR${abr}`);
-  if (!id.gbpLinked) parts.push("no Google Business Profile is linked");
-  const sentence = parts.join(", and ");
+        ? `${abn}: ${id.abnStatus} on the ABR`
+        : `${abn}: ${id.abnStatus} on the ABR, not verified`;
+  // S01B part 6d (LLD amendment 56): the title and sentence say which check failed, and nothing claims what AI
+  // engines read (the earlier "AI engines read the ABR" is gone; an engine that cited the ABR is in the evidence).
+  // ABN verified, no Google Business Profile: the profile, never "identity isn't verified" beside a tile that says
+  // "ABN verified" (Bluegum's PDFs).
+  const gbpOnly = id.abnVerified;
+  const abrResult = !abn
+    ? "There's no ABN in brand settings yet, so we can't check your business on the Australian Business Register"
+    : notChecked
+      ? "Your ABN hasn't been checked on the Australian Business Register yet"
+      : `The Australian Business Register lists your ABN as ${id.abnStatus}, so it isn't verified`;
+  const sentence = gbpOnly
+    ? "Your ABN is active on the Australian Business Register, but no Google Business Profile is linked in brand settings."
+    : `${abrResult}${id.gbpLinked ? "" : ", and no Google Business Profile is linked in brand settings"}.`;
   return {
     rule: "j",
     kind: "watch",
     icon: "failed",
-    title: "Your business identity isn't verified yet",
-    explanation: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`,
+    title: gbpOnly
+      ? "Your Google Business Profile isn't linked yet"
+      : "Your business identity isn't verified yet",
+    explanation: sentence,
     severity: MEDIUM,
     evidenceLabel: "Evidence · identity checks",
     evidence: [
       [
         { text: "ABN → ", tone: "plain" },
         { text: abnLine, tone: id.abnVerified ? "pos" : "abs" },
+        // S01B part 6e: dates as "22 Nov 2026", as the identity tile prints them.
         ...(id.checkedAt
-          ? [{ text: ` · checked ${id.checkedAt.slice(0, 10)}`, tone: "plain" as const }]
+          ? [{ text: ` · checked ${formatCheckDate(id.checkedAt)}`, tone: "plain" as const }]
           : []),
       ],
       [
@@ -309,7 +350,7 @@ function identityFinding(data: LowVisibilityData): Finding | null {
       : "Link your Google Business Profile in brand settings",
     recommendation: {
       title: !id.abnVerified ? "Verify your ABN" : "Link your Google Business Profile",
-      detail: `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`,
+      detail: sentence,
     },
   };
 }

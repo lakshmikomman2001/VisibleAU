@@ -15,6 +15,8 @@
  *   its first item.
  * - f. Every character the PDF prints has a glyph in the font it's printed in.
  * - g. The crawlers tile says "Visits: not measured" and its next step once.
+ * S01B part 6 (amendments 52, 56; contract v1.5): Method and notes kept whole, strengths without a status pill, rule j
+ * by cause, the evidence lines' formatting, rule h's repeated sentence quoted once (the last describe block).
  * With REPORT_PDF_OUT set, the PDFs are also written there (the sprint report's images) with their page counts.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
@@ -26,6 +28,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ReportDataV2 } from "@/lib/reports/report-snapshot";
 import { missingGlyphs, printedRuns } from "@/tests/helpers/pdf-fonts";
+import { markPages } from "@/tests/helpers/pdf-page-markers";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
 import { runReportGeneration } from "@/tests/helpers/report-generation";
 import {
@@ -545,3 +548,146 @@ function groupsHeldWithFirstItem(root: ReactNode): string[] {
   walk(root);
   return held;
 }
+
+/**
+ * S01B part 6 (LLD amendments 52 and 56; contract v1.5 P09), on the seeds: Method and notes kept whole (b), a strength
+ * card without a status pill (c), rule j by cause on the PDF, the audit page and the Action Center item (d), the
+ * evidence lines' formatting (e) and rule h quoting a repeated sentence once (f). RED on the parent.
+ */
+describe("S01B part 6: the review's follow-ups, on the seeds", () => {
+  const [bluegum, , kurrajong] = REPORT_SEEDS;
+  const seedOf = (spec: SeedSpec) => {
+    const s = seeded.find((x) => x.spec.key === spec.key);
+    if (!s) throw new Error(`${spec.key} wasn't seeded`);
+    return s;
+  };
+  const auditPage = async (spec: SeedSpec) => {
+    const s = seedOf(spec);
+    const { serviceDb } = await import("@/db/client");
+    const { auditEvidenceActions } = await import("@/lib/reports/audit-findings");
+    return auditEvidenceActions(serviceDb, {
+      organizationId: s.orgId,
+      brandId: s.brandId,
+      auditId: s.basisAuditId,
+    });
+  };
+  const actionCenter = async (spec: SeedSpec) => {
+    const s = seedOf(spec);
+    const { serviceDb } = await import("@/db/client");
+    const { findingRecommendations } = await import("@/lib/reports/finding-recommendations");
+    return findingRecommendations(serviceDb, {
+      organizationId: s.orgId,
+      brandId: s.brandId,
+      auditId: s.basisAuditId,
+    });
+  };
+  const evidenceText = (f: { evidence: Array<Array<{ text: string }>> }) =>
+    f.evidence.map((line) => line.map((p) => p.text).join(""));
+
+  it.each(
+    REPORT_SEEDS.flatMap((spec) =>
+      (["standard", "enhanced"] as const).map((t) => [spec.key, t, spec] as const),
+    ),
+  )(
+    "b. Method and notes is kept whole, on the last page (%s %s)",
+    async (_key, tier, spec) => {
+      const r = get(spec, tier);
+      const pages = await markPages(r.doc, {
+        heading: (t) => t === "How these numbers were measured",
+        closing: (t) =>
+          t.startsWith("Generated ") && t.includes("Figures come from the audit records"),
+      });
+      expect(pages.heading).toHaveLength(1);
+      expect(pages.closing).toEqual(pages.heading);
+      expect(pages.closing).toEqual([r.pageCount]);
+    },
+    120_000,
+  );
+
+  it.each(
+    REPORT_SEEDS.map((spec) => [spec.key, spec] as const),
+  )("c. a strength card shows its STRENGTH label and no status pill (%s)", (_key, spec) => {
+    for (const tier of ["standard", "enhanced"] as const) {
+      const lines = get(spec, tier).pages.flat();
+      lines.forEach((t, i) => {
+        if (t === "STRENGTH")
+          expect(["OPEN", "IN PROGRESS", "DONE"], tier).not.toContain(lines[i + 1]);
+      });
+    }
+  });
+
+  it("c. Bluegum's strength card is drawn with its item's STRENGTH pill (the item exists)", () => {
+    expect(get(bluegum, "standard").pages.flat()).toContain("STRENGTH");
+  });
+
+  it("d. Bluegum (ABN verified, no Google Business Profile): the profile, on the PDF, the audit page and the Action Center", async () => {
+    const sentence =
+      "Your ABN is active on the Australian Business Register, but no Google Business Profile is linked in brand settings.";
+    for (const tier of ["standard", "enhanced"] as const) {
+      const text = get(bluegum, tier).text;
+      expect(text, tier).toContain("Your Google Business Profile isn't linked yet");
+      expect(text, tier).not.toContain("Your business identity isn't verified yet");
+      expect(text, tier).toContain(sentence);
+    }
+    const j = (await auditPage(bluegum)).find((f) => f.rule === "j");
+    expect(j?.title).toBe("Your Google Business Profile isn't linked yet");
+    expect(j?.explanation).toBe(sentence);
+    const item = (await actionCenter(bluegum)).find(
+      (r) => r.recommendationKey === "finding-identity-not-verified",
+    );
+    expect(item?.title).toBe("Link your Google Business Profile");
+    expect(item?.action).toBe(`${sentence} Link your Google Business Profile in brand settings.`);
+  });
+
+  it("d. Kurrajong (ABN cancelled): its identity, with the ABR's result, and no claim about what AI engines read", async () => {
+    const j = (await auditPage(kurrajong)).find((f) => f.rule === "j");
+    expect(j?.title).toBe("Your business identity isn't verified yet");
+    expect(j?.explanation).toBe(
+      "The Australian Business Register lists your ABN as Cancelled, so it isn't verified, and no Google Business Profile is linked in brand settings.",
+    );
+    const item = (await actionCenter(kurrajong)).find(
+      (r) => r.recommendationKey === "finding-identity-not-verified",
+    );
+    expect(item?.title).toBe("Verify your ABN");
+    for (const tier of TIERS)
+      expect(get(kurrajong, tier).text, tier).not.toMatch(/AI engines read/i);
+    expect(item?.action).not.toMatch(/AI engines read/i);
+  });
+
+  it("e. evidence: the ABN in groups, the check's date in words, 'your profile: not linked yet' in lower case", async () => {
+    const j = (await auditPage(bluegum)).find((f) => f.rule === "j");
+    const lines = j ? evidenceText(j) : [];
+    expect(lines[0]).toMatch(
+      /^ABN → 51 824 753 557: Active on the ABR · checked \d{1,2} [A-Z][a-z]{2} \d{4}$/,
+    );
+    expect(lines[1]).toBe("Google Business Profile → not linked yet");
+    const text = get(bluegum, "enhanced").text;
+    expect(text).not.toContain("ABN → ABN");
+    expect(text).not.toMatch(/checked \d{4}-\d{2}-\d{2}/);
+    const i = (await auditPage(kurrajong)).find((f) => f.rule === "i");
+    expect(i ? evidenceText(i) : []).not.toHaveLength(0);
+    for (const line of i ? evidenceText(i) : [])
+      expect(line).toMatch(/· your profile: not linked yet$/);
+    expect(i?.recommendation.detail).toMatch(/; your profile: not linked yet\.$/);
+    for (const spec of REPORT_SEEDS)
+      for (const tier of TIERS)
+        expect(get(spec, tier).text, `${spec.key} ${tier}`).not.toContain(
+          "your profile: Not linked yet",
+        );
+  });
+
+  it("f. rule h quotes Claude's repeated sentence once, followed by the questions it answered", async () => {
+    const quote =
+      "I was unable to find any verified information about a company specifically called Kurrajong IT Solutions in Penrith.";
+    const h = (await auditPage(kurrajong)).find((f) => f.rule === "h");
+    expect(h ? evidenceText(h) : []).toEqual([
+      `Claude → “${quote}” · asked “Is Kurrajong IT Solutions reputable?”, “What do customers say about Kurrajong IT Solutions?” and “Does Kurrajong IT Solutions support businesses in Penrith?”`,
+    ]);
+    // The evidence line quotes it once (on the parent: once per question). Basic's Recommended next and every
+    // tier's card sentence quote it too, as before.
+    for (const tier of TIERS) {
+      const text = get(kurrajong, tier).text;
+      expect(text.split(`Claude → “${quote}”`).length - 1, tier).toBe(1);
+    }
+  });
+});

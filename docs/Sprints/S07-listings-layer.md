@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S07-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S06 pushed; evaluation fit target met); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 7.4, 7.7 (`directory_registry`), 8.6.4, 11, 12, 20 (D-QI2); contract screens P10 (listing match banner).
+Start with `git fetch origin` and build on `origin/main` (S06 pushed; evaluation fit target met); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 7.4, 7.7 (`directory_registry`), 8.6.4, 11, 12, 20 (D-QI2); contract screens P10 (listing match banner).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -19,7 +19,7 @@ Start with `git fetch origin` and build on `origin/main` (S06 pushed; evaluation
 For each registry directory of kind general/trades/reviews/health: record its robots.txt rules for our bot and generic agents and any published terms on automated access (link), in `docs/lld/directory-access-notes.md`. Directories that disallow are snippet-only. Report the table.
 
 ## 2. Search and match (LLD 8.6.4)
-`listings` step in `analysis-run`: two DataForSEO Google organic searches ("<name> <suburb or city>", "<name> <domain>") using the existing DataForSEO client and cost recording; keep registry domains; read the local pack for the Google Business Profile; match confidence from name similarity plus phone, postcode or website link (weights in code with tests); drop weak matches. Tests with recorded SERP fixtures: Hero's Localsearch profile matched strongly; a same-name business in another state not offered.
+`listings` step in `analysis-run`: two DataForSEO Google organic searches ("<name> <suburb or city>", "<name> <domain>") using the existing DataForSEO client and cost recording; keep registry domains; read the local pack for the Google Business Profile; match confidence from name similarity plus phone, postcode or website link (weights in code with tests); drop weak matches. Tests with recorded SERP fixtures of invented businesses (amendment 66): a trade business's Localsearch profile, shaped like Hero's, matched strongly; a same-name business in another state not offered.
 
 ## 3. Read and extract
 Allowed profiles fetched once via the guarded fetcher; extract categories, services and areas with quotes (quote verification as layer 1); otherwise snippet evidence marked `source_kind='listing'` with lower prominence weight. Normalise to taxonomy. Tests: extraction fixtures, snippet fallback, robots-disallow respected.

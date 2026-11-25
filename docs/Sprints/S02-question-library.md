@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S02-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S01B pushed; `report_v2` checked live for Splice); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
+Start with `git fetch origin` and build on `origin/main` (S01C pushed; the real reports regenerated for Splice and checked); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -14,8 +14,8 @@ Start with `git fetch origin` and build on `origin/main` (S01B pushed; `report_v
 - The Questions tab is behind `question_library` (off). Audits read the current set regardless (LLD 17 note), which is safe only because set v1 equals the stored pack; the parity tests are the proof.
 - If the LLD contradicts the code, the code wins: report with file:line; continue only with independent parts.
 
-## 0. Carry-overs from S01B (not flagged; no product change)
-- **No client data in tests** (LLD amendment 57): replace TechCore's ABR record in the ABN tests (S01 Part 11) and `ASTORIO GROUP PTY LTD` / its ABN in `tests/unit/reports/beyond-ai.test.ts` with invented records; move the remaining users of the hand-composed `tests/helpers/report-data-fixture.ts` (the design, Google section, cover-tier and running-checks render tests) to the seeded fixtures in `tests/helpers/report-seeds.ts`. List what you changed; a source-scan test fails on the real names and ABNs found (list them in the test as forbidden strings, no other client data in it).
+## 0. Carry-overs from S01B and S01C (not flagged; no product change)
+- **No client data in tests** (LLD amendment 57): replace TechCore's ABR record in the ABN tests (S01 Part 11) and `ASTORIO GROUP PTY LTD` / its ABN in `tests/unit/reports/beyond-ai.test.ts` with invented records; move the remaining users of the hand-composed `tests/helpers/report-data-fixture.ts` (the design, Google section, cover-tier and running-checks render tests) to the seeded fixtures in `tests/helpers/report-seeds.ts`. List what you changed; a source-scan test fails on the real names and ABNs found (list them in the test as forbidden strings, no other client data in it). Also `tests/e2e/12-s01-report-contents-panel.spec.ts`, which seeds a brand named "TechCore IT", and any other spec or fixture that seeds a real client's name, ABN or domain (list them): invented names (amendment 66).
 - **Serve manifest:** fix or retire `scripts/qa/inngest-serve-manifest.txt` and `sprint9-invariants.sh` A3 (out of date; `tests/unit/inngest/function-ids.test.ts` covers N13). Say which and why.
 - **No-database guard:** close the same `path: null` gap S01B fixed in the network guard (an `http`-style connect to a Postgres port).
 - One commit; tests as the runbook says. Playwright: not needed.
@@ -39,7 +39,7 @@ Follow LLD 7A steps 1–5 exactly:
 - Both runners (`run-audit.ts`, `run-audit-inline.ts`) call it; remove the inline-vs-Inngest divergence and the hard-coded 10s (use `PROMPTS_PER_AUDIT` only for template generation).
 - Audit start records `audits.question_set_id`; citation and failure inserts record `question_id`.
 - `audits.question_set_hash` still computed exactly as today.
-- Tests: for Hero, Omega and Bondi fixtures, prompts before vs after are identical byte for byte and in order (N1); both runners produce the same prompts; hash identical (N2); headline identical on #50/#51/#54/#55 fixtures (N3); branded detection unchanged (N4).
+- Tests: for the invented fixtures standing in for Hero, Omega and Bondi (amendment 66), prompts before vs after are identical byte for byte and in order (N1); both runners produce the same prompts; hash identical (N2); headline identical on #50/#51/#54/#55 fixtures (N3); branded detection unchanged (N4).
 
 ## 4. Questions tab, read-only (LLD 8.2.2, P02 view mode)
 - `GET /api/brands/:id/questions`: current set, library, suggestions, limits; one query joining set items, library and last-audit results aggregated by `question_id` (index use shown with EXPLAIN on local data); brand access, RLS context.

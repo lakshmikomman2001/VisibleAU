@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S05-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S04 pushed); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 4, 7.3, 7A (0158), 8.5 (all), 11, 13, 20 (D5, D6, D7, D12) and appendix A; contract screens P06, P10 (types on confirm), P11, P15.
+Start with `git fetch origin` and build on `origin/main` (S04 pushed); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 4, 7.3, 7A (0158), 8.5 (all), 11, 13, 20 (D5, D6, D7, D12) and appendix A; contract screens P06, P10 (types on confirm), P11, P15.
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -34,7 +34,7 @@ Tables per LLD 7.3, seeded from the approved JSON; `brand_business_types` legacy
 ARIA 1.2 combobox, results with sector and match reason, up to 5 types with one main (★), sector chips (old four cards become shortcuts), custom-type entry (locked below Growth). Brand settings "Kind of business" uses the same picker. Writes `brand_business_types` and keeps `classification.category`/`vertical` in step (mapped back). Tests: keyboard e2e, axe check, plan lock, legacy fields written.
 
 ## 5. Classifier uses the taxonomy (LLD 8.5.3)
-`classify-brand.ts` gets a candidate list (sector-filtered, ≤ 150 entries) and must return slugs with confidence; zod-validate against the list; < 0.7 → confirm screen as today. Confirm screen shows detected types first (High/Medium/Low), grouped by sector, plus search. Every confirmation writes `classification_feedback`. Tests with recorded model outputs (no live calls): TechCore IT home-page fixture → Managed IT services provider (not SaaS).
+`classify-brand.ts` gets a candidate list (sector-filtered, ≤ 150 entries) and must return slugs with confidence; zod-validate against the list; < 0.7 → confirm screen as today. Confirm screen shows detected types first (High/Medium/Low), grouped by sector, plus search. Every confirmation writes `classification_feedback`. Tests with recorded model outputs (no live calls): an invented IT-services home page shaped like TechCore IT's (amendment 66) → Managed IT services provider (not SaaS).
 
 ## 6. Custom types (LLD 8.5.4, P11)
 Modal P11; `/settings/business-types` list (edit, archive); per-plan limits server-side (402); unique name per workspace (case-insensitive); question generation uses the parent type's template family plus the custom services/description. Tests incl. cross-org isolation and XSS payloads.

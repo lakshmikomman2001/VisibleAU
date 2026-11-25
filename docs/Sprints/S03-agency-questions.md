@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S03-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S02 pushed and hash parity confirmed in production); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 4, 7.1, 7.6, 7A (0156), 8.2.3, 8.3 (all), 10, 11, 20 (D2, D3, D4) and appendices C2, E; contract screens P02 (edit mode), P03, P04, P05, P07 (mix and split lines), P10 step 3 (for the confirm-screen questions step).
+Start with `git fetch origin` and build on `origin/main` (S02 pushed and hash parity confirmed in production); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 4, 7.1, 7.6, 7A (0156), 8.2.3, 8.3 (all), 10, 11, 20 (D2, D3, D4) and appendices C2, E; contract screens P02 (edit mode), P03, P04, P05, P07 (mix and split lines), P10 step 3 (for the confirm-screen questions step).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -41,7 +41,7 @@ Route `/settings/questions` in the settings group (sidebar item if the group exi
 ## 6. Disclosure and split score (LLD 8.3.3, P07)
 - Mix line on the audit page, PDF method page (from the S01 snapshot) and portal.
 - Split line under the headline only when both sources exist; headline counts all everyday questions (unchanged formula).
-- Tests: mix and split on a fixture with 7 AI/template/original + 3 agency questions; Hero/Omega fixtures show only the mix line ("10 everyday (all from the original set)").
+- Tests: mix and split on a fixture with 7 AI/template/original + 3 agency questions; the seeded fixtures standing in for Hero and Omega show only the mix line ("10 everyday (all from the original set)").
 
 ## 7. Questions step on the existing confirm screen (LLD 8.3.6, client request C4)
 On "Confirm your business details", add a **Questions** step after the details: the questions that will be asked (templates for the confirmed types and place), grouped by reach, using the P02 row component; swap for a suggestion; on Growth and up "Add your own question" (P03 drawer and the same checks). "Confirm and start the first audit" saves set v1 from exactly what is shown (no regeneration afterwards). Existing confirmed brands are unaffected. Tests: e2e new brand with one agency-written question → first audit asks it, labelled; Starter sees swap only.

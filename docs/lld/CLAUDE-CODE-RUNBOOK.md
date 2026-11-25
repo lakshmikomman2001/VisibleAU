@@ -1,6 +1,6 @@
-# Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01, S01B, S02–S10, then the S11 full test suite)
+# Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01, S01B, S01C, S02–S10, then the S11 full test suite)
 
-Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.8 · 25 Nov 2026 (after S01B Parts 1–4)
+Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.9 · 25 Nov 2026 (after S01B and the real reports)
 
 Follow this file at the start of every sprint session, before Part 1. Its rules apply on top of the sprint prompt. If a sprint prompt is stricter, the sprint prompt wins.
 
@@ -8,15 +8,15 @@ Follow this file at the start of every sprint session, before Part 1. Its rules 
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.9): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
+| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.10): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
 | `docs/lld/design/Vunnara-client-improvements-design.pdf`, `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` | Design documents: the reasoning behind the LLD. Read only where a sprint names them. The LLD wins over them | Sri / Claude (chat) |
 | `docs/lld/as-is-verification.md` | What the code actually does, checked against the LLD (S00 Part 1). Where it says the LLD is wrong, it wins | You, in S00 |
-| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.5): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
+| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.6): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
 | `docs/prototypes/client-enhancements-v2.html`, `docs/prototypes/screens/*.png` | The visual reference, rendered from the contract | Sri / Claude (chat) |
 | `docs/prototypes/PROTOTYPE-GUIDE.md` | How to build a screen from the contract and report on it | Sri / Claude (chat) |
 | `docs/prototypes/token-map.md` | Contract tokens and components mapped to the app's own (S00 Part 0b) | You, in S00 |
 | `docs/lld/fetch-inventory.md` | Every place that fetches a customer website, and its move onto the guarded fetcher | You, in S00B |
-| `docs/Sprints/Sxx-*.md` | The sprint prompts S00, S00B, S01, S01B, S02–S10, and S11 (full test suite after S10). The folder is `docs/Sprints` with a capital S, as git tracks it | Sri / Claude (chat) |
+| `docs/Sprints/Sxx-*.md` | The sprint prompts S00, S00B, S01, S01B, S01C, S02–S10, and S11 (full test suite after S10). The folder is `docs/Sprints` with a capital S, as git tracks it | Sri / Claude (chat) |
 | `docs/Sprints/reports/Sxx-report.md` | Your report-back for each sprint, saved at the end | You |
 
 `docs/latets/` is Sri's local download folder. Use it only in the start step and in update steps (an `UPDATE-HERE.md` from a newer pack); never read from it otherwise and never commit it. Never edit the files Sri / Claude (chat) write; propose changes in your report.
@@ -59,6 +59,7 @@ Then reply with a short plan: the parts in order, the files you expect to touch,
 ## 5. Rules for every part
 
 - One commit per numbered part, made in a separate step after its tests finish, never chained with `;`, never amended. **Never push.** Commit messages end with the two attribution lines the sprint prompt gives.
+- **Never publish or share anything:** no web pages, artifacts, gists, pastes, uploads or links to them. Reports, PDFs and screenshots stay in the repo and `.qa/`; Sri sends them to Claude (chat) himself.
 - Targeted tests only (related tests, new tests RED on the parent then GREEN, typecheck with `.next` excluded, lint compared with the parent per changed file (the whole repo had 339 lint errors before S00), named guards). Full suites only if Sri asks (S11 is that ask).
 - **Every source-scan guard file, in every part.** At the end of each part, run all of the repo's source-scan guard tests (85 files and about 1,500 tests in S00B), not only the ones the sprint names: S00 ran only its named guards and shipped a failure (`no-silent-fetch-fallback`, fixed in S01 Part 0). A guard that already fails on the sprint's start hash is listed in the report; a new failure is fixed before the part's commit.
 - **Schema files and golden files.** When a part changes a `db/schema/*` file, also run every test that reads a golden file under `tests/**/__golden__/`, plus schema-drift (S01 part 2 missed one golden this way, `d8883e4f`).
@@ -98,6 +99,7 @@ Build every screen from the contract as `docs/prototypes/PROTOTYPE-GUIDE.md` say
 | S00 | If any design file is missing, or the contract doesn't compile. Part 1 (as-is verification) is the gate for every later sprint: Sri reviews it before S01 |
 | S00B | Part 2 (the guarded fetcher) must pass all its security tests before Part 3 moves any caller onto it |
 | S01 | If your context is getting full, stop after any committed part (Parts 8–12 are each a clean boundary), add to the report and stop; Sri resumes from the next part |
+| S01C | Part 3d: if the page targets can't be met without breaking a layout rule, report the page map and the options, and carry on with the other parts |
 | S05 | After Part 1 (taxonomy seed): Sri reviews and approves the taxonomy before Part 2 |
 | S06 | Part 1 (the analysis fetch preset) must pass its tests before any other part fetches anything |
 | S10 | After Part 1 (cost table): Sri sets prices and creates the Stripe prices before Part 2 |
@@ -121,7 +123,7 @@ Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order and pre-flight), then execute
 
 **Start a sprint with a docs update first** (when Claude (chat) sends a newer pack)
 ```
-Read docs/latets/Enhancements/vunnara-client-enhancements-v1.13/vunnara-enhancements/UPDATE-HERE.md and do what it says.
+Read docs/latets/Enhancements/vunnara-client-enhancements-v1.14/vunnara-enhancements/UPDATE-HERE.md and do what it says.
 ```
 
 **Resume an interrupted sprint** (local commits from earlier parts exist)
@@ -144,8 +146,9 @@ Continue sprint S05 from Part 2: I've approved the taxonomy seed (my edits, if a
 | S00 | `S00-verify-quick-wins-flags.md` | Done (one-time start step) |
 | S00B | `S00B-guarded-fetcher.md` | Done (pushed 23 Nov 2026, `f1d9ffdb`; live check passed) |
 | S01 | `S01-report-v2.md` | Done (pushed 24 Nov 2026, `bb5248d5`; 0154 applied; live checks passed) |
-| S01B | `S01B-report-polish.md` | S01 pushed and checked; started with the v1.12 `UPDATE-HERE.md` step; Parts 1–4 done, resumed for Parts 5–6 with the v1.13 `UPDATE-HERE.md` step |
-| S02 | `S02-question-library.md` | S01B pushed; `report_v2` switched on for Splice only; real Basic, Standard and Enhanced PDFs for Hero checked with Claude (chat) |
+| S01B | `S01B-report-polish.md` | Done (pushed 25 Nov 2026, `69eb1fcd`; no migration; Inngest resynced) |
+| S01C | `S01C-real-report-fixes.md` | S01B pushed; `report_v2` on for Splice only; the real Basic, Standard and Enhanced reports reviewed with Claude (chat); started with the v1.14 `UPDATE-HERE.md` step |
+| S02 | `S02-question-library.md` | S01C pushed; the real Basic, Standard and Enhanced reports regenerated for Splice and checked with Claude (chat) |
 | S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production |
 | S04 | `S04-visibility-reach.md` | S03 pushed, 0156 applied, checked |
 | S05 | `S05-business-taxonomy.md` | S04 pushed, 0157 applied |

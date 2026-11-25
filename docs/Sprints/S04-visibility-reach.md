@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S04-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S03 pushed and checked); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 2.3, 4, 7.2, 7A (0157), 8.4 (all), 10, 13, 20 (agreed D-QI7–9) and appendix E; contract screens P01 (reach card), P02 (sections by reach), P07 (reach row), P09 (reach row).
+Start with `git fetch origin` and build on `origin/main` (S03 pushed and checked); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 2.3, 4, 7.2, 7A (0157), 8.4 (all), 10, 13, 20 (agreed D-QI7–9) and appendix E; contract screens P01 (reach card), P02 (sections by reach), P07 (reach row), P09 (reach row).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -29,7 +29,7 @@ Confirm from each provider's current documentation the web-search location param
 - `lib/markets/au.ts` (states, abbreviations, capitals, country words, DataForSEO names, phrasing rules) and the `us.ts` stub.
 - Reach variants for every template family/legacy category with `{place}`; `toServicePhrase()` from S00; every non-global question names its place; global has none.
 - Generation fills each enabled reach's `target_count`; new questions land as suggestions or a draft through the S03 apply flow, never applied silently.
-- Tests: TechCore IT example (Sydney/NSW/Australia) produces correct place words; NSW written "NSW", TAS written "Tasmania"; global questions contain no place; validator passes all.
+- Tests: an invented IT-services business shaped like TechCore IT (amendment 66; Sydney/NSW/Australia) produces correct place words; NSW written "NSW", TAS written "Tasmania"; global questions contain no place; validator passes all.
 
 ## 4. Engine location and caching per reach (LLD 8.4.4)
 - Location settings per reach from Part 1, set where they live today: `userLocation` in `lib/llm/openai-impl.ts` and `lib/llm/anthropic-impl.ts` (LLD section 0, #18; country "AU" is sent only for a confirmed city today); Gemini and Perplexity get none in our integration unless Part 1 shows a supported parameter (words only).

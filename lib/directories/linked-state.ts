@@ -34,8 +34,15 @@ function linkedSentence(r: LinkedStateRow): string {
  * - some linked: each linked one's count, then "8 directories aren't linked yet, so we can't tell for those.";
  * - all linked: each linked one's count.
  * Null when no directory was cited.
+ *
+ * `ofThem` (S01C part 2a, LLD amendment 59): the directory finding names its scope first ("They cited 9 of the
+ * usual directories for your type of business 58 times."), so the rest are "8 of them", never "8 directories", which
+ * read as a different total from the summary's (13 directories in all).
  */
-export function linkedStateSentence(cited: readonly LinkedStateRow[]): string | null {
+export function linkedStateSentence(
+  cited: readonly LinkedStateRow[],
+  options: { ofThem?: boolean } = {},
+): string | null {
   if (cited.length === 0) return null;
   const linked = cited.filter((r) => r.ownerProfileLinked);
   if (linked.length === 0) {
@@ -48,7 +55,7 @@ export function linkedStateSentence(cited: readonly LinkedStateRow[]): string | 
     unlinked === 0
       ? ""
       : unlinked === 1
-        ? " 1 directory isn't linked yet, so we can't tell for it."
-        : ` ${unlinked} directories aren't linked yet, so we can't tell for those.`;
+        ? ` 1 ${options.ofThem ? "of them" : "directory"} isn't linked yet, so we can't tell for it.`
+        : ` ${unlinked} ${options.ofThem ? "of them" : "directories"} aren't linked yet, so we can't tell for those.`;
   return `${linked.map(linkedSentence).join(" ")}${rest}`;
 }

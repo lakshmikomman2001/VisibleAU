@@ -135,6 +135,11 @@ export interface ReportDirectoryRow {
   kind?: DirectoryKind;
   /** False for a directory shown only because this audit cited it (not one of the brand's own type's). */
   relevantToBrand?: boolean;
+  /**
+   * S01C part 2b (LLD amendment 60): citedCount per engine, for the "{Engine} cited most" evidence of an engine that
+   * never names the business. Absent in snapshots written before S01C.
+   */
+  citedByEngine?: Record<string, number>;
 }
 
 export interface ReportTrendPoint {
@@ -733,6 +738,7 @@ export function evidenceFields(
         suggestedProfileUrl: r.suggestedProfileUrl,
         kind: r.directory.kind,
         relevantToBrand: r.relevantToBrand,
+        citedByEngine: r.citedByEngine ?? {},
       })),
     },
     sources: evidence.sources,

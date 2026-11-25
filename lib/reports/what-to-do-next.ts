@@ -10,6 +10,7 @@ import {
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
+  displayRecommendationAction,
   displayRecommendationTitle,
   resolveDisplayBasis,
 } from "@/lib/recommendations/confidence-labels";
@@ -28,7 +29,7 @@ import {
   type Priority,
   type WhatToDoNext,
 } from "./report-contents";
-import type { Finding, FindingRule } from "./report-findings";
+import { type Finding, type FindingRule, withAction } from "./report-findings";
 
 /**
  * S01 part 5 (LLD 8.1.3): the "What to do next" groups for a brand's report, read with the audit page's own functions
@@ -137,7 +138,8 @@ export async function loadWhatToDoNext(
 
   // 1. The findings first, each joined to its Action Center item when it has one.
   const used = new Set<string>();
-  const fromFindings: MeasuredActionSource[] = input.findings.map((f) => {
+  // S01C part 2b: a finding with no action (an engine that cited no directory) gives no measured action.
+  const fromFindings: MeasuredActionSource[] = withAction(input.findings).map((f) => {
     const itemKey = ITEM_KEY_OF_RULE[f.rule];
     const item = itemKey ? byKey.get(itemKey) : undefined;
     if (item) used.add(item.id);
@@ -159,7 +161,9 @@ export async function loadWhatToDoNext(
       key: i.id,
       actionItemId: i.id,
       title: displayRecommendationTitle(i),
-      evidence: `${i.action}${suffix}`,
+      // S01C part 2c (LLD amendment 61): the Action Center's own words (an entity-profiles item is always shown with
+      // its current text, lib/recommendations/confidence-labels.ts), so the PDF and the Action Center say the same.
+      evidence: `${displayRecommendationAction(i, [])}${suffix}`,
       priority: asPriority(i.expectedImpactScore),
       status: asStatus(i.status),
     }));

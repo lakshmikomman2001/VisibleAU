@@ -10,7 +10,7 @@ import {
   type FindingsData,
   loadCompleteAudit,
 } from "./report-data";
-import { type Finding, reportFindings } from "./report-findings";
+import { type ActionFinding, type Finding, reportFindings, withAction } from "./report-findings";
 
 /**
  * Sri's decision (7 Nov) -- an audit's evidence-based actions are the PDF report's "Recommended next" for
@@ -49,11 +49,14 @@ export async function auditFindingsData(
   };
 }
 
-/** The audit's evidence-based actions, problems first, as the PDF's "Recommended next" lists them. */
+/**
+ * The audit's evidence-based actions, problems first, as the PDF's "Recommended next" lists them: since S01C part 2b
+ * only findings with an action (an engine that cited no directory has none, and is left out there too).
+ */
 export async function auditEvidenceActions(
   db: DbClient,
   input: { organizationId: string; brandId: string; auditId: string; now?: Date },
-): Promise<Finding[]> {
+): Promise<ActionFinding[]> {
   const data = await auditFindingsData(db, input);
-  return data ? reportFindings(data) : [];
+  return data ? withAction(reportFindings(data)) : [];
 }

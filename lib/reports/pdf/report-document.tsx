@@ -40,7 +40,13 @@ import {
 } from "../beyond-ai";
 import type { WhatToDoNext } from "../report-contents";
 import type { ReportData, ReportMatrixRow, ReportTrendPoint } from "../report-data";
-import { type EvidenceTone, type Finding, reportFindings, shownFindings } from "../report-findings";
+import {
+  type EvidenceTone,
+  type Finding,
+  reportFindings,
+  shownFindings,
+  withAction,
+} from "../report-findings";
 import {
   answeringEngineNames,
   basisReasonText,
@@ -415,8 +421,11 @@ export function reportPlan(data: ReportDataV2, findings: Finding[]): ReportPlan 
   const nextSteps = pages?.includes("next") ? next() : null;
   const beyond = pages?.includes("beyond_ai") && data.v2?.beyondAi ? next() : null;
   const trend = data.sections.trend ? next() : null;
+  // S01C part 2b: only findings with an action are listed (an engine that cited no directory has none).
   const recommended =
-    data.sections.recommended_next && findings.length > 0 && has("recommended") ? next() : null;
+    data.sections.recommended_next && withAction(findings).length > 0 && has("recommended")
+      ? next()
+      : null;
   const method = data.sections.method ? next() : null;
   return {
     summary,
@@ -2067,24 +2076,29 @@ function FindingCard({ finding, action }: { finding: Finding; action?: FindingCa
           </Text>
         ))}
       </View>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: px(8),
-          paddingTop: px(10),
-          paddingHorizontal: px(16),
-          paddingBottom: px(12),
-        }}
-      >
-        <Svg width={px(13)} height={px(13)} viewBox="0 0 24 24">
-          <Path d="M20 6 9 17l-5-5" fill="none" stroke={C.brand} strokeWidth={2.2} />
-        </Svg>
-        {/* 14 Nov, part 4: flex 1, so the action wraps beside the tick (it ran off the page edge). */}
-        <Text style={{ flex: 1, fontSize: px(10), fontWeight: 600, color: C.ink }}>
-          {finding.fix}
-        </Text>
-      </View>
+      {/* S01C part 2b (LLD amendment 60): no action line when the audit measured nothing to act on. */}
+      {finding.fix ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: px(8),
+            paddingTop: px(10),
+            paddingHorizontal: px(16),
+            paddingBottom: px(12),
+          }}
+        >
+          <Svg width={px(13)} height={px(13)} viewBox="0 0 24 24">
+            <Path d="M20 6 9 17l-5-5" fill="none" stroke={C.brand} strokeWidth={2.2} />
+          </Svg>
+          {/* 14 Nov, part 4: flex 1, so the action wraps beside the tick (it ran off the page edge). */}
+          <Text style={{ flex: 1, fontSize: px(10), fontWeight: 600, color: C.ink }}>
+            {finding.fix}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ height: px(12) }} />
+      )}
       {action?.note ? (
         <Text
           style={{
@@ -2297,12 +2311,14 @@ function NextSection({ ctx }: { ctx: Ctx }) {
   const next = v2?.whatToDoNext ?? null;
   const agencyName = v2?.agencyName ?? null;
   const shownRules = new Set(ctx.findings.map((f) => f.rule));
-  const shownTitles = new Set(ctx.findings.map((f) => f.recommendation.title));
+  const shownTitles = new Set(withAction(ctx.findings).map((f) => f.recommendation.title));
   const others = (next?.measured ?? []).filter(
     (m) =>
       m.included && (m.findingRule ? !shownRules.has(m.findingRule) : !shownTitles.has(m.title)),
   );
   const agency = next?.agencyActions ?? [];
+  const agencyLabelled =
+    agency.length > 0 || (next?.measured ?? []).some((m) => m.included && !!m.note?.trim());
   const done = next?.includeDoneSinceLast ? next.doneSinceLast : [];
   const advice = next?.includeGeneralAdvice ? next.generalAdvice : [];
   const findingCards: ReactNode[] =
@@ -2343,7 +2359,8 @@ function NextSection({ ctx }: { ctx: Ctx }) {
           />
           <Text style={s.h2}>What we found, and what to do next</Text>
           <Text style={s.lede}>
-            {agencyName
+            {/* S01C part 2c (LLD amendment 61): the agency sentence only when the report has its note or action. */}
+            {agencyName && agencyLabelled
               ? `Each action shows the evidence from this audit. Notes and actions from ${agencyName} are labelled.`
               : "Each action shows the evidence from this audit."}
           </Text>
@@ -2700,7 +2717,9 @@ function TrendBlock({ ctx }: { ctx: Ctx }) {
 
 /** Basic's "Recommended next": the findings, prioritised by impact, one unbreakable block. */
 function RecommendedBlock({ ctx }: { ctx: Ctx }) {
-  const { plan, findings } = ctx;
+  const { plan } = ctx;
+  // S01C part 2b: a finding with no action (an engine that cited no directory) isn't an item here.
+  const findings = withAction(ctx.findings);
   return (
     <View wrap={false} style={{ marginTop: plan.trend ? 0 : px(28) }}>
       <SectionLabel
@@ -2759,7 +2778,10 @@ function RecommendedBlock({ ctx }: { ctx: Ctx }) {
                 paddingHorizontal: px(9),
               }}
             >
-              {plan.diagnosis ? `Finding ${i + 1} · ${f.severity.short}` : f.severity.short}
+              {/* The finding's own number on the Diagnosis page: a finding with no action is left out here. */}
+              {plan.diagnosis
+                ? `Finding ${ctx.findings.indexOf(f) + 1} · ${f.severity.short}`
+                : f.severity.short}
             </Text>
           </View>
         ))}

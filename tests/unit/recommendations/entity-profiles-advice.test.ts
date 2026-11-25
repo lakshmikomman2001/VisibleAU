@@ -1,5 +1,12 @@
 /**
  * "Cost honesty" (25 Oct), item 4 -- entity-profile advice for local businesses (option A).
+ *
+ * S01C part 2c, LLD amendment 61: "The Wikipedia check's item says only its result and the next step: 'Get covered in
+ * local press or on community sites' ('We checked: there's no Wikipedia article for your business. That's normal for
+ * a local business: Wikipedia needs significant coverage in independent sources, so we don't recommend writing one
+ * yet. Coverage in local press or on community sites is the step that helps.'); its Google Business Profile and
+ * directory steps repeated the findings and rule j." The title and the action changed with it; the step list and the
+ * directory step it named are gone, so those tests now check that the item names neither.
  */
 import { describe, expect, it } from "vitest";
 import { DIRECTORY_REGISTRY } from "@/lib/directories/registry";
@@ -7,7 +14,7 @@ import {
   displayRecommendationAction,
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
-import { ENTITY_PROFILES_TITLE, entityProfilesSteps } from "@/lib/recommendations/entity-profiles";
+import { ENTITY_PROFILES_TITLE } from "@/lib/recommendations/entity-profiles";
 import {
   type DirectoryVisibilityFinding,
   NO_EVIDENCE,
@@ -16,7 +23,11 @@ import {
 import { evaluateTriggers } from "@/lib/recommendations/triggers";
 import type { TriggerContext, TriggeredRecommendation } from "@/lib/recommendations/types";
 
-const TITLE = "Strengthen your business profiles on Google, directories and local press";
+const TITLE = "Get covered in local press or on community sites";
+const CHECKED =
+  "We checked: there's no Wikipedia article for your business. That's normal for a local business: Wikipedia needs significant coverage in independent sources, so we don't recommend writing one yet. Coverage in local press or on community sites is the step that helps.";
+const NOT_CHECKED =
+  "We couldn't check Wikipedia this audit. For most local businesses Wikipedia isn't the realistic route: Wikipedia needs significant coverage in independent sources. Coverage in local press or on community sites is the step that helps.";
 
 const ctx: TriggerContext = {
   scoreFrequency: "20.00",
@@ -55,16 +66,6 @@ function entityProfiles(overrides: Partial<RecommendationEvidence>): TriggeredRe
   return rec;
 }
 
-/** The step list: everything after "Instead:" (the opening sentence explains the Wikipedia check). */
-function steps(action: string): string {
-  return action.slice(action.indexOf("Instead:"));
-}
-
-/** Step (2) alone -- step (1) names Google Business Profile by design. */
-function directoryStep(action: string): string {
-  return action.slice(action.indexOf("(2)"), action.indexOf("(3)"));
-}
-
 const CITED = {
   directories: {
     status: "ok" as const,
@@ -76,13 +77,14 @@ const CITED = {
 };
 
 describe("the not-notable and couldn't-check paths", () => {
-  it("the not-notable path's title is the new one, with no Wikipedia or Wikidata in the title or steps", () => {
+  it("the not-notable path's title is the new one, with no Wikipedia or Wikidata in the title", () => {
     const rec = entityProfiles({ wikipedia: NO_ARTICLE });
     expect(rec.title).toBe(TITLE);
     expect(ENTITY_PROFILES_TITLE).toBe(TITLE);
     expect(displayRecommendationTitle(rec)).toBe(TITLE);
     expect(rec.expectedImpactScore).toBe("low");
-    expect(`${rec.title} ${steps(rec.action)}`).not.toMatch(/wikipedia|wikidata/i);
+    expect(rec.title).not.toMatch(/wikipedia|wikidata/i);
+    expect(rec.action).toBe(CHECKED);
   });
 
   it("the couldn't-check path shows the same title with the existing 'Check: ' prefix", () => {
@@ -90,39 +92,30 @@ describe("the not-notable and couldn't-check paths", () => {
     expect(rec.title).toBe(TITLE);
     expect(displayRecommendationTitle(rec)).toBe(`Check: ${TITLE}`);
     expect(rec.expectedImpactScore).toBe("low");
-    expect(`${rec.title} ${steps(rec.action)}`).not.toMatch(/wikipedia|wikidata/i);
+    expect(rec.action).toBe(NOT_CHECKED);
   });
 
-  it("the steps are Google Business Profile, the cited directories, then local press", () => {
-    const text = steps(entityProfiles({ wikipedia: NO_ARTICLE, ...CITED }).action);
-    expect(text).toMatch(/\(1\) complete your Google Business Profile .* keep it current;/);
-    expect(text).toMatch(
-      /\(2\) claim or complete your profiles on the directories AI cited in this audit/,
-    );
-    expect(text).toMatch(/\(3\) get your business covered in local press or on community sites\.$/);
+  it("the item says only the check's result and the next step: no profile or directory steps, no dashes", () => {
+    const text = entityProfiles({ wikipedia: NO_ARTICLE, ...CITED }).action;
+    expect(text).not.toMatch(/Google Business Profile|claim or complete|\(1\)|wikidata/i);
+    expect(text).not.toMatch(/[—–]| - /);
+    expect(text).toMatch(/Coverage in local press or on community sites is the step that helps\.$/);
   });
 });
 
-describe("the directory step names only directories in this audit's evidence", () => {
+describe("the item names no directory (the directory findings do)", () => {
   const registryNames = Object.values(DIRECTORY_REGISTRY)
     .flat()
     .map((d) => d.name);
 
-  it("names exactly the cited ones, most-cited first", () => {
-    const text = directoryStep(entityProfiles({ wikipedia: NO_ARTICLE, ...CITED }).action);
-    expect(text).toContain("Word of Mouth, hipages and Yellow Pages");
-    const named = registryNames.filter((n) => new RegExp(`\\b${n}\\b`).test(text));
-    expect(named.sort()).toEqual(["Word of Mouth", "Yellow Pages", "hipages"].sort());
-  });
-
-  it("names none when the audit cited none, or its directory evidence is missing", () => {
+  it("whether the audit cited some, none, or its directory evidence is missing", () => {
     for (const directories of [
+      CITED.directories,
       { status: "ok" as const, data: { computedAt: "2026-10-24T00:00:00.000Z", findings: [] } },
       { status: "not_run" as const },
     ]) {
-      const text = directoryStep(entityProfiles({ wikipedia: NO_ARTICLE, directories }).action);
+      const text = entityProfiles({ wikipedia: NO_ARTICLE, directories }).action;
       expect(registryNames.filter((n) => new RegExp(`\\b${n}\\b`).test(text))).toEqual([]);
-      expect(text).toContain("the directories your customers use");
     }
   });
 });
@@ -163,7 +156,7 @@ describe("existing items change at read time, from stored fields", () => {
     expect(displayRecommendationTitle(stored)).toBe(`Check: ${TITLE}`);
   });
 
-  it("a stored action with the Wikidata step shows the new steps, naming the audit's cited directories", () => {
+  it("a stored action with the Wikidata step shows the current words, naming no directory", () => {
     const stored = {
       recommendationKey: "entity-profiles",
       confidenceBasis: "verified",
@@ -171,8 +164,8 @@ describe("existing items change at read time, from stored fields", () => {
     };
     const text = displayRecommendationAction(stored, ["hipages"]);
     expect(text).not.toMatch(/wikidata/i);
-    expect(steps(text)).toBe(`Instead: ${entityProfilesSteps(["hipages"])}`);
-    expect(text).toContain("the directories AI cited in this audit — hipages —");
+    expect(text).toBe(CHECKED);
+    expect(text).not.toContain("hipages");
   });
 
   it("any other recommendation's action is shown as stored", () => {

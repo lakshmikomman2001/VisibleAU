@@ -86,12 +86,16 @@ describe("linkedStateSentence", () => {
 describe("the PDF's summary and finding 1 say what's linked", () => {
   it("some linked (Hero): neither says the links haven't been added", () => {
     const { summary, explanation, dropped } = summaryAndFinding(HERO_ROWS);
-    for (const text of [summary, explanation]) {
-      expect(text).not.toMatch(STALE);
-      expect(text).toContain(
-        "Localsearch is linked: 2 of its 10 citations were your own profile. 8 directories aren't linked yet, so we can't tell for those.",
-      );
-    }
+    for (const text of [summary, explanation]) expect(text).not.toMatch(STALE);
+    expect(summary).toContain(
+      "Localsearch is linked: 2 of its 10 citations were your own profile. 8 directories aren't linked yet, so we can't tell for those.",
+    );
+    // S01C part 2a, LLD amendment 59: the finding "states its scope ('They cited {n} of the usual directories for
+    // your type of business {k} times ... {m} of them aren't linked yet')", so it never seems to contradict the
+    // summary's total.
+    expect(explanation).toContain(
+      "Localsearch is linked: 2 of its 10 citations were your own profile. 8 of them aren't linked yet, so we can't tell for those.",
+    );
     expect(dropped).toBe(0);
   });
 

@@ -65,7 +65,7 @@ import {
 } from "@/lib/recommendations/general-advice-evidence";
 import { auditEvidenceActions } from "@/lib/reports/audit-findings";
 import { getBeyondAiAnswers } from "@/lib/reports/beyond-ai";
-import type { Finding } from "@/lib/reports/report-findings";
+import type { ActionFinding } from "@/lib/reports/report-findings";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import { HEADLINE_BAND_LABELS, shownHeadlineBand } from "@/lib/scoring/headline-color";
 import {
@@ -396,7 +396,7 @@ export default async function AuditPage({
         note: string | null;
       } | null;
       /** The PDF's "Recommended next" for this audit, each with its counts. */
-      evidenceActions: Finding[];
+      evidenceActions: ActionFinding[];
       generalAdvice: Array<{
         /** S01 part 4: the evidence behind it ("LinkedIn was cited in 9 of 40 answers"), while report_v2 is on. */
         evidenceLine: string | null;

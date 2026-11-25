@@ -126,8 +126,9 @@ describe("directories: each named with its own count", () => {
     const n = data.directories.totalAnswers;
     const action = reportFindings(data).find((f) => f.rule === "a")?.recommendation;
     expect(action?.title).toBe("Link your hipages, Word of Mouth and Localsearch profiles");
+    // S01C part 2a, LLD amendment 59: Recommended next bodies in one style ("was cited in").
     expect(action?.detail).toBe(
-      `hipages is cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers. AI cited what looks like yours: hipages.com.au/connect/omegaservices looks like your hipages profile. Link it under Directories AI cited, so we can match it with what AI cites. Add your Word of Mouth and Localsearch profile links in brand settings.`,
+      `hipages was cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers. AI cited what looks like yours: hipages.com.au/connect/omegaservices looks like your hipages profile. Link it under Directories AI cited, so we can match it with what AI cites. Add your Word of Mouth and Localsearch profile links in brand settings.`,
     );
   });
 
@@ -143,7 +144,8 @@ describe("directories: each named with its own count", () => {
     const action = reportFindings(data).find((f) => f.rule === "a")?.recommendation;
     expect(action).toEqual({
       title: "Complete your hipages, Word of Mouth and Localsearch profiles",
-      detail: `hipages is cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers; none linked you.`,
+      // S01C part 2a, LLD amendment 59: one style ("was cited in").
+      detail: `hipages was cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers; none linked you.`,
     });
   });
 });

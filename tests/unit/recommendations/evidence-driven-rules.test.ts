@@ -487,7 +487,9 @@ describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notabi
     const rec = find(recs, "entity-profiles");
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.action).toContain("there's no Wikipedia article for your business");
-    expect(rec?.action).toContain("Google Business Profile");
+    // S01C part 2c, LLD amendment 61: the item says only the check's result and the next step (its Google Business
+    // Profile and directory steps repeated the findings and rule j).
+    expect(rec?.action).not.toContain("Google Business Profile");
     expect(rec?.action).not.toContain("Wikidata");
     expect(rec?.action).toMatch(/local press or on community sites/);
     expect(rec?.action).toMatch(/we don't recommend writing one yet/);
@@ -496,7 +498,10 @@ describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notabi
 
   it("copy never promises what WP:NCORP would reject (no 'local coverage is enough')", async () => {
     const rec = find(await build(ctx(), evidence({ wikipedia: noArticle })), "entity-profiles");
-    expect(rec?.action).toMatch(/local coverage on its own usually isn't enough/);
+    // S01C part 2c, LLD amendment 61's words: "Wikipedia needs significant coverage in independent sources, so we
+    // don't recommend writing one yet" -- never that local coverage is enough.
+    expect(rec?.action).toMatch(/Wikipedia needs significant coverage in independent sources/);
+    expect(rec?.action).not.toMatch(/local coverage (on its own )?is enough/i);
     expect(rec?.action).not.toMatch(/draft .*wikipedia article/i);
   });
 

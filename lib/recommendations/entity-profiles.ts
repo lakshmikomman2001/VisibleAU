@@ -1,41 +1,33 @@
 // Written by triggers.ts for new items and shown by confidence-labels.ts for stored ones.
 
 // No Wikipedia or Wikidata in the title: Wikidata has its own notability bar a local trade may not meet.
-// 16 Nov, part 3: "directories", not "trade directories" -- the title reaches every business type (stored items are
-// shown with it too, confidence-labels.ts), and only the trades have trade directories.
-export const ENTITY_PROFILES_TITLE =
-  "Strengthen your business profiles on Google, directories and local press";
+// 16 Nov, part 3: the title reaches every business type (stored items are shown with it too, confidence-labels.ts).
+// S01C part 2c (LLD amendment 61): the item says only the Wikipedia check's result and the next step. It was
+// "Strengthen your business profiles on Google, directories and local press" with a seven-line paragraph whose
+// Google Business Profile and directory steps repeated the findings and rule j.
+export const ENTITY_PROFILES_TITLE = "Get covered in local press or on community sites";
 
 // Nothing measures that a missing Google, directory or press profile costs AI visibility.
 export const ENTITY_PROFILES_IMPACT = "low";
 
-const NCORP_SUMMARY =
-  "Wikipedia only accepts company articles backed by significant coverage in multiple independent, reliable sources, including at least one regional or national outlet — local coverage on its own usually isn't enough";
+/** Why not Wikipedia, in plain words (no dashes as punctuation). */
+const NOTABILITY = "Wikipedia needs significant coverage in independent sources";
 
-function joinNames(names: readonly string[]): string {
-  if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
+const NEXT_STEP = "Coverage in local press or on community sites is the step that helps.";
 
-/** Names only directories AI cited in this audit, most-cited first, and none when it cited none. */
-export function entityProfilesSteps(citedDirectories: readonly string[]): string {
-  const directories =
-    citedDirectories.length > 0
-      ? `claim or complete your profiles on the directories AI cited in this audit — ${joinNames(citedDirectories)} — with the same business name, address and phone number as your website`
-      : "claim or complete your profiles on the directories your customers use, with the same business name, address and phone number as your website";
-  return `(1) complete your Google Business Profile — categories, service areas, hours and photos — and keep it current; (2) ${directories}; (3) get your business covered in local press or on community sites.`;
-}
-
-/** Opens with what the Wikipedia check found: "verified" checked, "inferred" didn't complete, else unknown. */
+/**
+ * Opens with what the Wikipedia check found: "verified" checked, "inferred" didn't complete, else unknown. The
+ * directories parameter is no longer read (the steps that named them are gone); callers still pass them.
+ */
 export function entityProfilesAction(
   confidenceBasis: string | null | undefined,
-  citedDirectories: readonly string[],
+  _citedDirectories?: readonly string[],
 ): string {
-  const why =
-    confidenceBasis === "verified"
-      ? `We checked: there's no Wikipedia article for your business. That's normal for a local business — ${NCORP_SUMMARY}, so we don't recommend writing one yet.`
-      : confidenceBasis === "inferred"
-        ? `We couldn't check Wikipedia this audit. For most local businesses Wikipedia isn't the realistic route — ${NCORP_SUMMARY}.`
-        : `For most local businesses Wikipedia isn't the realistic route — ${NCORP_SUMMARY}.`;
-  return `${why} Instead: ${entityProfilesSteps(citedDirectories)}`;
+  if (confidenceBasis === "verified") {
+    return `We checked: there's no Wikipedia article for your business. That's normal for a local business: ${NOTABILITY}, so we don't recommend writing one yet. ${NEXT_STEP}`;
+  }
+  if (confidenceBasis === "inferred") {
+    return `We couldn't check Wikipedia this audit. For most local businesses Wikipedia isn't the realistic route: ${NOTABILITY}. ${NEXT_STEP}`;
+  }
+  return `For most local businesses Wikipedia isn't the realistic route: ${NOTABILITY}. ${NEXT_STEP}`;
 }

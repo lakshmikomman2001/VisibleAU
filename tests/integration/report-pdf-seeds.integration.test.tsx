@@ -668,7 +668,9 @@ describe("S01B part 6: the review's follow-ups, on the seeds", () => {
     expect(i ? evidenceText(i) : []).not.toHaveLength(0);
     for (const line of i ? evidenceText(i) : [])
       expect(line).toMatch(/· your profile: not linked yet$/);
-    expect(i?.recommendation.detail).toMatch(/; your profile: not linked yet\.$/);
+    // S01C part 2a, LLD amendment 59: rule i's Recommended next body in item 1's style, "{A} and {B} were each cited
+    // in 5 of 40 answers and {C} in 4; none of them is linked yet" (it ended "; your profile: not linked yet.").
+    expect(i?.recommendation.detail).toMatch(/; (none of them is|it isn't) linked yet\.$/);
     for (const spec of REPORT_SEEDS)
       for (const tier of TIERS)
         expect(get(spec, tier).text, `${spec.key} ${tier}`).not.toContain(

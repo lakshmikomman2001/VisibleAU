@@ -2,7 +2,7 @@ import type { DbClient } from "@/db/client";
 import { resolveConfidence } from "@/lib/recommendations/confidence-labels";
 import type { RecommendationWithConfidence } from "@/lib/recommendations/types";
 import { auditFindingsData } from "./audit-findings";
-import { type Finding, reportFindings } from "./report-findings";
+import { type Finding, reportFindings, withAction } from "./report-findings";
 
 /**
  * S01 part 3 (LLD 8.1.5, T5): finding rules g-j also create Action Center items, so a 0% audit (TechCore IT's #52)
@@ -33,7 +33,7 @@ function isLowVisibilityRule(rule: string): rule is LowVisibilityRule {
 export function findingsToRecommendations(
   findings: readonly Finding[],
 ): RecommendationWithConfidence[] {
-  return findings.flatMap((f) => {
+  return withAction(findings).flatMap((f) => {
     if (!isLowVisibilityRule(f.rule)) return [];
     const { key, dimension } = FINDING_RECOMMENDATIONS[f.rule];
     return [

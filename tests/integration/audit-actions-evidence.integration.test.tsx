@@ -14,7 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ENTITY_PROFILES_TITLE } from "@/lib/recommendations/entity-profiles";
 import { ReportDocument } from "@/lib/reports/pdf/report-document";
-import { reportFindings } from "@/lib/reports/report-findings";
+import { reportFindings, withAction } from "@/lib/reports/report-findings";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
 import { type ReportFixture, seedReportFixture } from "@/tests/helpers/report-fixture";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
@@ -130,7 +130,9 @@ async function pdfActions(auditId: string): Promise<{ actions: string[][]; pdf: 
   });
   if (!data) throw new Error("no report data");
   return {
-    actions: reportFindings(data).map((f) => [
+    // S01C part 2b, LLD amendment 60: "If the engine cited no directory: no action, and Recommended next leaves the
+    // item out" -- and so does the page (here Gemini named no one and cited no directory).
+    actions: withAction(reportFindings(data)).map((f) => [
       f.severity.short,
       f.recommendation.title,
       f.recommendation.detail,
@@ -155,7 +157,8 @@ describe("no Reddit in any answer (#41): the Reddit advice is general advice", (
       `Low ${REDDIT_TITLE} General advice, not drawn from this audit's answers`,
     );
     expect(advice).toContain(
-      `Low ${ENTITY_PROFILES_TITLE} No Wikipedia article for your business (Wikipedia searched 7 Nov 2026), so your Google, directory and press profiles are what AI can read about you`,
+      // S01C part 2c (LLD amendments 56, 61): the result and the item's own step, never what AI engines read.
+      `Low ${ENTITY_PROFILES_TITLE} No Wikipedia article for your business (Wikipedia searched 7 Nov 2026), so local press and community sites are the next step`,
     );
     // The directory item is measured: it's the evidence action's, never general advice.
     expect(advice).not.toContain("confirm your status");

@@ -222,10 +222,11 @@ describe("entity-profiles priority and title (item 2)", () => {
     expect(rec?.expectedImpactScore).toBe("low");
     expect(rec?.title).toBe(ENTITY_PROFILES_TITLE);
     expect(rec?.title).not.toMatch(/wikipedia/i);
-    // The title's three names are the action's own three steps.
-    expect(rec?.action).toMatch(/Google Business Profile/);
-    expect(rec?.action).toMatch(/directories/);
-    expect(rec?.action).toMatch(/local press/);
+    // S01C part 2c, LLD amendment 61: "The Wikipedia check's item says only its result and the next step: 'Get
+    // covered in local press or on community sites' ...; its Google Business Profile and directory steps repeated the
+    // findings and rule j." The title is that one step, and so is the action's.
+    expect(rec?.action).not.toMatch(/Google Business Profile/);
+    expect(rec?.action).toMatch(/local press or on community sites/);
   });
 
   it("the 'couldn't check Wikipedia' path is Low too -- same steps, even less evidence", () => {
@@ -306,8 +307,9 @@ describe("one basis -> label mapping (item 3)", () => {
       "verified",
       {
         chip: "Wikipedia searched",
-        // 13 Nov (part 5): the reason supports the title (profiles on Google, directories, press).
-        text: "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so your Google, directory and press profiles are what AI can read about you",
+        // 13 Nov (part 5): the reason supports the title. S01C part 2c (LLD amendments 56, 61: no finding or action
+        // claims what AI engines read; the item's step is local press and community sites).
+        text: "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so local press and community sites are the next step",
       },
     ],
     [

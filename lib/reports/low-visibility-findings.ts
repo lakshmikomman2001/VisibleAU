@@ -1,5 +1,6 @@
 import { citedSourcesOf, isBrandDomain } from "@/lib/audit/extract-citations";
 import { formatAbn } from "@/lib/brands/abn";
+import { linkOrCreateProfilesAction, wasCitedInAnswers } from "@/lib/directories/cited-in-answers";
 import { directoryProfileStatus, PROFILE_NOT_LINKED_LABEL } from "@/lib/directories/profile-status";
 import { findDirectoryForSource } from "@/lib/directories/registry";
 import { isGoogleGroundingRedirect } from "@/lib/llm/web-search-config";
@@ -17,7 +18,8 @@ import { formatCheckDate, plural } from "./report-format";
  *   (g) others are named instead: mentioned in at most 10% of everyday answers, and at least half of them cite
  *       other businesses' own sites (counted by site, not by a model reading names);
  *   (h) AI couldn't find the business: an engine said so, in an answer to a question that names it (appendix C1);
- *   (i) directories you're not on: a registry directory outside the brand's own type that AI cited in at least two
+ *   (i) directories where we can't see the listings (S01C, LLD amendment 59): a registry directory outside the
+ *       brand's own type that AI cited in at least two
  *       everyday answers, with no linked profile (the brand's own type's directories are rule a, as before);
  *   (j) identity not verified: the ABN isn't verified on the ABR, or no Google Business Profile is linked. By cause
  *       since S01B part 6d (LLD amendment 56): "Your business identity isn't verified yet" for the ABN, "Your Google
@@ -259,7 +261,8 @@ function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
     rule: "i",
     kind: "risk",
     icon: "directory",
-    title: "AI cites directories you're not on yet",
+    // S01C part 2a (LLD amendment 59): we only know a profile isn't linked, never that the business isn't listed.
+    title: "AI also cites directories where we can't see your listings yet",
     explanation: `Beyond the usual directories for your type of business, AI cited ${list(names)} for these questions.`,
     severity: MEDIUM,
     evidenceLabel: `Evidence · Audit #${data.basis.auditNumber} · ${total} everyday answers`,
@@ -276,10 +279,13 @@ function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
         },
       ];
     }),
-    fix: `Create or claim your ${list(names)} ${plural(names.length, "profile")}, then link ${names.length === 1 ? "it" : "them"} in brand settings`,
+    fix: linkOrCreateProfilesAction(names),
+    // S01C part 2a: Recommended next in item 1's style ("Local Business Guide and Whereis were each cited in 5 of 40
+    // answers and Birdeye in 4; none of them is linked yet"); it repeated "was cited in ... of 40 answers" per
+    // directory and said "Get listed on ...".
     recommendation: {
-      title: `Get listed on ${list(names)}`,
-      detail: `${rows.map((r) => `${r.name} was cited in ${r.citedCount} of ${total} answers`).join("; ")}; your profile: ${NOT_LINKED_YET}.`,
+      title: `Link or create your ${list(names)} ${plural(names.length, "profile")}`,
+      detail: `${wasCitedInAnswers(rows, total)}; ${rows.length === 1 ? "it isn't linked yet" : "none of them is linked yet"}.`,
     },
   };
 }
@@ -348,8 +354,14 @@ function identityFinding(data: LowVisibilityData): Finding | null {
     fix: !id.abnVerified
       ? "Add your ABN in brand settings so we can check it on the Australian Business Register"
       : "Link your Google Business Profile in brand settings",
+    // S01C part 2c (LLD amendment 61): the title follows the cause. The real report said "Verify your ABN" for a
+    // brand with no ABN.
     recommendation: {
-      title: !id.abnVerified ? "Verify your ABN" : "Link your Google Business Profile",
+      title: !abn
+        ? `Add your ABN${id.gbpLinked ? "" : " and link your Google Business Profile"}`
+        : id.abnVerified
+          ? "Link your Google Business Profile"
+          : "Verify your ABN",
       detail: sentence,
     },
   };

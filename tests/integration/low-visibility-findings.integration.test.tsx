@@ -123,7 +123,8 @@ describe("TechCore IT #52's shape on a real database", () => {
     expect(text).not.toContain("No finding rule matched");
     expect(text).toContain("AI recommends other providers instead");
     expect(text).toContain("Claude couldn't find information about TechCore IT");
-    expect(text).toContain("AI cites directories you're not on yet");
+    // S01C part 2a, LLD amendment 59: "Rule i: 'AI also cites directories where we can't see your listings yet'".
+    expect(text).toContain("AI also cites directories where we can't see your listings yet");
     // S01B part 4d (LLD amendment 52: "Today's findings limit stays in every tier: at most 3 problem findings and 1
     // strength, by impact; the rest appear only as actions and in the Action Center"): g and h are high impact, i
     // and j medium, so j (rule order after i) is the fourth problem and isn't a card; its Action Center item is below.

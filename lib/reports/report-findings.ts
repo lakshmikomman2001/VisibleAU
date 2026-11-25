@@ -1,9 +1,12 @@
 import { engineNameList } from "@/lib/audit/engine-failure";
 import { possessive } from "@/lib/copy/possessive";
-import { citedInAnswers, namedCitedInAnswersList } from "@/lib/directories/cited-in-answers";
+import {
+  citedInAnswers,
+  linkOrCreateProfilesAction,
+  wasCitedInAnswers,
+} from "@/lib/directories/cited-in-answers";
 import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
-import { PRODUCT_NAME } from "@/lib/product";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
 import { lowVisibilityFindings } from "./low-visibility-findings";
 import type { FindingsData, ReportEngineRow } from "./report-data";
@@ -61,6 +64,19 @@ export interface Finding {
    * and in the PDF's "Recommended next"); now required, so no template can leave it out.
    */
   recommendation: { title: string; detail: string };
+  /**
+   * S01C part 2b (LLD amendment 60): the audit measured nothing to act on -- an engine that never names the business
+   * and cited no directory. The card has no action line (fix is empty, no reason is claimed), and Recommended next,
+   * the audit page's actions and "What to do next" leave the finding out.
+   */
+  noAction?: true;
+}
+
+/** A finding with an action: what Recommended next, the audit page's actions and "What to do next" list. */
+export type ActionFinding = Finding;
+
+export function withAction(findings: readonly Finding[]): ActionFinding[] {
+  return findings.filter((f) => !f.noAction);
 }
 
 const HIGH = { label: "High impact", short: "High", tone: "high" } as const;
@@ -96,13 +112,15 @@ function directoryFinding(data: FindingsData): Finding | null {
   // S00 part 5: the brand's own type's directories, as before (a directory only cited isn't advice yet).
   const cited = relevantCitedDirectories(data);
   const total = cited.reduce((s, r) => s + r.citedCount, 0);
-  // 13 Nov, part 3: the recommendation names each directory its title names, with its own count.
-  const gapCited = namedCitedInAnswersList(gaps, data.directories.totalAnswers);
+  // 13 Nov, part 3: the recommendation names each directory its title names, with its own count. S01C part 2a
+  // (LLD amendment 59): in Recommended next's one style ("Yellow Pages was cited in 17, hipages in 7 and Airtasker
+  // in 5 of 40 answers").
+  const gapCited = wasCitedInAnswers(gaps, data.directories.totalAnswers);
   const notLinked = gaps.every((r) => !r.ownerProfileLinked);
   const names = gaps.map((r) => r.name);
   const labels = padded(names);
-  const these =
-    gaps.length === 1 ? "this directory" : `these ${countWord(gaps.length)} directories`;
+  // S01C part 2a: counts are numerals everywhere in this finding.
+  const these = gaps.length === 1 ? "this directory" : `these ${gaps.length} directories`;
   return {
     rule: "a",
     kind: "risk",
@@ -111,8 +129,10 @@ function directoryFinding(data: FindingsData): Finding | null {
       ? "AI cites these directories, and we can't yet see your listings on them"
       : "Your directory listings aren't the ones AI links",
     // 14 Nov, part 2: what's linked, from every cited directory -- not "your profile links aren't added yet" when one
-    // is (Hero's Localsearch).
-    explanation: `AI engines answer local questions by citing directories. They cited ${countWord(cited.length)} ${plural(cited.length, "directory", "directories")} ${total} ${plural(total, "time")}. ${linkedStateSentence(cited)}`,
+    // is (Hero's Localsearch). S01C part 2a (LLD amendment 59): the scope is said, so it never seems to contradict the
+    // summary's total (the real report: "nine directories 58 times ... 8 directories aren't linked yet" here, 13
+    // directories, 73 times and 12 not linked on page 2: both right, these are the usual ones for the business type).
+    explanation: `AI engines answer local questions by citing directories. They cited ${cited.length} of the usual directories for your type of business ${total} ${plural(total, "time")}. ${linkedStateSentence(cited, { ofThem: true })}`,
     severity: HIGH,
     evidenceLabel: `Evidence · Audit #${data.basis.auditNumber} · ${data.directories.totalAnswers} everyday answers`,
     evidence: gaps.map((r, i) => {
@@ -133,8 +153,10 @@ function directoryFinding(data: FindingsData): Finding | null {
         },
       ];
     }),
+    // S01C part 2a (LLD amendment 59): rule i's action ("... then claim or complete them" claimed we knew there was a
+    // listing to claim).
     fix: notLinked
-      ? `Add your ${names.join(" / ")} profile links in ${PRODUCT_NAME}, then claim or complete them`
+      ? linkOrCreateProfilesAction(names)
       : `Complete and activate your profiles on ${these} first`,
     // 9 Nov (part 6): in answers, as the evidence above it -- not "32 of 48 directory citations" (answer-directory
     // pairs), which read like a different denominator.
@@ -168,14 +190,32 @@ function directoryFinding(data: FindingsData): Finding | null {
   };
 }
 
-const ENGINE_FIX: Record<string, { fix: string }> = {
-  gemini: {
-    fix: "Review your Google Business Profile: categories, services, hours and recent reviews",
-  },
-};
-const GENERIC_ENGINE_FIX = {
-  fix: "Make sure your website and directory profiles name your services and suburbs plainly",
-};
+/**
+ * S01C part 2b (LLD amendment 60): the registry directories these engines cited most in their answers, most first
+ * (ties by name), at most 3 -- what an engine that never names the business was reading instead. The action said
+ * "Review your Google Business Profile: categories, services, hours and recent reviews" for Gemini, which claimed
+ * what Gemini reads (amendment 56).
+ */
+function mostCitedBy(
+  data: FindingsData,
+  engines: readonly string[],
+): Array<{ name: string; count: number }> {
+  return data.directories.rows
+    .map((r) => ({
+      name: r.name,
+      count: engines.reduce((sum, e) => sum + (r.citedByEngine?.[e] ?? 0), 0),
+    }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 3);
+}
+
+/** "Make sure your profiles on Yellow Pages, hipages and Airtasker, the directories Gemini cites most, are complete
+ * and linked in brand settings": the finding's action and its Recommended next title, the same words. */
+function silentEngineAction(engineNames: string, multiple: boolean, top: string[]): string {
+  const one = top.length === 1;
+  return `Make sure your ${one ? "profile" : "profiles"} on ${nameList(top)}, the ${one ? "directory" : "directories"} ${engineNames} ${multiple ? "cite" : "cites"} most, ${one ? "is" : "are"} complete and linked in brand settings`;
+}
 
 /**
  * 9 Nov (part 6): the action's title states what was measured, never a cause the audit didn't measure (it said
@@ -258,8 +298,25 @@ function silentEngineFinding(data: FindingsData): Finding | null {
     })),
   ];
   const labels = padded(rows.map((r) => r.e.name));
-  const advice = ENGINE_FIX[silent[0].engine] ?? GENERIC_ENGINE_FIX;
   const one = silent.length === 1;
+  // S01C part 2b: one action, in the finding and in Recommended next, from what the silent engines cited; none
+  // when they cited no directory (then Recommended next leaves the item out).
+  const top = mostCitedBy(
+    data,
+    silent.map((e) => e.engine),
+  ).map((d) => d.name);
+  const action = top.length > 0 ? silentEngineAction(names, !one, top) : null;
+  const citedMost: EvidenceLine[] = silent.flatMap((e): EvidenceLine[] => {
+    const cited = mostCitedBy(data, [e.engine]);
+    if (cited.length === 0) return [];
+    return [
+      [
+        { text: `${e.name} cited most → `, tone: "plain" },
+        { text: cited.map((d) => `${d.name} (${d.count})`).join(", "), tone: "cmp" },
+      ],
+    ];
+  });
+  const recommendation = silentEngineRecommendation(silent, others);
   return {
     rule: "b",
     kind: "risk",
@@ -268,12 +325,21 @@ function silentEngineFinding(data: FindingsData): Finding | null {
     explanation: `${others.length === 1 ? "One engine recommends" : `${countWord(others.length)[0].toUpperCase()}${countWord(others.length).slice(1)} engines recommend`} you some of the time; ${names} didn't mention you in any of ${one ? "its" : "their"} answers.`,
     severity: HIGH,
     evidenceLabel: "Evidence · mentions per engine, everyday questions",
-    evidence: rows.map((r, i) => [
-      { text: `${labels[i]} → `, tone: "plain" },
-      { text: `${r.e.mentionedCount} of ${r.e.sampleCount}`, tone: r.tone },
-    ]),
-    fix: advice.fix,
-    recommendation: silentEngineRecommendation(silent, others),
+    evidence: [
+      ...rows.map(
+        (r, i): EvidenceLine => [
+          { text: `${labels[i]} → `, tone: "plain" },
+          { text: `${r.e.mentionedCount} of ${r.e.sampleCount}`, tone: r.tone },
+        ],
+      ),
+      ...citedMost,
+    ],
+    fix: action ?? "",
+    // Recommended next keeps its body sentence ("We can see the pages Gemini cited, but not what it searched, so we
+    // can't say why") and takes the action as its title: "Gemini didn't name you in any of 10 answers" was the
+    // problem, not an action.
+    recommendation: action ? { title: action, detail: recommendation.detail } : recommendation,
+    ...(action ? {} : { noAction: true as const }),
   };
 }
 

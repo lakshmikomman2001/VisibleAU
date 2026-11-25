@@ -350,11 +350,12 @@ export function displayBasisLabels(
       // and local press" read "Wikipedia searched 12 Nov 2026: no article for your business" as its reason,
       // which didn't say why those profiles. The check is the same; the reason now says what it means for
       // the title (lib/recommendations/entity-profiles.ts's own action says it at length).
+      // S01C part 2c (LLD amendments 56, 61): the result and the item's own next step, never what AI engines read.
       if (context.recommendationKey === "entity-profiles") {
         const searched = date ? ` (Wikipedia searched ${date})` : "";
         return {
           chip: "Wikipedia searched",
-          text: `No Wikipedia article for your business${searched}, so your Google, directory and press profiles are what AI can read about you`,
+          text: `No Wikipedia article for your business${searched}, so local press and community sites are the next step`,
         };
       }
       return {

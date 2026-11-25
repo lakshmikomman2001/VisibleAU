@@ -29,8 +29,11 @@ const OMEGA_DIRECTORY_TITLE =
   "AI cited hipages in 9 of 40 answers — confirm your status, and 6 more directories";
 const OWNER_DIRECTORY_TITLE = "AI cited hipages in 9 of 40 answers — you told us you're not listed";
 const OLD_ENTITY_TITLE = "Build your entity profile beyond Wikipedia";
-const NEW_ENTITY_TITLE =
-  "Strengthen your business profiles on Google, directories and local press";
+// S01C part 2c, LLD amendment 61: the Wikipedia check's item is "Get covered in local press or on community sites",
+// and says only its result and that step (no Google Business Profile or directory steps, so it names no directory).
+const NEW_ENTITY_TITLE = "Get covered in local press or on community sites";
+const ENTITY_ACTION_CHECKED =
+  "We checked: there's no Wikipedia article for your business. That's normal for a local business: Wikipedia needs significant coverage in independent sources, so we don't recommend writing one yet. Coverage in local press or on community sites is the step that helps.";
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),
@@ -212,15 +215,16 @@ describe("Action Center -- entity-profile advice for local businesses ('Cost hon
     expect(card).not.toMatch(/wikipedia|wikidata/i);
   });
 
-  it("the detail page shows the new steps, naming the directory this audit's answers actually cited", async () => {
+  it("the detail page shows the current words, naming no directory (amendment 61), though this audit cited hipages", async () => {
     const html = await renderDetail(OMEGA_ENTITY_ITEM);
-    expect(html).toContain("the directories AI cited in this audit — hipages —");
+    expect(html.replace(/&#x27;/g, "'")).toContain(ENTITY_ACTION_CHECKED);
+    expect(html).not.toContain("hipages");
     expect(html).not.toMatch(/wikidata/i);
   });
 
-  it("an audit whose answers cited no directory gets the generic step, naming none", async () => {
+  it("an audit whose answers cited no directory: the same words, naming none", async () => {
     const html = await renderDetail(LEGACY_ENTITY_ITEM);
-    expect(html).toContain("the directories your customers use");
+    expect(html).toContain("Coverage in local press or on community sites is the step that helps.");
     expect(html).not.toContain("hipages");
     expect(html).not.toMatch(/wikidata/i);
   });
@@ -247,9 +251,10 @@ describe("Audit page 'Recommended actions' uses the same display functions", () 
     expect(block).not.toContain("beyond Wikipedia");
     const entity = cardHtml(block, OMEGA_ENTITY_ITEM);
     expect(entity).toContain(">Low<");
-    // 13 Nov (part 5): the reason says what the check means for the title.
+    // 13 Nov (part 5): the reason says what the check means for the title. S01C part 2c (LLD amendments 56, 61): never
+    // what AI engines read; the item's step is local press and community sites.
     expect(entity).toContain(
-      "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so your Google, directory and press profiles are what AI can read about you",
+      "No Wikipedia article for your business (Wikipedia searched 20 Oct 2026), so local press and community sites are the next step",
     );
   });
 });

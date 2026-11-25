@@ -104,8 +104,10 @@ describe("the What to do next data", () => {
     const titles = v.whatToDoNext.measured.map((m) => m.title);
     expect(titles).toEqual([
       "See why AI recommends other providers",
-      "Get listed on Local Business Guide and Cylex",
-      "Verify your ABN",
+      // S01C parts 2a and 2c, LLD amendments 59 and 61: rule i's "Link or create your {A} and {B} profiles", and rule
+      // j's title by cause ("Add your ABN" plus " and link your Google Business Profile" when that's missing too).
+      "Link or create your Local Business Guide and Cylex profiles",
+      "Add your ABN and link your Google Business Profile",
     ]);
     const identity = v.whatToDoNext.measured[2];
     expect(identity).toMatchObject({ actionItemId: identityItem, status: "in_progress" });
@@ -150,7 +152,10 @@ describe("the What to do next data", () => {
       if (!v.enabled || !v.whatToDoNext) throw new Error("expected the panel's view");
       expect(v.curated).toBe(false);
       expect(v.whatToDoNext.measured.every((m) => m.included && m.note === null)).toBe(true);
-      expect(v.whatToDoNext.measured.map((m) => m.title)[2]).toBe("Verify your ABN");
+      // S01C part 2c, LLD amendment 61: rule j's title follows its cause (no ABN, no profile).
+      expect(v.whatToDoNext.measured.map((m) => m.title)[2]).toBe(
+        "Add your ABN and link your Google Business Profile",
+      );
       expect(v.whatToDoNext.agencyActions).toEqual([]);
     } finally {
       await sql`UPDATE subscriptions SET tier = 'agency' WHERE organization_id = ${fx.orgId}`;

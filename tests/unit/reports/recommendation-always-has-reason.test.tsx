@@ -11,7 +11,12 @@
 import { describe, expect, it } from "vitest";
 import { ReportDocument } from "@/lib/reports/pdf/report-document";
 import type { ReportData, ReportEngineRow } from "@/lib/reports/report-data";
-import { type Finding, type FindingRule, reportFindings } from "@/lib/reports/report-findings";
+import {
+  type Finding,
+  type FindingRule,
+  reportFindings,
+  withAction,
+} from "@/lib/reports/report-findings";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
 import { reportDataFixture, withCompetitors } from "@/tests/helpers/report-data-fixture";
 
@@ -161,9 +166,14 @@ describe("every recommendation has a reason", () => {
     for (const f of findings) expectReason(f, label);
   });
 
+  // S01C part 2b, LLD amendment 60: "If the engine cited no directory: no action, and Recommended next leaves the
+  // item out." These hand-made rows carry no per-engine citations, so their silent engines cited none.
   it.each(CASES)("the PDF prints it under the title: %s", (_label, data) => {
     const lines = collectPdfText(<ReportDocument data={data} />);
-    for (const f of reportFindings(data)) {
+    for (const f of reportFindings(data).filter((x) => x.noAction)) {
+      expect(lines, `"${f.recommendation.title}" left out`).not.toContain(f.recommendation.title);
+    }
+    for (const f of withAction(reportFindings(data))) {
       const at = lines.indexOf(f.recommendation.title);
       expect(at, `"${f.recommendation.title}" in Recommended next`).toBeGreaterThan(-1);
       expect(lines[at + 1]).toBe(f.recommendation.detail);

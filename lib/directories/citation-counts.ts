@@ -129,6 +129,12 @@ export interface DirectoryCitationResult {
    * that answer cited it). Never the count of citedUrls below --
    * see this field's own name vs. that one's. */
   citedCount: number;
+  /**
+   * S01C part 2b (LLD amendment 60): the same count per engine ("gemini" -> 5), so an engine that never names the
+   * business can be shown the directories it cited most. Sums to citedCount. Optional for callers that build a
+   * result by hand; this module always sets it.
+   */
+  citedByEngine?: Record<string, number>;
   totalAnswers: number;
   /** Up to 10 DISTINCT cited pages for this directory, for linking --
    * never a resolved Gemini redirect (see this file's top comment),
@@ -227,7 +233,7 @@ export async function getDirectoryCitationsForAudit(
 
   const [rows, confirmedRows] = await Promise.all([
     tx
-      .select({ citedSources: citations.citedSources })
+      .select({ engine: citations.engine, citedSources: citations.citedSources })
       .from(citations)
       .where(and(eq(citations.auditId, auditId), ORGANIC_ONLY, eq(citations.runNumber, 1))),
     tx
@@ -249,6 +255,7 @@ export async function getDirectoryCitationsForAudit(
     {
       directory: DirectoryEntry;
       citedCount: number;
+      citedByEngine: Map<string, number>;
       citedUrls: DirectoryCitedUrl[];
       seenPages: Map<string, DirectoryCitedUrl>;
       ownerProfileCitedCount: number;
@@ -258,6 +265,7 @@ export async function getDirectoryCitationsForAudit(
     buckets.set(directory.key, {
       directory,
       citedCount: 0,
+      citedByEngine: new Map(),
       citedUrls: [],
       seenPages: new Map(),
       ownerProfileCitedCount: 0,
@@ -285,6 +293,7 @@ export async function getDirectoryCitationsForAudit(
         bucket = {
           directory,
           citedCount: 0,
+          citedByEngine: new Map(),
           citedUrls: [],
           seenPages: new Map(),
           ownerProfileCitedCount: 0,
@@ -328,7 +337,9 @@ export async function getDirectoryCitationsForAudit(
 
     for (const key of citedKeysThisRow) {
       const bucket = buckets.get(key);
-      if (bucket) bucket.citedCount++;
+      if (!bucket) continue;
+      bucket.citedCount++;
+      bucket.citedByEngine.set(row.engine, (bucket.citedByEngine.get(row.engine) ?? 0) + 1);
     }
     for (const key of ownProfileKeysThisRow) {
       const bucket = buckets.get(key);
@@ -349,6 +360,7 @@ export async function getDirectoryCitationsForAudit(
     return {
       directory,
       citedCount: bucket?.citedCount ?? 0,
+      citedByEngine: Object.fromEntries(bucket?.citedByEngine ?? []),
       totalAnswers,
       citedUrls: bucket?.citedUrls ?? [],
       ownerProfileCited: (bucket?.ownerProfileCitedCount ?? 0) > 0,

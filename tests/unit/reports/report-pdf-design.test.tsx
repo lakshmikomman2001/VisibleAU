@@ -269,6 +269,12 @@ describe("diagnosis rules (a)-(e)", () => {
     const findings = reportFindings(reportDataFixture("37"));
     findings.forEach((f, i) => {
       expect(p[4]).toContain(f.title);
+      // S01C part 2b, LLD amendment 60: a finding with no action (an engine that cited no directory) is left out of
+      // Recommended next; the others keep their own finding's number.
+      if (f.noAction) {
+        expect(p[5]).not.toContain(f.recommendation.title);
+        return;
+      }
       expect(p[5]).toContain(f.recommendation.title);
       expect(p[5]).toContain(`Finding ${i + 1} · ${f.severity.short}`);
     });

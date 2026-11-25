@@ -213,7 +213,8 @@ describe("AI crawlers", () => {
     const v = crawlersView(answers(raw()).crawlers, BRAND);
     expect(v.pill).toEqual({ text: "Search crawlers allowed", tone: "good" });
     expect(v.lines.map((l) => l.text)).toEqual([
-      "4 of 4 · checked 22 Nov 2026",
+      // S01C part 4, LLD amendment 63: "Crawlers: '{allowed} of {total} AI search crawlers allowed · checked {date}'".
+      "4 of 4 AI search crawlers allowed · checked 22 Nov 2026",
       // S01B part 4g (amendment 55: "The crawlers tile says 'Visits: not measured' once, with the single 'Next step:
       // Upload server logs'"): the next step is the action below, printed once.
       "Visits: not measured",
@@ -240,7 +241,10 @@ describe("AI crawlers", () => {
       BRAND,
     );
     expect(v.pill).toEqual({ text: "1 search crawler blocked", tone: "warn" });
-    expect(v.lines.map((l) => l.text)).toContain("3 of 4 · checked 22 Nov 2026");
+    // S01C part 4, LLD amendment 63: the line says what it counts.
+    expect(v.lines.map((l) => l.text)).toContain(
+      "3 of 4 AI search crawlers allowed · checked 22 Nov 2026",
+    );
     expect(v.lines.map((l) => l.text)).toContain("Blocked: OAI-SearchBot");
   });
 
@@ -286,13 +290,19 @@ describe("AI crawlers", () => {
 });
 
 describe("website technical", () => {
-  it("measured: score of its own maximum, date and scoring version; the two weakest scored checks", () => {
+  // S01C part 4, LLD amendment 63: "Website technical: '{score} of {max} points' ..., 'checked {date}' and 'Weakest:
+  // {area}, {a} of {b} points'; the scoring version moves to Method's 'Checks outside AI answers' line", the area in
+  // plain words (contract v1.6 P07.beyond.technical: "'structured data', not 'Schema'").
+  it("measured: points of its own maximum, the date, and the weakest scored area in plain words", () => {
     const t = answers(raw()).technical;
     expect(technicalView(t, BRAND)).toMatchObject({
-      value: { main: "38", of: "of 74" },
-      lines: [{ text: "checked 22 Nov 2026 · v4 scoring" }],
+      value: { main: "38", of: "of 74 points" },
+      lines: [
+        { text: "checked 22 Nov 2026" },
+        { text: "Weakest: structured data, 2 of 16 points" },
+      ],
     });
-    expect(t.weakest.map((w) => w.label)).toEqual(["Schema markup", "Brand & Entity"]);
+    expect(t.weakest.map((w) => w.label)).toEqual(["structured data", "business details"]);
   });
 
   it("not checked: no technical audit yet", () => {
@@ -361,7 +371,25 @@ describe("the report's own time", () => {
 });
 
 describe("directory profiles (PDF tile)", () => {
-  it("linked of cited, then each directory", () => {
+  // S01C part 4, LLD amendment 63: "Directory profiles: '{directory} · cited in {n} of {total} answers · linked' or
+  // '· not linked yet', top 6, then '+ {k} more in section {nn}'". (A snapshot from before S01C has no total.)
+  it("linked of cited, then each directory in one form", () => {
+    expect(
+      directoriesLines({
+        basisAuditId: "a",
+        linked: 1,
+        cited: 2,
+        totalAnswers: 40,
+        items: [
+          { name: "Local Business Guide", linked: false, citedIn: 14 },
+          { name: "LinkedIn", linked: true, citedIn: 1 },
+        ],
+      }),
+    ).toEqual([
+      "Linked 1 of 2 directories AI cites for your questions.",
+      "Local Business Guide · cited in 14 of 40 answers · not linked yet",
+      "LinkedIn · cited in 1 of 40 answers · linked",
+    ]);
     expect(
       directoriesLines({
         basisAuditId: "a",
@@ -374,9 +402,23 @@ describe("directory profiles (PDF tile)", () => {
       }),
     ).toEqual([
       "Linked 1 of 2 directories AI cites for your questions.",
-      "Local Business Guide: not linked (cited in 14 answers)",
-      "LinkedIn: linked · cited in 1 answer",
+      "Local Business Guide · cited in 14 answers · not linked yet",
+      "LinkedIn · cited in 1 answer · linked",
     ]);
+  });
+
+  it("more than six: how many more, and the section that lists them", () => {
+    const items = ["A", "B", "C", "D", "E", "F"].map((name, i) => ({
+      name,
+      linked: false,
+      citedIn: 10 - i,
+    }));
+    const lines = directoriesLines(
+      { basisAuditId: "a", linked: 0, cited: 13, totalAnswers: 40, items },
+      "04",
+    );
+    expect(lines).toHaveLength(8);
+    expect(lines[7]).toBe("+ 7 more in section 04");
   });
 
   it("none linked", () => {

@@ -100,8 +100,12 @@ test.describe("S01 part 6: Beyond AI answers on the audit page (P07)", () => {
     await expect(page.getByTestId("p07-beyond-youtube")).toContainText("Channel found");
     await expect(page.getByTestId("p07-beyond-youtube")).toContainText("14 videos");
     await expect(page.getByTestId("p07-beyond-crawlers")).toContainText("1 search crawler blocked");
-    await expect(page.getByTestId("p07-beyond-crawlers")).toContainText("3 of 4 · checked");
-    await expect(page.getByTestId("p07-beyond-technical")).toContainText("38 of 74");
+    // S01C part 4, LLD amendment 63: "Crawlers: '{allowed} of {total} AI search crawlers allowed · checked {date}'";
+    // "Website technical: '{score} of {max} points'".
+    await expect(page.getByTestId("p07-beyond-crawlers")).toContainText(
+      "3 of 4 AI search crawlers allowed · checked",
+    );
+    await expect(page.getByTestId("p07-beyond-technical")).toContainText("38 of 74 points");
 
     await card.scrollIntoViewIfNeeded();
     for (const theme of ["light", "dark"] as const) {

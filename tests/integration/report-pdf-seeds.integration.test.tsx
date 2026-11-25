@@ -461,7 +461,12 @@ describe("the tiers' pages (S01 part 7's render checks, on seeded audits)", () =
       "These checks are separate from the Visibility score and don't change it.",
     );
     expect(enhanced).toMatch(/Linked 1 of \d+ directories AI cites for your questions\./);
-    expect(enhanced).toMatch(/checked \d{1,2} [A-Z][a-z]{2} \d{4} · v\d scoring/);
+    // S01C part 4, LLD amendment 63: "The scoring version moves to Method's 'Checks outside AI answers' line:
+    // 'technical 21 Nov 2026, v4 scoring'" (the tile printed "checked {date} · v4 scoring"); the heading is "What else
+    // we checked about your business".
+    expect(enhanced).toMatch(/technical \d{1,2} [A-Z][a-z]{2} \d{4}, v\d scoring/);
+    expect(enhanced).not.toMatch(/checked \d{1,2} [A-Z][a-z]{2} \d{4} · v\d scoring/);
+    expect(enhanced).toContain("What else we checked about your business");
     expect(get(bluegum, "standard").text).not.toContain("What AI can read about you elsewhere");
   });
 

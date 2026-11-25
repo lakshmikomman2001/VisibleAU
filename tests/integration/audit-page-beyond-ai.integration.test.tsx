@@ -80,6 +80,7 @@ describe("the audit page's Beyond AI answers card", () => {
     expect(html).toContain("No ABN on file");
     expect(html).toContain("1 search crawler blocked");
     expect(html).toContain("Blocked: Claude-SearchBot");
-    expect(html).toMatch(/>41<\/span> <span[^>]*>of 74</);
+    // S01C part 4, LLD amendment 63: "Website technical: '{score} of {max} points'".
+    expect(html).toMatch(/>41<\/span> <span[^>]*>of 74 points</);
   }, 120_000);
 });

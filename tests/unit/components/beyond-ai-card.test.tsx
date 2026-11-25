@@ -82,7 +82,8 @@ describe("BeyondAiCard", () => {
     render(<BeyondAiCard answers={answers()} brandId="b-1" />);
     expect(screen.getByTestId("p07-beyond-technical")).toHaveAttribute(
       "aria-label",
-      "Website technical: 38 of 74, checked 22 Nov 2026 · v4 scoring",
+      // S01C part 4, LLD amendment 63: points, the date, the weakest area; the scoring version is on the PDF's Method.
+      "Website technical: 38 of 74 points, checked 22 Nov 2026, Weakest: structured data, 2 of 16 points",
     );
     expect(screen.getByTestId("p07-beyond-youtube")).toHaveAttribute(
       "aria-label",

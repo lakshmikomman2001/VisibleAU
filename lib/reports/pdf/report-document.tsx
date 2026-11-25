@@ -2548,7 +2548,9 @@ function BeyondSection({ ctx }: { ctx: Ctx }) {
             eyebrow={`${ctx.plan.beyond} · Beyond AI answers`}
             provenance="Separate checks · own dates"
           />
-          <Text style={s.h2}>What AI can read about you elsewhere</Text>
+          {/* S01C part 4 (LLD amendment 63): the earlier heading was a mild version of the claim amendment 56
+              removed (what AI engines read). The audit page card keeps its title, "Beyond AI answers". */}
+          <Text style={s.h2}>What else we checked about your business</Text>
           <Text style={s.lede}>{BEYOND_FOOTER}</Text>
         </View>
         <View style={{ flexDirection: "row", gap: px(10), marginTop: px(12) }}>
@@ -2574,7 +2576,7 @@ function BeyondSection({ ctx }: { ctx: Ctx }) {
           >
             {`FROM AUDIT #${ctx.data.basis.auditNumber} · ${reportDate(new Date(ctx.data.basis.completedAt), ctx.data.organizationId).toUpperCase()}`}
           </Text>
-          {directoriesLines(dir).map((line, i) => (
+          {directoriesLines(dir, ctx.plan.directories).map((line, i) => (
             <Text
               key={line}
               style={{
@@ -2869,7 +2871,8 @@ function checksOutsideLine(a: BeyondAiAnswers): string {
     `identity ${when(a.identity.checkedAt, "not checked")}`,
     `YouTube ${when(a.youtube.checkedAt, a.youtube.state === "not_linked" ? "not linked" : "not checked")}`,
     `crawlers ${when(a.crawlers.checkedAt, "not checked")}`,
-    `technical ${when(a.technical.checkedAt, "not checked")}`,
+    // S01C part 4 (LLD amendment 63; contract v1.6 P09.method): the scoring version is printed here, not on the tile.
+    `technical ${when(a.technical.checkedAt, "not checked")}${a.technical.checkedAt && a.technical.scoringVersion ? `, v${a.technical.scoringVersion} scoring` : ""}`,
   ].join(" · ");
 }
 

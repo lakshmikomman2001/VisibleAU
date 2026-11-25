@@ -91,6 +91,8 @@ export interface DirectoriesTile {
   basisAuditId: string;
   linked: number;
   cited: number;
+  /** S01C part 4: the basis audit's everyday answers, for "cited in 17 of 40 answers". Absent in older snapshots. */
+  totalAnswers?: number;
   /** Top 6 by citations, each cited in at least one answer. */
   items: Array<{ name: string; linked: boolean; citedIn: number }>;
 }
@@ -140,15 +142,19 @@ export interface BeyondAiRaw {
   directories: DirectoriesTile | null;
 }
 
+/**
+ * Each technical area in plain words, for the tile's "Weakest: structured data, 4 of 16 points" (S01C part 4, LLD
+ * amendment 63; contract v1.6 P07.beyond.technical: "{area} in plain words ('structured data', not 'Schema')").
+ */
 const TECHNICAL_LABELS: Record<TechnicalDimensionKey, string> = {
-  scoreRobots: "Robots.txt",
+  scoreRobots: "AI crawler access",
   scoreLlmsTxt: "llms.txt",
-  scoreSchema: "Schema markup",
-  scoreMeta: "Meta tags",
-  scoreContent: "Content quality",
-  scoreBrandEntity: "Brand & Entity",
-  scoreSignals: "Signals",
-  scoreAiDiscovery: "AI Discovery",
+  scoreSchema: "structured data",
+  scoreMeta: "page titles and descriptions",
+  scoreContent: "page content",
+  scoreBrandEntity: "business details",
+  scoreSignals: "trust signals",
+  scoreAiDiscovery: "AI discovery files",
 };
 
 const YOUTUBE_FAILURE: Record<string, string> = {
@@ -475,6 +481,7 @@ export async function getBeyondAiAnswers(
             basisAuditId: input.basisAuditId,
             linked: cited.filter((r) => r.ownerProfileLinked).length,
             cited: cited.length,
+            totalAnswers: directoryCitations.totalAnswers,
             items: cited.slice(0, 6).map((r) => ({
               name: r.directory.name,
               linked: r.ownerProfileLinked,
@@ -766,8 +773,9 @@ export function crawlersView(t: CrawlersTile, brandId: string): BeyondTileView {
         : { text: "Search crawlers allowed", tone: "good" },
     value: null,
     lines: [
+      // S01C part 4 (LLD amendment 63): what the figure counts. It was "4 of 4 · checked 21 Nov 2026".
       {
-        text: `${t.searchAllowed.length} of ${t.total} · checked ${formatCheckDate(t.checkedAt ?? "")}`,
+        text: `${t.searchAllowed.length} of ${t.total} AI search crawlers allowed · checked ${formatCheckDate(t.checkedAt ?? "")}`,
       },
       ...(blocked > 0 ? [{ text: `Blocked: ${t.searchBlocked.join(", ")}` }] : []),
       ...dateLines(t),
@@ -799,13 +807,20 @@ export function technicalView(t: TechnicalTile, brandId: string): BeyondTileView
       action: { text: "Run check", href: `/brands/${brandId}/technical-audit` },
     };
   }
+  // S01C part 4 (LLD amendment 63): the unit (points across the scored areas: 74 under v4 scoring, the areas' maxima
+  // in lib/technical-audit/scoring-version.ts) and the weakest area in plain words; the scoring version moves to the
+  // PDF's Method line. The real tile printed "40 of 74 · checked 21 Nov 2026 · v4 scoring".
+  const weakest = t.weakest[0];
   return {
     key: "technical",
     label,
     pill: null,
-    value: { main: String(t.score), of: `of ${t.max}` },
+    value: { main: String(t.score), of: `of ${t.max} points` },
     lines: [
-      { text: `checked ${formatCheckDate(t.checkedAt ?? "")} · v${t.scoringVersion} scoring` },
+      { text: `checked ${formatCheckDate(t.checkedAt ?? "")}` },
+      ...(weakest
+        ? [{ text: `Weakest: ${weakest.label}, ${weakest.score} of ${weakest.max} points` }]
+        : []),
       ...dateLines(t),
     ],
     action: null,
@@ -822,19 +837,32 @@ export function beyondTileViews(answers: BeyondAiAnswers, brandId: string): Beyo
   ];
 }
 
-/** The PDF's directory tile lines (P09.beyond.directories). */
-export function directoriesLines(d: DirectoriesTile): string[] {
+/**
+ * The PDF's directory tile lines (P09.beyond.directories). S01C part 4 (LLD amendment 63): one line per directory in
+ * one form, "{directory} · cited in {n} of {total} answers · linked" or "· not linked yet", the top 6, then "+ {k}
+ * more in section {nn}" naming Where AI looks when more were cited. The real tile mixed "linked · cited in 15
+ * answers" with "not linked (cited in 17 answers)" and listed 6 of 13 without saying so.
+ */
+export function directoriesLines(
+  d: DirectoriesTile,
+  directoriesSection: string | null = null,
+): string[] {
   if (d.cited === 0) return ["AI didn't cite a directory for your questions in this audit."];
   const head =
     d.linked === 0
       ? "No profiles linked yet."
       : `Linked ${d.linked} of ${d.cited} directories AI cites for your questions.`;
+  const answers = (n: number) =>
+    d.totalAnswers ? `${n} of ${d.totalAnswers} answers` : `${n} ${n === 1 ? "answer" : "answers"}`;
+  const more = d.cited - d.items.length;
   return [
     head,
-    ...d.items.map((i) =>
-      i.linked
-        ? `${i.name}: linked · cited in ${i.citedIn} ${i.citedIn === 1 ? "answer" : "answers"}`
-        : `${i.name}: not linked (cited in ${i.citedIn} ${i.citedIn === 1 ? "answer" : "answers"})`,
+    ...d.items.map(
+      (i) =>
+        `${i.name} · cited in ${answers(i.citedIn)} · ${i.linked ? "linked" : "not linked yet"}`,
     ),
+    ...(more > 0
+      ? [`+ ${more} more${directoriesSection ? ` in section ${directoriesSection}` : ""}`]
+      : []),
   ];
 }

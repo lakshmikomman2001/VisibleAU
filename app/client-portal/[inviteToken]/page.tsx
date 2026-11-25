@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { PortalReports } from "@/components/domain/portal/portal-reports";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
 import { actionItems, audits, brands, clientPortalInvites } from "@/db/schema";
@@ -8,13 +9,11 @@ import {
   googleSurfaceBlock,
   loadGoogleSurfaceSummary,
 } from "@/lib/audit/google-surfaces/summary";
-import { PortalReports } from "@/components/domain/portal/portal-reports";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
-import { PORTAL_LINK_SECONDS, loadPortalReports } from "@/lib/client-portal/portal-reports";
+import { loadPortalReports, PORTAL_LINK_SECONDS } from "@/lib/client-portal/portal-reports";
 import { storageOrNull } from "@/lib/communication/report-view";
-import { isEnabled } from "@/lib/flags/flags";
-import { reportDate } from "@/lib/reports/report-period";
 import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
+import { isEnabled } from "@/lib/flags/flags";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { PRODUCT_NAME } from "@/lib/product";
@@ -22,6 +21,7 @@ import {
   displayRecommendationAction,
   displayRecommendationTitle,
 } from "@/lib/recommendations/confidence-labels";
+import { reportDate } from "@/lib/reports/report-period";
 import { taskDimensionLabel } from "@/lib/scoring/dimension-labels";
 import type { DimensionKey, DimensionResult } from "@/lib/scoring/dimension-result";
 import {
@@ -243,6 +243,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
         ? await loadPortalReports(tx, {
             organizationId: invite.organizationId,
             brandId: invite.brandId,
+            brandName: brand.name,
             storage: storageOrNull(),
           })
         : null;

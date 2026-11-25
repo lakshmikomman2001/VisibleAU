@@ -2,13 +2,15 @@ import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { generatedReports } from "@/db/schema";
+import { brands, generatedReports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { reportFileName } from "@/lib/communication/report-file-name";
 import {
   reportForPage,
   storageOrNull,
   warnUnavailableLinks,
 } from "@/lib/communication/report-view";
+import { isEnabled } from "@/lib/flags/flags";
 import {
   assertBrandAccess,
   assertTier,
@@ -16,7 +18,6 @@ import {
   TierInsufficientError,
   tierRefusal,
 } from "@/lib/governance";
-import { isEnabled } from "@/lib/flags/flags";
 import { brandFeaturePlan } from "@/lib/pricing/brand-features";
 import { workspaceTierNames } from "@/lib/reports/report-tier-choice";
 import { isReportTier } from "@/lib/reports/report-tiers";
@@ -59,6 +60,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       .orderBy(desc(generatedReports.createdAt));
 
     const hasPdfs = reports.some((r) => r.pdfUrl);
+    // S01C part 5a (LLD amendment 64): each download named for the brand, its tier and week, not its storage id.
+    const [brandRow] = hasPdfs
+      ? await tx.select({ name: brands.name }).from(brands).where(eq(brands.id, brandId))
+      : [];
     const storage = hasPdfs ? storageOrNull() : null;
     // S01 part 10 (contract P17): each row's report type name, while report_v2 is on -- the name in its snapshot (a
     // later rename never changes it), else the workspace's name for its tier (reports from before tiers are Basic).
@@ -67,7 +72,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       : null;
     const withStatus = await Promise.all(
       reports.map(async ({ snapshotTierName, ...r }) => ({
-        ...(await reportForPage(r, storage)),
+        ...(await reportForPage(
+          r,
+          storage,
+          brandRow
+            ? reportFileName({
+                brandName: brandRow.name,
+                tierName: snapshotTierName,
+                periodLabel: r.periodLabel,
+              })
+            : undefined,
+        )),
         ...(names
           ? {
               tierName:

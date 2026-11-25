@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   llm_processing_google: "LLM Processing (Google)",
   llm_processing_perplexity: "LLM Processing (Perplexity)",
   serp_processing_dataforseo: "Google Search AI (DataForSEO)",
+  abr_lookup: "Business identity check (ABN)",
 };
 
 // Legacy short region codes, kept as a fallback for any row written before
@@ -40,6 +41,7 @@ export const PROVIDER_DISPLAY: Record<string, string> = {
   google: "Google",
   perplexity: "Perplexity",
   dataforseo: "DataForSEO",
+  abr: "Australian Business Register",
   vercel: "Vercel",
 };
 
@@ -74,6 +76,13 @@ const GROUPS: ResidencyGroup[] = [
     heading: "Google Search AI",
     subheading: "Offshore: DataForSEO, location not documented",
     match: (e) => e.dataType.startsWith("serp_processing_"),
+  },
+  // S01C part 5c (LLD amendment 65): listed wherever DataForSEO is.
+  {
+    key: "abr_lookup",
+    heading: "Business identity",
+    subheading: "Australian Business Register, Australia",
+    match: (e) => e.provider === "abr",
   },
 ];
 

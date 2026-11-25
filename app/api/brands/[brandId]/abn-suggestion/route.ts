@@ -32,7 +32,9 @@ type Stored =
       answer?: "confirmed" | "dismissed";
       answeredAt?: string;
     }
-  | { status: "none" | "failed"; checkedAt: string };
+  | { status: "none" | "failed"; checkedAt: string }
+  /** S01C part 5b (LLD amendment 65): "Not mine", kept after retention cleared the suggestion's ABR data. */
+  | { status: "dismissed" };
 
 const DAY_MS = 86_400_000;
 const AGAIN_AFTER_DAYS = { none: 30, failed: 1 } as const;
@@ -40,7 +42,10 @@ const AGAIN_AFTER_DAYS = { none: 30, failed: 1 } as const;
 function storedOf(value: unknown): Stored | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as { status?: unknown };
-  return v.status === "found" || v.status === "none" || v.status === "failed"
+  return v.status === "found" ||
+    v.status === "none" ||
+    v.status === "failed" ||
+    v.status === "dismissed"
     ? (value as Stored)
     : null;
 }
@@ -91,6 +96,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
   if (brand.abn || brand.region !== "au") return NextResponse.json({ suggestion: null });
 
   const stored = storedOf(brand.abnSuggestion);
+  // S01C part 5b: "Not mine" lasts, after retention too, until the brand's name changes.
+  if (stored?.status === "dismissed") return NextResponse.json({ suggestion: null });
   if (stored?.status === "found")
     return NextResponse.json({ suggestion: stored.answer ? null : stored.suggestion });
   if (

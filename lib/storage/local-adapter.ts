@@ -16,8 +16,9 @@ export class LocalStorageAdapter implements StorageAdapter {
     await writeFile(fullPath, buffer);
   }
 
-  async getDownloadUrl(path: string): Promise<string> {
-    return `/api/reports/file/${path}`;
+  async getDownloadUrl(path: string, _expirySeconds?: number, fileName?: string): Promise<string> {
+    // S01C part 5a: the route names the download from `name` (app/api/reports/file/[...path]/route.ts).
+    return `/api/reports/file/${path}${fileName ? `?name=${encodeURIComponent(fileName)}` : ""}`;
   }
 
   async download(path: string): Promise<Buffer | null> {

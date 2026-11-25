@@ -2,6 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { reportContentDisposition } from "@/lib/communication/report-file-name";
 
 /**
  * The local storage driver's report PDFs, `<organizationId>/<reportId>.pdf` (development and tests; production
@@ -22,7 +23,7 @@ function workspaceReportFile(organizationId: string, segments: string[]): string
   return segments[0] === organizationId && file.startsWith(folder + sep) ? file : null;
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ path: string[] }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const driver = (process.env.STORAGE_DRIVER ?? "local").trim().toLowerCase();
   if (driver !== "local") {
     return NextResponse.json({ error: "Not available" }, { status: 404 });
@@ -46,10 +47,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ path: s
   }
 
   const buffer = await readFile(/*turbopackIgnore: true*/ fullPath);
+  // S01C part 5a (LLD amendment 64): a report link names its download ("{Brand} – AI Visibility Report ...pdf", an
+  // ASCII fallback and filename*); without a name, the file as before.
+  const name = new URL(req.url).searchParams.get("name")?.trim();
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${segments[segments.length - 1]}"`,
+      "Content-Disposition": name
+        ? reportContentDisposition(name.slice(0, 200))
+        : `inline; filename="${segments[segments.length - 1]}"`,
     },
   });
 }

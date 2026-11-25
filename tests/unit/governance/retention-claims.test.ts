@@ -41,9 +41,12 @@ describe("the Data Residency rows state only periods the code enforces", () => {
     }
   });
 
-  it("no row claims 12 months except audit data, and none claims 30 days or the life of the account", () => {
+  // S01C part 5c (LLD amendment 65) adds the ABR's row; its 12 months are enforced: LLD amendment 54, "ABR results are
+  // deleted 12 months after each check, like audit results: the weekly retention job deletes brand_entity_scores rows
+  // older than 12 months and clears brands.abn_suggestion once its check is older than 12 months" (S01B part 5).
+  it("no row claims 12 months except audit data and the ABR's results, and none claims 30 days or the life of the account", () => {
     const twelve = RESIDENCY_CONFIG.filter((e) => /12 months/.test(e.retentionPeriod));
-    expect(twelve.map((e) => e.dataType)).toEqual(["audit_data"]);
+    expect(twelve.map((e) => e.dataType)).toEqual(["audit_data", "abr_lookup"]);
     for (const e of RESIDENCY_CONFIG) {
       expect(e.retentionPeriod, e.dataType).not.toMatch(/30 days|duration of account/i);
     }

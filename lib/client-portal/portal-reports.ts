@@ -1,9 +1,10 @@
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
 import { audits, generatedReports } from "@/db/schema";
+import { reportFileName } from "@/lib/communication/report-file-name";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { loadTierNames } from "@/lib/reports/report-tier-choice";
 import { isReportTier } from "@/lib/reports/report-tiers";
-import { effectiveTier } from "@/lib/pricing/effective-tier";
 import type { StorageAdapter } from "@/lib/storage";
 
 /**
@@ -31,7 +32,13 @@ export interface PortalReportRow {
 
 export async function loadPortalReports(
   tx: DbClient,
-  input: { organizationId: string; brandId: string; storage: StorageAdapter | null },
+  input: {
+    organizationId: string;
+    brandId: string;
+    /** S01C part 5a: names each download (reportFileName). */
+    brandName: string;
+    storage: StorageAdapter | null;
+  },
 ): Promise<PortalReportRow[]> {
   const rows = await tx
     .select({
@@ -70,7 +77,16 @@ export async function loadPortalReports(
       let downloadUrl: string | null = null;
       if (r.pdfUrl && input.storage) {
         try {
-          downloadUrl = await input.storage.getDownloadUrl(r.pdfUrl, PORTAL_LINK_SECONDS);
+          // S01C part 5a (LLD amendment 64): the portal's download carries the report's name, not its storage id.
+          downloadUrl = await input.storage.getDownloadUrl(
+            r.pdfUrl,
+            PORTAL_LINK_SECONDS,
+            reportFileName({
+              brandName: input.brandName,
+              tierName: r.tierName,
+              periodLabel: r.periodLabel,
+            }),
+          );
         } catch {
           downloadUrl = null;
         }

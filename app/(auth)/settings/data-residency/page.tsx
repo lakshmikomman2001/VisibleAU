@@ -2,9 +2,9 @@
 
 import { ResidencyTable } from "@/components/domain/governance/residency-table";
 import { LoadError } from "@/components/shared/load-error";
-import { useLoad } from "@/lib/hooks/use-load";
 import { DATAFORSEO_TASK_RETENTION_MONTHS } from "@/lib/governance/residency-config";
-import { AUDIT_QUESTIONS, SENT_WHEN_A_BUSINESS_IS_ADDED } from "@/lib/legal/data-facts";
+import { useLoad } from "@/lib/hooks/use-load";
+import { ABR_LOOKUP, AUDIT_QUESTIONS, SENT_WHEN_A_BUSINESS_IS_ADDED } from "@/lib/legal/data-facts";
 import { fetchJson } from "@/lib/load/fetch-json";
 
 interface ResidencyEntry {
@@ -105,6 +105,14 @@ export default function DataResidencyPage() {
               {DATAFORSEO_TASK_RETENTION_MONTHS} months.
             </p>
           ) : null}
+          {/* S01C part 5c (LLD amendment 65): the ABR, in the same words as the FAQ and the privacy page. */}
+          <p
+            className="text-[13px] mt-3"
+            style={{ color: "var(--text-secondary)" }}
+            data-residency-abr=""
+          >
+            {ABR_LOOKUP}
+          </p>
         </div>
 
         {residency.status === "error" ? (

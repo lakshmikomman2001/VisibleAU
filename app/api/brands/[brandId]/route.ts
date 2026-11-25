@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { after, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
@@ -214,6 +214,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       (parsed.data.name !== undefined && parsed.data.name !== existing.name)
     ) {
       await regeneratePromptPack(tx, brandId);
+    }
+
+    // S01C part 5b (LLD amendment 65): a new name is a new search, so a "Not mine" kept past retention no longer
+    // applies to it.
+    if (parsed.data.name !== undefined && parsed.data.name !== existing.name) {
+      await tx
+        .update(brands)
+        .set({ abnSuggestion: null })
+        .where(and(eq(brands.id, brandId), sql`${brands.abnSuggestion}->>'status' = 'dismissed'`));
     }
 
     // Build 1 follow-up (entry-point check): this is the location-

@@ -2,8 +2,9 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { withRlsContext } from "@/db/client";
-import { generatedReports } from "@/db/schema";
+import { brands, generatedReports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { reportFileName } from "@/lib/communication/report-file-name";
 import {
   reportForPage,
   storageOrNull,
@@ -56,7 +57,22 @@ export async function GET(
 
     if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const view = await reportForPage(report, report.pdfUrl ? storageOrNull() : null);
+    // S01C part 5a (LLD amendment 64): the download is named for the brand, the report's own tier name and week.
+    const [brandRow] = report.pdfUrl
+      ? await tx.select({ name: brands.name }).from(brands).where(eq(brands.id, brandId))
+      : [];
+    const snapshotTier = (report.contentsSnapshot as { tierName?: unknown } | null)?.tierName;
+    const view = await reportForPage(
+      report,
+      report.pdfUrl ? storageOrNull() : null,
+      brandRow
+        ? reportFileName({
+            brandName: brandRow.name,
+            tierName: typeof snapshotTier === "string" ? snapshotTier : null,
+            periodLabel: report.periodLabel,
+          })
+        : undefined,
+    );
     warnUnavailableLinks("report-detail", [view]);
     return NextResponse.json(view);
   });

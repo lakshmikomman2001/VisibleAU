@@ -264,7 +264,8 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
     await testDb.delete(dataResidencyLog).where(eq(dataResidencyLog.organizationId, testOrgId));
   });
 
-  it("produces exactly 13 rows for a new org", async () => {
+  // S01C part 5c, LLD amendment 65: "The signed-in Data Residency page lists the ABR, built from ABR_LOOKUP" -- one more configured row.
+  it("produces exactly 14 rows for a new org", async () => {
     const { recordDataResidency } = await import("@/lib/governance/record-data-residency");
     await recordDataResidency(testOrgId);
 
@@ -273,10 +274,10 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
       .from(dataResidencyLog)
       .where(eq(dataResidencyLog.organizationId, testOrgId));
 
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
   });
 
-  it("running twice still yields 13 rows (idempotent via UPSERT)", async () => {
+  it("running twice still yields 14 rows (idempotent via UPSERT)", async () => {
     const { recordDataResidency } = await import("@/lib/governance/record-data-residency");
     await recordDataResidency(testOrgId);
     await recordDataResidency(testOrgId);
@@ -286,7 +287,7 @@ describe("2.7 — recordDataResidency writes and is idempotent", () => {
       .from(dataResidencyLog)
       .where(eq(dataResidencyLog.organizationId, testOrgId));
 
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
   });
 
   it("retention_period values match canon (DR-02 audit-data-retention sync)", async () => {

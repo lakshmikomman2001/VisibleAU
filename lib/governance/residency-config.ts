@@ -66,6 +66,19 @@ export const GOOGLE_SURFACES_RESIDENCY_ENTRY: ResidencyConfigEntry = {
   encryptionStatus: "In transit (HTTPS)",
 };
 
+/**
+ * S01C part 5c (LLD amendment 65): the identity check's lookups on the Australian Business Register, listed wherever
+ * DataForSEO is (its row and the page's paragraph, lib/legal/data-facts.ts ABR_LOOKUP). The period is the audits' own
+ * constant, which ABR_LOOKUP is worded from too, so the two can't drift.
+ */
+export const ABR_RESIDENCY_ENTRY: ResidencyConfigEntry = {
+  dataType: "abr_lookup",
+  provider: "abr",
+  storageRegion: "Australia (the Australian Business Register, abr.business.gov.au)",
+  retentionPeriod: `What it returns is kept with your brand and deleted ${AUDIT_DATA_RETENTION_MONTHS} months after each check`,
+  encryptionStatus: "In transit (HTTPS)",
+};
+
 export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
   {
     dataType: "database",
@@ -159,4 +172,5 @@ export const RESIDENCY_CONFIG: readonly ResidencyConfigEntry[] = [
     retentionPeriod: LLM_RETENTION,
     encryptionStatus: LLM_ENCRYPTION,
   },
+  ABR_RESIDENCY_ENTRY,
 ] as const;

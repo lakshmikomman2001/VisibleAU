@@ -32,6 +32,8 @@ interface StoredReport {
 export async function reportForPage<T extends StoredReport>(
   report: T,
   storage: StorageAdapter | null,
+  /** S01C part 5a: the name its download is saved under (reportFileName). */
+  fileName?: string,
 ): Promise<
   Omit<T, "pdfUrl" | "pdfFailureDetail" | "contentsSnapshot" | "hasSnapshot"> & {
     pdfUrl: string | null;
@@ -44,7 +46,7 @@ export async function reportForPage<T extends StoredReport>(
   if (report.pdfUrl) {
     try {
       if (!storage) throw new Error("storage isn't available");
-      link = await storage.getDownloadUrl(report.pdfUrl);
+      link = await storage.getDownloadUrl(report.pdfUrl, undefined, fileName);
     } catch {
       pdfLinkUnavailable = true;
     }

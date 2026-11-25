@@ -100,7 +100,11 @@ describe("PDF reports' retention says what's true (2 Nov)", () => {
     const html = renderToStaticMarkup(<ResidencyTable entries={await pageEntries()} />);
     const rows = html.split("<tr").slice(1);
     const row = (label: string) => rows.find((r) => r.includes(`>${label}<`)) ?? "";
-    expect(rows.filter((r) => r.includes("12 months"))).toEqual([row("Audit Data")]);
+    // S01C part 5c (LLD amendment 65) adds the ABR's row, whose 12 months the weekly job enforces too (amendment 54).
+    expect(rows.filter((r) => r.includes("12 months"))).toEqual([
+      row("Audit Data"),
+      row("Business identity check (ABN)"),
+    ]);
     expect(row("Audit Data")).toContain("Deleted 12 months after the audit");
     expect(row("Evidence Snapshots")).toContain(HONEST);
     expect(row("Primary Database")).toContain("Kept until you ask us to delete it");

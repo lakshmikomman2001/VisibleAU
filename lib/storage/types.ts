@@ -13,7 +13,11 @@ export interface StorageListing {
 
 export interface StorageAdapter {
   upload(path: string, buffer: Buffer, contentType: string): Promise<void>;
-  getDownloadUrl(path: string, expirySeconds?: number): Promise<string>;
+  /**
+   * A link to the file. `fileName` (S01C part 5a) is the name the browser saves it under: the link's download sets
+   * Content-Disposition to it (lib/communication/report-file-name.ts), instead of the storage path's last part.
+   */
+  getDownloadUrl(path: string, expirySeconds?: number, fileName?: string): Promise<string>;
   /** The file's bytes; null when there's no such file. Throws when storage can't be reached. */
   download(path: string): Promise<Buffer | null>;
   /**

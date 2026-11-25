@@ -80,6 +80,13 @@ export interface ExpiredAuditDeletion {
 }
 
 /**
+ * S01C part 5b (LLD amendment 65): what an ABN suggestion answered "Not mine" becomes once its search is older than
+ * the retention period -- no date and no ABR data, only that the owner said no. Brand settings offers nothing while
+ * it's there; changing the brand's name clears it (app/api/brands/[brandId]/route.ts).
+ */
+export const ABN_SUGGESTION_DISMISSED = { status: "dismissed" } as const;
+
+/**
  * When an ABN suggestion's search ran, as stored (lib/brand-entity/abn-lookup.ts writes it with toISOString):
  * `checkedAt` for "none" and "failed", the suggestion's own `checkedAt` for "found".
  */
@@ -263,9 +270,15 @@ export async function deleteExpiredAudits(
         .orderBy(asc(brands.id))
         .limit(batchSize);
       if (expired.length === 0) return 0;
+      // S01C part 5b (LLD amendment 65): a suggestion answered "Not mine" leaves a dateless marker with no ABR data
+      // (no ABN, entity, status or place), so brand settings doesn't offer it again; any other goes entirely. The
+      // marker has no date, so this never selects it again.
       const cleared = await tx
         .update(brands)
-        .set({ abnSuggestion: null })
+        .set({
+          abnSuggestion: sql`CASE WHEN ${brands.abnSuggestion}->>'answer' = 'dismissed'
+            THEN ${JSON.stringify(ABN_SUGGESTION_DISMISSED)}::jsonb ELSE NULL END`,
+        })
         .where(
           inArray(
             brands.id,

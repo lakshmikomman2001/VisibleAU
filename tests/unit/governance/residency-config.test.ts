@@ -10,8 +10,9 @@ import { RESIDENCY_CONFIG } from "@/lib/governance/residency-config";
 // Neon Postgres).
 // ---------------------------------------------------------------------------
 describe("RESIDENCY_CONFIG — data residency log source of truth", () => {
-  it("has exactly 13 entries", () => {
-    expect(RESIDENCY_CONFIG).toHaveLength(13);
+  // S01C part 5c, LLD amendment 65: "The signed-in Data Residency page lists the ABR, built from ABR_LOOKUP" -- one more configured row (the ABR's identity lookups).
+  it("has exactly 14 entries", () => {
+    expect(RESIDENCY_CONFIG).toHaveLength(14);
   });
 
   it("attributes the primary database to Neon, not Supabase", () => {

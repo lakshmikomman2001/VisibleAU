@@ -87,8 +87,9 @@ describe("the public pages name the provider only once Google can run", () => {
 });
 
 describe("Data Residency: DataForSEO, in its own documents' words", () => {
-  it("the entry claims no processing region, and the 13 configured entries are unchanged", () => {
-    expect(RESIDENCY_CONFIG).toHaveLength(13);
+  // S01C part 5c, LLD amendment 65: "The signed-in Data Residency page lists the ABR, built from ABR_LOOKUP" -- one more configured row; DataForSEO is still never a configured row.
+  it("the entry claims no processing region, and the 14 configured entries hold no DataForSEO row", () => {
+    expect(RESIDENCY_CONFIG).toHaveLength(14);
     expect(RESIDENCY_CONFIG.some((e) => e.provider === "dataforseo")).toBe(false);
     expect(GOOGLE_SURFACES_RESIDENCY_ENTRY.storageRegion).toMatch(/^Not documented by DataForSEO/);
     expect(GOOGLE_SURFACES_RESIDENCY_ENTRY.retentionPeriod).toContain("12 months");

@@ -25,11 +25,17 @@ export class SupabaseStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getDownloadUrl(path: string, expirySeconds?: number): Promise<string> {
+  async getDownloadUrl(path: string, expirySeconds?: number, fileName?: string): Promise<string> {
     const supabase = getSupabaseAdmin();
+    // S01C part 5a: with a name, the signed link downloads as it. Supabase Storage then sends "attachment;
+    // filename=<its ASCII fallback>; filename*=UTF-8''<the name>" (its renderer's handleDownload).
     const { data, error } = await supabase.storage
       .from(this.bucket)
-      .createSignedUrl(path, expirySeconds ?? DEFAULT_EXPIRY_SECONDS);
+      .createSignedUrl(
+        path,
+        expirySeconds ?? DEFAULT_EXPIRY_SECONDS,
+        fileName ? { download: fileName } : undefined,
+      );
 
     if (error || !data?.signedUrl) {
       throw new Error(`Supabase Storage signed URL failed: ${error?.message ?? "no URL returned"}`);

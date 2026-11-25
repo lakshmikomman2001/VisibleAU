@@ -1,4 +1,5 @@
 import { citedInAnswers } from "@/lib/directories/cited-in-answers";
+import { formatCheckDate } from "@/lib/reports/report-format";
 import type { DimensionKey } from "@/lib/scoring/dimension-result";
 import { SMALL_SAMPLE_MENTIONS } from "@/lib/scoring/measured-display";
 import { businessExamples } from "./business-examples";
@@ -172,8 +173,12 @@ function checkerRef(source: string, summary: string, url: string | null = null):
  * slice stale-content's own date formatting uses below, never
  * toLocaleDateString() (this runs server-side; the reader's locale isn't
  * available here, and the stored action text must be deterministic). */
-function isoDate(iso: string): string {
-  return iso.slice(0, 10);
+/**
+ * S01C part 5d (LLD amendment 65): a directory item's dates as "20 Oct 2026", as the PDF's evidence lines and the
+ * Beyond tiles print them (formatCheckDate); it wrote "2026-10-20". Items already stored keep their words.
+ */
+function checkDate(iso: string): string {
+  return formatCheckDate(iso);
 }
 
 /**
@@ -236,7 +241,7 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
   // resolve-audit-dimensions.ts uses) -- never a vaguer "AI is citing
   // X" with the number left out.
   const citationSummary = (f: (typeof flagged)[number]) =>
-    `${f.name} was ${citedInAnswers(f.citedCount, f.totalAnswers)} to everyday customer questions (questions that don't name your business) (checked ${isoDate(computedAt)}).`;
+    `${f.name} was ${citedInAnswers(f.citedCount, f.totalAnswers)} to everyday customer questions (questions that don't name your business) (checked ${checkDate(computedAt)}).`;
 
   const evidenceRefs: EvidenceRef[] = [];
   for (const f of flagged) {
@@ -249,8 +254,8 @@ function evaluateDirectoryVisibility({ evidence }: RuleInput): RuleOutcome | nul
     if (f.ownerStatus && f.ownerConfirmedAt) {
       const confirmedSummary =
         f.ownerStatus === "not_listed"
-          ? `You told us on ${isoDate(f.ownerConfirmedAt)} that you're not listed on ${f.name}.`
-          : `You confirmed your ${f.name} status on ${isoDate(f.ownerConfirmedAt)}.`;
+          ? `You told us on ${checkDate(f.ownerConfirmedAt)} that you're not listed on ${f.name}.`
+          : `You confirmed your ${f.name} status on ${checkDate(f.ownerConfirmedAt)}.`;
       evidenceRefs.push(checkerRef(f.name, confirmedSummary, null));
     }
   }

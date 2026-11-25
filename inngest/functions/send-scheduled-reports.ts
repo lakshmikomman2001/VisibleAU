@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { inOpenWorkspace, liveBrandsOnly, ofLiveBrand } from "@/db/open-workspace";
 import { audits, brands, generatedReports, reportDeliverySchedules } from "@/db/schema";
+import { reportFileName } from "@/lib/communication/report-file-name";
 import { appUrl } from "@/lib/email/links";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
 import {
@@ -102,9 +103,17 @@ export const sendScheduledReports = inngest.createFunction(
           let pdfLinkUnavailable = false;
           if (latestReport.pdfUrl) {
             try {
+              // S01C part 5a (LLD amendment 64): the emailed link downloads under the report's name.
+              const snapshotTier = (latestReport.contentsSnapshot as { tierName?: unknown } | null)
+                ?.tierName;
               const url = await getStorage().getDownloadUrl(
                 latestReport.pdfUrl,
                 PDF_LINK_DAYS * 24 * 60 * 60,
+                reportFileName({
+                  brandName: brand.name,
+                  tierName: typeof snapshotTier === "string" ? snapshotTier : null,
+                  periodLabel: latestReport.periodLabel,
+                }),
               );
               pdfLink = url.startsWith("http") ? url : appUrl(url);
             } catch {

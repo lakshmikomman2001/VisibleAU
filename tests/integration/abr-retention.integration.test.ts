@@ -25,7 +25,21 @@ const BRAND = {
   newFound: randomUUID(),
   malformed: randomUUID(),
   deleted: randomUUID(),
+  notMine: randomUUID(),
 };
+
+// S01C part 5b: the brand settings route's name search and the rename's question pack, recorded (no network).
+const searches = vi.hoisted(() => ({ names: [] as string[] }));
+vi.mock("@/lib/brand-entity/abn-lookup", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/brand-entity/abn-lookup")>()),
+  searchAbnByName: vi.fn(async (name: string) => {
+    searches.names.push(name);
+    return { status: "none" as const };
+  }),
+}));
+vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({
+  regeneratePromptPack: vi.fn(async () => undefined),
+}));
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(async () => ({
@@ -150,6 +164,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const ids = Object.values(BRAND);
+  await sql`DELETE FROM org_feature_flags WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM brand_entity_scores WHERE brand_id = ANY(${ids})`;
   await sql`DELETE FROM audit_trail WHERE organization_id = ${ORG}`;
   await sql`DELETE FROM brands WHERE id = ANY(${ids})`;
@@ -215,5 +230,65 @@ describe("ABR results are deleted 12 months after each check, as audit results a
     expect(row.abn).toBe("51824753557");
     // Brand deletion is a soft delete: the entity check stays until it is 12 months old.
     expect(await entityExists(check)).toBe(true);
+  });
+});
+
+/**
+ * S01C part 5b (LLD amendment 65): "A suggestion answered 'Not mine' stays dismissed: when the retention job clears it,
+ * a dateless marker with no ABR data stays, until the brand's name changes."
+ */
+describe("'Not mine' lasts past the 12 months (amendment 65)", () => {
+  async function suggestionFor(brandId: string) {
+    const { GET } = await import("@/app/api/brands/[brandId]/abn-suggestion/route");
+    const res = await GET(new Request("http://x"), { params: Promise.resolve({ brandId }) });
+    expect(res.status).toBe(200);
+    return ((await res.json()) as { suggestion: unknown }).suggestion;
+  }
+
+  async function rename(brandId: string, body: Record<string, unknown>) {
+    const { PATCH } = await import("@/app/api/brands/[brandId]/route");
+    const res = await PATCH(
+      new Request("http://x", { method: "PATCH", body: JSON.stringify(body) }),
+      { params: Promise.resolve({ brandId }) },
+    );
+    expect(res.status).toBe(200);
+  }
+
+  it("the job leaves a dateless 'dismissed' marker with no ABR data; brand settings offers nothing and doesn't search", async () => {
+    await brand(
+      BRAND.notMine,
+      "Wattle Grove Tiling",
+      null,
+      found("86103551072", "2001-03-01T00:00:00.000Z", "dismissed"),
+    );
+    await runAuditStep("2002-06-01T00:00:00.000Z");
+    const row = await brandRow(BRAND.notMine);
+    expect(row.abn_suggestion).toEqual({ status: "dismissed" });
+    expect(JSON.stringify(row.abn_suggestion)).not.toMatch(
+      /86103551072|WATTLE|NSW|2170|Active|checkedAt/,
+    );
+    // A second run leaves the marker as it is (it has no date to be old by).
+    await runAuditStep("2003-06-01T00:00:00.000Z");
+    expect((await brandRow(BRAND.notMine)).abn_suggestion).toEqual({ status: "dismissed" });
+
+    await sql`
+      INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled) VALUES (${ORG}, 'abn_suggestion', true)
+      ON CONFLICT DO NOTHING`;
+    searches.names.length = 0;
+    expect(await suggestionFor(BRAND.notMine)).toBeNull();
+    expect(searches.names).toEqual([]);
+  });
+
+  it("other brand settings changes keep the marker", async () => {
+    await rename(BRAND.notMine, { competitors: ["Wattle Grove Rival"] });
+    expect((await brandRow(BRAND.notMine)).abn_suggestion).toEqual({ status: "dismissed" });
+  });
+
+  it("changing the brand's name clears it, and brand settings searches the new name", async () => {
+    await rename(BRAND.notMine, { name: "Wattle Grove Tiles and Stone" });
+    expect((await brandRow(BRAND.notMine)).abn_suggestion).not.toEqual({ status: "dismissed" });
+    searches.names.length = 0;
+    await suggestionFor(BRAND.notMine);
+    expect(searches.names).toEqual(["Wattle Grove Tiles and Stone"]);
   });
 });

@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { FaqSection } from "@/components/domain/landing/faq-section";
 import {
+  ABR_LOOKUP,
   AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
@@ -53,8 +54,11 @@ describe("what an audit sends, the same on every page", () => {
 
     // 19 Nov (Sri's review): the providers by name, what outlives the deletion, the server logs -- and no
     // "We comply with Australia's Privacy Act 1988" (a legal claim nobody has checked).
+    // S01B part 5, LLD amendment 54: "The public FAQ, the privacy page, the privacy draft and the data-facts list say,
+    // where they list the other services data goes to: 'To confirm your business, we look up your business name and
+    // ABN on the Australian Business Register ...'" -- ABR_LOOKUP, after what goes to Claude when a business is added.
     expect(answer).toBe(
-      `When you run an audit, we send ${AUDIT_QUESTIONS} to ${AUDIT_AI_PROVIDERS}. ${SENT_FOR_A_CONFIRMED_LOCATION} ${SENT_WHEN_A_BUSINESS_IS_ADDED} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} ${KEPT_UNTIL_YOU_ASK} ${SERVER_LOGS_KEPT} ${SAMPLE_DATA_DELETED} Read the privacy policy`,
+      `When you run an audit, we send ${AUDIT_QUESTIONS} to ${AUDIT_AI_PROVIDERS}. ${SENT_FOR_A_CONFIRMED_LOCATION} ${SENT_WHEN_A_BUSINESS_IS_ADDED} ${ABR_LOOKUP} The questions we send and the answers we get back are saved with your audit results. ${AUDIT_RESULTS_DELETED} ${KEPT_UNTIL_YOU_ASK} ${SERVER_LOGS_KEPT} ${SAMPLE_DATA_DELETED} Read the privacy policy`,
     );
     expect(answer).not.toMatch(/Privacy Act|comply|complian/i);
     expect(answer).not.toMatch(/domain and business name are sent/i);

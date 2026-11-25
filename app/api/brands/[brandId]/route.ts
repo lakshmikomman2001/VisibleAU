@@ -272,7 +272,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ bran
     }
 
     const now = new Date();
-    await tx.update(brands).set({ deletedAt: now, updatedAt: now }).where(eq(brands.id, brandId));
+    // S01B part 5 (LLD amendment 54): the ABR's suggestion goes at once, in this transaction. The business's own ABN
+    // (brands.abn) stays with the brand, and its entity checks go with the retention job, 12 months after each.
+    await tx
+      .update(brands)
+      .set({ deletedAt: now, updatedAt: now, abnSuggestion: null })
+      .where(eq(brands.id, brandId));
     // Team follow-ups, item 7: its schedules stop with it, in this transaction. Nothing in the app
     // restores a deleted brand; one restored by hand finds them paused, saying why, until resumed.
     await tx

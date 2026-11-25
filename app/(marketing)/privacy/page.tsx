@@ -5,6 +5,7 @@ import {
   DATAFORSEO_TASK_RETENTION_MONTHS,
 } from "@/lib/governance/residency-config";
 import {
+  ABR_LOOKUP,
   AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
@@ -85,6 +86,10 @@ export default function PrivacyPage() {
               {`Where a workspace has Google Search AI switched on, the audit questions (each naming a kind of business and a place, and a few naming the business) also go to DataForSEO (DataForSEO OÜ, Estonia), which collects Google's search results for us, logged out, with ${GOOGLE_CHECKED_FROM_PLACE}. DataForSEO doesn't say where it processes data; the processors it lists are in the United States and Germany, and it keeps the questions and results for ${DATAFORSEO_TASK_RETENTION_MONTHS} months.`}
             </p>
           )}
+          {/* S01B part 5 (LLD amendment 54): the Australian Business Register (lib/legal/data-facts.ts ABR_LOOKUP). */}
+          <p className="mt-2" data-privacy-abr="">
+            {ABR_LOOKUP}
+          </p>
         </section>
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-2">Sign-in protection</h2>

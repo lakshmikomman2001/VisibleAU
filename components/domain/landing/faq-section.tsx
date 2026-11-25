@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  ABR_LOOKUP,
   AUDIT_AI_PROVIDERS,
   AUDIT_QUESTIONS,
   AUDIT_RESULTS_DELETED,
@@ -111,6 +112,8 @@ export function faqItems({
         googleAi ? googleAiDataSentence(googleAi) : null,
         SENT_FOR_A_CONFIRMED_LOCATION,
         SENT_WHEN_A_BUSINESS_IS_ADDED,
+        // S01B part 5 (LLD amendment 54): the Australian Business Register, and its 12 months.
+        ABR_LOOKUP,
         "The questions we send and the answers we get back are saved with your audit results.",
         AUDIT_RESULTS_DELETED,
         KEPT_UNTIL_YOU_ASK,

@@ -22,6 +22,17 @@ import { TIER_ENGINES } from "@/lib/llm/tier-engines";
 export const SENT_WHEN_A_BUSINESS_IS_ADDED =
   "When you add a business, we send its name and website address, with its home page's title, description and main heading, to Anthropic (Claude) to work out what kind of business it is.";
 
+/**
+ * S01B part 5 (LLD amendment 54, Sri's decision of 25 Nov 2026): the Australian Business Register lookups, in Sri's
+ * words. lib/brand-entity/abn-lookup.ts reads an ABN's details (AbnDetails: the technical audit's entity check) and,
+ * with abn_suggestion on, searches the register by the business's name (MatchingNames; the postcode or state filter is
+ * applied in our code, not sent); lib/trust/entity-checker.ts reads an ABN's details too. What comes back is kept in
+ * brand_entity_scores and brands.abn_suggestion, and the weekly retention job deletes it AUDIT_DATA_RETENTION_MONTHS
+ * after each check, on the audits' cutoff (lib/retention/audit-retention.ts); deleting a brand clears its suggestion
+ * at once (app/api/brands/[brandId]/route.ts). The business's own ABN (brands.abn) stays with the brand.
+ */
+export const ABR_LOOKUP = `To confirm your business, we look up your business name and ABN on the Australian Business Register (abr.business.gov.au), the government's public register. We keep what it returns (ABN, entity name, status, postcode and state) with your brand and delete it after ${AUDIT_DATA_RETENTION_MONTHS} months, as we do your audit results.`;
+
 /** The questions an audit sends, as a phrase ("we send ... {AUDIT_QUESTIONS}."). Never the website address. */
 export const AUDIT_QUESTIONS =
   "questions your customers might ask, which name your kind of business and the area you serve, and a few questions that name your business";

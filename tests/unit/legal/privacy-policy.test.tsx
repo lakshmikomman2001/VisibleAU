@@ -69,7 +69,12 @@ describe("how long questions and answers are kept", () => {
     // together). Nowhere else.
     const signIn = /Sign-in protection .*? since the last attempt\./;
     expect(policy).toMatch(signIn);
-    const elsewhere = policy.replace(signIn, "").replace(auditResults, "");
+    // S01B part 5, LLD amendment 54: "ABR results are deleted 12 months after each check, like audit results" and the
+    // page says so ("... with your brand and delete it after 12 months, as we do your audit results."): the audits'
+    // own period, which the same weekly job enforces (tests/integration/abr-retention.integration.test.ts).
+    const abr = `We keep what it returns (ABN, entity name, status, postcode and state) with your brand and delete it after ${AUDIT_DATA_RETENTION_MONTHS} months, as we do your audit results.`;
+    expect(policy).toContain(abr);
+    const elsewhere = policy.replace(signIn, "").replace(auditResults, "").replace(abr, "");
     expect(elsewhere).not.toMatch(/\b\d+\s*(hours?|days?|weeks?|months?|years?)\b/i);
     expect(policy).not.toMatch(/life of your account/i);
   });

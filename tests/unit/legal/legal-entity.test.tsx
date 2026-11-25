@@ -98,6 +98,9 @@ const NOT_NAMES = new Set([
   ...["Act", "Payment", "Sign-in", "PDF"],
   // Places, tax and the regulator.
   ...["Australia", "Australian", "United", "States", "ABN", "GST", "OAIC"],
+  // S01B part 5, LLD amendment 54: the privacy page says "we look up your business name and ABN on the Australian
+  // Business Register (abr.business.gov.au), the government's public register" -- a register, not a person.
+  ...["Business", "Register"],
   // Technology and the providers the pages name.
   ...[
     "AI",

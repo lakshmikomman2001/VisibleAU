@@ -11,7 +11,11 @@
  *   out of credit for the whole audit, 5 of 30 answers, seven directories cited and none linked, Reddit cited;
  * - KURRAJONG ("Kurrajong IT Solutions", like TechCore IT #52): IT support in western Sydney, 0 of 40 answers, other
  *   providers' sites cited instead, Claude saying it couldn't find the business, Local Business Guide not linked, an
- *   ABN on file that isn't verified.
+ *   ABN on file that isn't verified;
+ * - WARATAH ("Waratah Home Services", S01C part 3a, like the real audit #54 report reviewed on 25 Nov 2026): general
+ *   trades in Lidcombe NSW 2141 (the brand's own postcode), 13 directories cited 73 times, Gemini at 0 of 10 while its
+ *   answers cite directories, 13 Google questions, rule j and the Wikipedia item as the other actions, and a trend
+ *   with a 3-of-4 audit (Claude refused by the spend limit), a question change and an audit excluded from trends.
  * Each business's own domain is under example.com.au; the other businesses AI cites instead are under the reserved .test
  * domain (each its own registrable domain, so none reads as the brand's own site). ABNs are made up, and every name is
  * invented.
@@ -38,6 +42,17 @@ interface SeedAudit {
   number: number;
   completedAt: string;
   failedEngines?: Engine[];
+  /** The audit's own everyday questions, when they differ from the spec's (a question change). */
+  everyday?: readonly string[];
+  /** audits.prompt_pack_version (1 when absent): audits compare only within one version. */
+  promptPackVersion?: number;
+  /** audits.excluded_from_trends_reason: an operator excluded the audit from every trend. */
+  excludedReason?: string;
+  /**
+   * The answer (0-based, in engine order, ten each) a directory's citations start at -- 0 when absent -- so they can
+   * fall on a chosen engine's answers (S01C: Gemini's, the third engine's, are answers 20-29).
+   */
+  directoryStart?: Record<string, number>;
   /** engine -> everyday question numbers (1-based) whose answer named the business. */
   mentions: Partial<Record<Engine, number[]>>;
   /** domain -> how many everyday answers cite it (the first N answers, in engine order). */
@@ -50,13 +65,15 @@ interface SeedAudit {
 }
 
 export interface SeedSpec {
-  key: "bluegum" | "ironstone" | "kurrajong";
+  key: "bluegum" | "ironstone" | "kurrajong" | "waratah";
   brandName: string;
   domainStem: string;
   vertical: "tradies" | "professional_services";
   categories: string[];
   suburb: string;
   state: string;
+  /** brands.postcode (the brand's own; absent leaves it null). */
+  postcode?: string;
   region: string;
   competitors: string[];
   everyday: readonly string[];
@@ -69,8 +86,21 @@ export interface SeedSpec {
   /** The owner's confirmed directory profiles: directory key -> profile URL path on that directory's site. */
   linkedProfiles?: Record<string, { domain: string; path: string }>;
   abn: string | null;
-  entity: { verified: boolean; status: string; name: string } | null;
+  /** The latest identity check; status and name null for a check that ran with no ABN on file (lookupAbn's result). */
+  entity: { verified: boolean; status: string | null; name: string | null } | null;
   technicalScore: string;
+  /**
+   * audits.score_frequency on the basis audit, as the runner stores it and the recommendation step reads it (absent:
+   * null, which that step reads as 100, as the first three seeds always had). Waratah's 15.00 lets the Wikipedia
+   * check's item fire, as it did for the real audit #54.
+   */
+  scoreFrequency?: string;
+  /** The technical audit's per-area scores (absent leaves them null, as the first three seeds have). */
+  technicalDims?: Partial<
+    Record<"robots" | "schema" | "meta" | "content" | "brand_entity" | "signals", number>
+  >;
+  /** The basis audit's Google Search AI results: every everyday and branded question, on both surfaces. */
+  google?: { locationCode: number; locationLabel: string; mentionedOnAiMode: number[] };
   /** Agency workflow on the basis audit's items: an in-progress item, a note, an agency action, one done item. */
   agencyWork: boolean;
 }
@@ -243,7 +273,134 @@ export const KURRAJONG: SeedSpec = {
   agencyWork: false,
 };
 
-export const REPORT_SEEDS = [BLUEGUM, IRONSTONE, KURRAJONG] as const;
+const WARATAH_EVERYDAY = [
+  "Who is the best handyman in Lidcombe for small repairs?",
+  "Recommend a reliable home maintenance company near Lidcombe NSW",
+  "Which general trades businesses in western Sydney have good reviews?",
+  "I need someone to fix a sticking door in Lidcombe, who should I call?",
+  "Best tradie near Auburn for odd jobs around the house",
+  "Who can patch plasterboard and paint a wall in Lidcombe this week?",
+  "Affordable home repairs in the Cumberland area",
+  "Trusted tradesperson for small renovations near Berala",
+  "Where can I find an insured handyman with good reviews in Lidcombe?",
+  "Which companies offer regular property maintenance in Lidcombe?",
+] as const;
+
+/** The question set before the change at #47: one question was replaced. */
+const WARATAH_EVERYDAY_BEFORE = [
+  ...WARATAH_EVERYDAY.slice(0, 9),
+  "Who does gutter cleaning in Lidcombe?",
+] as const;
+
+/** Where each directory's citations fall in the basis audit (Gemini's answers are 20-29). */
+const WARATAH_START: Record<string, number> = {
+  "yellowpages.com.au": 0,
+  "localsearch.com.au": 30,
+  "hipages.com.au": 20,
+  "airtasker.com": 22,
+  "wordofmouth.com.au": 25,
+  "serviceseeking.com.au": 10,
+  "oneflare.com.au": 14,
+  "truelocal.com.au": 33,
+  "google.com": 5,
+  "localbusinessguide.com.au": 0,
+  "whereis.com": 8,
+  "birdeye.com": 16,
+  "startlocal.com.au": 38,
+};
+
+const WARATAH_DIRECTORIES = {
+  // The 9 usual directories for general trades, 58 times (Localsearch linked, 2 of its citations the owner's own).
+  "yellowpages.com.au": 17,
+  "localsearch.com.au": 8,
+  "hipages.com.au": 7,
+  "airtasker.com": 5,
+  "wordofmouth.com.au": 5,
+  "serviceseeking.com.au": 5,
+  "oneflare.com.au": 4,
+  "truelocal.com.au": 4,
+  "google.com": 3,
+  // 4 others, 15 times: 13 directories cited 73 times in all.
+  "localbusinessguide.com.au": 5,
+  "whereis.com": 5,
+  "birdeye.com": 4,
+  "startlocal.com.au": 1,
+};
+
+const waratahAudit = (
+  number: number,
+  completedAt: string,
+  extra: Partial<SeedAudit> = {},
+): SeedAudit => ({
+  number,
+  completedAt,
+  promptPackVersion: 2,
+  mentions: { chatgpt: [1, 4], claude: [2], gemini: [], perplexity: [3] },
+  directories: { "yellowpages.com.au": 15, "hipages.com.au": 6, "localsearch.com.au": 4 },
+  ownProfileCitations: { "localsearch.com.au": 1 },
+  ...extra,
+});
+
+export const WARATAH: SeedSpec = {
+  key: "waratah",
+  brandName: "Waratah Home Services",
+  domainStem: "waratahhome",
+  vertical: "tradies",
+  categories: ["trades_general"],
+  suburb: "Lidcombe",
+  state: "NSW",
+  postcode: "2141",
+  region: "NSW:Lidcombe",
+  competitors: [],
+  everyday: WARATAH_EVERYDAY,
+  branded: [
+    "Is Waratah Home Services reputable?",
+    "What do customers say about Waratah Home Services?",
+    "Does Waratah Home Services work in Lidcombe?",
+  ],
+  others: ["Cumberland Handy Co", "Auburn Home Repairs", "Berala Trades Group"],
+  audits: [
+    waratahAudit(46, "2026-10-16T03:00:00.000Z", {
+      everyday: WARATAH_EVERYDAY_BEFORE,
+      promptPackVersion: 1,
+    }),
+    waratahAudit(47, "2026-10-23T03:00:00.000Z", {
+      failedEngines: ["claude"],
+      mentions: { chatgpt: [1], gemini: [], perplexity: [3] },
+    }),
+    waratahAudit(48, "2026-10-30T03:00:00.000Z"),
+    waratahAudit(49, "2026-11-06T03:00:00.000Z", {
+      excludedReason: "measured with an earlier version of the mention check",
+      mentions: {},
+    }),
+    waratahAudit(50, "2026-11-10T03:00:00.000Z", {
+      mentions: { chatgpt: [1, 4, 7], claude: [2], gemini: [], perplexity: [3] },
+    }),
+    waratahAudit(52, "2026-11-14T03:00:00.000Z"),
+    waratahAudit(54, "2026-11-21T03:00:00.000Z", {
+      mentions: { chatgpt: [1, 4, 7], claude: [2], gemini: [], perplexity: [3, 6] },
+      directories: WARATAH_DIRECTORIES,
+      directoryStart: WARATAH_START,
+      ownProfileCitations: { "localsearch.com.au": 2 },
+    }),
+  ],
+  linkedProfiles: {
+    localsearch: {
+      domain: "localsearch.com.au",
+      path: "/profile/waratah-home-services/lidcombe-nsw/2141001",
+    },
+  },
+  scoreFrequency: "15.00",
+  abn: null,
+  // Checked with no ABN on file, as the technical audit's identity check stores it (lib/brand-entity/abn-lookup.ts).
+  entity: { verified: false, status: null, name: null },
+  technicalScore: "40.00",
+  technicalDims: { robots: 18, schema: 4, meta: 9, content: 5, brand_entity: 2, signals: 2 },
+  google: { locationCode: 9071881, locationLabel: "2141 NSW", mentionedOnAiMode: [3] },
+  agencyWork: false,
+};
+
+export const REPORT_SEEDS = [BLUEGUM, IRONSTONE, KURRAJONG, WARATAH] as const;
 
 export interface SeededReportBrand {
   spec: SeedSpec;
@@ -277,9 +434,10 @@ export async function seedReportBrand(
     VALUES (${orgId}, ${`report-seed-${tag}`}, ${`Splice Marketing ${tag}`}, ${`report-seed-${tag}`})`;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state,
-                        categories, competitors, abn)
+                        postcode, categories, competitors, abn)
     VALUES (${brandId}, ${orgId}, ${spec.brandName}, ${domain}, ${spec.vertical}, 'au', ${[spec.region]},
-            ${spec.suburb}, ${spec.state}, ${spec.categories}, ${spec.competitors}, ${spec.abn})`;
+            ${spec.suburb}, ${spec.state}, ${spec.postcode ?? null}, ${spec.categories}, ${spec.competitors},
+            ${spec.abn})`;
   await sql`
     INSERT INTO agency_brand_assets (organization_id, brand_id, agency_name)
     VALUES (${orgId}, NULL, 'Splice Marketing')`;
@@ -301,28 +459,31 @@ export async function seedReportBrand(
     const auditId = randomUUID();
     auditIds[audit.number] = auditId;
     const failed = new Set(audit.failedEngines ?? []);
-    const promptsCount = spec.everyday.length + spec.branded.length;
+    const everyday = audit.everyday ?? spec.everyday;
+    const promptsCount = everyday.length + spec.branded.length;
     const completedAt = new Date(audit.completedAt);
     await sql`
       INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt,
-                          metadata, started_at, completed_at, prompt_pack_version, methodology_version)
+                          metadata, started_at, completed_at, prompt_pack_version, methodology_version,
+                          excluded_from_trends_reason)
       VALUES (${auditId}, ${brandId}, ${orgId}, ${audit.number}, 'complete', ${[...SEED_ENGINES]}, ${promptsCount}, 1,
               ${sql.json({ engineFailures: Object.fromEntries([...failed].map((e) => [e, promptsCount])) })},
-              ${new Date(completedAt.getTime() - 180_000)}, ${completedAt}, 1, 2)`;
+              ${new Date(completedAt.getTime() - 180_000)}, ${completedAt}, ${audit.promptPackVersion ?? 1}, 2,
+              ${audit.excludedReason ?? null})`;
 
     const rows: Record<string, unknown>[] = [];
     const failures: Record<string, unknown>[] = [];
     let answer = 0;
     for (const engine of SEED_ENGINES) {
       if (failed.has(engine)) {
-        for (const [i, prompt] of [...spec.everyday, ...spec.branded].entries())
+        for (const [i, prompt] of [...everyday, ...spec.branded].entries())
           failures.push({
             audit_id: auditId,
             organization_id: orgId,
             engine,
             prompt,
             prompt_index: i,
-            is_branded_prompt: i >= spec.everyday.length,
+            is_branded_prompt: i >= everyday.length,
             error_class: "other",
             error_message: OUT_OF_CREDIT,
             attempts: 1,
@@ -331,13 +492,14 @@ export async function seedReportBrand(
         continue;
       }
       const mentioned = new Set(audit.mentions[engine] ?? []);
-      for (const [i, prompt] of spec.everyday.entries()) {
+      for (const [i, prompt] of everyday.entries()) {
         const isMention = mentioned.has(i + 1);
         const sources: Array<{ domain: string; url: string }> = [];
         if (isMention) sources.push({ domain, url: `https://${domain}/` });
         for (const [dir, count] of Object.entries(audit.directories ?? {})) {
-          if (answer >= count) continue;
-          const own = answer < (audit.ownProfileCitations?.[dir] ?? 0);
+          const start = audit.directoryStart?.[dir] ?? 0;
+          if (answer < start || answer >= start + count) continue;
+          const own = answer - start < (audit.ownProfileCitations?.[dir] ?? 0);
           const profile = Object.values(spec.linkedProfiles ?? {}).find((p) => p.domain === dir);
           sources.push({
             domain: dir,
@@ -383,7 +545,7 @@ export async function seedReportBrand(
           audit_id: auditId,
           engine,
           prompt,
-          prompt_index: spec.everyday.length + j,
+          prompt_index: everyday.length + j,
           run_number: 1,
           brand_mentioned: found,
           is_branded_prompt: true,
@@ -400,6 +562,9 @@ export async function seedReportBrand(
   }
   const basisNumber = Math.max(...spec.audits.map((a) => a.number));
   const basisAuditId = auditIds[basisNumber];
+  if (spec.scoreFrequency) {
+    await sql`UPDATE audits SET score_frequency = ${spec.scoreFrequency} WHERE id = ${basisAuditId}`;
+  }
 
   // The checks outside AI answers, all within their Enhanced windows (an Enhanced report re-runs nothing).
   if (spec.entity) {
@@ -409,9 +574,14 @@ export async function seedReportBrand(
       VALUES (${brandId}, ${orgId}, ${spec.entity.verified}, ${spec.abn}, ${spec.entity.name}, ${spec.entity.status},
               false, ${sql.json([domain])}, now() - interval '2 days')`;
   }
+  const dims = spec.technicalDims ?? {};
   await sql`
-    INSERT INTO technical_audits (brand_id, organization_id, audit_id, score_composite, findings, created_at, crawled_at)
-    VALUES (${brandId}, ${orgId}, ${basisAuditId}, ${spec.technicalScore},
+    INSERT INTO technical_audits (brand_id, organization_id, audit_id, score_composite, score_robots, score_schema,
+                                  score_meta, score_content, score_brand_entity, score_signals, findings, created_at,
+                                  crawled_at)
+    VALUES (${brandId}, ${orgId}, ${basisAuditId}, ${spec.technicalScore}, ${dims.robots ?? null},
+            ${dims.schema ?? null}, ${dims.meta ?? null}, ${dims.content ?? null}, ${dims.brand_entity ?? null},
+            ${dims.signals ?? null},
             ${sql.json({
               scoringVersion: 4,
               robots: {
@@ -420,6 +590,79 @@ export async function seedReportBrand(
                 aiBotsBlocked: [],
               },
             })}, now() - interval '1 day', now() - interval '1 day')`;
+
+  // S01C part 3a: the basis audit's Google Search AI questions, as the Google job stores them (both surfaces).
+  if (spec.google) {
+    const basis = spec.audits.find(
+      (a) => a.number === Math.max(...spec.audits.map((x) => x.number)),
+    );
+    const everyday = basis?.everyday ?? spec.everyday;
+    const completedAt = new Date(basis?.completedAt ?? Date.now());
+    await sql`
+      INSERT INTO audit_google_surfaces (audit_id, organization_id, surfaces, settings, location, status, completed_at,
+                                         created_at)
+      VALUES (${basisAuditId}, ${orgId}, ${["google_ai_overviews", "google_ai_mode"]},
+              ${sql.json({
+                aiOverviewsEnabled: true,
+                aiModeEnabled: true,
+                countInHeadline: false,
+                queueMode: "standard",
+                device: "desktop",
+                maxCostUsdPerAudit: 1,
+                provider: "dataforseo",
+                decisions: {
+                  google_ai_overviews: { on: true, reason: "global" },
+                  google_ai_mode: { on: true, reason: "global" },
+                },
+              })},
+              ${sql.json({
+                code: spec.google.locationCode,
+                label: spec.google.locationLabel,
+                kind: "postcode",
+                precise: true,
+                note: null,
+              })}, 'complete', ${completedAt}, ${completedAt})`;
+    const results: Record<string, unknown>[] = [];
+    for (const surface of ["google_ai_overviews", "google_ai_mode"] as const) {
+      for (const [i, prompt] of [...everyday, ...spec.branded].entries()) {
+        const branded = i >= everyday.length;
+        const shown = surface === "google_ai_mode" || i % 3 !== 2;
+        const mentioned =
+          branded ||
+          (surface === "google_ai_mode" && spec.google.mentionedOnAiMode.includes(i + 1));
+        results.push({
+          audit_id: basisAuditId,
+          organization_id: orgId,
+          surface,
+          prompt,
+          prompt_index: i,
+          is_branded_prompt: branded,
+          outcome: shown ? "shown" : "not_shown",
+          provider: "dataforseo",
+          attempts: 1,
+          answer_text: shown ? noMentionText(spec.others) : null,
+          cited_links: sql.json(
+            shown
+              ? [
+                  {
+                    domain: "yellowpages.com.au",
+                    url: `https://www.yellowpages.com.au/listing/g${i}`,
+                    googleLink: false,
+                  },
+                ]
+              : [],
+          ),
+          google_link_count: 0,
+          brand_mentioned: shown ? mentioned : null,
+          mention_verification: shown && mentioned ? "verified_domain" : null,
+          location_code: spec.google.locationCode,
+          location_label: spec.google.locationLabel,
+          device: "desktop",
+        });
+      }
+    }
+    await sql`INSERT INTO google_surface_results ${sql(results)}`;
+  }
 
   // The basis audit's Action Center items, made by the audit's own recommendation step
   // (inngest/functions/generate-recommendations.ts), with the one network check (Wikipedia) recorded.
@@ -486,6 +729,8 @@ export async function seedReportBrand(
     await sql`DELETE FROM brand_entity_scores WHERE brand_id = ${brandId}`;
     await sql`DELETE FROM evidence_snapshots WHERE brand_id = ${brandId}`;
     if (ids.length > 0) {
+      await sql`DELETE FROM google_surface_results WHERE audit_id = ANY(${ids})`;
+      await sql`DELETE FROM audit_google_surfaces WHERE audit_id = ANY(${ids})`;
       await sql`DELETE FROM engine_call_failures WHERE audit_id = ANY(${ids})`;
       await sql`DELETE FROM citations WHERE audit_id = ANY(${ids})`;
     }
@@ -547,7 +792,7 @@ async function buildActionItems(input: {
   });
   const fromRules = await buildRecommendations(
     {
-      scoreFrequency: null,
+      scoreFrequency: input.spec.scoreFrequency ?? null,
       scoreSentimentNumeric: null,
       scoreContextNumeric: null,
       scoreComposite: null,

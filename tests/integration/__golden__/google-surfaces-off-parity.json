@@ -1816,6 +1816,8 @@
         "name": "Bondi Plumbing",
         "domain": "bondiplumbing.com.au",
         "locality": "Bondi",
+        "suburb": "Bondi",
+        "postcode": null,
         "state": "NSW",
         "vertical": "Plumbing"
       },
@@ -3122,6 +3124,8 @@
         "name": "Bondi Plumbing",
         "domain": "bondiplumbing.com.au",
         "locality": "Bondi",
+        "suburb": "Bondi",
+        "postcode": null,
         "state": "NSW",
         "vertical": "Plumbing"
       },

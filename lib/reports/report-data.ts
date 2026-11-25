@@ -218,6 +218,9 @@ export interface ReportData {
     /** "Castle Hill" (suburb, else city); null when the brand has none. */
     locality: string | null;
     state: string | null;
+    /** S01C part 3e: the brand's own suburb and postcode, for the Google place line. Absent in older snapshots. */
+    suburb?: string | null;
+    postcode?: string | null;
     /** The brand's first confirmed category, as the app labels it. */
     vertical: string | null;
   };
@@ -977,6 +980,8 @@ export async function buildReportData(
       name: brand.name,
       domain: brand.domain,
       locality: clean(brand.suburb) ?? clean(brand.city),
+      suburb: clean(brand.suburb),
+      postcode: clean(brand.postcode),
       state: clean(brand.state),
       vertical: brand.categories[0] ? categoryLabel(brand.categories[0]) : null,
     },

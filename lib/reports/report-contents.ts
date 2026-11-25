@@ -131,6 +131,11 @@ export interface MeasuredActionSource {
    * Absent on snapshots written before S01B (the PDF then matches by title).
    */
   findingRule?: FindingRule;
+  /**
+   * S01C part 3b (LLD amendment 61): when the Action Center item was made, so OTHER ACTIONS lists the newest first
+   * within a priority. Absent for a finding with no item and on snapshots written before S01C.
+   */
+  createdAt?: string | null;
 }
 
 export interface SavedChoice {

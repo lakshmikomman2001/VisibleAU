@@ -103,8 +103,12 @@ describe("the PDF's Where AI looks", () => {
       },
     };
     const after = pdfText(withNew);
-    expect(after).toContain("Local Business Guide · general directory");
+    // S01C part 3e, LLD amendment 64: "Directory names don't wrap: a type suffix ... goes on its own muted line" -- so
+    // the name and its kind are two texts now, never "Local Business Guide · general directory" on one line.
+    expect(after).toContain("Local Business Guide general directory");
+    expect(after).not.toContain("Local Business Guide · general directory");
     for (const r of base.directories.rows) expect(after).toContain(r.name);
+    expect(after).not.toContain("hipages trades marketplace");
     expect(after).not.toContain("hipages · trades marketplace");
     // The rows the report had are unchanged when the new fields say they're the brand's own type's.
     const sameRows: ReportData = {

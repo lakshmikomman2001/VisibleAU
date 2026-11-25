@@ -304,6 +304,45 @@ export function trendComparisonLine(data: ReportData): string | null {
     : `From Audit #${t.change.fromAuditNumber} to #${t.change.toAuditNumber} Visibility ${t.change.severity === "significant_rise" ? "rose" : "fell"} by more than the margin of error: their 95% confidence intervals don't overlap.`;
 }
 
+/**
+ * S01C part 3e (LLD amendment 64): why a point on the over-time chart isn't compared, under its audit: "○ 3 of 4
+ * engines" for a partial audit, "○ questions changed" for one asked other everyday questions, and so on; "4 of 4
+ * engines" for a point that is compared. The real report printed "○ 4 of 4 engines", in the warning colour, under the
+ * audit whose questions changed. One reason per point, in trendNoteLines' order.
+ */
+export function trendPointLabel(p: ReportTrendPoint): string {
+  const engines = `${p.enginesAnswered} of ${p.enginesPlanned} ${plural(p.enginesPlanned, "engine")}`;
+  if (!trendPointHollow(p)) return engines;
+  if (p.partial) return `○ ${engines}`;
+  if (p.earlierMethodology) return "○ earlier detection";
+  if (p.otherQuestions) return "○ questions changed";
+  if (p.otherModels !== null) return "○ other models";
+  if (p.modelDrift !== null) return "○ another model answered";
+  return `○ ${engines}`;
+}
+
+/**
+ * S01C part 3e (LLD amendment 64): the Google section's place line, "{suburb} {STATE} {postcode} · {device} · {date}",
+ * when Google was asked at the brand's own postcode -- the real report printed "2161 NSW · desktop · 21 Nov 2026".
+ * Unchanged when an operator set another postcode (lib/google-surfaces/location.ts googleLocationForBrand), when the
+ * location is a suburb, city or capital, or when the brand has no suburb or postcode.
+ */
+export function googlePlaceLine(
+  google: { labelLine: string; location?: { kind: string; label: string } | null },
+  brand: { suburb?: string | null; postcode?: string | null },
+): string {
+  const loc = google.location;
+  const postcode = brand.postcode?.trim();
+  const suburb = brand.suburb?.trim();
+  if (loc?.kind !== "postcode" || !postcode || !suburb) return google.labelLine;
+  const [code, state] = loc.label.split(" ");
+  if (code !== postcode || !state || !google.labelLine.startsWith(loc.label)) {
+    return google.labelLine;
+  }
+  const place = suburb.replace(/\b\w/g, (c) => c.toUpperCase());
+  return `${place} ${state} ${postcode}${google.labelLine.slice(loc.label.length)}`;
+}
+
 /** "Castle Hill, NSW" -- whatever of the two the brand has. */
 export function locationText(data: ReportData): string | null {
   const parts = [data.brand.locality, data.brand.state].filter((p): p is string => !!p);

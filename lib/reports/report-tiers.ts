@@ -81,8 +81,8 @@ export type ReportSectionKey =
 /**
  * The PDF's page set for a tier (appendix D `sections`): Basic keeps today's pages (Diagnosis, and the prioritised list
  * on the Over time page); Standard turns Diagnosis into "Why, and what to do next" and drops the prioritised list (it
- * moves into What to do next); Enhanced adds "Beyond AI answers" after it. Google and Competitors still follow the
- * audit and the report template, as today.
+ * moves into What to do next); Enhanced adds "Beyond AI answers" after Over time (S01C part 3c, LLD amendment 62).
+ * Google and Competitors still follow the audit and the report template, as today.
  */
 export function pagesForTier(tier: ReportTier): ReportSectionKey[] {
   const base: ReportSectionKey[] = [
@@ -95,7 +95,7 @@ export function pagesForTier(tier: ReportTier): ReportSectionKey[] {
   ];
   if (tier === "basic") return [...base, "diagnosis", "trend", "recommended", "method"];
   if (tier === "standard") return [...base, "next", "trend", "method"];
-  return [...base, "next", "beyond_ai", "trend", "method"];
+  return [...base, "next", "trend", "beyond_ai", "method"];
 }
 
 export interface TierNames {

@@ -404,7 +404,8 @@ export function ReportContentsPanel(props: ReportContentsPanelProps) {
     setForm(null);
   }
 
-  // P08.outline: today's pages, with what the tier adds in 600 --text.
+  // P08.outline: today's pages, with what the tier adds in 600 --text. S01C part 3c (LLD amendment 62; contract v1.6
+  // P08.outline): Over time, then Beyond AI answers, as the PDF prints them.
   const added = (label: string) => ({ label, added: true });
   const page = (label: string) => ({ label, added: false });
   const outline = [
@@ -417,8 +418,8 @@ export function ReportContentsPanel(props: ReportContentsPanelProps) {
     ...(withPlan
       ? [added(`Why, and what to do next · ${includedCount} actions`)]
       : [page("Why your score is what it is")]),
-    ...(tier === "enhanced" ? [added("Beyond AI answers")] : []),
     page("Over time"),
+    ...(tier === "enhanced" ? [added("Beyond AI answers")] : []),
     page("Method and notes"),
   ];
 

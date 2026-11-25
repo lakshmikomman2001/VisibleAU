@@ -53,6 +53,7 @@ import {
   citedDirectories,
   coverageLine,
   excludedAuditsMethodItem,
+  googlePlaceLine,
   headlineFigures,
   locationText,
   periodFull,
@@ -61,6 +62,7 @@ import {
   trendComparisonLine,
   trendNoteLines,
   trendPointHollow,
+  trendPointLabel,
 } from "../report-format";
 import { countWord, reportNarrative } from "../report-narrative";
 import { reportDate, reportDateTime, reportShortDate } from "../report-period";
@@ -419,8 +421,10 @@ export function reportPlan(data: ReportDataV2, findings: Finding[]): ReportPlan 
   const directories = next();
   const diagnosis = data.sections.diagnosis && has("diagnosis") ? next() : null;
   const nextSteps = pages?.includes("next") ? next() : null;
-  const beyond = pages?.includes("beyond_ai") && data.v2?.beyondAi ? next() : null;
+  // S01C part 3c (LLD amendment 62; contract v1.6 P09): Over time, then Beyond AI answers (Enhanced), then Method and
+  // notes. Beyond first left the real Enhanced report with a page holding only the over-time chart.
   const trend = data.sections.trend ? next() : null;
+  const beyond = pages?.includes("beyond_ai") && data.v2?.beyondAi ? next() : null;
   // S01C part 2b: only findings with an action are listed (an engine that cited no directory has none).
   const recommended =
     data.sections.recommended_next && withAction(findings).length > 0 && has("recommended")
@@ -1488,7 +1492,7 @@ function GoogleSection({ ctx }: { ctx: Ctx }) {
         provenance={ctx.basisProv}
       />
       <Text style={s.h2}>Google AI Overviews and AI Mode</Text>
-      <Text style={s.lede}>{google.labelLine}</Text>
+      <Text style={s.lede}>{googlePlaceLine(google, ctx.data.brand)}</Text>
       {google.locationNote && (
         <Text style={{ ...s.cap, marginTop: px(4) }}>{google.locationNote}</Text>
       )}
@@ -1647,7 +1651,9 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
     ...sov.rows.map((c) => ({ ...c, isYou: false })),
   ].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
   const sovMeasured = sov.state === "measured" || sov.state === "no_mentions";
-  const col = { name: px(120), count: px(64), profile: px(92) };
+  // S01C part 3e (amendment 64): wide enough that no registry name wraps (the widest, "Google Business Profile", is
+  // 99 pt in Inter 600 at this size; tests/integration/report-layout-s01c checks every name).
+  const col = { name: DIRECTORY_NAME_COLUMN, count: px(64), profile: px(92) };
   return (
     <Page size="A4" style={s.page}>
       <RunningHeader title={ctx.runningTitle} />
@@ -1711,95 +1717,104 @@ function DirectoriesPage({ ctx }: { ctx: Ctx }) {
 
       {cited.length > 0 && (
         <>
-          <View
-            style={{
-              flexDirection: "row",
-              gap: px(12),
-              marginTop: px(22),
-              paddingBottom: px(6),
-              borderBottomWidth: 0.75,
-              borderBottomStyle: "solid",
-              borderBottomColor: C.line,
-            }}
-          >
-            {[
-              { t: "Directory", w: col.name, a: "left" as const },
-              { t: "Cited in answers", w: undefined, a: "left" as const },
-              { t: "Count", w: col.count, a: "right" as const },
-              { t: "Your profile", w: col.profile, a: "center" as const },
-            ].map((h) => (
-              <Text
-                key={h.t}
-                style={{
-                  ...(h.w ? { width: h.w } : { flex: 1 }),
-                  textAlign: h.a,
-                  fontSize: px(8.5),
-                  fontWeight: 600,
-                  letterSpacing: ls(8.5, 0.08),
-                  textTransform: "uppercase",
-                  color: C.ink3,
-                }}
-              >
-                {h.t}
-              </Text>
-            ))}
-          </View>
-          {cited.map((r, i) => {
-            const status = directoryProfileStatus(r);
-            const pill =
-              status.kind === "not_linked"
-                ? { bg: C.surface2, fg: C.ink2 }
-                : status.cited === 0
-                  ? { bg: C.lowSoft, fg: C.low }
-                  : { bg: C.goodSoft, fg: C.good };
-            return (
-              <View
-                key={r.key}
-                wrap={false}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: px(12),
-                  paddingVertical: px(10),
-                  borderBottomWidth: i === cited.length - 1 ? 0 : 0.75,
-                  borderBottomStyle: "solid",
-                  borderBottomColor: C.line,
-                }}
-              >
-                <Text style={{ width: col.name, fontSize: px(11.5), fontWeight: 600 }}>
-                  {/* S00 part 5: a directory shown only because this audit cited it says what it is. */}
-                  {r.relevantToBrand === false && r.kind
-                    ? `${r.name} · ${DIRECTORY_KIND_LABELS[r.kind]}`
-                    : r.name}
-                </Text>
-                <View style={{ flex: 1, ...s.bar }}>
-                  <View
-                    style={{
-                      width: `${n > 0 ? (r.citedCount / n) * 100 : 0}%`,
-                      height: px(12),
-                      borderRadius: px(6),
-                      backgroundColor: C.brand,
-                    }}
-                  />
-                </View>
+          {/* S01C part 3e (amendment 64): the rows in one View with the header row `fixed` inside it, so react-pdf
+              repeats the header when the table continues on the next page (a fixed child is copied into both halves
+              of a split View) and nowhere else. */}
+          <View style={{ marginTop: px(22) }}>
+            <View
+              fixed
+              style={{
+                flexDirection: "row",
+                gap: px(12),
+                paddingBottom: px(6),
+                borderBottomWidth: 0.75,
+                borderBottomStyle: "solid",
+                borderBottomColor: C.line,
+              }}
+            >
+              {[
+                { t: "Directory", w: col.name, a: "left" as const },
+                { t: "Cited in answers", w: undefined, a: "left" as const },
+                { t: "Count", w: col.count, a: "right" as const },
+                { t: "Your profile", w: col.profile, a: "center" as const },
+              ].map((h) => (
                 <Text
+                  key={h.t}
                   style={{
-                    width: col.count,
-                    textAlign: "right",
-                    fontSize: px(11),
+                    ...(h.w ? { width: h.w } : { flex: 1 }),
+                    textAlign: h.a,
+                    fontSize: px(8.5),
                     fontWeight: 600,
+                    letterSpacing: ls(8.5, 0.08),
+                    textTransform: "uppercase",
+                    color: C.ink3,
                   }}
                 >
-                  {r.citedCount} of {n}
+                  {h.t}
                 </Text>
-                <View style={{ width: col.profile, alignItems: "center" }}>
-                  <Text style={{ ...s.pill, backgroundColor: pill.bg, color: pill.fg }}>
-                    {status.label}
+              ))}
+            </View>
+            {cited.map((r, i) => {
+              const status = directoryProfileStatus(r);
+              const pill =
+                status.kind === "not_linked"
+                  ? { bg: C.surface2, fg: C.ink2 }
+                  : status.cited === 0
+                    ? { bg: C.lowSoft, fg: C.low }
+                    : { bg: C.goodSoft, fg: C.good };
+              return (
+                <View
+                  key={r.key}
+                  wrap={false}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: px(12),
+                    paddingVertical: px(10),
+                    borderBottomWidth: i === cited.length - 1 ? 0 : 0.75,
+                    borderBottomStyle: "solid",
+                    borderBottomColor: C.line,
+                  }}
+                >
+                  <View style={{ width: col.name }}>
+                    <Text style={{ fontSize: px(11.5), fontWeight: 600 }}>{r.name}</Text>
+                    {/* S00 part 5: a directory shown only because this audit cited it says what it is. S01C part 3e
+                      (amendment 64): on its own muted line, so the name never wraps. */}
+                    {r.relevantToBrand === false && r.kind ? (
+                      <Text style={{ fontSize: px(9), color: C.ink3, marginTop: px(1) }}>
+                        {DIRECTORY_KIND_LABELS[r.kind]}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={{ flex: 1, ...s.bar }}>
+                    <View
+                      style={{
+                        width: `${n > 0 ? (r.citedCount / n) * 100 : 0}%`,
+                        height: px(12),
+                        borderRadius: px(6),
+                        backgroundColor: C.brand,
+                      }}
+                    />
+                  </View>
+                  <Text
+                    style={{
+                      width: col.count,
+                      textAlign: "right",
+                      fontSize: px(11),
+                      fontWeight: 600,
+                    }}
+                  >
+                    {r.citedCount} of {n}
                   </Text>
+                  <View style={{ width: col.profile, alignItems: "center" }}>
+                    <Text style={{ ...s.pill, backgroundColor: pill.bg, color: pill.fg }}>
+                      {status.label}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
           <Callout tone="info">
             AI engines cited {topList} in{" "}
             <Text style={{ fontWeight: 700 }}>
@@ -2206,6 +2221,9 @@ function GroupLabel({ children }: { children: string }) {
   );
 }
 
+/** " · audit #54" at the end of a measured action's evidence (lib/reports/what-to-do-next.ts). */
+const AUDIT_TAG = / · audit #\d+$/;
+
 function ActionCard({
   priority,
   status,
@@ -2214,6 +2232,7 @@ function ActionCard({
   note,
   agencyName,
   agency,
+  evidenceInBody,
 }: {
   priority: string;
   status: string | null;
@@ -2222,7 +2241,14 @@ function ActionCard({
   note: string | null;
   agencyName: string | null;
   agency?: boolean;
+  /**
+   * S01C part 3b (LLD amendment 61; contract v1.6 P09): the evidence in Inter, with only its "· audit #{n}" tag in
+   * mono (OTHER ACTIONS FROM THIS AUDIT). The real reports printed those sentences in the code font.
+   */
+  evidenceInBody?: boolean;
 }) {
+  const tag = evidenceInBody ? (evidence?.match(AUDIT_TAG)?.[0] ?? null) : null;
+  const sentence = tag && evidence ? evidence.slice(0, -tag.length) : evidence;
   const pill = PRIORITY_PILL[priority] ?? PRIORITY_PILL.medium;
   return (
     <View
@@ -2244,7 +2270,14 @@ function ActionCard({
         {agency ? <SmallPill text="AGENCY" bg={AGENCY.bg} fg={AGENCY.fg} /> : null}
       </View>
       <Text style={{ fontSize: px(11), fontWeight: 600, color: C.ink }}>{title}</Text>
-      {evidence ? (
+      {evidence && evidenceInBody ? (
+        <Text style={{ fontSize: px(9.5), lineHeight: 14 / 9.5, color: C.ink2, marginTop: px(3) }}>
+          {sentence}
+          {tag ? (
+            <Text style={{ fontFamily: FONT.mono, fontSize: px(8.5), color: C.ink3 }}>{tag}</Text>
+          ) : null}
+        </Text>
+      ) : evidence ? (
         <Text style={{ fontFamily: FONT.mono, fontSize: px(8.5), color: C.ink2, marginTop: px(3) }}>
           {evidence}
         </Text>
@@ -2268,6 +2301,9 @@ function ActionCard({
  */
 export const PAGE_THIRD = (PAGE.height - PAGE.padTop - PAGE.padBottom) / 3;
 
+/** S01C part 3e: the directory table's name column, wide enough that no registry directory's name wraps. */
+export const DIRECTORY_NAME_COLUMN = px(140);
+
 function SectionStart() {
   return <View minPresenceAhead={PAGE_THIRD} />;
 }
@@ -2284,6 +2320,20 @@ function Group({ label, items }: { label: string; items: ReactNode[] }) {
       {items.slice(1)}
     </>
   );
+}
+
+const OTHER_ACTION_RANK: Record<string, number> = { high: 0, medium: 1, low: 2, strength: 3 };
+
+/** OTHER ACTIONS FROM THIS AUDIT's order: priority, then the newest item first (undated last, as they were). */
+export function compareOtherActions(
+  a: { priority: string; createdAt?: string | null },
+  b: { priority: string; createdAt?: string | null },
+): number {
+  const rank = (OTHER_ACTION_RANK[a.priority] ?? 1) - (OTHER_ACTION_RANK[b.priority] ?? 1);
+  if (rank !== 0) return rank;
+  const at = (m: { createdAt?: string | null }) =>
+    m.createdAt ? Date.parse(m.createdAt) : -Infinity;
+  return at(b) - at(a);
 }
 
 /** The measured action a shown finding carries (its card's pills and note), when the agency didn't hide it. */
@@ -2312,10 +2362,13 @@ function NextSection({ ctx }: { ctx: Ctx }) {
   const agencyName = v2?.agencyName ?? null;
   const shownRules = new Set(ctx.findings.map((f) => f.rule));
   const shownTitles = new Set(withAction(ctx.findings).map((f) => f.recommendation.title));
-  const others = (next?.measured ?? []).filter(
-    (m) =>
-      m.included && (m.findingRule ? !shownRules.has(m.findingRule) : !shownTitles.has(m.title)),
-  );
+  // S01C part 3b (LLD amendment 61): High, Medium, Low, then newest first (the real reports had LOW before MEDIUM).
+  const others = (next?.measured ?? [])
+    .filter(
+      (m) =>
+        m.included && (m.findingRule ? !shownRules.has(m.findingRule) : !shownTitles.has(m.title)),
+    )
+    .sort(compareOtherActions);
   const agency = next?.agencyActions ?? [];
   const agencyLabelled =
     agency.length > 0 || (next?.measured ?? []).some((m) => m.included && !!m.note?.trim());
@@ -2379,6 +2432,7 @@ function NextSection({ ctx }: { ctx: Ctx }) {
             evidence={m.evidence}
             note={m.note}
             agencyName={agencyName}
+            evidenceInBody
           />
         ))}
       />
@@ -2703,8 +2757,9 @@ function TrendBlock({ ctx }: { ctx: Ctx }) {
                 color: trendPointHollow(p) ? C.mid : C.ink2,
               }}
             >
-              {trendPointHollow(p) ? "○ " : ""}
-              {p.enginesAnswered} of {p.enginesPlanned} engines
+              {/* S01C part 3e (amendment 64): why the point isn't compared ("○ 3 of 4 engines", "○ questions
+                  changed"); the real report printed "○ 4 of 4 engines" under the audit whose questions changed. */}
+              {trendPointLabel(p)}
               {p.value === null ? " · not enough answers" : ""}
             </Text>
           </View>
@@ -2990,8 +3045,9 @@ function FlowingPages({ ctx }: { ctx: Ctx }) {
     <Page size="A4" style={s.page}>
       <RunningHeader title={ctx.runningTitle} />
       {ctx.plan.next && <NextSection ctx={ctx} />}
-      {ctx.plan.beyond && <BeyondSection ctx={ctx} />}
+      {/* S01C part 3c (amendment 62): Over time before Beyond AI answers. */}
       <TrendSection ctx={ctx} />
+      {ctx.plan.beyond && <BeyondSection ctx={ctx} />}
       {/* S01B part 6b (amendment 52, contract v1.5 P09 layout): Method and notes is kept whole -- one unbreakable
           block, so it starts on a new page when it doesn't fit in the space left. Both Standard seeds ended with a
           page 7 holding only Method's last lines. (Basic's own Method page holds it alone, so it fits on one.) */}

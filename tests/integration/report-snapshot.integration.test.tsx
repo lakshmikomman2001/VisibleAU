@@ -136,6 +136,8 @@ describe("the report snapshot", () => {
       tier: "enhanced",
       tierName: "Enhanced",
     });
+    // S01C part 3c, LLD amendment 62: "Standard and Enhanced run: ... Why, and what to do next; Over time; Beyond AI
+    // answers (Enhanced); Method and notes."
     expect(snap.sections).toEqual([
       "cover",
       "summary",
@@ -144,8 +146,8 @@ describe("the report snapshot", () => {
       "directories",
       "competitors",
       "next",
-      "beyond_ai",
       "trend",
+      "beyond_ai",
       "method",
     ]);
     expect((snap.agencyActions as Array<{ title: string }>).map((a) => a.title)).toEqual([

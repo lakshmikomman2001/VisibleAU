@@ -152,6 +152,7 @@ export async function loadWhatToDoNext(
       status: item ? asStatus(item.status) : "open",
       // S01B part 4c: the PDF puts this action's pills and note on the finding's own card.
       findingRule: f.rule,
+      createdAt: item ? item.createdAt.toISOString() : null,
     };
   });
   // 2. Then the other measured items (a dated check, an owner's own statement), in the audit page's order.
@@ -166,6 +167,7 @@ export async function loadWhatToDoNext(
       evidence: `${displayRecommendationAction(i, [])}${suffix}`,
       priority: asPriority(i.expectedImpactScore),
       status: asStatus(i.status),
+      createdAt: i.createdAt.toISOString(),
     }));
 
   const advice = evidenceBackedAdvice(

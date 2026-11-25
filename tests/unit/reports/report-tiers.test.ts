@@ -90,8 +90,11 @@ describe("pagesForTier (appendix D sections)", () => {
     expect(pages).not.toContain("recommended");
     expect(pages).not.toContain("beyond_ai");
   });
-  it("Enhanced: Beyond AI answers straight after What to do next", () => {
+  // S01C part 3c, LLD amendment 62: "Standard and Enhanced run: ... Why, and what to do next; Over time; Beyond AI
+  // answers (Enhanced); Method and notes." It was Beyond straight after What to do next.
+  it("Enhanced: What to do next, Over time, then Beyond AI answers", () => {
     const pages = pagesForTier("enhanced");
-    expect(pages.indexOf("beyond_ai")).toBe(pages.indexOf("next") + 1);
+    expect(pages.indexOf("trend")).toBe(pages.indexOf("next") + 1);
+    expect(pages.indexOf("beyond_ai")).toBe(pages.indexOf("trend") + 1);
   });
 });

@@ -313,6 +313,11 @@ export function googleSurfaceDetail(row: GoogleSurfaceRow): string {
 /** The block as plain lines, for the PDFs, the client portal and the email (the same words as the page). */
 export interface GoogleSurfaceBlock {
   labelLine: string;
+  /**
+   * S01C part 3e: where Google was asked, so the report can name the brand's own suburb in its place line. Absent in
+   * report snapshots written before S01C (the line is then as before).
+   */
+  location?: { kind: GoogleLocation["kind"]; label: string } | null;
   locationNote: string | null;
   lines: string[];
   note: string;
@@ -370,6 +375,9 @@ export function googleSurfaceBlock(summary: GoogleSurfaceSummary): GoogleSurface
     : "Not counted in the Visibility %: Google is shown on its own.";
   return {
     labelLine: summary.labelLine,
+    location: summary.location
+      ? { kind: summary.location.kind, label: summary.location.label }
+      : null,
     locationNote: summary.locationNote,
     lines,
     note: `${counted} Checked logged out, for this place and device; Google's AI answers change with time and place.`,

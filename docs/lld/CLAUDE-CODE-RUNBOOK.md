@@ -1,6 +1,6 @@
 # Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01, S01B, S02–S10, then the S11 full test suite)
 
-Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.7 · 24 Nov 2026 (after S01)
+Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.8 · 25 Nov 2026 (after S01B Parts 1–4)
 
 Follow this file at the start of every sprint session, before Part 1. Its rules apply on top of the sprint prompt. If a sprint prompt is stricter, the sprint prompt wins.
 
@@ -8,10 +8,10 @@ Follow this file at the start of every sprint session, before Part 1. Its rules 
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.8): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
+| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.9): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
 | `docs/lld/design/Vunnara-client-improvements-design.pdf`, `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` | Design documents: the reasoning behind the LLD. Read only where a sprint names them. The LLD wins over them | Sri / Claude (chat) |
 | `docs/lld/as-is-verification.md` | What the code actually does, checked against the LLD (S00 Part 1). Where it says the LLD is wrong, it wins | You, in S00 |
-| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.4): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
+| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.5): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
 | `docs/prototypes/client-enhancements-v2.html`, `docs/prototypes/screens/*.png` | The visual reference, rendered from the contract | Sri / Claude (chat) |
 | `docs/prototypes/PROTOTYPE-GUIDE.md` | How to build a screen from the contract and report on it | Sri / Claude (chat) |
 | `docs/prototypes/token-map.md` | Contract tokens and components mapped to the app's own (S00 Part 0b) | You, in S00 |
@@ -121,7 +121,7 @@ Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order and pre-flight), then execute
 
 **Start a sprint with a docs update first** (when Claude (chat) sends a newer pack)
 ```
-Read docs/latets/Enhancements/vunnara-client-enhancements-v1.12/vunnara-enhancements/UPDATE-HERE.md and do what it says.
+Read docs/latets/Enhancements/vunnara-client-enhancements-v1.13/vunnara-enhancements/UPDATE-HERE.md and do what it says.
 ```
 
 **Resume an interrupted sprint** (local commits from earlier parts exist)
@@ -144,7 +144,7 @@ Continue sprint S05 from Part 2: I've approved the taxonomy seed (my edits, if a
 | S00 | `S00-verify-quick-wins-flags.md` | Done (one-time start step) |
 | S00B | `S00B-guarded-fetcher.md` | Done (pushed 23 Nov 2026, `f1d9ffdb`; live check passed) |
 | S01 | `S01-report-v2.md` | Done (pushed 24 Nov 2026, `bb5248d5`; 0154 applied; live checks passed) |
-| S01B | `S01B-report-polish.md` | S01 pushed and checked; starts with the v1.12 `UPDATE-HERE.md` step |
+| S01B | `S01B-report-polish.md` | S01 pushed and checked; started with the v1.12 `UPDATE-HERE.md` step; Parts 1–4 done, resumed for Parts 5–6 with the v1.13 `UPDATE-HERE.md` step |
 | S02 | `S02-question-library.md` | S01B pushed; `report_v2` switched on for Splice only; real Basic, Standard and Enhanced PDFs for Hero checked with Claude (chat) |
 | S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production |
 | S04 | `S04-visibility-reach.md` | S03 pushed, 0156 applied, checked |

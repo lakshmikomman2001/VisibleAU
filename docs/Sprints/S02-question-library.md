@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S02-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S01B pushed; `report_v2` checked live for Splice); say which hash. Read LLD **section 0** (v1.8 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
+Start with `git fetch origin` and build on `origin/main` (S01B pushed; `report_v2` checked live for Splice); say which hash. Read LLD **section 0** (v1.9 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -13,6 +13,12 @@ Start with `git fetch origin` and build on `origin/main` (S01B pushed; `report_v
 - **This sprint must not change any audit's questions, order, hash, headline or comparability (N1–N3).** Every part proves it.
 - The Questions tab is behind `question_library` (off). Audits read the current set regardless (LLD 17 note), which is safe only because set v1 equals the stored pack; the parity tests are the proof.
 - If the LLD contradicts the code, the code wins: report with file:line; continue only with independent parts.
+
+## 0. Carry-overs from S01B (not flagged; no product change)
+- **No client data in tests** (LLD amendment 57): replace TechCore's ABR record in the ABN tests (S01 Part 11) and `ASTORIO GROUP PTY LTD` / its ABN in `tests/unit/reports/beyond-ai.test.ts` with invented records; move the remaining users of the hand-composed `tests/helpers/report-data-fixture.ts` (the design, Google section, cover-tier and running-checks render tests) to the seeded fixtures in `tests/helpers/report-seeds.ts`. List what you changed; a source-scan test fails on the real names and ABNs found (list them in the test as forbidden strings, no other client data in it).
+- **Serve manifest:** fix or retire `scripts/qa/inngest-serve-manifest.txt` and `sprint9-invariants.sh` A3 (out of date; `tests/unit/inngest/function-ids.test.ts` covers N13). Say which and why.
+- **No-database guard:** close the same `path: null` gap S01B fixed in the network guard (an `http`-style connect to a Postgres port).
+- One commit; tests as the runbook says. Playwright: not needed.
 
 ## 1. Schema (migration 0155) and hash parity
 - Tables and columns exactly as LLD 7.1 (`brand_questions`, `brand_question_sets`, `brand_question_set_items`, `audits.question_set_id`, `citations.question_id`, `engine_call_failures.question_id`), FORCE RLS, policies, grants, indexes.

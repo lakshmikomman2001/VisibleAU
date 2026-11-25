@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S01B-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S01 pushed: `bb5248d5`, migration 0154 applied, live checks passed on 24 Nov 2026); say which hash. Read LLD **section 0** (v1.8: amendments 43–55 are new) first, then sections 4 (N13–N15), 8.1 (8.1.2, 8.1.3, 8.1.7), 11, 15; `docs/Sprints/reports/S01-report.md` in full (its deviations section especially); contract screens P09 (v1.4), P07 (`P07.beyond.*`), P08 (`P08.checks`).
+Start with `git fetch origin` and build on `origin/main` (S01 pushed: `bb5248d5`, migration 0154 applied, live checks passed on 24 Nov 2026); say which hash. Read LLD **section 0** (v1.9: amendments 43–57; 49, 52, 54 revised and 56–57 new since Parts 1–4) first, then sections 4 (N13–N15), 8.1 (8.1.2, 8.1.3, 8.1.7), 11, 15; `docs/Sprints/reports/S01-report.md` in full (its deviations section especially); contract screens P09 (v1.4), P07 (`P07.beyond.*`), P08 (`P08.checks`).
 
 **Why this sprint:** S01 is live with `report_v2` off. Sri reviewed the PDFs it produced and Claude (chat) reviewed S01's report. Before `report_v2` is switched on, even for Splice, the PDFs need their layout fixed and three hardening items done. **With `report_v2` off nothing a customer sees changes**, except the privacy wording in Part 5.
 
@@ -42,15 +42,33 @@ Sri reviewed `hero54-enhanced.pdf` and the contact sheets. Fix, for Standard and
 - **g. The crawlers tile** printed "upload server logs" twice. Show "Visits: not measured" and the single "Next step: Upload server logs" line.
 - Tests: render tests for each fix; N14 and N15 still pass (N15's allowed differences now include the cover's report name on Agency plans, amendment 53); page counts before and after for every fixture and tier.
 
-## 5. Privacy wording for ABR lookups (LLD amendment 54)
-Find where the public FAQ ("Is my data safe?"), the privacy page or draft and any data-facts list live (S01 found no `data-facts.ts`; say what you find, file:line). Add the wording in amendment 54 exactly, where the app describes the other third parties it sends data to. Public pages change only here. Playwright: the specs `scripts/qa/e2e-specs-for.ts` maps to the changed public pages.
+## 5. ABR retention and privacy wording (LLD amendment 54, decided by Sri on 25 Nov 2026)
+*(Resumed session. The first attempt stopped correctly: the earlier sentence said ABR results are deleted with the brand, and the code keeps them forever.)*
+- **Retention:** the weekly retention job (`lib/retention/audit-retention.ts`) deletes `brand_entity_scores` rows whose check is older than 12 months, in the same bounded batches and with the same cutoff as audits, and clears `brands.abn_suggestion` when its `checked_at` is older than 12 months. Deleting a brand (`app/api/brands/[brandId]/route.ts`) clears its `abn_suggestion` in the same transaction. `brands.abn` (the customer's own entry) stays. Report the counts the job now returns.
+- **First check the 12-month claim:** quote, with file:line, where the privacy page and the FAQ say audit results are deleted after 12 months. If they don't say that, stop this part and report (the wording below relies on it).
+- **Wording, exactly:** "To confirm your business, we look up your business name and ABN on the Australian Business Register (abr.business.gov.au), the government's public register. We keep what it returns (ABN, entity name, status, postcode and state) with your brand and delete it after 12 months, as we do your audit results." Put it in `lib/legal/data-facts.ts` as a shared constant beside `SENT_WHEN_A_BUSINESS_IS_ADDED`, and use it in the FAQ "Is my data safe?" (`components/domain/landing/faq-section.tsx`), the privacy page's third-party services (`app/(marketing)/privacy/page.tsx`, beside DataForSEO) and `docs/privacy-policy-draft.md` (processors table; the retention table gains the ABR row: 12 months).
+- Tests: retention deletes an entity score older than 12 months and keeps a newer one; clears an old suggestion and keeps a new one; brand deletion clears the suggestion; the public pages show the sentence (the existing public-page and plan-claim guards pass). RED on the parent, then GREEN.
+- Playwright: the specs `scripts/qa/e2e-specs-for.ts` maps to the changed public pages, one at a time.
+
+## 6. Follow-ups from the review (LLD amendments 49, 52, 56; contract v1.5)
+- **a. Enhanced checks: at most 1 account-wide** (amendment 49; it was 2). Update the concurrency test.
+- **b. Method and notes kept whole** in Standard and Enhanced: it starts on a new page when it doesn't fit in the space left. Both Standard seeds (Bluegum, Kurrajong) ended with a page 7 holding only Method's last lines.
+- **c. Strength cards** show only their STRENGTH label, never a status pill (Bluegum showed "STRENGTH · OPEN").
+- **d. Rule j by cause** (amendment 56), on the PDF, the audit page and the Action Center item alike: ABN missing or not verified → "Your business identity isn't verified yet"; ABN verified but no Google Business Profile → "Your Google Business Profile isn't linked yet" with the body in amendment 56. Bluegum's PDFs said "Your business identity isn't verified yet" next to a tile saying "ABN verified". Remove "AI engines read the ABR" from rule j's action text (Kurrajong's "Verify your ABN").
+- **e. Evidence formatting** (amendment 56): the ABN in groups ("51 824 753 557", not "ABN → ABN 51824753557"), dates as "22 Nov 2026" (not "2026-11-22"), "your profile: not linked yet" in lower case everywhere (rule i printed "Not linked yet").
+- **f. Rule h quotes once:** when Claude (or another engine) gave the same sentence to several questions, print the sentence once, then "asked: …" with the questions (Kurrajong repeated one sentence three times).
+- **g. The flaky panel test** (`tests/e2e/12-s01-report-contents-panel.spec.ts:83`): measure the panel view request (`GET /api/brands/:id/report-preferences`) on a cold and on a warm server, 5 times each, on the parent of S01B and on S01B's code (server timing from the log). If the warm times match and stay well under a second, raise that one expectation's wait to 15 s (approved: a change to S01's test, with this line quoted) and run the spec 3 times in full. If S01B is slower, find the cause and fix it instead.
+- **h. The local integration database:** rebuild `visibleau_integration` from scratch (drop it, then the project's own setup) and re-run `tests/phase2/sprint1/e2e-rls-fk-services`. If a fresh build still has `audit_cost_audit_id_idx`, stop and report which migration or schema file recreates it (Claude (chat) will then give Sri a read-only production check).
+- Tests for a–f: render and unit tests on the seeds, RED on the parent then GREEN; the cross-page consistency test, N14 and N15 still pass.
+- **i. Regenerate the PDFs:** all three seeds in all tiers (and with `report_v2` off) as PDF files in `.qa/screens/S01B/pdf-final/`, with page counts.
 
 ## Report-back
 - Per part: file:line, changes, tests (RED/GREEN, by name), guards, Playwright ("not needed" except Part 5).
 - Part 2's reader table. Part 3's list of tests that tried to reach the network and how each was fixed.
-- **The PDFs:** for each fixture (the Hero-like, Omega-like and TechCore-like seeds), all three tiers, as PDF files in `.qa/screens/S01B/pdf/` plus one contact sheet per tier; a table of page counts before and after. Sri will attach the PDFs to Claude (chat).
+- **The PDFs:** for each fixture (the Hero-like, Omega-like and TechCore-like seeds), all three tiers, as PDF files in `.qa/screens/S01B/pdf/` plus one contact sheet per tier; a table of page counts before and after. Sri will attach the PDFs to Claude (chat). After Part 6, the final set in `.qa/screens/S01B/pdf-final/`.
+- Resumed session: add a "Parts 5–6" section to `docs/Sprints/reports/S01B-report.md` (keep the Parts 1–4 section as it is), with the whole sprint's push notes.
 - Commit hashes and `git log origin/main..main --oneline`.
-- Push notes: migration none; **Inngest resync: yes** (new function); push only when no report is generating; safe while an audit runs; flags unchanged (`report_v2` still off); the privacy wording is live on push.
+- Push notes: migration none; **Inngest resync: yes** (new function); push only when no report is generating; safe while an audit runs; flags unchanged (`report_v2` still off); the privacy wording and the retention change are live on push (the retention job's first run deletes ABR results older than 12 months: report how many rows that would be, read-only, from the local database only).
 
 Commit messages end with these two lines exactly:
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

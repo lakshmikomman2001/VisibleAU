@@ -17,6 +17,8 @@ function makeOrg(overrides: Partial<Organization> = {}): Organization {
     ga4MeasurementId: null,
     ga4ApiSecret: null,
     metadata: {},
+    // S03 part 1 (migration 0156): organizations.question_packs, 0 by default.
+    questionPacks: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

@@ -8,6 +8,7 @@ import { runAuditInline } from "@/lib/audit/run-audit-inline";
 import { runTechnicalAuditInline } from "@/lib/audit/run-technical-audit-inline";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { brandReadyForAudit } from "@/lib/brands/needs-confirmation";
+import { isEnabled } from "@/lib/flags/flags";
 import { roleRefusal } from "@/lib/governance";
 import { inngest } from "@/lib/inngest/client";
 import { METHODOLOGY_VERSION } from "@/lib/llm/methodology";
@@ -17,6 +18,7 @@ import {
   DailySpendCapExceededError,
 } from "@/lib/platform/budget-policy.service";
 import { planRequiredResponse, workspaceNeedsPlan } from "@/lib/pricing/plan-required";
+import { currentSetLimitError, questionLimitBody } from "@/lib/questions/limits";
 
 const createAuditSchema = z.object({
   brandId: z.string().uuid(),
@@ -93,6 +95,13 @@ export async function POST(req: Request) {
         },
         { status: 409 },
       );
+    }
+
+    // S03 part 1 (LLD 8.3.5): the brand's questions are checked against its plan when an audit starts, as when they're
+    // applied -- 402 question_limit with appendix E's sentence. Behind agency_questions: off, this route is as in S02.
+    if (await isEnabled("agency_questions", currentUser.organizationId)) {
+      const overLimit = await currentSetLimitError(tx, currentUser.organizationId, brandId);
+      if (overLimit) return NextResponse.json(questionLimitBody(overLimit), { status: 402 });
     }
 
     // "Make the daily spend cap real", item 2 -- checked BEFORE

@@ -46,6 +46,8 @@ const RLS_TENANT_TABLES = new Set([
   "brandQuestions",
   "brandQuestionSets",
   "brandQuestionSetItems",
+  // S03 part 1 (migration 0156): FORCE RLS on app.current_org_id, as 0155.
+  "brandQuestionPacks",
   "brandWebMentions",
   "brands",
   "bulkOperations",

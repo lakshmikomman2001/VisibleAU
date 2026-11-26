@@ -141,3 +141,24 @@ export const brandQuestionSetItems = pgTable(
     question: index("brand_question_set_items_question").on(table.questionId),
   }),
 );
+
+/**
+ * S03 part 1 (migration 0156; LLD 7.6, 8.7): how many of the workspace's question packs (organizations.question_packs)
+ * a brand uses; each adds 10 everyday questions. Written from S10; none until then. FORCE RLS on app.current_org_id.
+ */
+export const brandQuestionPacks = pgTable(
+  "brand_question_packs",
+  {
+    brandId: uuid("brand_id")
+      .primaryKey()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    packs: integer("packs").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    org: index("brand_question_packs_org").on(table.organizationId),
+  }),
+);

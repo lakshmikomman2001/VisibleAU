@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { regionEnum, tierEnum } from "./enums";
 
 export const organizations = pgTable("organizations", {
@@ -16,6 +16,8 @@ export const organizations = pgTable("organizations", {
   ga4MeasurementId: text("ga4_measurement_id"),
   ga4ApiSecret: text("ga4_api_secret"),
   metadata: jsonb("metadata").default(sql`'{}'::jsonb`).notNull(),
+  // S03 part 1 (migration 0156; LLD 7.6): the workspace's question packs (S10 writes them from Stripe; 0 until then).
+  questionPacks: integer("question_packs").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

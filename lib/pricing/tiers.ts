@@ -75,12 +75,37 @@ export interface TierDefinition {
   maxReportTier: "basic" | "standard" | "enhanced" | null;
   /** S01 (D-RT3): the plan renames the three tiers and shows the name on the cover (Agency and up). */
   reportTierNames?: true;
+  /**
+   * S03 part 1 (LLD 7.6, 8.3.5): questions per brand. Server code reads these through lib/questions/limits.ts; the
+   * browser only reflects them. Everyday (scored) questions included per brand: 10 on every plan (D3); question packs
+   * add 10 each where the plan has them.
+   */
+  includedScoredQuestions: number;
+  /** Questions per brand that name the business, shown and never scored: 5 on every plan (D-QI-BR). */
+  maxBrandedQuestions: number;
+  /** Writes its own questions: Growth and up. Starter chooses among suggestions only (D4); Free edits nothing. */
+  canWriteQuestions: boolean;
+  /** Visibility reaches per brand, Local included (D-QI8): Free 1, Starter 1, Growth 2, Agency and up 4 (S04). */
+  reachesAllowed: number;
+  /** Custom business types per workspace (D5): Free and Starter 0, Growth 5, Agency 20, -1 unlimited (S05). */
+  customBusinessTypes: number;
+  /** Curates the report's actions and adds notes (D1): Agency and up. */
+  reportCuration: boolean;
+  /** Can buy question packs, +10 everyday questions per brand each (S10): Growth and up. */
+  questionPacks: boolean;
 }
 
 export const TIER_DEFINITIONS: TierDefinition[] = [
   {
     key: "free",
     maxReportTier: null,
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: false,
+    reachesAllowed: 1,
+    customBusinessTypes: 0,
+    reportCuration: false,
+    questionPacks: false,
     name: "Free",
     monthlyPriceCentsIncGst: 0,
     annualPriceCentsIncGst: 0,
@@ -95,6 +120,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   {
     key: "starter",
     maxReportTier: null,
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: false,
+    reachesAllowed: 1,
+    customBusinessTypes: 0,
+    reportCuration: false,
+    questionPacks: false,
     name: "Starter",
     monthlyPriceCentsIncGst: 9900,
     annualPriceCentsIncGst: 99000,
@@ -110,6 +142,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
   {
     key: "growth",
     maxReportTier: "standard",
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: true,
+    reachesAllowed: 2,
+    customBusinessTypes: 5,
+    reportCuration: false,
+    questionPacks: true,
     name: "Growth",
     monthlyPriceCentsIncGst: 29900,
     annualPriceCentsIncGst: 299000,
@@ -127,6 +166,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     key: "agency",
     maxReportTier: "enhanced",
     reportTierNames: true,
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: true,
+    reachesAllowed: 4,
+    customBusinessTypes: 20,
+    reportCuration: true,
+    questionPacks: true,
     name: "Agency",
     monthlyPriceCentsIncGst: 49900,
     annualPriceCentsIncGst: 499000,
@@ -143,6 +189,13 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     key: "agency_pro",
     maxReportTier: "enhanced",
     reportTierNames: true,
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: true,
+    reachesAllowed: 4,
+    customBusinessTypes: -1,
+    reportCuration: true,
+    questionPacks: true,
     name: "Agency Pro",
     monthlyPriceCentsIncGst: 149900,
     annualPriceCentsIncGst: 1499000,
@@ -160,6 +213,14 @@ export const TIER_DEFINITIONS: TierDefinition[] = [
     key: "enterprise",
     maxReportTier: "enhanced",
     reportTierNames: true,
+    // "By arrangement" (LLD 8.3.5): 10 here, more through packs or a conversation.
+    includedScoredQuestions: 10,
+    maxBrandedQuestions: 5,
+    canWriteQuestions: true,
+    reachesAllowed: 4,
+    customBusinessTypes: -1,
+    reportCuration: true,
+    questionPacks: true,
     name: "Enterprise",
     monthlyPriceCentsIncGst: 0,
     annualPriceCentsIncGst: 0,

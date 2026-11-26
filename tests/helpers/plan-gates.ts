@@ -70,6 +70,9 @@ export const DIRECT_GATES = [
   "lib/pricing/plan-features.ts",
   // 20 Nov (part 6): a workspace made while the free plan was off has no plan until checkout (Free doesn't count).
   "lib/pricing/plan-required.ts",
+  // S03 part 1: a brand's question limits (everyday questions included, packs, writing your own) -- read when an audit
+  // starts, when questions are checked and when a set is applied.
+  "lib/questions/limits.ts",
   "lib/scheduling/quota-check.ts",
 ];
 

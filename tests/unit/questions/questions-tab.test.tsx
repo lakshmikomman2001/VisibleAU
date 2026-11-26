@@ -5,7 +5,8 @@
  *   business · comparing since audit #N" (a later version: "applied {date} by {name}"; no audit yet: "not used in an
  *   audit yet"). History opens a read-only drawer, newest first; Escape closes it and focus goes back to History.
  * - The intro names the engines the audit asks; "Everyday questions" with its count, "· small sample" under 5, and
- *   "Last audit: {m} of {a} answers named you"; rows with their source pill and EngineDots in four states as one
+ *   "Last audit (#{n}): {m} of {a} answers named you" (S03 part 0: the audit named, and the legend under the intro);
+ *   rows with their source pill and EngineDots in four states as one
  *   image with the sentence; "Names your business" with its pill and no dots; the more menu (Copy text, See answers).
  * - Suggestions "From your business type", Add disabled with "Edit questions to add"; none when the plan has none.
  * - States: loading skeleton, empty (Confirm details), error (Retry asks again), view only for a viewer.
@@ -152,8 +153,9 @@ describe("the Questions tab, view mode", () => {
     const everyday = screen.getByRole("region", { name: "Everyday questions" });
     expect(everyday).toHaveTextContent("2 questions · small sample");
     // Named: ChatGPT on 1; Claude and Perplexity on 2 -- of 7 answers (Perplexity's call for 1 failed); the
-    // unconfirmed Gemini mention isn't counted.
-    expect(everyday).toHaveTextContent("Last audit: 3 of 7 answers named you");
+    // unconfirmed Gemini mention isn't counted. S03 part 0, LLD amendment 79: "the section line names its audit
+    // ('Last audit (#56): 12 of 40 answers named you')" -- S02 printed "Last audit: 3 of 7 ...".
+    expect(everyday).toHaveTextContent("Last audit (#54): 3 of 7 answers named you");
     expect(within(everyday).getAllByRole("listitem")).toHaveLength(2);
     expect(within(everyday).getAllByText("Original set")).toHaveLength(2);
     expect(within(everyday).getByText("Blocked drains")).toBeInTheDocument();
@@ -341,7 +343,43 @@ describe("the Questions tab's other states", () => {
     );
     expect(screen.queryAllByRole("img")).toEqual([]);
     expect(screen.getByRole("region", { name: "Everyday questions" })).not.toHaveTextContent(
-      "Last audit:",
+      "Last audit",
+    );
+    // P02.legend: only when a row shows EngineDots.
+    expect(screen.queryByTestId("p02-legend")).toBeNull();
+  });
+});
+
+/**
+ * S03 part 0 (LLD amendment 79, contract v1.8): the legend under the intro says what the squares are, once, with the
+ * engines the squares show, in EngineDots' order.
+ */
+describe("P02.legend (amendment 79)", () => {
+  const LEGEND =
+    "Squares, left to right: ChatGPT · Claude · Gemini · Perplexity · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.";
+
+  it("once, right under the intro, naming every engine the squares show", async () => {
+    await shown();
+    const legend = screen.getByTestId("p02-legend");
+    expect(legend).toHaveTextContent(LEGEND);
+    expect(screen.getAllByTestId("p02-legend")).toHaveLength(1);
+    expect(screen.getByTestId("p02-intro").nextElementSibling).toBe(legend);
+  });
+
+  it("a Free audit's two engines: the legend names only those, in the squares' order", async () => {
+    await shown(body({ lastAudit: { id: AUDIT, number: 54, engines: ["perplexity", "chatgpt"] } }));
+    expect(screen.getByTestId("p02-legend")).toHaveTextContent(
+      "Squares, left to right: ChatGPT · Perplexity · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.",
+    );
+  });
+
+  it("no row with squares (the audit asked none of these questions): no legend", async () => {
+    const b = body();
+    b.questions = b.questions.map((x) => ({ ...x, lastResult: null }));
+    await shown(b);
+    expect(screen.queryByTestId("p02-legend")).toBeNull();
+    expect(screen.getByRole("region", { name: "Everyday questions" })).not.toHaveTextContent(
+      "Last audit",
     );
   });
 });

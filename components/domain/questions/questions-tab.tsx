@@ -79,8 +79,14 @@ export function headerLine(view: QuestionsView): string {
   return `${version} · ${counts} · ${comparing}`;
 }
 
-/** "Last audit: 6 of 40 answers named you" for a section's everyday questions (unconfirmed mentions not counted). */
-export function lastAuditLine(questions: readonly QuestionView[]): string | null {
+/**
+ * "Last audit (#54): 6 of 40 answers named you" for a section's everyday questions (unconfirmed mentions not counted).
+ * S03 part 0 (LLD amendment 79, contract v1.8 P02.section.local): the line names its audit.
+ */
+export function lastAuditLine(
+  questions: readonly QuestionView[],
+  auditNumber: number | null,
+): string | null {
   let named = 0;
   let answered = 0;
   let any = false;
@@ -93,7 +99,20 @@ export function lastAuditLine(questions: readonly QuestionView[]): string | null
       if (r === "named") named++;
     }
   }
-  return any ? `Last audit: ${named} of ${answered} answers named you` : null;
+  if (!any) return null;
+  const audit = auditNumber === null ? "Last audit" : `Last audit (#${auditNumber})`;
+  return `${audit}: ${named} of ${answered} answers named you`;
+}
+
+/**
+ * S03 part 0 (LLD amendment 79, contract v1.8 P02.legend): what the squares are, once under the intro. The engines
+ * the squares show, in EngineDots' order, joined with " · ".
+ */
+export function legendLine(engines: readonly string[]): string {
+  const names = ["chatgpt", "claude", "gemini", "perplexity"]
+    .filter((e) => engines.includes(e))
+    .map(nameOf);
+  return `Squares, left to right: ${names.join(" · ")} · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.`;
 }
 
 /** P02.row.more in view mode: copy the question, or open the last audit's answers. */
@@ -548,7 +567,10 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
   const everyday = view.questions.filter((q) => q.kind === "everyday");
   const branded = view.questions.filter((q) => q.kind === "branded");
   const auditId = view.lastAudit?.id ?? null;
+  const auditNumber = view.lastAudit?.number ?? null;
   const n = everyday.length;
+  // P02.legend: only when a row shows EngineDots (a question with a last result).
+  const showsDots = view.questions.some((q) => q.lastResult !== null);
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
@@ -609,13 +631,23 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
         </span>
       </Banner>
 
+      {showsDots && (
+        <p
+          data-testid="p02-legend"
+          className="text-[12.5px] leading-[17px]"
+          style={{ margin: "-8px 0 0", color: "var(--text-tertiary)" }}
+        >
+          {legendLine(engines)}
+        </p>
+      )}
+
       {everyday.length > 0 && (
         <Section
           id={`${brandId}-everyday`}
           testId="p02-section-local"
           title="Everyday questions"
           count={`${n} ${n === 1 ? "question" : "questions"}${n < 5 ? " · small sample" : ""}`}
-          right={lastAuditLine(everyday)}
+          right={lastAuditLine(everyday, auditNumber)}
           questions={everyday}
           engines={engines}
           auditId={auditId}

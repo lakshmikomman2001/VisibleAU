@@ -108,10 +108,14 @@ test.describe("S02 part 4: the Questions tab, view mode (P02)", () => {
     await expect(page.getByTestId("p02-intro")).toContainText(
       "Every audit asks these questions on ChatGPT, Claude, Gemini and Perplexity.",
     );
+    // S03 part 0 (LLD amendment 79): the legend under the intro, and the section line names its audit.
+    await expect(page.getByTestId("p02-legend")).toHaveText(
+      "Squares, left to right: ChatGPT · Claude · Gemini · Perplexity · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.",
+    );
     const everyday = page.getByRole("region", { name: "Everyday questions" });
     await expect(everyday).toContainText("10 questions");
     // 3 named of 39 answers (Perplexity's call for question 3 failed); the unconfirmed one isn't counted.
-    await expect(everyday).toContainText("Last audit: 3 of 39 answers named you");
+    await expect(everyday).toContainText("Last audit (#1): 3 of 39 answers named you");
     await expect(everyday.getByRole("listitem")).toHaveCount(10);
     await expect(everyday.getByRole("img").first()).toHaveAttribute(
       "aria-label",

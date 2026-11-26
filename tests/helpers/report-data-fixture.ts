@@ -112,13 +112,13 @@ export function reportDataFixture(basis: "37" | "39"): ReportData {
     generatedAt: "2026-11-01T07:59:00.000Z",
     brand: {
       id: "brand-fixture",
-      name: "Omega Services",
-      domain: "omegaservices.example.com.au",
+      name: "Yabby Services",
+      domain: "yabbyservices.example.com.au",
       locality: "Castle Hill",
       state: "NSW",
       vertical: "General trades",
     },
-    agency: { name: "Splice Marketing", logoUrl: null, contactLine: null, footerText: null },
+    agency: { name: "Possum Marketing", logoUrl: null, contactLine: null, footerText: null },
     period: { type: "weekly", label: "2026-W44" },
     basis: {
       auditId: point?.auditId ?? "a39",

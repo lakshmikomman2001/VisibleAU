@@ -73,7 +73,7 @@ beforeAll(async () => {
   ] as const) {
     const fx = await seedReportFixture(sql, {
       brandName: name,
-      agencyName: "Splice Marketing",
+      agencyName: "Possum Marketing",
       tier: "agency",
       audits: [{ number: 52, completedAt: "2026-11-20T03:00:00.000Z", mentions: {} }],
     });

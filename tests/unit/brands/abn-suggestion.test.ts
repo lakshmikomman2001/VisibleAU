@@ -12,11 +12,11 @@ import { normaliseAbnInput } from "@/lib/brands/abn";
 
 // Recorded on 23 Nov 2026 with the configured GUID (S01 part 1 report), trimmed to the fields the code reads.
 const MATCHING = (names: object[]) => `callback(${JSON.stringify({ Message: "", Names: names })})`;
-const TECHCORE_NAME = {
-  Abn: "17701710947",
+const NUMBATEK_NAME = {
+  Abn: "51824753605",
   AbnStatus: "0000000001",
   IsCurrent: true,
-  Name: "TechCore IT",
+  Name: "NumbaTek IT",
   NameType: "Business Name",
   Postcode: "2765",
   Score: 100,
@@ -26,17 +26,17 @@ const OTHER_NAME = {
   Abn: "51824753556",
   AbnStatus: "0000000001",
   IsCurrent: true,
-  Name: "Techcore IT Solutions",
+  Name: "Numbatek IT Solutions",
   NameType: "Trading Name",
   Postcode: "3000",
   Score: 92,
   State: "VIC",
 };
 const DETAILS = `callback(${JSON.stringify({
-  Abn: "17701710947",
+  Abn: "51824753605",
   AbnStatus: "Active",
-  EntityName: "ASTORIO GROUP PTY LTD",
-  BusinessName: ["TechCore IT"],
+  EntityName: "QUOLLEN GROUP PTY LTD",
+  BusinessName: ["NumbaTek IT"],
   AddressPostcode: "2765",
   AddressState: "NSW",
   Message: "",
@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe("the ABN field's rule (P01.abnField)", () => {
   it("spaces as typed are fine; the digits are saved", () => {
-    expect(normaliseAbnInput("17 701 710 947")).toEqual({ ok: true, abn: "17701710947" });
+    expect(normaliseAbnInput("51 824 753 605")).toEqual({ ok: true, abn: "51824753605" });
   });
 
   it("empty is allowed: no ABN", () => {
@@ -76,7 +76,7 @@ describe("the ABN field's rule (P01.abnField)", () => {
       ok: false,
       error: "Enter the 11 digits of an ABN.",
     });
-    expect(normaliseAbnInput("17 701 710 948")).toEqual({
+    expect(normaliseAbnInput("51 824 753 606")).toEqual({
       ok: false,
       error: "This isn't a valid ABN. Check the digits.",
     });
@@ -86,58 +86,58 @@ describe("the ABN field's rule (P01.abnField)", () => {
 describe("searchAbnByName (recorded ABR responses)", () => {
   it("one current match for the name in the brand's postcode, confirmed Active: the suggestion", async () => {
     vi.stubEnv("ABN_LOOKUP_GUID", "test-guid");
-    const calls = abr({ matching: MATCHING([TECHCORE_NAME, OTHER_NAME]), details: DETAILS });
-    const s = await searchAbnByName("TechCore IT", { postcode: "2765", state: "NSW" });
+    const calls = abr({ matching: MATCHING([NUMBATEK_NAME, OTHER_NAME]), details: DETAILS });
+    const s = await searchAbnByName("NumbaTek IT", { postcode: "2765", state: "NSW" });
     expect(s).toMatchObject({
       status: "found",
       suggestion: {
-        abn: "17701710947",
-        entity: "ASTORIO GROUP PTY LTD",
-        businessName: "TechCore IT",
+        abn: "51824753605",
+        entity: "QUOLLEN GROUP PTY LTD",
+        businessName: "NumbaTek IT",
         postcode: "2765",
         state: "NSW",
         abnStatus: "Active",
       },
     });
-    expect(calls[0]).toContain("MatchingNames.aspx?name=TechCore%20IT");
-    expect(calls[1]).toContain("AbnDetails.aspx?abn=17701710947");
+    expect(calls[0]).toContain("MatchingNames.aspx?name=NumbaTek%20IT");
+    expect(calls[1]).toContain("AbnDetails.aspx?abn=51824753605");
     expect(calls).toHaveLength(2);
   });
 
   it("no match in the brand's place, or two different ABNs for the name: no suggestion", async () => {
     vi.stubEnv("ABN_LOOKUP_GUID", "test-guid");
-    abr({ matching: MATCHING([TECHCORE_NAME]), details: DETAILS });
-    expect(await searchAbnByName("TechCore IT", { postcode: "3000", state: "VIC" })).toEqual({
+    abr({ matching: MATCHING([NUMBATEK_NAME]), details: DETAILS });
+    expect(await searchAbnByName("NumbaTek IT", { postcode: "3000", state: "VIC" })).toEqual({
       status: "none",
     });
     abr({
       matching: MATCHING([
-        TECHCORE_NAME,
-        { ...TECHCORE_NAME, Abn: "53004085616", Postcode: "2766" },
+        NUMBATEK_NAME,
+        { ...NUMBATEK_NAME, Abn: "53004085616", Postcode: "2766" },
       ]),
       details: DETAILS,
     });
-    expect(await searchAbnByName("TechCore IT", { state: "NSW" })).toEqual({ status: "none" });
+    expect(await searchAbnByName("NumbaTek IT", { state: "NSW" })).toEqual({ status: "none" });
   });
 
   it("a candidate whose ABN isn't Active is no suggestion", async () => {
     vi.stubEnv("ABN_LOOKUP_GUID", "test-guid");
     abr({
-      matching: MATCHING([TECHCORE_NAME]),
+      matching: MATCHING([NUMBATEK_NAME]),
       details: DETAILS.replace('"AbnStatus":"Active"', '"AbnStatus":"Cancelled"'),
     });
-    expect(await searchAbnByName("TechCore IT", { postcode: "2765" })).toEqual({ status: "none" });
+    expect(await searchAbnByName("NumbaTek IT", { postcode: "2765" })).toEqual({ status: "none" });
   });
 
   it("no GUID, or the bypass: no lookup", async () => {
-    const calls = abr({ matching: MATCHING([TECHCORE_NAME]) });
+    const calls = abr({ matching: MATCHING([NUMBATEK_NAME]) });
     vi.stubEnv("ABN_LOOKUP_GUID", "");
-    expect(await searchAbnByName("TechCore IT", { postcode: "2765" })).toEqual({
+    expect(await searchAbnByName("NumbaTek IT", { postcode: "2765" })).toEqual({
       status: "skipped",
     });
     vi.stubEnv("ABN_LOOKUP_GUID", "test-guid");
     vi.stubEnv("ABN_LOOKUP_BYPASS", "true");
-    expect(await searchAbnByName("TechCore IT", { postcode: "2765" })).toEqual({
+    expect(await searchAbnByName("NumbaTek IT", { postcode: "2765" })).toEqual({
       status: "skipped",
     });
     expect(calls).toEqual([]);
@@ -149,7 +149,7 @@ describe("searchAbnByName (recorded ABR responses)", () => {
       "fetch",
       vi.fn(async () => new Response("busy", { status: 503 })),
     );
-    expect(await searchAbnByName("TechCore IT", { postcode: "2765" })).toEqual({
+    expect(await searchAbnByName("NumbaTek IT", { postcode: "2765" })).toEqual({
       status: "failed",
     });
   });

@@ -1,6 +1,6 @@
 /**
- * S00 part 3 (22 Nov; LLD 8.8.1, T3): acronyms, articles and spaces in questions. TechCore IT's audit #52 asked
- * "Best managed it services in …?" and "Is TechCore IT a good choice for a managed it services in …?": the
+ * S00 part 3 (22 Nov; LLD 8.8.1, T3): acronyms, articles and spaces in questions. NumbaTek IT's audit #52 asked
+ * "Best managed it services in …?" and "Is NumbaTek IT a good choice for a managed it services in …?": the
  * classifier's words are stored lower case, so IT lost its capitals, and "a" went before a plural.
  *
  * - toServicePhrase restores the listed acronyms; withArticle puts "a"/"an" by sound and none before a plural or
@@ -9,7 +9,7 @@
  *   refused), looking past the brand, its competitors and the place;
  * - every question the existing templates write still passes (no question an audit asks today is dropped).
  *
- * The audit #52 question texts aren't stored in the repo (production data); the regression below rebuilds TechCore
+ * The audit #52 question texts aren't stored in the repo (production data); the regression below rebuilds NumbaTek
  * IT's pack the way #52's was built (the general local type, the classifier's service words "managed it services")
  * and checks the two texts T3 quotes.
  */
@@ -123,10 +123,10 @@ describe("validateGeneratedQuestion: lower-case acronyms, a/an + plural, doubled
   it('refuses "a"/"an" before a plural', () => {
     expect(
       validateGeneratedQuestion(
-        "Is TechCore IT a good choice for a managed IT services in Riverstone?",
+        "Is NumbaTek IT a good choice for a managed IT services in Riverstone?",
         region,
         true,
-        ["TechCore IT"],
+        ["NumbaTek IT"],
       ),
     ).toEqual({ valid: false, reason: '"a"/"an" before a plural ("a managed IT services")' });
   });
@@ -144,10 +144,10 @@ describe("validateGeneratedQuestion: lower-case acronyms, a/an + plural, doubled
     );
     expect(
       validateGeneratedQuestion(
-        "Is TechCore IT a good choice for managed IT services in Riverstone?",
+        "Is NumbaTek IT a good choice for managed IT services in Riverstone?",
         region,
         true,
-        ["TechCore IT"],
+        ["NumbaTek IT"],
       ).valid,
     ).toBe(true);
   });
@@ -275,7 +275,7 @@ describe("no question the existing templates write is refused by the new checks 
   });
 });
 
-describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
+describe("NumbaTek IT's audit #52, rebuilt the way it was built", () => {
   const classification: BrandClassification = {
     category: "general",
     buyerType: "smb",
@@ -289,12 +289,12 @@ describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
   const region = "Riverstone, NSW";
   const pack = buildPromptPack(
     classification,
-    "TechCore IT",
-    "techcoreit.com.au",
+    "NumbaTek IT",
+    "numbatekit.com.au",
     { competitors: [], categories: ["general"], audience: "businesses" },
     region,
     10,
-    "techcore-it-brand-id",
+    "numbatek-it-brand-id",
   );
 
   it("the two texts T3 quotes would be refused now", () => {
@@ -303,10 +303,10 @@ describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
     );
     expect(
       validateGeneratedQuestion(
-        "Is TechCore IT a good choice for a managed it services in Riverstone?",
+        "Is NumbaTek IT a good choice for a managed it services in Riverstone?",
         region,
         true,
-        ["TechCore IT"],
+        ["NumbaTek IT"],
       ).valid,
     ).toBe(false);
   });
@@ -317,7 +317,7 @@ describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
 
   it("'a good choice for managed IT services', and no question writes 'managed it' or 'a managed'", () => {
     expect(pack).toContain(
-      "Is TechCore IT a good choice for managed IT services in Riverstone, NSW?",
+      "Is NumbaTek IT a good choice for managed IT services in Riverstone, NSW?",
     );
     expect(pack.length).toBeGreaterThan(3);
     for (const q of pack) {
@@ -328,7 +328,7 @@ describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
   });
 
   it("its everyday questions name the service as 'managed IT services'", () => {
-    const everyday = pack.filter((q) => !q.includes("TechCore IT"));
+    const everyday = pack.filter((q) => !q.includes("NumbaTek IT"));
     expect(everyday.length).toBeGreaterThan(0);
     expect(everyday.some((q) => q.includes("managed IT services"))).toBe(true);
   });
@@ -336,19 +336,19 @@ describe("TechCore IT's audit #52, rebuilt the way it was built", () => {
   it("a stray space around the brand's name never reaches a question", () => {
     const spaced = buildPromptPack(
       classification,
-      " TechCore IT ",
-      "techcoreit.com.au",
+      " NumbaTek IT ",
+      "numbatekit.com.au",
       { competitors: ["Acme MSP"], categories: ["general"], audience: "businesses" },
       region,
       10,
-      "techcore-it-brand-id",
+      "numbatek-it-brand-id",
     );
     for (const q of spaced) {
       expect(q).not.toMatch(/\s{2,}/);
       expect(q).not.toMatch(/^\s|\s$| \?/);
     }
     expect(spaced).toContain(
-      "TechCore IT vs Acme MSP — which is better for Australian businesses?",
+      "NumbaTek IT vs Acme MSP — which is better for Australian businesses?",
     );
   });
 });

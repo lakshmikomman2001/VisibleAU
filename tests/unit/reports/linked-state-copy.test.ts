@@ -1,7 +1,7 @@
 /**
- * 14 Nov, part 2 (Sri's review of audit #48): Hero Home Services had Localsearch linked -- the PDF's card said "2 of
+ * 14 Nov, part 2 (Sri's review of audit #48): Wren Home Services had Localsearch linked -- the PDF's card said "2 of
  * 50 ... 8 of the directories aren't linked yet" -- while the summary (page 2) said "we can't yet see whether any of
- * those citations were Hero Home Services' own listings: the profile links haven't been added" and finding 1 (page
+ * those citations were Wren Home Services' own listings: the profile links haven't been added" and finding 1 (page
  * 6) "your profile links aren't added yet". Every such sentence now comes from every cited directory's linked state
  * (lib/directories/linked-state.ts), for none, some and all linked: in the summary (report-narrative.ts), the
  * finding (report-findings.ts, which the audit page shows too) and the card.

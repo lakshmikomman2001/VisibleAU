@@ -1,5 +1,5 @@
 /**
- * S01 part 3 (LLD 8.1.5, T5): findings g-j on a real database, for an audit shaped like TechCore IT's #52 (named in
+ * S01 part 3 (LLD 8.1.5, T5): findings g-j on a real database, for an audit shaped like NumbaTek IT's #52 (named in
  * none of the everyday answers; other IT providers' sites and directories outside the brand's type cited; Claude,
  * asked about the business by name, said it couldn't find it; no ABN, no Google Business Profile).
  * - report_v2 off (no flag rows): the audit page's actions and the PDF are today's -- no g-j, and the PDF still says
@@ -24,13 +24,13 @@ vi.mock("@/lib/auth/current-user", () => ({ getCurrentUser: vi.fn(async () => nu
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 let fx: ReportFixture;
 const CLAUDE_SENTENCE =
-  "I was unable to find any verified information about a company specifically called TechCoreIT in Riverstone.";
+  "I was unable to find any verified information about a company specifically called NumbaTekIT in Riverstone.";
 
 beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     tier: "growth",
     audits: [
       {
@@ -38,7 +38,7 @@ beforeAll(async () => {
         completedAt: "2026-11-20T03:00:00.000Z",
         mentions: {},
         directories: {
-          "kangaroo-it.com.au": 27,
+          "lorikeet-it.com.au": 27,
           "crystaltec.com.au": 6,
           "localbusinessguide.com.au": 9,
           "cylex-australia.com": 2,
@@ -92,7 +92,7 @@ async function setReportV2(on: boolean) {
   }
 }
 
-describe("TechCore IT #52's shape on a real database", () => {
+describe("NumbaTek IT #52's shape on a real database", () => {
   it("report_v2 off: today's page and PDF (no g-j; the PDF says no rule matched)", async () => {
     await setReportV2(false);
     const rules = (await pageActions()).map((f) => f.rule);
@@ -106,7 +106,7 @@ describe("TechCore IT #52's shape on a real database", () => {
     expect(actions.map((f) => f.rule)).toEqual(["g", "h", "i", "j"]);
     const byRule = Object.fromEntries(actions.map((f) => [f.rule, f]));
     expect(byRule.g.evidence[0].map((p) => p.text).join("")).toBe(
-      "kangaroo-it.com.au → cited in 27 of 40 answers",
+      "lorikeet-it.com.au → cited in 27 of 40 answers",
     );
     expect(byRule.h.explanation).toContain(CLAUDE_SENTENCE);
     // S01B part 6e, LLD amendment 56: "Evidence lines print ... 'your profile: not linked yet' in lower case".
@@ -122,7 +122,7 @@ describe("TechCore IT #52's shape on a real database", () => {
     const text = await pdfText();
     expect(text).not.toContain("No finding rule matched");
     expect(text).toContain("AI recommends other providers instead");
-    expect(text).toContain("Claude couldn't find information about TechCore IT");
+    expect(text).toContain("Claude couldn't find information about NumbaTek IT");
     // S01C part 2a, LLD amendment 59: "Rule i: 'AI also cites directories where we can't see your listings yet'".
     expect(text).toContain("AI also cites directories where we can't see your listings yet");
     // S01B part 4d (LLD amendment 52: "Today's findings limit stays in every tier: at most 3 problem findings and 1

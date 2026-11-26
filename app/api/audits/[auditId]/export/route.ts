@@ -18,7 +18,6 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { EXPORT_FILE_PREFIX, PRODUCT_NAME } from "@/lib/brand";
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { customerAuditMetadata, withoutCostColumns } from "@/lib/costs/customer-safe";
-import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { buildGha } from "@/lib/exports/gha";
 import { buildJunit, JUNIT_SUITES_NAME } from "@/lib/exports/junit";
 import { buildSarif } from "@/lib/exports/sarif";
@@ -125,18 +124,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
           // same "Check: " framing for a legacy row as the audit page and
           // Action Center -- transformed here, at the source, so
           // lib/pdf/render.tsx never needs to know about confidenceBasis.
-          .then(async (rows) => {
-            const citedDirectories =
-              brand && rows.some((r) => r.recommendationKey === "entity-profiles")
-                ? await getCitedDirectoryNames(tx, auditId, brand)
-                : [];
+          .then((rows) =>
             // 14 Nov (Sri): the audit page's order -- priority, then date, then title. Read with no ORDER BY,
             // the Action Plan came out in whatever order Postgres returned (the off-parity snapshot saw two).
-            return [...rows].sort(compareActionItems).map((r) => ({
+            [...rows].sort(compareActionItems).map((r) => ({
               title: displayRecommendationTitle(r),
-              action: displayRecommendationAction(r, citedDirectories),
-            }));
-          }),
+              action: displayRecommendationAction(r),
+            })),
+          ),
         audit.completedAt
           ? tx
               .select({

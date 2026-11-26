@@ -93,7 +93,7 @@ beforeAll(async () => {
   currentUser.value = {
     id: randomUUID(),
     organizationId: fx.orgId,
-    organization: { id: fx.orgId, name: "Splice Marketing" },
+    organization: { id: fx.orgId, name: "Possum Marketing" },
     role: "owner",
     name: "Owner",
   };

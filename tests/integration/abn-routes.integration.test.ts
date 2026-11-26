@@ -27,7 +27,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     email: "someone@abn-routes.example.com.au",
     name: "Someone",
     role: "member",
-    organization: { id: who.orgId, name: "TechCore Agency", region: "au", metadata: {} },
+    organization: { id: who.orgId, name: "NumbaTek Agency", region: "au", metadata: {} },
   })),
 }));
 // after() runs the entity check once the response is sent; here it's recorded instead (no live ABR call).
@@ -47,10 +47,10 @@ const MATCHING = `callback(${JSON.stringify({
   Message: "",
   Names: [
     {
-      Abn: "17701710947",
+      Abn: "51824753605",
       AbnStatus: "0000000001",
       IsCurrent: true,
-      Name: "TechCore IT",
+      Name: "NumbaTek IT",
       NameType: "Business Name",
       Postcode: "2765",
       Score: 100,
@@ -58,7 +58,7 @@ const MATCHING = `callback(${JSON.stringify({
     },
   ],
 })})`;
-const DETAILS = `callback(${JSON.stringify({ Abn: "17701710947", AbnStatus: "Active", EntityName: "ASTORIO GROUP PTY LTD", BusinessName: ["TechCore IT"], AddressPostcode: "2765", AddressState: "NSW" })})`;
+const DETAILS = `callback(${JSON.stringify({ Abn: "51824753605", AbnStatus: "Active", EntityName: "QUOLLEN GROUP PTY LTD", BusinessName: ["NumbaTek IT"], AddressPostcode: "2765", AddressState: "NSW" })})`;
 
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 const realFetch = globalThis.fetch;
@@ -67,7 +67,7 @@ let abrCalls = 0;
 beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
-  await sql`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${ORG}, ${`abn-${ORG}`}, 'TechCore Agency', ${`abn-${ORG}`})`;
+  await sql`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${ORG}, ${`abn-${ORG}`}, 'NumbaTek Agency', ${`abn-${ORG}`})`;
   for (const [id, role] of [
     [OWNER, "owner"],
     [ANALYST, "analyst"],
@@ -78,7 +78,7 @@ beforeAll(async () => {
       VALUES (${ORG}, ${id}, ${role}, now(), now(), true)`;
   }
   await sql`INSERT INTO brands (id, organization_id, name, domain, vertical, region, postcode, state)
-    VALUES (${BRAND}, ${ORG}, 'TechCore IT', ${`techcore-${BRAND.slice(0, 8)}.com.au`}, 'tradies', 'au', '2765', 'NSW')`;
+    VALUES (${BRAND}, ${ORG}, 'NumbaTek IT', ${`numbatek-${BRAND.slice(0, 8)}.com.au`}, 'tradies', 'au', '2765', 'NSW')`;
 }, 30_000);
 
 afterAll(async () => {
@@ -134,19 +134,19 @@ async function trail() {
 
 describe("the ABN field (PATCH /api/brands/:id)", () => {
   it("saves the digits, goes in the audit trail and queues the entity check", async () => {
-    const { status } = await patchAbn("17 701 710 947");
+    const { status } = await patchAbn("51 824 753 605");
     expect(status).toBe(200);
-    expect(await storedAbn()).toBe("17701710947");
+    expect(await storedAbn()).toBe("51824753605");
     expect((await trail()).map((t) => [t.action, t.metadata.abn])).toEqual([
-      ["brand_abn_changed", "17701710947"],
+      ["brand_abn_changed", "51824753605"],
     ]);
     expect(queued.entityChecks).toEqual([BRAND]);
   });
 
   it("empty clears it (no entity check); the same ABN again changes nothing", async () => {
-    await patchAbn("17701710947");
+    await patchAbn("51824753605");
     queued.entityChecks.length = 0;
-    expect((await patchAbn("17701710947")).status).toBe(200);
+    expect((await patchAbn("51824753605")).status).toBe(200);
     expect(queued.entityChecks).toEqual([]);
     expect((await patchAbn("")).status).toBe(200);
     expect(await storedAbn()).toBeNull();
@@ -154,7 +154,7 @@ describe("the ABN field (PATCH /api/brands/:id)", () => {
   });
 
   it("a bad checksum or too few digits is 400 in the contract's words, and nothing changes", async () => {
-    const bad = await patchAbn("17 701 710 948");
+    const bad = await patchAbn("51 824 753 606");
     expect(bad.status).toBe(400);
     expect(bad.body.error).toBe("abn: This isn't a valid ABN. Check the digits.");
     expect((await patchAbn("123")).body.error).toBe("abn: Enter the 11 digits of an ABN.");
@@ -163,7 +163,7 @@ describe("the ABN field (PATCH /api/brands/:id)", () => {
 
   it("an analyst can't change it (manage_brands)", async () => {
     who.id = ANALYST;
-    expect((await patchAbn("17701710947")).status).toBe(403);
+    expect((await patchAbn("51824753605")).status).toBe(403);
     expect(await storedAbn()).toBeNull();
   });
 });
@@ -187,14 +187,14 @@ describe("the ABN suggestion", () => {
   it("one confident match: the suggestion, looked up once and kept until answered", async () => {
     const first = await get();
     expect(first.suggestion).toMatchObject({
-      abn: "17701710947",
-      entity: "ASTORIO GROUP PTY LTD",
+      abn: "51824753605",
+      entity: "QUOLLEN GROUP PTY LTD",
       state: "NSW",
       postcode: "2765",
       abnStatus: "Active",
     });
     expect(abrCalls).toBe(2);
-    expect((await get()).suggestion?.abn).toBe("17701710947");
+    expect((await get()).suggestion?.abn).toBe("51824753605");
     expect(abrCalls).toBe(2);
   });
 
@@ -202,8 +202,8 @@ describe("the ABN suggestion", () => {
     await get();
     const { status, body } = await answer("confirm");
     expect(status).toBe(200);
-    expect(body.abn).toBe("17701710947");
-    expect(await storedAbn()).toBe("17701710947");
+    expect(body.abn).toBe("51824753605");
+    expect(await storedAbn()).toBe("51824753605");
     expect((await trail()).map((t) => [t.action, t.metadata.source])).toEqual([
       ["brand_abn_changed", "abn_suggestion"],
     ]);
@@ -220,7 +220,7 @@ describe("the ABN suggestion", () => {
   });
 
   it("none for a brand with an ABN, outside Australia, or with the flag off; an analyst can't answer", async () => {
-    await sql`UPDATE brands SET abn = '17701710947' WHERE id = ${BRAND}`;
+    await sql`UPDATE brands SET abn = '51824753605' WHERE id = ${BRAND}`;
     expect((await get()).suggestion).toBeNull();
     await sql`UPDATE brands SET abn = NULL, region = 'nz' WHERE id = ${BRAND}`;
     expect((await get()).suggestion).toBeNull();

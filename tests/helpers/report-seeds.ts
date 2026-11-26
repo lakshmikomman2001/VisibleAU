@@ -2,14 +2,14 @@
  * S01B part 4a (LLD amendment 51): the report fixtures. Three invented businesses, each seeded as real audits in the
  * integration database and turned into a report by the real code path -- the audit's own recommendation step for its
  * Action Center items, then the generator (buildReportData -> buildReportV2 -> snapshot) and the renderer -- never
- * hand-composed render input. Each is named after what it renders, and shaped like a real Splice Marketing client
- * without any of their data:
- * - BLUEGUM ("Bluegum Home Services", like Hero Home Services #54): home services on Sydney's north shore, 6 of 40
+ * hand-composed render input. Each is named after what it renders, and shaped like a real client of the agency
+ * that uses Vunnara, without any of their data (S02 part 0, LLD amendments 57 and 66: no real name anywhere):
+ * - BLUEGUM ("Bluegum Home Services", like the real audit #54): home services on Sydney's north shore, 6 of 40
  *   answers, Yellow Pages and hipages cited most, the owner's Yellow Pages profile linked, the ABN verified, an
  *   earlier audit for the trend, an agency note, an agency action and an item done since the last report;
- * - IRONSTONE ("Ironstone Property Services", like Omega Services #55): property maintenance in Castle Hill, Claude
+ * - IRONSTONE ("Ironstone Property Services", like the real audit #55): property maintenance in Castle Hill, Claude
  *   out of credit for the whole audit, 5 of 30 answers, seven directories cited and none linked, Reddit cited;
- * - KURRAJONG ("Kurrajong IT Solutions", like TechCore IT #52): IT support in western Sydney, 0 of 40 answers, other
+ * - KURRAJONG ("Kurrajong IT Solutions", like the real audit #52): IT support in western Sydney, 0 of 40 answers, other
  *   providers' sites cited instead, Claude saying it couldn't find the business, Local Business Guide not linked, an
  *   ABN on file that isn't verified;
  * - WARATAH ("Waratah Home Services", S01C part 3a, like the real audit #54 report reviewed on 25 Nov 2026): general
@@ -100,7 +100,15 @@ export interface SeedSpec {
     Record<"robots" | "schema" | "meta" | "content" | "brand_entity" | "signals", number>
   >;
   /** The basis audit's Google Search AI results: every everyday and branded question, on both surfaces. */
-  google?: { locationCode: number; locationLabel: string; mentionedOnAiMode: number[] };
+  google?: {
+    locationCode: number;
+    locationLabel: string;
+    mentionedOnAiMode: number[];
+    /** S02 part 0: question numbers (1-based) AI Mode gave no answer for ("No answer"); absent: none. */
+    aiModeNotShown?: number[];
+    /** S02 part 0: Google answered nothing -- every question skipped with this stored reason, as the collector does. */
+    skippedReason?: string;
+  };
   /** Agency workflow on the basis audit's items: an in-progress item, a note, an agency action, one done item. */
   agencyWork: boolean;
 }
@@ -431,7 +439,7 @@ export async function seedReportBrand(
 
   await sql`
     INSERT INTO organizations (id, clerk_org_id, name, slug)
-    VALUES (${orgId}, ${`report-seed-${tag}`}, ${`Splice Marketing ${tag}`}, ${`report-seed-${tag}`})`;
+    VALUES (${orgId}, ${`report-seed-${tag}`}, ${`Possum Marketing ${tag}`}, ${`report-seed-${tag}`})`;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state,
                         postcode, categories, competitors, abn)
@@ -440,7 +448,7 @@ export async function seedReportBrand(
             ${spec.abn})`;
   await sql`
     INSERT INTO agency_brand_assets (organization_id, brand_id, agency_name)
-    VALUES (${orgId}, NULL, 'Splice Marketing')`;
+    VALUES (${orgId}, NULL, 'Possum Marketing')`;
   await sql`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier,
                                billing_interval, status)
@@ -626,7 +634,12 @@ export async function seedReportBrand(
     for (const surface of ["google_ai_overviews", "google_ai_mode"] as const) {
       for (const [i, prompt] of [...everyday, ...spec.branded].entries()) {
         const branded = i >= everyday.length;
-        const shown = surface === "google_ai_mode" || i % 3 !== 2;
+        const skipped = spec.google.skippedReason !== undefined;
+        const shown =
+          !skipped &&
+          (surface === "google_ai_mode"
+            ? !(spec.google.aiModeNotShown ?? []).includes(i + 1)
+            : i % 3 !== 2);
         const mentioned =
           branded ||
           (surface === "google_ai_mode" && spec.google.mentionedOnAiMode.includes(i + 1));
@@ -637,7 +650,8 @@ export async function seedReportBrand(
           prompt,
           prompt_index: i,
           is_branded_prompt: branded,
-          outcome: shown ? "shown" : "not_shown",
+          outcome: skipped ? "skipped" : shown ? "shown" : "not_shown",
+          outcome_reason: skipped ? spec.google.skippedReason : null,
           provider: "dataforseo",
           attempts: 1,
           answer_text: shown ? noMentionText(spec.others) : null,

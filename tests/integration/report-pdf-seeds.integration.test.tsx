@@ -326,7 +326,7 @@ beforeAll(async () => {
   documentModule = await import("@/lib/reports/pdf/report-document");
 });
 
-describe("the TechCore-like report (Kurrajong IT Solutions, 0 of 40)", () => {
+describe("the NumbaTek-like report (Kurrajong IT Solutions, 0 of 40)", () => {
   const spec = REPORT_SEEDS[2];
   it("d. Basic shows 3 problem cards, and the findings beyond them are actions in Standard", () => {
     const basic = get(spec, "basic");
@@ -357,10 +357,10 @@ describe("the Hero-like report (Bluegum Home Services)", () => {
       const r = get(spec, tier);
       const lines = r.pages.flat();
       expect(
-        lines.filter((t) => t.startsWith("Note from Splice Marketing: We are updating")),
+        lines.filter((t) => t.startsWith("Note from Possum Marketing: We are updating")),
       ).toHaveLength(1);
       expect(lines).toContain("IN PROGRESS");
-      expect(r.text).toContain("RECOMMENDED BY SPLICE MARKETING");
+      expect(r.text).toContain("RECOMMENDED BY POSSUM MARKETING");
       expect(r.text).toContain("DONE SINCE THE LAST REPORT");
     }
   });
@@ -377,7 +377,7 @@ describe("the Hero-like report (Bluegum Home Services)", () => {
     const enhanced = get(spec, "enhanced");
     const labels = [
       "OTHER ACTIONS FROM THIS AUDIT",
-      "RECOMMENDED BY SPLICE MARKETING",
+      "RECOMMENDED BY POSSUM MARKETING",
       "DONE SINCE THE LAST REPORT",
     ];
     const held = groupsHeldWithFirstItem(enhanced.doc as ReactNode);
@@ -433,7 +433,7 @@ describe("the tiers' pages (S01 part 7's render checks, on seeded audits)", () =
     expect(r.text).toContain("Why, and what to do next");
     expect(r.text).toContain("What we found, and what to do next");
     expect(r.text).toContain(
-      "Each action shows the evidence from this audit. Notes and actions from Splice Marketing are labelled.",
+      "Each action shows the evidence from this audit. Notes and actions from Possum Marketing are labelled.",
     );
     expect(r.text).toContain("Ask five recent customers for a Yellow Pages review");
     expect(r.text).toContain("Claim your Google Business Profile");
@@ -487,7 +487,7 @@ describe("the tiers' pages (S01 part 7's render checks, on seeded audits)", () =
     }
   });
 
-  it("the TechCore-like report: findings g and h on cards, i and j as actions, a non-empty What to do next", () => {
+  it("the NumbaTek-like report: findings g and h on cards, i and j as actions, a non-empty What to do next", () => {
     const r = get(kurrajong, "enhanced");
     expect(r.text).toContain("wattle-it.test (27 answers)");
     expect(r.text).toContain(

@@ -3,7 +3,7 @@
  * registry directory the audit's answers cited, with its kind; a domain the registry doesn't know is never called
  * a directory. A brand's own type's directories show as before (cited or not); the advice reads only those.
  *
- * - TechCore IT, audit #52's shape (a general local business): Local Business Guide, Directso, Whereis, LinkedIn,
+ * - NumbaTek IT, audit #52's shape (a general local business): Local Business Guide, Directso, Whereis, LinkedIn,
  *   Nextdoor, Birdeye and Cylex were cited and not shown; now each is, with its count and kind.
  * - Hero Home Services, audit #54's shape (a trades business): the ten relevant directories' figures are what they
  *   were; a directory appears beside them only when an answer cites it.
@@ -34,12 +34,12 @@ const source = (url: string) => ({
 });
 const answer = (...urls: string[]) => ({ citedSources: urls.map(source) });
 
-const TECHCORE = {
-  id: "brand-techcore",
+const NUMBATEK = {
+  id: "brand-numbatek",
   region: "au",
   categories: ["general"],
-  name: "TechCore IT",
-  domain: "techcoreit.com.au",
+  name: "NumbaTek IT",
+  domain: "numbatekit.com.au",
 };
 const HERO = {
   id: "brand-hero",
@@ -50,23 +50,23 @@ const HERO = {
 };
 
 /** Answers shaped like audit #52's: the directories T6 lists, plus pages that are no directory. */
-const TECHCORE_52 = [
-  answer("https://www.localbusinessguide.com.au/techcore-it", "https://techcoreit.com.au/services"),
+const NUMBATEK_52 = [
+  answer("https://www.localbusinessguide.com.au/numbatek-it", "https://numbatekit.com.au/services"),
   answer(
-    "https://www.localbusinessguide.com.au/techcore-it",
-    "https://www.directso.com.au/techcore-it",
+    "https://www.localbusinessguide.com.au/numbatek-it",
+    "https://www.directso.com.au/numbatek-it",
   ),
   answer(
-    "https://www.whereis.com/nsw/riverstone-2765/techcore-it",
-    "https://au.linkedin.com/company/techcore-it",
+    "https://www.whereis.com/nsw/riverstone-2765/numbatek-it",
+    "https://au.linkedin.com/company/numbatek-it",
   ),
   answer(
-    "https://au.linkedin.com/company/techcore-it",
-    "https://au.nextdoor.com/pages/techcore-it-riverstone",
+    "https://au.linkedin.com/company/numbatek-it",
+    "https://au.nextdoor.com/pages/numbatek-it-riverstone",
   ),
   answer(
-    "https://reviews.birdeye.com/techcore-it-123",
-    "https://www.cylex-australia.com/company/techcore-it.html",
+    "https://reviews.birdeye.com/numbatek-it-123",
+    "https://www.cylex-australia.com/company/numbatek-it.html",
   ),
   answer("https://www.reddit.com/r/sydney/comments/x", "https://au.linkedin.com/in/a-person"),
   answer(
@@ -75,12 +75,12 @@ const TECHCORE_52 = [
   ),
 ];
 
-describe("TechCore IT (audit #52's shape): every cited registry directory, with its count and kind", () => {
+describe("NumbaTek IT (audit #52's shape): every cited registry directory, with its count and kind", () => {
   it("lists Local Business Guide, Directso, Whereis, LinkedIn, Nextdoor, Birdeye and Cylex", async () => {
     const { results, totalAnswers } = await getDirectoryCitationsForAudit(
-      mockTx(TECHCORE_52),
+      mockTx(NUMBATEK_52),
       "audit-52",
-      TECHCORE,
+      NUMBATEK,
     );
     expect(totalAnswers).toBe(7);
     const cited = results
@@ -99,9 +99,9 @@ describe("TechCore IT (audit #52's shape): every cited registry directory, with 
 
   it("its own type's directories still show (none cited here), first, as before", async () => {
     const { results } = await getDirectoryCitationsForAudit(
-      mockTx(TECHCORE_52),
+      mockTx(NUMBATEK_52),
       "audit-52",
-      TECHCORE,
+      NUMBATEK,
     );
     const relevant = results.filter((r) => r.relevantToBrand);
     expect(relevant.map((r) => r.directory.key)).toEqual([
@@ -118,17 +118,17 @@ describe("TechCore IT (audit #52's shape): every cited registry directory, with 
 
   it("the brand's own site, Reddit and a person's LinkedIn profile are never called directories", async () => {
     const { results } = await getDirectoryCitationsForAudit(
-      mockTx(TECHCORE_52),
+      mockTx(NUMBATEK_52),
       "audit-52",
-      TECHCORE,
+      NUMBATEK,
     );
     const urls = results.flatMap((r) => r.citedUrls.map((u) => u.url));
-    expect(urls).not.toContain("https://techcoreit.com.au/services");
+    expect(urls).not.toContain("https://numbatekit.com.au/services");
     expect(urls.some((u) => u.includes("reddit.com"))).toBe(false);
     expect(urls).not.toContain("https://au.linkedin.com/in/a-person");
     expect(
       results.find((r) => r.directory.key === "linkedin")?.citedUrls.map((u) => u.url),
-    ).toEqual(["https://au.linkedin.com/company/techcore-it"]);
+    ).toEqual(["https://au.linkedin.com/company/numbatek-it"]);
   });
 
   it("each kind has its words", () => {
@@ -140,7 +140,7 @@ describe("TechCore IT (audit #52's shape): every cited registry directory, with 
   });
 
   it("the advice reads the brand's own type's directories only, as before (none here)", async () => {
-    const raw = await getDirectoryCitationsForAudit(mockTx(TECHCORE_52), "audit-52", TECHCORE);
+    const raw = await getDirectoryCitationsForAudit(mockTx(NUMBATEK_52), "audit-52", NUMBATEK);
     const evidence = toDirectoryVisibility(raw);
     expect(evidence.status === "ok" && evidence.data.findings).toEqual([]);
   });

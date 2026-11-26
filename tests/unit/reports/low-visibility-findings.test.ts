@@ -1,5 +1,5 @@
 /**
- * S01 part 3 (LLD 8.1.5, T5): finding rules g-j for low or zero visibility, on a fixture shaped like TechCore IT's
+ * S01 part 3 (LLD 8.1.5, T5): finding rules g-j for low or zero visibility, on a fixture shaped like NumbaTek IT's
  * audit #52 (0 of 40 everyday answers; the answers themselves are production data, not in the repo, so the shape is
  * rebuilt as S00 did: four engines, ten everyday questions each, three questions that name the business). Hero-like
  * data (named in a third of answers, ABN verified, Google Business Profile linked) gets none of them, and rule h never
@@ -26,24 +26,24 @@ const ENGINES: Array<[string, string]> = [
 const src = (url: string) => ({ domain: new URL(url).hostname.replace(/^www\./, ""), url });
 
 /** #52's shape: 40 everyday answers; other IT providers' own sites cited in 24 of them; three branded questions. */
-function techCoreAnswers(): LowVisibilityAnswer[] {
+function numbaTekAnswers(): LowVisibilityAnswer[] {
   const answers: LowVisibilityAnswer[] = [];
   for (const [engine, engineName] of ENGINES) {
     for (let q = 0; q < 10; q += 1) {
       const sources = [src("https://www.localbusinessguide.com.au/nsw/it-support")];
       if (q < 9 && engine !== "perplexity")
-        sources.push(src(`https://kangaroo-it.com.au/managed-it-${q}`));
+        sources.push(src(`https://lorikeet-it.com.au/managed-it-${q}`));
       if (q < 6 && engine === "chatgpt")
         sources.push(src("https://www.crystaltec.com.au/services"));
       if (q < 5 && engine === "claude") sources.push(src("https://suretech.com.au/"));
       if (q === 0 && engine === "chatgpt")
-        sources.push(src("https://abr.business.gov.au/ABN/View?abn=17701710947"));
+        sources.push(src("https://abr.business.gov.au/ABN/View?abn=51824753605"));
       if (q === 1)
         sources.push(
           src("https://www.facebook.com/someprovider"),
           src("https://www.google.com/maps/place/x"),
         );
-      if (q === 2) sources.push(src("https://www.techcoreit.com.au/"));
+      if (q === 2) sources.push(src("https://www.numbatekit.com.au/"));
       answers.push({
         engine,
         engineName,
@@ -62,19 +62,19 @@ function techCoreAnswers(): LowVisibilityAnswer[] {
     {
       engine: "claude",
       engineName: "Claude",
-      prompt: "Is TechCore IT a good choice for managed IT services in Riverstone, NSW?",
+      prompt: "Is NumbaTek IT a good choice for managed IT services in Riverstone, NSW?",
       organic: false,
       citedSources: [],
       responseText:
-        "I need to be upfront with you. I was unable to find any verified information about a company specifically called TechCoreIT in Riverstone. Ask for references.",
+        "I need to be upfront with you. I was unable to find any verified information about a company specifically called NumbaTekIT in Riverstone. Ask for references.",
     },
     {
       engine: "chatgpt",
       engineName: "ChatGPT",
-      prompt: "What do customers say about TechCore IT?",
+      prompt: "What do customers say about NumbaTek IT?",
       organic: false,
-      citedSources: [src("https://abr.business.gov.au/ABN/View?abn=17701710947")],
-      responseText: "TechCore IT is listed on the ABR as a business name of Astorio Group Pty Ltd.",
+      citedSources: [src("https://abr.business.gov.au/ABN/View?abn=51824753605")],
+      responseText: "NumbaTek IT is listed on the ABR as a business name of Quollen Group Pty Ltd.",
     },
   );
   return answers;
@@ -121,7 +121,7 @@ function findingsData(mentioned: number, rows: ReturnType<typeof dirRow>[]): Fin
   } as unknown as FindingsData;
 }
 
-const TECHCORE_DIRECTORIES = [
+const NUMBATEK_DIRECTORIES = [
   dirRow("Local Business Guide", 40, false),
   dirRow("Cylex", 2, false),
   dirRow("LinkedIn", 2, false),
@@ -130,10 +130,10 @@ const TECHCORE_DIRECTORIES = [
   dirRow("Yellow Pages", 0, true),
 ];
 
-function techCore(): LowVisibilityData {
-  const counted = countLowVisibilityEvidence(techCoreAnswers(), "techcoreit.com.au");
+function numbaTek(): LowVisibilityData {
+  const counted = countLowVisibilityEvidence(numbaTekAnswers(), "numbatekit.com.au");
   const lowVisibility: LowVisibilityEvidence = {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     everydayAnswers: counted.everydayAnswers,
     answersCitingOtherBusinesses: counted.answersCitingOtherBusinesses,
     businessSites: counted.businessSites,
@@ -147,16 +147,16 @@ function techCore(): LowVisibilityData {
       abrCitedBy: counted.abrCitedBy,
     },
   };
-  return { ...findingsData(0, TECHCORE_DIRECTORIES), lowVisibility };
+  return { ...findingsData(0, NUMBATEK_DIRECTORIES), lowVisibility };
 }
 
 describe("the evidence rules g-j read", () => {
   it("counts other businesses' own sites by answer, the couldn't-find quotes and who cited the ABR", () => {
-    const counted = countLowVisibilityEvidence(techCoreAnswers(), "techcoreit.com.au");
+    const counted = countLowVisibilityEvidence(numbaTekAnswers(), "numbatekit.com.au");
     expect(counted.everydayAnswers).toBe(40);
     expect(counted.answersCitingOtherBusinesses).toBe(27);
     expect(counted.businessSites.slice(0, 3)).toEqual([
-      { domain: "kangaroo-it.com.au", answers: 27 },
+      { domain: "lorikeet-it.com.au", answers: 27 },
       { domain: "crystaltec.com.au", answers: 6 },
       { domain: "suretech.com.au", answers: 5 },
     ]);
@@ -164,24 +164,24 @@ describe("the evidence rules g-j read", () => {
       {
         engine: "claude",
         engineName: "Claude",
-        question: "Is TechCore IT a good choice for managed IT services in Riverstone, NSW?",
+        question: "Is NumbaTek IT a good choice for managed IT services in Riverstone, NSW?",
         quote:
-          "I was unable to find any verified information about a company specifically called TechCoreIT in Riverstone.",
+          "I was unable to find any verified information about a company specifically called NumbaTekIT in Riverstone.",
       },
     ]);
     expect(counted.abrCitedBy).toEqual(["ChatGPT"]);
   });
 
   it("a business site is never the brand's own, a directory, social, maps, Reddit, a government site or a redirect", () => {
-    const own = "techcoreit.com.au";
-    expect(otherBusinessSite("kangaroo-it.com.au", "https://kangaroo-it.com.au/x", own)).toBe(
-      "kangaroo-it.com.au",
+    const own = "numbatekit.com.au";
+    expect(otherBusinessSite("lorikeet-it.com.au", "https://lorikeet-it.com.au/x", own)).toBe(
+      "lorikeet-it.com.au",
     );
     for (const url of [
-      "https://www.techcoreit.com.au/about",
+      "https://www.numbatekit.com.au/about",
       "https://www.yellowpages.com.au/nsw/x",
       "https://www.localbusinessguide.com.au/x",
-      "https://www.linkedin.com/company/techcore-it",
+      "https://www.linkedin.com/company/numbatek-it",
       "https://www.facebook.com/x",
       "https://www.instagram.com/x",
       "https://www.google.com/maps/place/x",
@@ -196,18 +196,18 @@ describe("the evidence rules g-j read", () => {
   });
 });
 
-describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence", () => {
+describe("NumbaTek IT #52's shape: findings g, h, i and j, with their evidence", () => {
   it("lists g, h, i, j in that order", () => {
-    expect(lowVisibilityFindings(techCore()).map((f) => f.rule)).toEqual(["g", "h", "i", "j"]);
+    expect(lowVisibilityFindings(numbaTek()).map((f) => f.rule)).toEqual(["g", "h", "i", "j"]);
   });
 
   it("g: the business sites AI cited most", () => {
-    const g = lowVisibilityFindings(techCore()).find((f) => f.rule === "g");
+    const g = lowVisibilityFindings(numbaTek()).find((f) => f.rule === "g");
     expect(g?.explanation).toBe(
-      "AI named you in 0 of 40 everyday answers, and 27 of 40 cited other businesses' own sites: the sites it cited most were kangaroo-it.com.au (27 answers), crystaltec.com.au (6) and suretech.com.au (5).",
+      "AI named you in 0 of 40 everyday answers, and 27 of 40 cited other businesses' own sites: the sites it cited most were lorikeet-it.com.au (27 answers), crystaltec.com.au (6) and suretech.com.au (5).",
     );
     expect(g?.evidence.map((line) => line.map((p) => p.text).join(""))).toEqual([
-      "kangaroo-it.com.au → cited in 27 of 40 answers",
+      "lorikeet-it.com.au → cited in 27 of 40 answers",
       "crystaltec.com.au → cited in 6 of 40 answers",
       "suretech.com.au → cited in 5 of 40 answers",
     ]);
@@ -215,16 +215,16 @@ describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence",
   });
 
   it("h: the engine's own sentence, with the question", () => {
-    const h = lowVisibilityFindings(techCore()).find((f) => f.rule === "h");
-    expect(h?.title).toBe("Claude couldn't find information about TechCore IT");
+    const h = lowVisibilityFindings(numbaTek()).find((f) => f.rule === "h");
+    expect(h?.title).toBe("Claude couldn't find information about NumbaTek IT");
     expect(h?.evidence[0].map((p) => p.text).join("")).toBe(
-      "Claude → “I was unable to find any verified information about a company specifically called TechCoreIT in Riverstone.” · asked “Is TechCore IT a good choice for managed IT services in Riverstone, NSW?”",
+      "Claude → “I was unable to find any verified information about a company specifically called NumbaTekIT in Riverstone.” · asked “Is NumbaTek IT a good choice for managed IT services in Riverstone, NSW?”",
     );
   });
 
   // S01B part 6e, LLD amendment 56: "Evidence lines print ... 'your profile: not linked yet' in lower case".
   it("i: directories beyond the brand's type, cited twice or more, with 'your profile: not linked yet'", () => {
-    const i = lowVisibilityFindings(techCore()).find((f) => f.rule === "i");
+    const i = lowVisibilityFindings(numbaTek()).find((f) => f.rule === "i");
     expect(i?.evidence.map((line) => line.map((p) => p.text).join(""))).toEqual([
       "Local Business Guide → cited in 40 of 40 answers · your profile: not linked yet",
       "Cylex → cited in 2 of 40 answers · your profile: not linked yet",
@@ -236,7 +236,7 @@ describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence",
   // with the ABR result ... No finding or action claims what AI engines read (the earlier 'AI engines read the ABR' is
   // removed)." The engine that cited the ABR stays in the evidence (a measured fact).
   it("j: no ABN on file, no Google Business Profile, and the engine that cited the ABR", () => {
-    const j = lowVisibilityFindings(techCore()).find((f) => f.rule === "j");
+    const j = lowVisibilityFindings(numbaTek()).find((f) => f.rule === "j");
     expect(j?.title).toBe("Your business identity isn't verified yet");
     expect(j?.explanation).toBe(
       "There's no ABN in brand settings yet, so we can't check your business on the Australian Business Register, and no Google Business Profile is linked in brand settings.",
@@ -249,7 +249,7 @@ describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence",
   });
 
   it("every finding has a recommendation with a reason, and is measured (no agency colours)", () => {
-    for (const f of lowVisibilityFindings(techCore())) {
+    for (const f of lowVisibilityFindings(numbaTek())) {
       expect(f.recommendation.title.length).toBeGreaterThan(5);
       expect(f.recommendation.detail.length).toBeGreaterThan(10);
       expect(f.evidence.length).toBeGreaterThan(0);
@@ -260,7 +260,7 @@ describe("TechCore IT #52's shape: findings g, h, i and j, with their evidence",
 describe("when a rule's condition doesn't hold", () => {
   it("Hero-like data (named in a third, ABN verified, profile linked, no cited-only directory) gets none", () => {
     const counted = countLowVisibilityEvidence(
-      techCoreAnswers().filter((a) => a.organic),
+      numbaTekAnswers().filter((a) => a.organic),
       "herohomeservices.com.au",
     );
     const hero: LowVisibilityData = {
@@ -272,7 +272,7 @@ describe("when a rule's condition doesn't hold", () => {
         businessSites: counted.businessSites,
         couldNotFind: counted.couldNotFind,
         identity: {
-          abn: "17701710947",
+          abn: "51824753605",
           abnVerified: true,
           abnStatus: "Active",
           checkedAt: "2026-11-20T00:00:00Z",
@@ -285,16 +285,16 @@ describe("when a rule's condition doesn't hold", () => {
   });
 
   it("rule h never fires on answers to everyday questions", () => {
-    const everydayOnly = techCoreAnswers().map((a) =>
+    const everydayOnly = numbaTekAnswers().map((a) =>
       a.organic
         ? { ...a, responseText: "I could not find any information about this business." }
         : { ...a, responseText: "Fine." },
     );
-    expect(countLowVisibilityEvidence(everydayOnly, "techcoreit.com.au").couldNotFind).toEqual([]);
+    expect(countLowVisibilityEvidence(everydayOnly, "numbatekit.com.au").couldNotFind).toEqual([]);
   });
 
   it("without report_v2's evidence (flag off) there are no g-j findings, and a-f are exactly as before", () => {
-    const base = findingsData(0, TECHCORE_DIRECTORIES);
+    const base = findingsData(0, NUMBATEK_DIRECTORIES);
     expect(lowVisibilityFindings(base)).toEqual([]);
     expect(reportFindings(base).map((f) => f.rule)).toEqual(
       reportFindings({ ...base }).map((f) => f.rule),

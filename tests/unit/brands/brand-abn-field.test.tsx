@@ -12,16 +12,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn(), replace: vi.fn() }),
-  usePathname: () => "/brands/techcore",
+  usePathname: () => "/brands/numbatek",
   useSearchParams: () => new URLSearchParams(),
 }));
 
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 
 const BRAND = {
-  id: "techcore",
-  name: "TechCore IT",
-  domain: "techcoreit.com.au",
+  id: "numbatek",
+  name: "NumbaTek IT",
+  domain: "numbatekit.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [] as string[],
@@ -41,9 +41,9 @@ const PROPS = {
   engineStats: [],
 };
 const SUGGESTION = {
-  abn: "17701710947",
-  entity: "ASTORIO GROUP PTY LTD",
-  businessName: "TechCore IT",
+  abn: "51824753605",
+  entity: "QUOLLEN GROUP PTY LTD",
+  businessName: "NumbaTek IT",
   postcode: "2765",
   state: "NSW",
   abnStatus: "Active",
@@ -82,16 +82,16 @@ describe("the ABN field (P01.abnField)", () => {
     expect(field).toBeDisabled();
     expect(field).toHaveAccessibleDescription("11 digits, from the Australian Business Register");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    fireEvent.change(screen.getByLabelText("ABN"), { target: { value: "17 701 710 947" } });
+    fireEvent.change(screen.getByLabelText("ABN"), { target: { value: "51 824 753 605" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
-    await waitFor(() => expect(patchBody().abn).toBe("17701710947"));
+    await waitFor(() => expect(patchBody().abn).toBe("51824753605"));
   });
 
   it("a bad checksum says so under the field and nothing is sent", async () => {
     render(<BrandDetailClient {...PROPS} brand={BRAND} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const field = screen.getByLabelText("ABN");
-    fireEvent.change(field, { target: { value: "17 701 710 948" } });
+    fireEvent.change(field, { target: { value: "51 824 753 606" } });
     fireEvent.blur(field);
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveAccessibleDescription("This isn't a valid ABN. Check the digits.");
@@ -100,8 +100,8 @@ describe("the ABN field (P01.abnField)", () => {
   });
 
   it("clearing a saved ABN sends null", async () => {
-    render(<BrandDetailClient {...PROPS} brand={{ ...BRAND, abn: "17701710947" }} />);
-    expect(screen.getByLabelText("ABN")).toHaveValue("17 701 710 947");
+    render(<BrandDetailClient {...PROPS} brand={{ ...BRAND, abn: "51824753605" }} />);
+    expect(screen.getByLabelText("ABN")).toHaveValue("51 824 753 605");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("ABN"), { target: { value: "" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
@@ -115,7 +115,7 @@ describe("the ABN suggestion (P01.abn)", () => {
     const banner = await screen.findByTestId("p01-abn", {}, { timeout: 10_000 });
     expect(within(banner).getByText("Is this your ABN?")).toBeInTheDocument();
     expect(within(banner).getByTestId("p01-abn-line")).toHaveTextContent(
-      "17 701 710 947 · ASTORIO GROUP PTY LTD · NSW 2765 · Active",
+      "51 824 753 605 · QUOLLEN GROUP PTY LTD · NSW 2765 · Active",
     );
     expect(banner).toHaveTextContent(
       "Found on the Australian Business Register by your business name.",
@@ -126,7 +126,7 @@ describe("the ABN suggestion (P01.abn)", () => {
       (c) => String(c[0]).endsWith("/abn-suggestion") && c[1]?.method === "POST",
     );
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({ action: "confirm" });
-    expect(screen.getByLabelText("ABN")).toHaveValue("17 701 710 947");
+    expect(screen.getByLabelText("ABN")).toHaveValue("51 824 753 605");
     expect(screen.getByRole("status")).toHaveTextContent(
       "ABN saved. We'll check the register now.",
     );
@@ -137,7 +137,7 @@ describe("the ABN suggestion (P01.abn)", () => {
     render(
       <BrandDetailClient
         {...PROPS}
-        brand={{ ...BRAND, id: "other", abn: "17701710947" }}
+        brand={{ ...BRAND, id: "other", abn: "51824753605" }}
         abnSuggestionEnabled
       />,
     );

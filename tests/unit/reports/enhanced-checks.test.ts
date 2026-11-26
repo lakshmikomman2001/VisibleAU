@@ -40,17 +40,17 @@ function beyond(dates: {
     identity: {
       ...tile(dates.identity),
       abnOnFile: true,
-      abn: "17701710947",
+      abn: "51824753605",
       abnStatus: "Active",
       abnVerified: true,
-      entity: "ASTORIO GROUP PTY LTD",
+      entity: "QUOLLEN GROUP PTY LTD",
       auDomain: true,
       wikipedia: false,
     },
     youtube: {
       ...tile(dates.youtube),
       state: dates.youtubeState ?? "found",
-      channelTitle: "TechCore IT",
+      channelTitle: "NumbaTek IT",
       videos: 4,
       lastUploadAt: null,
     },
@@ -68,12 +68,12 @@ function beyond(dates: {
 
 const BRAND = {
   id: "b1",
-  name: "TechCore IT",
-  domain: "techcoreit.com.au",
+  name: "NumbaTek IT",
+  domain: "numbatekit.com.au",
   region: "au",
   categories: [],
-  abn: "17701710947",
-  youtubeChannelUrl: "https://www.youtube.com/@techcoreit",
+  abn: "51824753605",
+  youtubeChannelUrl: "https://www.youtube.com/@numbatekit",
 };
 
 describe("the windows (D-RT4)", () => {

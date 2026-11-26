@@ -121,7 +121,7 @@ beforeAll(async () => {
     (await client`SELECT metadata FROM organizations WHERE id = ${orgId}`)[0]?.metadata;
   session.userId = randomUUID();
   fx = await seedReportFixture(client, {
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     audits: [
       { number: 46, completedAt: W45, mentions: {} },
       {
@@ -308,7 +308,7 @@ describe("/admin/audits: operators only, logged, and the week recomputed", () =>
     const AdminAuditsPage = (await import("@/app/(auth)/admin/audits/page")).default;
     const page = renderToStaticMarkup(await AdminAuditsPage());
     expect(page).toContain("data-admin-forbidden");
-    expect(page).not.toContain("Hero Home Services");
+    expect(page).not.toContain("Wren Home Services");
   }, 60_000);
 
   it("exclude #46 (its week's only audit), unchanged on repeat, include again; each change logged", async () => {

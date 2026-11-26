@@ -60,10 +60,10 @@ test.describe("Brand create form (/brands/new)", () => {
     await expect(page).toHaveURL(/\/brands\/new/);
     // Form inputs from prototype: Brand name, Domain, vertical radio cards
     await expect(
-      page.getByLabel(/brand name/i).or(page.getByPlaceholder(/bondi plumbing/i)),
+      page.getByLabel(/brand name/i).or(page.getByPlaceholder(/galah plumbing/i)),
     ).toBeVisible();
     await expect(
-      page.getByLabel(/domain/i).or(page.getByPlaceholder(/bondiplumbing\.com\.au/i)),
+      page.getByLabel(/domain/i).or(page.getByPlaceholder(/galahplumbing\.com\.au/i)),
     ).toBeVisible();
   });
 
@@ -86,13 +86,13 @@ test.describe("Brand create form (/brands/new)", () => {
     await page.goto("/brands/new");
 
     // Fill Brand name
-    const nameInput = page.getByLabel(/brand name/i).or(page.getByPlaceholder(/bondi plumbing/i));
+    const nameInput = page.getByLabel(/brand name/i).or(page.getByPlaceholder(/galah plumbing/i));
     await nameInput.fill("E2E Tradies Brand");
 
     // Fill Domain (prototype strips https:// prefix automatically)
     const domainInput = page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i));
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i));
     await domainInput.fill("e2etradies.com.au");
 
     // Select vertical: Tradies
@@ -127,12 +127,12 @@ test.describe("Brand create form (/brands/new)", () => {
 
     await page
       .getByLabel(/brand name/i)
-      .or(page.getByPlaceholder(/bondi plumbing/i))
+      .or(page.getByPlaceholder(/galah plumbing/i))
       .fill("E2E Allied Health Brand");
 
     await page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
       .fill("e2ealliedhealth.com.au");
 
     await page.getByLabel("Vertical").selectOption("allied_health");
@@ -158,13 +158,13 @@ test.describe("Brand create form (/brands/new)", () => {
 
     await page
       .getByLabel(/brand name/i)
-      .or(page.getByPlaceholder(/bondi plumbing/i))
+      .or(page.getByPlaceholder(/galah plumbing/i))
       .fill("E2E Domain Strip Brand");
 
     // Enter domain with protocol prefix
     await page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
       .fill("https://e2edomainstrip.com.au/");
 
     await page.getByLabel("Vertical").selectOption("tradies");
@@ -194,11 +194,11 @@ test.describe("Brand create form (/brands/new)", () => {
     await page.goto("/brands/new");
     await page
       .getByLabel(/brand name/i)
-      .or(page.getByPlaceholder(/bondi plumbing/i))
+      .or(page.getByPlaceholder(/galah plumbing/i))
       .fill("E2E Setup Brand");
     await page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
       .fill("e2esetup.com.au");
     await page.getByLabel("Vertical").selectOption("tradies");
     await page.getByRole("button", { name: /create brand/i }).click();
@@ -261,7 +261,7 @@ test.describe("Brand create form (/brands/new)", () => {
     // Leave name empty, fill domain and select vertical
     await page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
       .fill("validation-test.com.au");
     await page.getByLabel("Vertical").selectOption("tradies");
 
@@ -287,7 +287,7 @@ test.describe("Brand create form (/brands/new)", () => {
 
     await page
       .getByLabel(/brand name/i)
-      .or(page.getByPlaceholder(/bondi plumbing/i))
+      .or(page.getByPlaceholder(/galah plumbing/i))
       .fill("Validation Test Brand");
     await page.getByLabel("Vertical").selectOption("tradies");
     // No domain entered
@@ -354,11 +354,11 @@ test.describe("Brand create form (/brands/new)", () => {
       await page.goto("/brands/new");
       await page
         .getByLabel(/brand name/i)
-        .or(page.getByPlaceholder(/bondi plumbing/i))
+        .or(page.getByPlaceholder(/galah plumbing/i))
         .fill("Should Fail Brand");
       await page
         .getByLabel(/domain/i)
-        .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
+        .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
         .fill("shouldfail.com.au");
       await page.getByLabel("Vertical").selectOption("tradies");
       await page.getByRole("button", { name: /create brand/i }).click();

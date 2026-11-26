@@ -254,12 +254,12 @@ describe("appendix B's directories, each with its kind, shown only when cited", 
 describe("LinkedIn is its company pages only", () => {
   it("a company page, on linkedin.com or au.linkedin.com, is LinkedIn", () => {
     expect(
-      findDirectoryForSource("au.linkedin.com", "https://au.linkedin.com/company/techcore-it")?.key,
+      findDirectoryForSource("au.linkedin.com", "https://au.linkedin.com/company/numbatek-it")?.key,
     ).toBe("linkedin");
     expect(
       findDirectoryForSource(
         "www.linkedin.com",
-        "https://www.linkedin.com/company/techcore-it/about",
+        "https://www.linkedin.com/company/numbatek-it/about",
       )?.key,
     ).toBe("linkedin");
   });
@@ -281,7 +281,7 @@ describe("LinkedIn is its company pages only", () => {
 
   it("a host directory is found by its host, with or without a URL", () => {
     expect(
-      findDirectoryForSource("reviews.birdeye.com", "https://reviews.birdeye.com/techcore-it-123")
+      findDirectoryForSource("reviews.birdeye.com", "https://reviews.birdeye.com/numbatek-it-123")
         ?.key,
     ).toBe("birdeye");
     expect(findDirectoryForSource("whereis.com", null)?.key).toBe("whereis");
@@ -292,7 +292,7 @@ describe("LinkedIn is its company pages only", () => {
 
   it("a domain the registry doesn't have is never a directory", () => {
     for (const domain of [
-      "techcoreit.com.au",
+      "numbatekit.com.au",
       "reddit.com",
       "wikipedia.org",
       "linkedin.com.evil.example",

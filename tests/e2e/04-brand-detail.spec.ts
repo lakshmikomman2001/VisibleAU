@@ -176,7 +176,7 @@ test.describe("Brand detail page (/brands/[brandId])", () => {
 
     await page.getByRole("button", { name: /delete/i }).click();
 
-    // Prototype uses AlertDialog: "Delete Bondi Plumbing?" with cancel/confirm buttons
+    // Prototype uses AlertDialog: "Delete Galah Plumbing?" with cancel/confirm buttons
     const confirmDialog = page.getByRole("alertdialog").or(page.getByRole("dialog"));
 
     // Either a dialog appears, or confirm/cancel buttons become visible

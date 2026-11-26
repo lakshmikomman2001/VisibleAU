@@ -74,7 +74,7 @@ beforeAll(async () => {
   `;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, location_mode, location_confirmed_at)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'TechCore IT', 'techcoreit.com.au', 'local_business', 'au', ARRAY['NSW:Riverstone']::text[], 'Riverstone', 'NSW', 'fixed', now())
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'NumbaTek IT', 'numbatekit.com.au', 'local_business', 'au', ARRAY['NSW:Riverstone']::text[], 'Riverstone', 'NSW', 'fixed', now())
   `;
 }, 30_000);
 
@@ -123,19 +123,19 @@ const stored = async (id: string = BRAND_ID) =>
 
 describe("brand aliases on a real database", () => {
   it("an existing brand has none, and no suggestion (the migration's defaults)", async () => {
-    expect(await stored()).toEqual({ name: "TechCore IT", aliases: [], name_suggestion: null });
+    expect(await stored()).toEqual({ name: "NumbaTek IT", aliases: [], name_suggestion: null });
   });
 
   // S01 part 0 (LLD section 0.2 #5: "aliases unique ignoring case"; contract C-27): S00's first list here was
-  // ["techcoreit", "TechCoreIT"], a case-only pair, which a new list may no longer hold; it's now among the bad ones.
+  // ["numbatekit", "NumbaTekIT"], a case-only pair, which a new list may no longer hold; it's now among the bad ones.
   it("PATCH keeps a new list, trimmed; a bad list is refused and nothing changes", async () => {
-    expect((await patch({ aliases: ["techcoreit", "  Astorio  Group "] })).status).toBe(200);
-    expect((await stored()).aliases).toEqual(["techcoreit", "Astorio Group"]);
+    expect((await patch({ aliases: ["numbatekit", "  Quollen  Group "] })).status).toBe(200);
+    expect((await stored()).aliases).toEqual(["numbatekit", "Quollen Group"]);
     for (const [bad, reason] of [
-      [["techcore it"], "That's the brand's name already."],
+      [["numbatek it"], "That's the brand's name already."],
       [["A"], "A name is 2 to 60 characters."],
-      [["techcoreit", "techcoreit"], "That name is already listed."],
-      [["techcoreit", "Astorio Group", "TECHCOREIT"], "That name is already listed."],
+      [["numbatekit", "numbatekit"], "That name is already listed."],
+      [["numbatekit", "Quollen Group", "NUMBATEKIT"], "That name is already listed."],
     ] as const) {
       const res = await patch({ aliases: bad });
       expect(res.status, JSON.stringify(bad)).toBe(400);
@@ -144,29 +144,29 @@ describe("brand aliases on a real database", () => {
     expect(
       (await patch({ aliases: Array.from({ length: 11 }, (_, i) => `Name ${i}`) })).status,
     ).toBe(400);
-    expect((await stored()).aliases).toEqual(["techcoreit", "Astorio Group"]);
+    expect((await stored()).aliases).toEqual(["numbatekit", "Quollen Group"]);
   });
 
   it("S01 part 0: aliases saved before S01 with a case-only twin are kept as they are", async () => {
-    await sql`UPDATE brands SET aliases = ARRAY['techcoreit', 'TechCoreIT']::text[] WHERE id = ${BRAND_ID}`;
-    expect((await patch({ aliases: ["techcoreit", "TechCoreIT", "Astorio Group"] })).status).toBe(
+    await sql`UPDATE brands SET aliases = ARRAY['numbatekit', 'NumbaTekIT']::text[] WHERE id = ${BRAND_ID}`;
+    expect((await patch({ aliases: ["numbatekit", "NumbaTekIT", "Quollen Group"] })).status).toBe(
       200,
     );
-    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT", "Astorio Group"]);
+    expect((await stored()).aliases).toEqual(["numbatekit", "NumbaTekIT", "Quollen Group"]);
     expect((await patch({ vertical: "local_business" })).status).toBe(200);
-    expect((await stored()).aliases).toEqual(["techcoreit", "TechCoreIT", "Astorio Group"]);
-    const twin = await patch({ aliases: ["techcoreit", "TechCoreIT", "TECHCOREIT"] });
+    expect((await stored()).aliases).toEqual(["numbatekit", "NumbaTekIT", "Quollen Group"]);
+    const twin = await patch({ aliases: ["numbatekit", "NumbaTekIT", "NUMBATEKIT"] });
     expect(twin.status).toBe(400);
     await patch({ aliases: [] });
   });
 
   it("a rename to a listed alias drops that alias; other saves keep the list", async () => {
-    await patch({ aliases: ["Astorio Group", "TechCoreIT"] });
+    await patch({ aliases: ["Quollen Group", "NumbaTekIT"] });
     expect((await patch({ vertical: "local_business" })).status).toBe(200);
-    expect((await stored()).aliases).toEqual(["Astorio Group", "TechCoreIT"]);
-    expect((await patch({ name: "Astorio Group" })).status).toBe(200);
-    expect(await stored()).toMatchObject({ name: "Astorio Group", aliases: ["TechCoreIT"] });
-    await patch({ name: "TechCore IT", aliases: [] });
+    expect((await stored()).aliases).toEqual(["Quollen Group", "NumbaTekIT"]);
+    expect((await patch({ name: "Quollen Group" })).status).toBe(200);
+    expect(await stored()).toMatchObject({ name: "Quollen Group", aliases: ["NumbaTekIT"] });
+    await patch({ name: "NumbaTek IT", aliases: [] });
   });
 
   it("the database refuses more than 10 (the CHECK)", async () => {
@@ -236,18 +236,18 @@ describe("brand aliases on a real database", () => {
 
 describe("GET /api/brands/name-suggestion", () => {
   // S01 part 0 (LLD section 0.2 #5, C-27): "stop suggesting the name without spaces or the domain stem": S00
-  // answered aliases ["techcoreit", "TechCoreIT"] here; the field stays, always empty.
+  // answered aliases ["numbatekit", "NumbaTekIT"] here; the field stays, always empty.
   it("reads the home page and suggests the site's name, and no aliases", async () => {
     crawl.html =
-      "<html><head><title>Managed IT Services Western Sydney | TechCore IT</title></head></html>";
-    const res = await suggestion("https://www.TechCoreIT.com.au/");
+      "<html><head><title>Managed IT Services Western Sydney | NumbaTek IT</title></head></html>";
+    const res = await suggestion("https://www.NumbaTekIT.com.au/");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      name: "TechCore IT",
+      name: "NumbaTek IT",
       source: "title",
       aliases: [],
     });
-    expect(crawl.calls).toEqual(["techcoreit.com.au"]);
+    expect(crawl.calls).toEqual(["numbatekit.com.au"]);
   });
 
   it("a page that can't be read falls back to the domain's words, or nothing", async () => {
@@ -256,7 +256,7 @@ describe("GET /api/brands/name-suggestion", () => {
       name: "Hero Home Services",
       source: "domain",
     });
-    expect(await (await suggestion("techcoreit.com.au")).json()).toEqual({
+    expect(await (await suggestion("numbatekit.com.au")).json()).toEqual({
       name: null,
       source: null,
       aliases: [],
@@ -272,13 +272,13 @@ describe("GET /api/brands/name-suggestion", () => {
 
   it("only someone who may add a brand asks: 401 signed out, 403 a viewer", async () => {
     who.signedIn = false;
-    expect((await suggestion("techcoreit.com.au")).status).toBe(401);
+    expect((await suggestion("numbatekit.com.au")).status).toBe(401);
     who.signedIn = true;
     // The role the API decides by is the stored membership's (lib/governance/access-control.ts roleRefusal).
     who.role = "viewer";
     await sql`UPDATE org_members SET role = 'viewer' WHERE organization_id = ${ORG_ID}`;
     try {
-      expect((await suggestion("techcoreit.com.au")).status).toBe(403);
+      expect((await suggestion("numbatekit.com.au")).status).toBe(403);
     } finally {
       await sql`UPDATE org_members SET role = 'owner' WHERE organization_id = ${ORG_ID}`;
     }

@@ -1,5 +1,5 @@
 /**
- * Mock-gate and retention follow-ups (9 Nov), part 6 -- leftovers from audit #42 (Omega Services, 7 Nov, v2.2):
+ * Mock-gate and retention follow-ups (9 Nov), part 6 -- leftovers from audit #42 (Yabby Services, 7 Nov, v2.2):
  * - the directory action said "They're cited in 32 of 48 directory citations" under evidence counted "of 40
  *   answers": one unit now, answers (lib/directories/cited-in-answers.ts);
  * - source links kept the AI's tracking tags in their hrefs (?utm_source=chatgpt.com): links are rendered without
@@ -115,20 +115,20 @@ describe("an engine that never named the brand: what was measured, and only a me
   });
 
   it("counted from the stored rows: only answers that kept uncited search results, the site cited or not", () => {
-    const domain = "omegaservices.com.au";
+    const domain = "yabbyservices.com.au";
     const seen = searchResultsSeen(
       [
         // Kept search results, the site among them (uncited).
         {
           citedSources: [
             "https://www.hipages.com.au/x",
-            { url: "https://omegaservices.com.au/about", cited: false },
+            { url: "https://yabbyservices.com.au/about", cited: false },
           ],
         },
         // Kept search results, the site not among them.
         { citedSources: [{ url: "https://www.oneflare.com.au/y", cited: false }] },
         // Citations only: no proof the search results were stored, so not counted.
-        { citedSources: ["https://omegaservices.com.au/"] },
+        { citedSources: ["https://yabbyservices.com.au/"] },
         { citedSources: [] },
       ],
       domain,

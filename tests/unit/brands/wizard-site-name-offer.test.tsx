@@ -38,7 +38,7 @@ const HERO_ANSWER = {
   source: "og:site_name",
   aliases: ["herohomeservices", "HeroHomeServices"],
 };
-const TECHCORE_ANSWER = { name: "TechCore IT", source: "title", aliases: [] };
+const NUMBATEK_ANSWER = { name: "NumbaTek IT", source: "title", aliases: [] };
 
 function stubRoute(respond: () => Response | Promise<Response>) {
   const fetchImpl = vi.fn(async (_url: string) => respond());
@@ -87,17 +87,17 @@ describe("the wizard offers the site's name when the owner typed another", () =>
   });
 
   it("another typed name: offered on its own line, kept until Use is clicked", async () => {
-    stubRoute(() => Response.json(TECHCORE_ANSWER));
+    stubRoute(() => Response.json(NUMBATEK_ANSWER));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(nameField(), { target: { value: "Astorio Group" } });
-    enterDomain("techcoreit.com.au");
+    fireEvent.change(nameField(), { target: { value: "Quollen Group" } });
+    enterDomain("numbatekit.com.au");
     await waitFor(() => expect(screen.getByTestId("wizard-site-name-offer")).toBeInTheDocument());
     expect(screen.getByTestId("wizard-site-name-offer")).toHaveTextContent(
-      "Your website calls the business “TechCore IT”. Use “TechCore IT”",
+      "Your website calls the business “NumbaTek IT”. Use “NumbaTek IT”",
     );
-    expect(nameField()).toHaveValue("Astorio Group");
+    expect(nameField()).toHaveValue("Quollen Group");
     fireEvent.click(screen.getByTestId("wizard-use-site-name"));
-    expect(nameField()).toHaveValue("TechCore IT");
+    expect(nameField()).toHaveValue("NumbaTek IT");
     expect(screen.queryByTestId("wizard-site-name-offer")).toBeNull();
   });
 
@@ -126,11 +126,11 @@ describe("the wizard offers the site's name when the owner typed another", () =>
     let release: (r: Response) => void = () => {};
     stubRoute(() => new Promise<Response>((resolve) => (release = resolve)));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(nameField(), { target: { value: "Astorio Group" } });
-    enterDomain("techcoreit.com.au");
+    fireEvent.change(nameField(), { target: { value: "Quollen Group" } });
+    enterDomain("numbatekit.com.au");
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    fireEvent.change(domainField(), { target: { value: "astorio.com.au" } });
-    release(Response.json(TECHCORE_ANSWER));
+    fireEvent.change(domainField(), { target: { value: "quollen.com.au" } });
+    release(Response.json(NUMBATEK_ANSWER));
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByTestId("wizard-site-name-offer")).toBeNull();
     expect(askStatus()).toBe("idle");
@@ -151,7 +151,7 @@ describe("a failed ask: no suggestion, the form usable, the failure kept", () =>
   ])("%s", async (_label, respond, httpStatus) => {
     stubRoute(respond);
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    enterDomain("techcoreit.com.au");
+    enterDomain("numbatekit.com.au");
     await waitFor(() => expect(askStatus()).toBe("failed"));
     expect(
       nameField().closest("[data-site-name-ask]")?.getAttribute("data-site-name-ask-http"),
@@ -159,20 +159,20 @@ describe("a failed ask: no suggestion, the form usable, the failure kept", () =>
     expect(screen.queryByTestId("wizard-site-name-offer")).toBeNull();
     expect(nameField()).toHaveValue("");
     // Still usable: the owner types the name and can go on.
-    fireEvent.change(nameField(), { target: { value: "TechCore IT" } });
+    fireEvent.change(nameField(), { target: { value: "NumbaTek IT" } });
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 });
 
 describe("no aliases are pre-filled (C-27)", () => {
   it("the brand is sent without the domain label or the name without spaces", async () => {
-    const fetchImpl = stubRoute(() => Response.json(TECHCORE_ANSWER));
+    const fetchImpl = stubRoute(() => Response.json(NUMBATEK_ANSWER));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    enterDomain("techcoreit.com.au");
-    await waitFor(() => expect(nameField()).toHaveValue("TechCore IT"));
+    enterDomain("numbatekit.com.au");
+    await waitFor(() => expect(nameField()).toHaveValue("NumbaTek IT"));
     expect(document.querySelector("[data-name-aliases]")).toBeNull();
     expect(String(fetchImpl.mock.calls[0][0])).toBe(
-      "/api/brands/name-suggestion?domain=techcoreit.com.au",
+      "/api/brands/name-suggestion?domain=numbatekit.com.au",
     );
   });
 });

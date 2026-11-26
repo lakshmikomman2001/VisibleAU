@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     email: "owner@report-tiers.example.com.au",
     name: "Owner",
     role: "owner",
-    organization: { id: who.orgId, name: "Splice Marketing", region: "au", metadata: {} },
+    organization: { id: who.orgId, name: "Possum Marketing", region: "au", metadata: {} },
   })),
 }));
 
@@ -48,8 +48,8 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "Hero Home Services",
-    agencyName: "Splice Marketing",
+    brandName: "Wren Home Services",
+    agencyName: "Possum Marketing",
     tier: "agency",
     audits: [
       {

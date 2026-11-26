@@ -14,51 +14,51 @@ import { describe, expect, it } from "vitest";
 import { detectBrandMention } from "@/lib/audit/detect-mention";
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 
-const TECHCORE = { name: "TechCore IT", domain: "techcoreit.com.au" };
+const NUMBATEK = { name: "NumbaTek IT", domain: "numbatekit.com.au" };
 
-describe("TechCore IT is found however an answer writes it", () => {
-  it('"TechCore IT" and "TechCoreIT" (the name, with its spacing ignored) -- no alias needed', async () => {
+describe("NumbaTek IT is found however an answer writes it", () => {
+  it('"NumbaTek IT" and "NumbaTekIT" (the name, with its spacing ignored) -- no alias needed', async () => {
     for (const text of [
-      "1. **TechCore IT** -- managed IT for Western Sydney businesses.",
-      "Many reviewers recommend TechCoreIT for Microsoft 365 support.",
-      "Techcore IT is a smaller provider.",
+      "1. **NumbaTek IT** -- managed IT for Western Sydney businesses.",
+      "Many reviewers recommend NumbaTekIT for Microsoft 365 support.",
+      "Numbatek IT is a smaller provider.",
     ]) {
-      const m = await detectBrandMention(text, TECHCORE);
+      const m = await detectBrandMention(text, NUMBATEK);
       expect(m.found, text).toBe(true);
       expect(m.detectionMethod).toBe("regex");
     }
   });
 
-  it('"techcoreit" (the domain label) is found too, as before', async () => {
-    const m = await detectBrandMention("See techcoreit.com.au for details.", TECHCORE);
+  it('"numbatekit" (the domain label) is found too, as before', async () => {
+    const m = await detectBrandMention("See numbatekit.com.au for details.", NUMBATEK);
     expect(m.found).toBe(true);
   });
 
   it("an alias that is a different name counts only once it's listed", async () => {
-    const text = "Astorio Group runs a well-reviewed IT support desk in Riverstone.";
-    expect((await detectBrandMention(text, TECHCORE)).found).toBe(false);
-    const withAlias = await detectBrandMention(text, { ...TECHCORE, aliases: ["Astorio Group"] });
+    const text = "Quollen Group runs a well-reviewed IT support desk in Riverstone.";
+    expect((await detectBrandMention(text, NUMBATEK)).found).toBe(false);
+    const withAlias = await detectBrandMention(text, { ...NUMBATEK, aliases: ["Quollen Group"] });
     expect(withAlias).toMatchObject({ found: true, detectionMethod: "regex", confidence: "high" });
     expect(withAlias.matchIndex).toBe(0);
   });
 
   it("the earliest of the name and its aliases counts (the rank is that position's)", async () => {
-    const text = "Top picks:\n1. Astorio Group\n2. Someone Else\n3. TechCore IT";
-    const m = await detectBrandMention(text, { ...TECHCORE, aliases: ["Astorio Group"] });
-    expect(m.matchIndex).toBe(text.indexOf("Astorio Group"));
+    const text = "Top picks:\n1. Quollen Group\n2. Someone Else\n3. NumbaTek IT";
+    const m = await detectBrandMention(text, { ...NUMBATEK, aliases: ["Quollen Group"] });
+    expect(m.matchIndex).toBe(text.indexOf("Quollen Group"));
   });
 });
 
 describe("the branded-question rule reads aliases too", () => {
   it("a question naming the business by an alias names the business", () => {
-    const q = "Is Astorio Group a good choice for managed IT services in Riverstone?";
-    expect(isBrandedPrompt(q, TECHCORE)).toBe(false);
-    expect(isBrandedPrompt(q, { ...TECHCORE, aliases: ["Astorio Group"] })).toBe(true);
+    const q = "Is Quollen Group a good choice for managed IT services in Riverstone?";
+    expect(isBrandedPrompt(q, NUMBATEK)).toBe(false);
+    expect(isBrandedPrompt(q, { ...NUMBATEK, aliases: ["Quollen Group"] })).toBe(true);
   });
 
   it("an everyday question stays everyday", () => {
     const q = "Best managed IT services in Riverstone?";
-    expect(isBrandedPrompt(q, { ...TECHCORE, aliases: ["techcoreit", "TechCoreIT"] })).toBe(false);
+    expect(isBrandedPrompt(q, { ...NUMBATEK, aliases: ["numbatekit", "NumbaTekIT"] })).toBe(false);
   });
 });
 

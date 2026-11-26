@@ -30,11 +30,11 @@ import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client
 import { RoleProvider } from "@/components/domain/role-context";
 
 const BRAND = {
-  id: "brand-techcore",
-  name: "TechCore IT",
-  nameSuggestion: "TechCore IT",
-  aliases: ["techcoreit", "TechCoreIT"],
-  domain: "techcoreit.com.au",
+  id: "brand-numbatek",
+  name: "NumbaTek IT",
+  nameSuggestion: "NumbaTek IT",
+  aliases: ["numbatekit", "NumbaTekIT"],
+  domain: "numbatekit.com.au",
   vertical: "local_business",
   region: "au",
   competitors: [],
@@ -79,7 +79,7 @@ describe("Brand settings: the name's help line (P01.identity.name, C-21)", () =>
     ).toBeInTheDocument();
     edit();
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "TechCore IT Pty Ltd" },
+      target: { value: "NumbaTek IT Pty Ltd" },
     });
     expect(within(field).queryByText(/Suggested from your website's name/)).toBeNull();
   });
@@ -99,7 +99,7 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
       within(field)
         .getAllByTestId("p01-aliases-chip")
         .map((c) => c.textContent),
-    ).toEqual(["techcoreit", "TechCoreIT"]);
+    ).toEqual(["numbatekit", "NumbaTekIT"]);
     expect(
       within(field).getByText("Other ways AI might write your name. Used to recognise mentions."),
     ).toBeInTheDocument();
@@ -114,13 +114,13 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
     fireEvent.click(screen.getByTestId("p01-aliases-add"));
     const input = screen.getByTestId("p01-aliases-input");
     expect(input).toHaveFocus();
-    fireEvent.change(input, { target: { value: "  Astorio  Group " } });
+    fireEvent.change(input, { target: { value: "  Quollen  Group " } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(
       within(aliasField())
         .getAllByTestId("p01-aliases-chip")
         .map((c) => c.textContent),
-    ).toEqual(["Astorio Group×"]);
+    ).toEqual(["Quollen Group×"]);
     fireEvent.click(screen.getByTestId("p01-aliases-add"));
     fireEvent.change(screen.getByTestId("p01-aliases-input"), { target: { value: "Something" } });
     fireEvent.keyDown(screen.getByTestId("p01-aliases-input"), { key: "Escape" });
@@ -141,8 +141,8 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
       return within(aliasField()).getByRole("alert").textContent;
     };
     expect(tryAdd("A")).toBe("A name is 2 to 60 characters.");
-    expect(tryAdd("techcore it")).toBe("That's the brand's name already.");
-    expect(tryAdd("techcoreit")).toBe("That name is already listed.");
+    expect(tryAdd("numbatek it")).toBe("That's the brand's name already.");
+    expect(tryAdd("numbatekit")).toBe("That name is already listed.");
   });
 
   // S01 part 0 (contract C-27, LLD section 0.2 #5): unique ignoring case for a name being added; the brand's two
@@ -152,7 +152,7 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
     edit();
     fireEvent.click(screen.getByTestId("p01-aliases-add"));
     const input = screen.getByTestId("p01-aliases-input");
-    fireEvent.change(input, { target: { value: "TECHCOREIT" } });
+    fireEvent.change(input, { target: { value: "NUMBATEKIT" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(within(aliasField()).getByRole("alert").textContent).toBe(
       "That name is already listed.",
@@ -167,12 +167,12 @@ describe('Brand settings: "Also known as" (P01.aliases)', () => {
   it("× removes one; Save sends the new list (and nothing about aliases when they didn't change)", async () => {
     render(<BrandDetailClient {...PROPS} brand={BRAND} />);
     edit();
-    fireEvent.click(screen.getByRole("button", { name: "Remove techcoreit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove numbatekit" }));
     fireEvent.click(screen.getByRole("button", { name: "Save brand settings" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
-    expect(url).toBe("/api/brands/brand-techcore");
-    expect(JSON.parse(String(init.body))).toMatchObject({ aliases: ["TechCoreIT"] });
+    expect(url).toBe("/api/brands/brand-numbatek");
+    expect(JSON.parse(String(init.body))).toMatchObject({ aliases: ["NumbaTekIT"] });
   });
 
   it("a Save that doesn't touch the aliases doesn't send them", async () => {

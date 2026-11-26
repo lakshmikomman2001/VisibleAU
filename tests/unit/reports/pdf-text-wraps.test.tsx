@@ -51,7 +51,7 @@ function withGoogle(data: ReportData): ReportData {
 }
 
 function withLongNames(data: ReportData): ReportData {
-  data.brand.name = "Hero Home Services and Handyman Repairs of Western Sydney";
+  data.brand.name = "Wren Home Services and Handyman Repairs of Western Sydney";
   data.directories.rows = data.directories.rows.map((r) => ({
     ...r,
     name: `${r.name} Australian Business Directory`,

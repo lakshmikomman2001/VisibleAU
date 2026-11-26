@@ -16,13 +16,10 @@ const NOTABILITY = "Wikipedia needs significant coverage in independent sources"
 const NEXT_STEP = "Coverage in local press or on community sites is the step that helps.";
 
 /**
- * Opens with what the Wikipedia check found: "verified" checked, "inferred" didn't complete, else unknown. The
- * directories parameter is no longer read (the steps that named them are gone); callers still pass them.
+ * Opens with what the Wikipedia check found: "verified" checked, "inferred" didn't complete, else unknown. (S02
+ * part 0: the directories parameter, unread since S01C, is gone.)
  */
-export function entityProfilesAction(
-  confidenceBasis: string | null | undefined,
-  _citedDirectories?: readonly string[],
-): string {
+export function entityProfilesAction(confidenceBasis: string | null | undefined): string {
   if (confidenceBasis === "verified") {
     return `We checked: there's no Wikipedia article for your business. That's normal for a local business: ${NOTABILITY}, so we don't recommend writing one yet. ${NEXT_STEP}`;
   }

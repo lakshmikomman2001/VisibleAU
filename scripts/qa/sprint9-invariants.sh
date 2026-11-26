@@ -74,7 +74,10 @@ echo "── A3: Inngest serve() — set-difference guard ──"
 SERVE_FILE="app/api/webhooks/inngest/route.ts"
 MANIFEST="scripts/qa/inngest-serve-manifest.txt"
 
+# S02 part 0: comment lines inside the array aren't names (A3 read "Google", "surfaces", "Phase" ... from them).
+# tests/unit/inngest/serve-manifest.test.ts keeps the manifest equal to the array, so this can't drift again.
 ACTUAL=$(sed -n '/functions: \[/,/\]/p' "$SERVE_FILE" 2>/dev/null \
+  | sed 's#//.*$##' \
   | grep -oE '[a-zA-Z][a-zA-Z0-9]+' \
   | grep -v '^functions$' \
   | sort)

@@ -19,8 +19,8 @@ const DEMO_WORKSPACES = [
   {
     org: { slug: "demo-tradies", name: "Demo Plumbing Co" },
     brand: {
-      name: "Bondi Plumbing",
-      domain: "bondiplumbing.com.au",
+      name: "Galah Plumbing",
+      domain: "galahplumbing.com.au",
       vertical: "tradies" as const,
     },
     audit: { scoreComposite: "72.00" },

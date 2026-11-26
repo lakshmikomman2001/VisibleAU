@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     email: "owner@report-names.example.com.au",
     name: "Owner",
     role: "owner",
-    organization: { id: who.orgId, name: "Splice Marketing", region: "au", metadata: {} },
+    organization: { id: who.orgId, name: "Possum Marketing", region: "au", metadata: {} },
   })),
 }));
 // getStorage's require() of the local driver isn't resolvable under vitest; the app's own adapter, as other tests use it.
@@ -82,7 +82,7 @@ beforeAll(async () => {
   process.env.STORAGE_LOCAL_DIR = STORE;
   fx = await seedReportFixture(sql, {
     brandName: "Waratah Home Services",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     tier: "agency",
     audits: [{ number: 54, completedAt: "2026-11-20T03:00:00.000Z", mentions: { chatgpt: [1] } }],
   });

@@ -5,7 +5,7 @@
  * - Editing an action, a note or an agency action after generating changes nothing on re-render ("Try again").
  * - report_v2 off: no snapshot, and a report without one (every report before S01) keeps today's rebuild.
  *
- * Fixture: TechCore #52's shape (0 of 40, the directories it cited), seeded by tests/helpers/report-fixture.ts.
+ * Fixture: NumbaTek #52's shape (0 of 40, the directories it cited), seeded by tests/helpers/report-fixture.ts.
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import postgres from "postgres";
@@ -23,15 +23,15 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     tier: "agency",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     audits: [
       {
         number: 52,
         completedAt: "2026-11-20T03:00:00.000Z",
         mentions: {},
-        directories: { "kangaroo-it.com.au": 27, "localbusinessguide.com.au": 9 },
+        directories: { "lorikeet-it.com.au": 27, "localbusinessguide.com.au": 9 },
       },
     ],
   });
@@ -154,7 +154,7 @@ describe("the report snapshot", () => {
       "Ask five clients for reviews",
     ]);
     expect((snap.beyondAi as { identity: { status: string } }).identity.status).toBe("not_checked");
-    expect(pdfText(data!)).toContain("Note from Splice Marketing: We will add it this week.");
+    expect(pdfText(data!)).toContain("Note from Possum Marketing: We will add it this week.");
   });
 
   it("editing an action, its note or an agency action afterwards never changes the re-render", async () => {

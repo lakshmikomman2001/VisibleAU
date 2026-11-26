@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 17 Nov, part 1 (Sri, 15 Nov, production, Hero Home Services): audit #50 said "33%, mentioned in 13 of 40" and
+ * 17 Nov, part 1 (Sri, 15 Nov, production, Wren Home Services): audit #50 said "33%, mentioned in 13 of 40" and
  * "13 of 13 mentions linked a source"; the Visibility page's "Mention-Source Divide" said "Mention 81.8%, Citation
  * 0.0%, Ratio 0.00, Known but Untrusted". Reproduced here with Hero's shape: #48 (13 Nov) asked 11 everyday
  * questions, #50 (15 Nov, the same ISO week) 10 -- one removed -- with #50's per-engine mentions (ChatGPT 9, Claude
@@ -67,7 +67,7 @@ const W45_46 = "2026-11-03T01:00:00.000Z";
 const ELEVEN = [...EVERYDAY_QUESTIONS, "Who fixes leaking taps in Castle Hill on weekends?"];
 const LOCALSEARCH_PROFILE = {
   domain: "localsearch.com.au",
-  url: "https://www.localsearch.com.au/profile/hero-home-services/castle-hill-nsw/abc123",
+  url: "https://www.localsearch.com.au/profile/wren-home-services/castle-hill-nsw/abc123",
 };
 const HERO_50 = {
   chatgpt: [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -152,7 +152,7 @@ beforeAll(async () => {
   client = postgres(url, { max: 1 });
   session.userId = randomUUID();
   hero = await seedReportFixture(client, {
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     audits: [
       { number: 46, completedAt: W45_46, mentions: {}, mentionSources: [LOCALSEARCH_PROFILE] },
       {

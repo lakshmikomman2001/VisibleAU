@@ -38,7 +38,7 @@ beforeAll(async () => {
   process.env.DATABASE_URL = url;
   process.env.SERVICE_DATABASE_URL = url;
   client = postgres(url, { max: 1 });
-  hero = await seedReportFixture(client, { brandName: "Hero Home Services", audits: [] });
+  hero = await seedReportFixture(client, { brandName: "Wren Home Services", audits: [] });
   other = await seedReportFixture(client, { brandName: "Someone Else's Plumbing", audits: [] });
 }, 60_000);
 
@@ -65,7 +65,7 @@ describe("the brand layout names the brand for the breadcrumb", () => {
     session.organizationId = hero.orgId;
     expect(await namedBrand(hero.brandId)).toEqual({
       id: hero.brandId,
-      name: "Hero Home Services",
+      name: "Wren Home Services",
     });
   }, 60_000);
 

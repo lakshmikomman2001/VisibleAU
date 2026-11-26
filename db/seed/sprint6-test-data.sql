@@ -14,7 +14,7 @@ BEGIN
   END IF;
 
   -- Get existing brand
-  SELECT id INTO v_brand_id FROM brands WHERE organization_id = v_org_id AND name = 'Bondi Plumbing' LIMIT 1;
+  SELECT id INTO v_brand_id FROM brands WHERE organization_id = v_org_id AND name = 'Galah Plumbing' LIMIT 1;
   IF v_brand_id IS NULL THEN
     RAISE EXCEPTION 'Brand not found. Run SEED-TEST-DATA.bat first.';
   END IF;
@@ -37,7 +37,7 @@ BEGIN
   -- FREQUENCY: Wikipedia (confirmed, high)
   INSERT INTO action_items (id, organization_id, brand_id, audit_id, recommendation_key, dimension, title, action, confidence_label, expected_impact_score, evidence_refs, status, created_at, updated_at)
   VALUES (gen_random_uuid(), v_org_id, v_brand_id, v_audit_id, 'wikipedia-article', 'frequency',
-    'Add a Wikipedia entry for Bondi Plumbing',
+    'Add a Wikipedia entry for Galah Plumbing',
     'Draft a neutral, citation-backed Wikipedia article about your business. Wikipedia pages appear in 47.9% of ChatGPT top-10 citations.',
     'confirmed', 'high',
     '[{"source":"Princeton GEO Study (2024)","url":"https://arxiv.org/abs/2404.11973","summary":"Wikipedia = 47.9% of ChatGPT top-10 citation share."}]'::jsonb,

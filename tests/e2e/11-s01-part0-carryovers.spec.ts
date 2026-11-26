@@ -21,9 +21,9 @@ const test = testSignedInAs(() => account);
 let auditId = "";
 
 const HERO_ANSWER = {
-  name: "Hero Home Services",
+  name: "Wren Home Services",
   source: "og:site_name",
-  aliases: ["herohomeservices", "HeroHomeServices"],
+  aliases: ["wrenhomeservices", "WrenHomeServices"],
 };
 
 test.beforeAll(async () => {
@@ -81,8 +81,8 @@ test.describe("S01 part 0: carry-over fixes", () => {
     );
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.goto("/brands/wizard");
-    await page.getByLabel("Brand name").fill("herohomeservices");
-    await page.getByLabel("Domain").fill("herohomeservices.com.au");
+    await page.getByLabel("Brand name").fill("wrenhomeservices");
+    await page.getByLabel("Domain").fill("wrenhomeservices.com.au");
     await page.getByLabel("Domain").blur();
     const notice = page.locator("[data-name-run-together]");
     await expect(notice).toBeVisible();
@@ -92,10 +92,10 @@ test.describe("S01 part 0: carry-over fixes", () => {
     await page.screenshot({ path: `${DIR}/wizard-step1-390-light-${SHOT}.png`, fullPage: false });
     await page.setViewportSize({ width: 1240, height: 900 });
 
-    await expect(notice).toContainText("Use “Hero Home Services” · Keep “herohomeservices”");
-    await expect(page.getByLabel("Brand name")).toHaveValue("herohomeservices");
+    await expect(notice).toContainText("Use “Wren Home Services” · Keep “wrenhomeservices”");
+    await expect(page.getByLabel("Brand name")).toHaveValue("wrenhomeservices");
     await page.getByTestId("wizard-use-site-name").click();
-    await expect(page.getByLabel("Brand name")).toHaveValue("Hero Home Services");
+    await expect(page.getByLabel("Brand name")).toHaveValue("Wren Home Services");
     await expect(page.locator('[data-name-suggested="site"]')).toHaveText(
       "Suggested from your website's name. Edit if it's different.",
     );
@@ -114,12 +114,12 @@ test.describe("S01 part 0: carry-over fixes", () => {
     );
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.goto("/brands/wizard");
-    await page.getByLabel("Brand name").fill("Hero Plumbing");
-    await page.getByLabel("Domain").fill("herohomeservices.com.au");
+    await page.getByLabel("Brand name").fill("Wren Plumbing");
+    await page.getByLabel("Domain").fill("wrenhomeservices.com.au");
     await page.getByLabel("Domain").blur();
     const offer = page.getByTestId("wizard-site-name-offer");
     await expect(offer).toHaveText(
-      "Your website calls the business “Hero Home Services”. Use “Hero Home Services”",
+      "Your website calls the business “Wren Home Services”. Use “Wren Home Services”",
     );
     await page.waitForTimeout(500);
     await page.screenshot({
@@ -132,9 +132,9 @@ test.describe("S01 part 0: carry-over fixes", () => {
       fullPage: false,
     });
     await page.setViewportSize({ width: 1240, height: 900 });
-    await expect(page.getByLabel("Brand name")).toHaveValue("Hero Plumbing");
+    await expect(page.getByLabel("Brand name")).toHaveValue("Wren Plumbing");
     await page.getByTestId("wizard-use-site-name").click();
-    await expect(page.getByLabel("Brand name")).toHaveValue("Hero Home Services");
+    await expect(page.getByLabel("Brand name")).toHaveValue("Wren Home Services");
     await expect(offer).toHaveCount(0);
   });
 
@@ -143,10 +143,10 @@ test.describe("S01 part 0: carry-over fixes", () => {
       route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"Internal"}' }),
     );
     await page.goto("/brands/wizard");
-    await page.getByLabel("Domain").fill("herohomeservices.com.au");
+    await page.getByLabel("Domain").fill("wrenhomeservices.com.au");
     await page.getByLabel("Domain").blur();
     await expect(page.locator('[data-site-name-ask="failed"]')).toHaveCount(1);
-    await page.getByLabel("Brand name").fill("Hero Home Services");
+    await page.getByLabel("Brand name").fill("Wren Home Services");
     await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 

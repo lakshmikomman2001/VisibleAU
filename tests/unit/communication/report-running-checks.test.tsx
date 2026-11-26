@@ -80,7 +80,7 @@ describe("the status of an Enhanced report while its checks run", () => {
           : Response.json([
               {
                 id: "r1",
-                headline: "TechCore IT: AI visibility, week 47",
+                headline: "NumbaTek IT: AI visibility, week 47",
                 periodLabel: "2026-W47",
                 reportType: "weekly",
                 pdfUrl: null,

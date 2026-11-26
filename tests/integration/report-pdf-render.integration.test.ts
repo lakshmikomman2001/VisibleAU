@@ -28,7 +28,7 @@ let fx: ReportFixture;
 beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
   fx = await seedReportFixture(sql, {
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     audits: [AUDIT_37, AUDIT_38, AUDIT_39],
   });
 }, 180_000);

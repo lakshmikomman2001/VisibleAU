@@ -7,6 +7,7 @@
  */
 import type postgres from "postgres";
 import type { ReactElement } from "react";
+import type { ReportSection } from "@/lib/communication/types";
 import type { ReportDataV2 } from "@/lib/reports/report-snapshot";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
 import { runReportGeneration } from "@/tests/helpers/report-generation";
@@ -33,6 +34,11 @@ export async function renderSeededReport(
   sql: postgres.Sql,
   seed: SeededReportBrand,
   version: ReportVersion,
+  /**
+   * S02 part 0: a report template's sections (the generator stores its template; the renderer reads its sections),
+   * and `pdf: false` to collect the pages' text without laying out the PDF file (`pdf` is then empty).
+   */
+  options: { sections?: ReportSection[] | null; pdf?: boolean } = {},
 ): Promise<RenderedReport> {
   await sql`
     UPDATE org_feature_flags SET is_enabled = ${version !== "today"}
@@ -61,15 +67,16 @@ export async function renderSeededReport(
       auditId: row.audit_id,
       periodType: "weekly",
       periodLabel: row.period_label,
-      sections: null,
+      sections: options.sections ?? null,
       contentsSnapshot: row.contents_snapshot,
     });
     if (!data) throw new Error(`${seed.spec.key} ${version}: no render data`);
-    const pdf = await buildReportPdf(data);
+    const pdf = options.pdf === false ? Buffer.alloc(0) : await buildReportPdf(data);
     await sql`DELETE FROM generated_reports WHERE id = ${reportId}`;
     const doc = <ReportDocument data={data} />;
     const pages = collectPdfPages(doc);
-    return { data, doc, pdf, pages, text: pages.flat().join("\n"), pageCount: pdfPageCount(pdf) };
+    const pageCount = options.pdf === false ? pages.length : pdfPageCount(pdf);
+    return { data, doc, pdf, pages, text: pages.flat().join("\n"), pageCount };
   } finally {
     await sql`
       UPDATE org_feature_flags SET is_enabled = true

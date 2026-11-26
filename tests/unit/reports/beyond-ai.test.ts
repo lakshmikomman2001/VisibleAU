@@ -37,14 +37,14 @@ const ROBOTS_OK = {
 
 function raw(overrides: Partial<BeyondAiRaw> = {}): BeyondAiRaw {
   return {
-    brand: { abn: "17701710947", youtubeChannelUrl: null, domain: "techcoreit.com.au" },
+    brand: { abn: "51824753605", youtubeChannelUrl: null, domain: "numbatekit.com.au" },
     entity: {
       abnVerified: true,
-      abnNumber: "17701710947",
-      abnEntityName: "ASTORIO GROUP PTY LTD",
+      abnNumber: "51824753605",
+      abnEntityName: "QUOLLEN GROUP PTY LTD",
       abnStatus: "Active",
       wikipediaAuPresent: false,
-      auTldDomains: ["techcoreit.com.au"],
+      auTldDomains: ["numbatekit.com.au"],
       checkedAt: RECENT,
     },
     youtube: null,
@@ -77,7 +77,7 @@ describe("business identity", () => {
     const v = identityView(answers(raw()).identity, BRAND);
     expect(v.pill).toEqual({ text: "ABN verified", tone: "good" });
     expect(v.lines.map((l) => l.text)).toEqual([
-      "Active · ASTORIO GROUP PTY LTD · checked 22 Nov 2026",
+      "Active · QUOLLEN GROUP PTY LTD · checked 22 Nov 2026",
       // S01B part 4f (LLD amendment 55: "Mono text uses words, never symbols the PDF font lacks: '.au domain: yes'").
       ".au domain: yes · Wikipedia: no article",
     ]);
@@ -136,7 +136,7 @@ describe("YouTube", () => {
   const row = {
     checkStatus: "confirmed",
     unavailableReason: null,
-    channelTitle: "TechCore IT",
+    channelTitle: "NumbaTek IT",
     channelTotalVideos: 14,
     lastUploadAt: new Date("2026-11-02T00:00:00Z"),
     gaps: [],

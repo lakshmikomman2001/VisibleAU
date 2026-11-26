@@ -199,12 +199,12 @@ async function uploadLogo(): Promise<string> {
 describe("who can change report branding", () => {
   it("an owner saves the workspace branding; saving again updates the same row, and both are audit-trailed", async () => {
     signIn("owner");
-    const first = await put({ agencyName: "Splice Marketing", contactLine: "02 9000 0000" });
+    const first = await put({ agencyName: "Possum Marketing", contactLine: "02 9000 0000" });
     expect(first.status).toBe(200);
     const [row] = await workspaceRows();
     const second = await put({
-      agencyName: "Splice Marketing",
-      contactLine: "hello@splicemarketing.com.au",
+      agencyName: "Possum Marketing",
+      contactLine: "hello@possummarketing.com.au",
     });
     expect(second.status).toBe(200);
     expect(second.body.changed).toEqual(["contactLine"]);
@@ -228,7 +228,7 @@ describe("who can change report branding", () => {
   it("an admin can save too", async () => {
     signIn("admin");
     expect(
-      (await put({ agencyName: "Splice Marketing", contactLine: "02 9000 0000" })).status,
+      (await put({ agencyName: "Possum Marketing", contactLine: "02 9000 0000" })).status,
     ).toBe(200);
   });
 
@@ -271,7 +271,7 @@ describe("who can change report branding", () => {
       new Request("http://localhost/api/agency/branding", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agencyName: "Splice Marketing", contactLine: "02 9000 0000" }),
+        body: JSON.stringify({ agencyName: "Possum Marketing", contactLine: "02 9000 0000" }),
       }),
     );
     expect(res.status).toBe(200);
@@ -284,7 +284,7 @@ describe("who can change report branding", () => {
       "https://example.com/logo.png",
       `/api/branding/logo/${randomUUID()}/${randomUUID()}.png`,
     ]) {
-      expect((await put({ agencyName: "Splice Marketing", logoUrl })).body.error).toBe(
+      expect((await put({ agencyName: "Possum Marketing", logoUrl })).body.error).toBe(
         "logoUrl: upload the logo first",
       );
     }
@@ -368,10 +368,10 @@ describe("what the report PDF prints", () => {
     signIn("owner");
     const logoUrl = await uploadLogo();
     expect(
-      (await put({ agencyName: "Splice Marketing", logoUrl, contactLine: "02 9000 0000" })).status,
+      (await put({ agencyName: "Possum Marketing", logoUrl, contactLine: "02 9000 0000" })).status,
     ).toBe(200);
     const data = await reportAgency(fx.brandId, fx.audits[39]);
-    expect(data.agency).toMatchObject({ name: "Splice Marketing", logoUrl });
+    expect(data.agency).toMatchObject({ name: "Possum Marketing", logoUrl });
 
     const { loadAgencyLogo } = await import("@/lib/reports/agency-logo-loader");
     const logo = await loadAgencyLogo(logoUrl);
@@ -380,7 +380,7 @@ describe("what the report PDF prints", () => {
 
     const { buildReportPdf, ReportDocument } = await import("@/lib/communication/pdf-builder");
     const cover = collectPdfPages(<ReportDocument data={data} logo={logo} />)[0].join("\n");
-    expect(cover).toContain("Splice Marketing");
+    expect(cover).toContain("Possum Marketing");
     expect(cover).toContain("Powered by");
     const pdf = await buildReportPdf(data);
     const raw = pdf.toString("latin1");
@@ -402,7 +402,7 @@ describe("what the report PDF prints", () => {
     expect(a.agency.name).toBe("Splice Digital");
     expect(a.agency.logoUrl).toBe(workspaceLogo);
     expect(a.agency.contactLine).toBe("02 9000 0000");
-    expect(b.agency.name).toBe("Splice Marketing");
+    expect(b.agency.name).toBe("Possum Marketing");
 
     const { DELETE } = await import("@/app/api/report-branding/route");
     const res = await DELETE(
@@ -411,7 +411,7 @@ describe("what the report PDF prints", () => {
       }),
     );
     expect(await res.json()).toEqual({ removed: 1 });
-    expect((await reportAgency(fx.brandId, fx.audits[39])).agency.name).toBe("Splice Marketing");
+    expect((await reportAgency(fx.brandId, fx.audits[39])).agency.name).toBe("Possum Marketing");
   });
 
   it("a brand's form saved with nothing in it adds no row; emptying an override removes it, audit-trailed", async () => {
@@ -449,7 +449,7 @@ describe("what the report PDF prints", () => {
       ORDER BY created_at DESC LIMIT 1
     `;
     expect(last.metadata).toMatchObject({ scope: "brand", brandId: BRAND_B, removed: true });
-    expect((await reportAgency(BRAND_B, AUDIT_B)).agency.name).toBe("Splice Marketing");
+    expect((await reportAgency(BRAND_B, AUDIT_B)).agency.name).toBe("Possum Marketing");
   });
 
   it("the preview is for owners and admins only, and no shared cache may keep any answer", async () => {
@@ -486,7 +486,7 @@ describe("what the report PDF prints", () => {
     const { GET } = await import("@/app/api/report-branding/preview/route");
     const res = await GET(
       new Request(
-        "http://localhost/api/report-branding/preview?agencyName=Splice%20Marketing&footerText=Confidential&brandName=Omega%20Services",
+        "http://localhost/api/report-branding/preview?agencyName=Possum%20Marketing&footerText=Confidential&brandName=Yabby%20Services",
       ),
     );
     expect(res.status).toBe(200);
@@ -502,15 +502,15 @@ describe("what the report PDF prints", () => {
     const { BrandingPreviewDocument } = await import("@/lib/reports/pdf/report-document");
     const [page] = collectPdfPages(
       <BrandingPreviewDocument
-        agency={{ name: "Splice Marketing", footerText: null, contactLine: "02 9000 0000" }}
-        brandName="Omega Services"
+        agency={{ name: "Possum Marketing", footerText: null, contactLine: "02 9000 0000" }}
+        brandName="Yabby Services"
         logo={null}
       />,
     );
-    expect(page).toContain("Splice Marketing");
-    expect(page).toContain("SP");
+    expect(page).toContain("Possum Marketing");
+    expect(page).toContain("PO");
     expect(page).toContain(
-      "Confidential · Prepared for Omega Services by Splice Marketing · 02 9000 0000",
+      "Confidential · Prepared for Yabby Services by Possum Marketing · 02 9000 0000",
     );
   }, 60_000);
 });
@@ -521,7 +521,7 @@ describe("where it's found", () => {
     const { GET } = await import("@/app/api/report-branding/route");
     const res = await GET(new Request(`http://localhost/api/report-branding?brandId=${BRAND_B}`));
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ agencyName: "Splice Marketing", canEdit: false });
+    expect(await res.json()).toMatchObject({ agencyName: "Possum Marketing", canEdit: false });
     const other = await GET(
       new Request(`http://localhost/api/report-branding?brandId=${randomUUID()}`),
     );
@@ -533,7 +533,7 @@ describe("where it's found", () => {
     signIn("owner");
     const ownerHtml = renderToStaticMarkup(await Page());
     expect(ownerHtml).toContain("data-report-branding-form");
-    expect(ownerHtml).toContain('value="Splice Marketing"');
+    expect(ownerHtml).toContain('value="Possum Marketing"');
     expect(ownerHtml).toContain("Sigma Plumbing");
     signIn("viewer");
     const viewerHtml = renderToStaticMarkup(await Page());

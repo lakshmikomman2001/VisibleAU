@@ -134,7 +134,7 @@ const ENGINE_NAMES: Record<string, string> = {
 
 describe("the W44 report PDF says what the audit pages say", () => {
   it("names the brand, the period, the audit it's based on and why, and when it was generated (AEDT)", () => {
-    expect(w44.text).toContain("Omega Services");
+    expect(w44.text).toContain("Yabby Services");
     expect(w44.text).toContain("Week 44, 2026 (26 Oct – 1 Nov)");
     expect(w44.text).toContain("Based on Audit #39 · 1 Nov 2026");
     expect(w44.text).toContain(

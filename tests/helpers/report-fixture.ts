@@ -1,6 +1,6 @@
 /**
- * DEMO-BLOCKER (1 Nov) -- a brand shaped like production's Omega Services
- * (Splice Marketing) with Audits #37, #38 and #39 in 2026-W44, for the
+ * DEMO-BLOCKER (1 Nov) -- an invented brand (S02 part 0: Yabby Services, of Possum
+ * Marketing) shaped like a real client's, with Audits #37, #38 and #39 in 2026-W44, for the
  * report PDF's tests and render check:
  * - #37 (31 Oct): Claude failed all 13 questions (spend limit), 5 of 30
  *   mentions (ChatGPT 2, Gemini 0, Perplexity 3), directories cited
@@ -42,9 +42,9 @@ export const EVERYDAY_QUESTIONS = [
   "Which companies offer regular property maintenance in Castle Hill?",
 ];
 export const BRANDED_QUESTIONS = [
-  "Is Omega Services reputable?",
-  "What do customers say about Omega Services?",
-  "Does Omega Services service Castle Hill?",
+  "Is Yabby Services reputable?",
+  "What do customers say about Yabby Services?",
+  "Does Yabby Services service Castle Hill?",
 ];
 
 export const SPEND_LIMIT_MESSAGE = "400 You have reached your specified API usage limits.";
@@ -69,7 +69,7 @@ export interface FixtureAuditSpec {
   /** 15 Nov, part 2: the everyday questions this audit asked, instead of EVERYDAY_QUESTIONS. */
   everydayQuestions?: readonly string[];
   /**
-   * 17 Nov, part 1: the sources each mention links, instead of the brand's own site (production's Hero: every
+   * 17 Nov, part 1: the sources each mention links, instead of the brand's own site (a real client's audit: every
    * mention linked a source, its directory profiles, never its own site). Not given: the brand's own site.
    */
   mentionSources?: ReadonlyArray<{ domain: string; url: string }>;
@@ -144,12 +144,12 @@ export async function seedReportFixture(
   const orgId = randomUUID();
   const brandId = randomUUID();
   const tag = orgId.slice(0, 8);
-  const brandName = options.brandName ?? "Omega Services";
-  const domain = `omega-${tag}.example.com.au`;
+  const brandName = options.brandName ?? "Yabby Services";
+  const domain = `yabby-${tag}.example.com.au`;
 
   await sql`
     INSERT INTO organizations (id, clerk_org_id, name, slug)
-    VALUES (${orgId}, ${`report-fixture-${tag}`}, ${`Splice Marketing ${tag}`}, ${`report-fixture-${tag}`})
+    VALUES (${orgId}, ${`report-fixture-${tag}`}, ${`Possum Marketing ${tag}`}, ${`report-fixture-${tag}`})
   `;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions,

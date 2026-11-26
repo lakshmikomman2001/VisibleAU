@@ -71,16 +71,16 @@ const EVERYDAY = Array.from(
   (_, i) => `Who is a reliable plumber near Bondi? (${i})`,
 );
 const BRANDED = [
-  "Is Omega Services a good choice for plumbing in Bondi?",
-  "Omega Services vs Delta Plumbing — which is better in Bondi?",
-  "What are the best alternatives to Omega Services in Bondi?",
+  "Is Yabby Services a good choice for plumbing in Bondi?",
+  "Yabby Services vs Delta Plumbing — which is better in Bondi?",
+  "What are the best alternatives to Yabby Services in Bondi?",
 ];
 const RANKED_MENTION =
-  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Omega Services, a Bondi plumber with fast call-outs.\n5. Delta Plumbing";
+  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Yabby Services, a Bondi plumber with fast call-outs.\n5. Delta Plumbing";
 const NO_MENTION = "Good local options: Alpha Plumbing, Beta Plumbing and Gamma Plumbing.";
 // Long enough to overflow a 320px screen on one line.
 const LONG_HIPAGES =
-  "https://hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567";
+  "https://hipages.com.au/connect/yabbyservicesplumbingandgasfittingbondi/service/1234567";
 const HIPAGES = [{ url: LONG_HIPAGES, domain: "hipages.com.au" }];
 
 const sql = postgres(DB_URL, { max: 1 });
@@ -132,7 +132,7 @@ async function seedFinishedAudit(
 async function seedBrand(orgId: string, brandId: string) {
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, prompt_pack, prompt_pack_generator_version, classification_status, classification, category_confirmed_at, location_mode)
-    VALUES (${brandId}, ${orgId}, 'Omega Services', 'omegaservices.example.com.au', 'tradies', 'au',
+    VALUES (${brandId}, ${orgId}, 'Yabby Services', 'yabbyservices.example.com.au', 'tradies', 'au',
       ARRAY[]::text[], 'Bondi', 'NSW',
       ${sql.json([...EVERYDAY, ...BRANDED])},
       ${PROMPT_GENERATOR_VERSION},
@@ -220,7 +220,7 @@ test.beforeAll(async () => {
   await sql`
     INSERT INTO generated_reports (id, brand_id, organization_id, audit_id, report_type, period_label, narrative_text, headline, pdf_failure_reason)
     VALUES (${REPORT_ID}, ${BRAND_ID}, ${ORG_ID}, ${FINISHED_AUDIT}, 'monthly', 'October 2026',
-      'Omega Services was mentioned in 3 of 40 answers.', 'Omega Services: AI visibility, October 2026', 'render_error')
+      'Yabby Services was mentioned in 3 of 40 answers.', 'Yabby Services: AI visibility, October 2026', 'render_error')
   `;
   const [pack] = await sql<
     { id: string }[]
@@ -802,7 +802,7 @@ test("breadcrumb: parents are links, the current page isn't (1280 and 375px)", a
     ["Workspace", "/dashboard"],
     ["Brands", "/brands"],
     // 14 Nov, part 6: the brand's name (its layout names it), not "Brand".
-    ["Omega Services", `/brands/${BRAND_ID}`],
+    ["Yabby Services", `/brands/${BRAND_ID}`],
     ["Trust", `/brands/${BRAND_ID}/trust`],
   ];
   await expect(links).toHaveCount(parents.length);
@@ -1016,10 +1016,10 @@ test("Brands list: audit #36 shows '8%' over '3 of 40'; no audit and too few ans
     page.getByRole("link").filter({ hasText: brand }).locator("[data-visibility-cell]");
 
   // Its latest audit (#37) is still running; Visibility is the latest complete one.
-  const omega = cell("Omega Services");
-  await expect(omega).toContainText("8%");
-  await expect(omega).toContainText("3 of 40");
-  await expect(omega).not.toContainText("7.5");
+  const yabby = cell("Yabby Services");
+  await expect(yabby).toContainText("8%");
+  await expect(yabby).toContainText("3 of 40");
+  await expect(yabby).not.toContainText("7.5");
 
   await expect(cell("No Audit Co")).toHaveText(/—\s*No audit yet/);
   await expect(cell("Thin Answers Co")).toHaveText(/—\s*Not enough answers/);

@@ -139,14 +139,16 @@ export function displayRecommendationTitle(item: {
   return unchecked ? `${LEGACY_TITLE_PREFIX}${title}` : title;
 }
 
-/** The advice to display: entity-profiles rebuilt from its stored basis and the audit's cited
- * directories (getCitedDirectoryNames), so stored items show the current steps; anything else as stored. */
-export function displayRecommendationAction(
-  item: { recommendationKey: string; confidenceBasis: string | null | undefined; action: string },
-  citedDirectories: readonly string[],
-): string {
+/** The advice to display: entity-profiles rebuilt from its stored basis, so stored items show the current
+ * words; anything else as stored. (S02 part 0: the audit's cited directories were a parameter here, unread since
+ * S01C dropped the steps that named them; removed with the lookups its callers made.) */
+export function displayRecommendationAction(item: {
+  recommendationKey: string;
+  confidenceBasis: string | null | undefined;
+  action: string;
+}): string {
   return item.recommendationKey === "entity-profiles"
-    ? entityProfilesAction(item.confidenceBasis, citedDirectories)
+    ? entityProfilesAction(item.confidenceBasis)
     : item.action;
 }
 

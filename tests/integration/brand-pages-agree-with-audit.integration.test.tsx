@@ -3,7 +3,7 @@
  * 17 Nov, part 3 (Sri: "any page whose numbers disagree with the audit page destroys trust") -- one consistency test:
  * every brand page that shows an audit figure, rendered for the same audits, says what the audit page says.
  *
- * Hero Home Services' shape: four engines, ten everyday questions and three branded ones; #46 (3 Nov) measured 0% by
+ * Wren Home Services' shape: four engines, ten everyday questions and three branded ones; #46 (3 Nov) measured 0% by
  * the old name check and is excluded from trends; #49 (14 Nov) 11 of 40; #50 (15 Nov) 13 of 40 (ChatGPT 9, Claude
  * 1, Gemini 0, Perplexity 3), every mention linking Hero's Localsearch profile, never its site. A task made from
  * #49's recommendations (score_before 80, its expected-impact bucket) was re-audited by #50; a drift alert compares
@@ -72,7 +72,7 @@ const W46_49 = "2026-11-14T01:00:00.000Z";
 const W46_50 = "2026-11-15T01:00:00.000Z";
 const LOCALSEARCH = {
   domain: "localsearch.com.au",
-  url: "https://www.localsearch.com.au/profile/hero-home-services/castle-hill-nsw/abc123",
+  url: "https://www.localsearch.com.au/profile/wren-home-services/castle-hill-nsw/abc123",
 };
 
 let client: ReturnType<typeof postgres>;
@@ -152,7 +152,7 @@ beforeAll(async () => {
   client = postgres(url, { max: 1 });
   session.userId = randomUUID();
   hero = await seedReportFixture(client, {
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     tier: "agency",
     audits: [
       {
@@ -381,7 +381,7 @@ describe("every other page says the same", () => {
   it("Prompt trends: the latest audit's everyday questions, audit by audit with counts", async () => {
     const { prompts } = (await api("prompts")) as { prompts: string[] };
     expect(prompts).toHaveLength(10);
-    expect(prompts.some((p) => p.includes("Omega") || p.includes("Hero Home"))).toBe(false);
+    expect(prompts.some((p) => p.includes("Omega") || p.includes("Wren Home"))).toBe(false);
     session.organizationId = hero.orgId;
     const { GET } = await import("@/app/api/brands/[brandId]/prompts/[promptId]/trend/route");
     const res = await GET(new Request("http://localhost"), {

@@ -68,13 +68,13 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
 
     await page
       .getByLabel(/brand name/i)
-      .or(page.getByPlaceholder(/bondi plumbing/i))
-      .fill("Acceptance Bondi Plumbing");
+      .or(page.getByPlaceholder(/galah plumbing/i))
+      .fill("Acceptance Galah Plumbing");
 
     await page
       .getByLabel(/domain/i)
-      .or(page.getByPlaceholder(/bondiplumbing\.com\.au/i))
-      .fill("acceptancebondiplumbing.com.au");
+      .or(page.getByPlaceholder(/galahplumbing\.com\.au/i))
+      .fill("acceptancegalahplumbing.com.au");
 
     await page.getByLabel("Vertical").selectOption("tradies");
     await page.getByRole("button", { name: /create brand/i }).click();
@@ -82,7 +82,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     // After create → list page (Sprint 1 §9 step 5)
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
     // The brand's row in the list (the brand switcher shows its name too).
-    await expect(page.getByRole("link", { name: /Acceptance Bondi Plumbing/ })).toBeVisible({
+    await expect(page.getByRole("link", { name: /Acceptance Galah Plumbing/ })).toBeVisible({
       timeout: 10_000,
     });
 
@@ -90,7 +90,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     const res = await page.request.get("/api/brands");
     // GET /api/brands answers { brands } (and has since 29cd3d0), not a bare array.
     const { brands } = (await res.json()) as { brands: Array<{ name: string; id: string }> };
-    const created = brands.find((b) => b.name === "Acceptance Bondi Plumbing");
+    const created = brands.find((b) => b.name === "Acceptance Galah Plumbing");
     if (created) {
       createdBrandIds.push(created.id);
       acceptanceBrandId = created.id;
@@ -102,7 +102,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
 
     await page.goto(`/brands/${acceptanceBrandId}`);
     await expect(
-      page.getByRole("heading", { name: "Acceptance Bondi Plumbing", level: 1 }),
+      page.getByRole("heading", { name: "Acceptance Galah Plumbing", level: 1 }),
     ).toBeVisible();
 
     // Enter edit mode
@@ -112,7 +112,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     // getByDisplayValue is Testing Library's, not Playwright's (it threw since 29cd3d0).
     const nameInput = page.getByLabel(/brand name/i).or(page.locator('input[name="name"]'));
     await nameInput.clear();
-    await nameInput.fill("Acceptance Bondi Plumbing — Edited");
+    await nameInput.fill("Acceptance Galah Plumbing — Edited");
 
     // Save
     // "Save changes": the page has other Save buttons since 819737c ("Save websites").
@@ -120,7 +120,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
 
     // Updated name visible (the page's heading: the breadcrumb and switcher show it too)
     await expect(
-      page.getByRole("heading", { name: "Acceptance Bondi Plumbing — Edited", level: 1 }),
+      page.getByRole("heading", { name: "Acceptance Galah Plumbing — Edited", level: 1 }),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -142,7 +142,7 @@ test.describe("Sprint 1 §11 Acceptance — Browser", () => {
     await expect(page).toHaveURL(/\/brands$/, { timeout: 15_000 });
 
     // Brand not in list
-    await expect(page.getByText("Acceptance Bondi Plumbing — Edited")).toBeHidden({
+    await expect(page.getByText("Acceptance Galah Plumbing — Edited")).toBeHidden({
       timeout: 5_000,
     });
 

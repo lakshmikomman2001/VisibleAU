@@ -16,7 +16,7 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     audits: [
       {
         number: 52,

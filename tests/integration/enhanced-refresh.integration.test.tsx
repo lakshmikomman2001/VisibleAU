@@ -58,19 +58,19 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
-    agencyName: "Splice Marketing",
+    brandName: "NumbaTek IT",
+    agencyName: "Possum Marketing",
     tier: "agency",
     audits: [{ number: 52, completedAt: "2026-11-20T03:00:00.000Z", mentions: {} }],
   });
-  await sql`UPDATE brands SET abn = '17701710947', youtube_channel_url = 'https://www.youtube.com/@techcoreit' WHERE id = ${fx.brandId}`;
+  await sql`UPDATE brands SET abn = '51824753605', youtube_channel_url = 'https://www.youtube.com/@numbatekit' WHERE id = ${fx.brandId}`;
   await sql`INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled) VALUES (${fx.orgId}, 'report_v2', true)`;
   // What the recorded site runner writes: what the technical audit runner writes, now.
   runners.sql = async (brandId, orgId) => {
     await sql`INSERT INTO technical_audits (brand_id, organization_id, score_composite, findings)
       VALUES (${brandId}, ${orgId}, '41.00', ${sql.json({ robots: ROBOTS })})`;
     await sql`INSERT INTO brand_entity_scores (brand_id, abn_verified, abn_number, abn_entity_name, abn_status)
-      VALUES (${brandId}, true, '17701710947', 'ASTORIO GROUP PTY LTD', 'Active')`;
+      VALUES (${brandId}, true, '51824753605', 'QUOLLEN GROUP PTY LTD', 'Active')`;
   };
 }, 60_000);
 
@@ -90,10 +90,10 @@ async function seedOldChecks() {
   await sql`INSERT INTO technical_audits (brand_id, organization_id, score_composite, findings, created_at)
     VALUES (${fx.brandId}, ${fx.orgId}, '38.00', ${sql.json({ robots: ROBOTS })}, now() - interval '40 days 1 hour')`;
   await sql`INSERT INTO brand_entity_scores (brand_id, abn_verified, abn_number, abn_entity_name, abn_status, checked_at)
-    VALUES (${fx.brandId}, true, '17701710947', 'ASTORIO GROUP PTY LTD', 'Active', now() - interval '40 days 1 hour')`;
+    VALUES (${fx.brandId}, true, '51824753605', 'QUOLLEN GROUP PTY LTD', 'Active', now() - interval '40 days 1 hour')`;
   await sql`INSERT INTO youtube_presence_audits (brand_id, organization_id, channel_url, channel_title, channel_exists,
       channel_total_videos, match_confidence, check_status, cited_video_urls, presence_score, gaps, audited_at)
-    VALUES (${fx.brandId}, ${fx.orgId}, 'https://www.youtube.com/@techcoreit', 'TechCore IT', true, 4, 0.950,
+    VALUES (${fx.brandId}, ${fx.orgId}, 'https://www.youtube.com/@numbatekit', 'NumbaTek IT', true, 4, 0.950,
       'confirmed', '[]', 40, '[]', now() - interval '2 days 1 hour')`;
 }
 

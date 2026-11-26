@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * S00 part 4 (22 Nov; LLD 8.8.2, T2): the wizard asks the business's own site for its name when the domain is
- * entered (GET /api/brands/name-suggestion) and suggests it, editable: "TechCore IT" for techcoreit.com.au, never
+ * entered (GET /api/brands/name-suggestion) and suggests it, editable: "NumbaTek IT" for numbatekit.com.au, never
  * the run-together label. The aliases it will save are shown under the name, and sent with the brand along with the
  * suggestion. A name the owner typed is never replaced.
  */
@@ -48,39 +48,39 @@ const domainField = () => screen.getByLabelText("Domain");
 const nameField = () => screen.getByLabelText("Brand name");
 
 describe("the wizard suggests the site's own name", () => {
-  it("techcoreit.com.au -> 'TechCore IT', said to come from the website, editable", async () => {
-    const fetchImpl = stubSuggestion({ name: "TechCore IT", source: "title" });
+  it("numbatekit.com.au -> 'NumbaTek IT', said to come from the website, editable", async () => {
+    const fetchImpl = stubSuggestion({ name: "NumbaTek IT", source: "title" });
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(domainField(), { target: { value: "techcoreit.com.au" } });
+    fireEvent.change(domainField(), { target: { value: "numbatekit.com.au" } });
     fireEvent.blur(domainField());
-    await waitFor(() => expect(nameField()).toHaveValue("TechCore IT"));
+    await waitFor(() => expect(nameField()).toHaveValue("NumbaTek IT"));
     expect(String(fetchImpl.mock.calls[0][0])).toBe(
-      "/api/brands/name-suggestion?domain=techcoreit.com.au",
+      "/api/brands/name-suggestion?domain=numbatekit.com.au",
     );
     expect(document.querySelector('[data-name-suggested="site"]')).toHaveTextContent(
       "Suggested from your website's name. Edit if it's different.",
     );
     // S01 part 0 (LLD section 0.2 #5, contract C-27: "stop suggesting the name without spaces or the domain stem"):
-    // no aliases are pre-filled, so the "Also recognised as techcoreit and TechCoreIT" line S00 showed is gone.
+    // no aliases are pre-filled, so the "Also recognised as numbatekit and NumbaTekIT" line S00 showed is gone.
     expect(document.querySelector("[data-name-aliases]")).toBeNull();
-    fireEvent.change(nameField(), { target: { value: "TechCore IT Services" } });
+    fireEvent.change(nameField(), { target: { value: "NumbaTek IT Services" } });
     expect(document.querySelector('[data-name-suggested="site"]')).toBeNull();
   });
 
   it("never replaces a name the owner already typed", async () => {
-    stubSuggestion({ name: "TechCore IT", source: "og:site_name" });
+    stubSuggestion({ name: "NumbaTek IT", source: "og:site_name" });
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(nameField(), { target: { value: "Astorio Group" } });
-    fireEvent.change(domainField(), { target: { value: "techcoreit.com.au" } });
+    fireEvent.change(nameField(), { target: { value: "Quollen Group" } });
+    fireEvent.change(domainField(), { target: { value: "numbatekit.com.au" } });
     fireEvent.blur(domainField());
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(nameField()).toHaveValue("Astorio Group");
+    expect(nameField()).toHaveValue("Quollen Group");
   });
 
   it("a suggestion from the domain alone, or none, changes nothing", async () => {
     stubSuggestion({ name: null, source: null });
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(domainField(), { target: { value: "techcoreit.com.au" } });
+    fireEvent.change(domainField(), { target: { value: "numbatekit.com.au" } });
     fireEvent.blur(domainField());
     await waitFor(() => expect(fetch).toHaveBeenCalled());
     expect(nameField()).toHaveValue("");

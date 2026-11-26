@@ -1,6 +1,6 @@
 /**
- * 3 Nov -- the 404 page's "Your recent audits". Three rows read "Omega Services 18%",
- * "Omega Services 23%" and "Omega Services 17%", with nothing to tell them apart, and
+ * 3 Nov -- the 404 page's "Your recent audits". Three rows read "Yabby Services 18%",
+ * "Yabby Services 23%" and "Yabby Services 17%", with nothing to tell them apart, and
  * the 17% one was Audit #37, which only 3 of its 4 engines answered. Against the real
  * page and the local test database, on production's #37, #38 and #39.
  *

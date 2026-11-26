@@ -1,5 +1,5 @@
 /**
- * 15 Nov, part 2 (Sri's review of audit #50, Hero Home Services): the PDF's "Over time" joined #48 (25%, 11
+ * 15 Nov, part 2 (Sri's review of audit #50, Wren Home Services): the PDF's "Over time" joined #48 (25%, 11
  * everyday questions, generator v3, including the off-topic "What Australian tech companies…" question 0bd1221
  * removed) and #50 (33%, 10 everyday questions, generator v4) with one line -- a rise that is really a change of
  * questions. Both had the same prompt_pack_version: it's stamped when the audit row is created, before
@@ -111,7 +111,7 @@ beforeAll(async () => {
   process.env.SERVICE_DATABASE_URL = url;
   client = postgres(url, { max: 1 });
   fx = await seedReportFixture(client, {
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     tier: "agency",
     audits: [
       {

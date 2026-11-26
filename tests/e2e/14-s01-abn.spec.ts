@@ -18,9 +18,9 @@ const test = testSignedInAs(() => account);
 let brandId = "";
 
 const SUGGESTION = {
-  abn: "17701710947",
-  entity: "ASTORIO GROUP PTY LTD",
-  businessName: "TechCore IT",
+  abn: "51824753605",
+  entity: "QUOLLEN GROUP PTY LTD",
+  businessName: "NumbaTek IT",
   postcode: "2765",
   state: "NSW",
   abnStatus: "Active",
@@ -34,7 +34,7 @@ test.beforeAll(async () => {
     const [brand] = await sql<{ id: string }[]>`
       INSERT INTO brands (organization_id, name, domain, vertical, region, primary_regions, suburb, state, country,
         postcode, location_mode, location_confirmed_at, classification_status, category_confirmed_at, categories)
-      VALUES (${account.organizationId}, 'TechCore IT', 'techcore-p01.com.au', 'local_business', 'au',
+      VALUES (${account.organizationId}, 'NumbaTek IT', 'numbatek-p01.com.au', 'local_business', 'au',
         ARRAY['NSW:Riverstone']::text[], 'Riverstone', 'NSW', 'Australia', '2765', 'fixed', now(), 'complete', now(),
         ARRAY['trades_general']::text[])
       RETURNING id`;
@@ -65,7 +65,7 @@ test.describe("S01 part 11: the ABN field and the ABN suggestion", () => {
     const banner = page.getByTestId("p01-abn");
     await expect(banner).toContainText("Is this your ABN?");
     await expect(page.getByTestId("p01-abn-line")).toHaveText(
-      "17 701 710 947 · ASTORIO GROUP PTY LTD · NSW 2765 · Active",
+      "51 824 753 605 · QUOLLEN GROUP PTY LTD · NSW 2765 · Active",
     );
     await expect(page.getByLabel("ABN", { exact: true })).toBeDisabled();
     await banner.scrollIntoViewIfNeeded();
@@ -85,7 +85,7 @@ test.describe("S01 part 11: the ABN field and the ABN suggestion", () => {
     await page.setViewportSize({ width: 1240, height: 900 });
     await banner.getByRole("button", { name: "Confirm" }).click();
     await expect(banner).toHaveCount(0);
-    await expect(page.getByLabel("ABN", { exact: true })).toHaveValue("17 701 710 947");
+    await expect(page.getByLabel("ABN", { exact: true })).toHaveValue("51 824 753 605");
     await expect(page.getByText("ABN saved. We'll check the register now.")).toBeVisible();
   });
 
@@ -96,7 +96,7 @@ test.describe("S01 part 11: the ABN field and the ABN suggestion", () => {
     await page.goto(`/brands/${brandId}`);
     await page.getByRole("button", { name: "Edit" }).click();
     const field = page.getByLabel("ABN", { exact: true });
-    await field.fill("17 701 710 948");
+    await field.fill("51 824 753 606");
     await field.blur();
     await expect(field).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByText("This isn't a valid ABN. Check the digits.")).toBeVisible();

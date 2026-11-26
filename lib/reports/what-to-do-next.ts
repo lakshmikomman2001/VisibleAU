@@ -164,7 +164,7 @@ export async function loadWhatToDoNext(
       title: displayRecommendationTitle(i),
       // S01C part 2c (LLD amendment 61): the Action Center's own words (an entity-profiles item is always shown with
       // its current text, lib/recommendations/confidence-labels.ts), so the PDF and the Action Center say the same.
-      evidence: `${displayRecommendationAction(i, [])}${suffix}`,
+      evidence: `${displayRecommendationAction(i)}${suffix}`,
       priority: asPriority(i.expectedImpactScore),
       status: asStatus(i.status),
       createdAt: i.createdAt.toISOString(),

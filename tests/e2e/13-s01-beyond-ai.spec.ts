@@ -34,7 +34,7 @@ test.beforeAll(async () => {
     const [brand] = await sql<{ id: string }[]>`
       INSERT INTO brands (organization_id, name, domain, vertical, region, primary_regions, suburb, state, country,
         location_mode, location_confirmed_at, classification_status, category_confirmed_at, categories)
-      VALUES (${account.organizationId}, 'TechCore IT', 'techcore-p07.com.au', 'local_business', 'au',
+      VALUES (${account.organizationId}, 'NumbaTek IT', 'numbatek-p07.com.au', 'local_business', 'au',
         ARRAY['NSW:Riverstone']::text[], 'Riverstone', 'NSW', 'Australia', 'fixed', now(), 'complete', now(),
         ARRAY['trades_general']::text[])
       RETURNING id`;
@@ -67,7 +67,7 @@ test.beforeAll(async () => {
       })}, now() - interval '1 day')`;
     await sql`INSERT INTO youtube_presence_audits (brand_id, organization_id, check_status, channel_title,
         channel_total_videos, last_upload_at, audited_at)
-      VALUES (${brand.id}, ${account.organizationId}, 'confirmed', 'TechCore IT', 14, now() - interval '20 days',
+      VALUES (${brand.id}, ${account.organizationId}, 'confirmed', 'NumbaTek IT', 14, now() - interval '20 days',
         now() - interval '2 days')`;
   } finally {
     await sql.end();

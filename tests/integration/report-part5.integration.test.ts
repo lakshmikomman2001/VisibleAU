@@ -1,6 +1,6 @@
 /**
  * DEMO-BLOCKER (1 Nov), part 5 -- Sri's decisions on the part 1 findings,
- * against the real functions and a database seeded like Omega Services:
+ * against the real functions and a database seeded like Yabby Services:
  * 3. "your profile" is only stated for a linked listing: Not linked yet /
  *    0 cited / k cited, counted per answer;
  * 4. a brand row without an agency name doesn't hide the workspace's;
@@ -105,7 +105,7 @@ beforeAll(async () => {
   // Point 4: the brand's own row has no agency name; the workspace's does.
   await sql`
     INSERT INTO agency_brand_assets (organization_id, brand_id, agency_name)
-    VALUES (${fx.orgId}, ${fx.brandId}, NULL), (${fx.orgId}, NULL, 'Splice Marketing')
+    VALUES (${fx.orgId}, ${fx.brandId}, NULL), (${fx.orgId}, NULL, 'Possum Marketing')
   `;
   // Point 5: a template that leaves out the trend and the method page.
   await sql`
@@ -194,9 +194,9 @@ describe("point 3: 'your profile' only where a listing is linked", () => {
 });
 
 describe("point 4: the agency name falls back field by field", () => {
-  it("a brand row with no agency name doesn't hide the workspace's 'Splice Marketing'", async () => {
+  it("a brand row with no agency name doesn't hide the workspace's 'Possum Marketing'", async () => {
     const text = await renderReport(REPORT_WITH_TEMPLATE);
-    expect(text).toContain("Splice Marketing");
+    expect(text).toContain("Possum Marketing");
   });
 });
 

@@ -6,13 +6,13 @@ auditSchedulesCron
 auditYoutubePresenceFn
 buildCitationSourceIntelligenceFn
 bulkReauditOrchestrate
-calculateShareOfVoiceFn
 calculateTopicalGapsFn
 captureEvidenceSnapshot
 checkCrossPlatformConsensusFn
 classifyCitationSourcesFn
 classifyExistingBrands
 classifyOnBrandCreate
+cleanupOrphanLogos
 collectGoogleSurfacesFn
 contentStructureAuditFn
 crawlerLogIngestFn
@@ -26,6 +26,8 @@ generateNarrativeReport
 generateRecommendations
 ingestAiReferralsFn
 llmstxtRefreshFn
+notifyEngineTotalFailure
+notifyModelDrift
 parseCrawlerLogFn
 refreshBotIpRangesFn
 refreshEnhancedChecksFn

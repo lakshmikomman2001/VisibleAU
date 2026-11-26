@@ -1,6 +1,6 @@
 /**
  * S01 part 4 (LLD 8.8.5, T7): general advice backed by evidence. Medium is hidden unless the audit cited medium.com
- * (in at least 3 everyday answers); LinkedIn shows on a TechCore-#52-shaped audit with "LinkedIn was cited in N of 40
+ * (in at least 3 everyday answers); LinkedIn shows on a NumbaTek-#52-shaped audit with "LinkedIn was cited in N of 40
  * answers"; other advice needs a verified research source; anything else isn't shown.
  */
 import { describe, expect, it } from "vitest";
@@ -16,7 +16,7 @@ const answer = (urls: string[], organic = true) => ({
 });
 
 /** 40 everyday answers; LinkedIn company pages cited in 9, a person's profile in 1 more, Medium in 2. */
-function techCoreShape() {
+function numbaTekShape() {
   const answers = [];
   for (let i = 0; i < 40; i += 1) {
     const urls = ["https://www.localbusinessguide.com.au/x"];
@@ -26,13 +26,13 @@ function techCoreShape() {
     answers.push(answer(urls));
   }
   // A branded answer citing LinkedIn: not an everyday answer, not counted.
-  answers.push(answer(["https://www.linkedin.com/company/techcore-it"], false));
+  answers.push(answer(["https://www.linkedin.com/company/numbatek-it"], false));
   return answers;
 }
 
 describe("countPlatformCitations", () => {
   it("counts everyday answers citing each platform once", () => {
-    expect(countPlatformCitations(techCoreShape())).toEqual({
+    expect(countPlatformCitations(numbaTekShape())).toEqual({
       everydayAnswers: 40,
       answersCiting: { LinkedIn: 10, Medium: 2 },
     });
@@ -40,9 +40,9 @@ describe("countPlatformCitations", () => {
 });
 
 describe("adviceEvidence", () => {
-  const citations = countPlatformCitations(techCoreShape());
+  const citations = countPlatformCitations(numbaTekShape());
 
-  it("LinkedIn advice shows on TechCore #52's shape, with its count", () => {
+  it("LinkedIn advice shows on NumbaTek #52's shape, with its count", () => {
     expect(adviceEvidence({ recommendationKey: "linkedin-presence" }, citations)).toEqual({
       kind: "audit",
       line: "LinkedIn was cited in 10 of 40 answers",
@@ -60,7 +60,7 @@ describe("adviceEvidence", () => {
       ),
     ).toBeNull();
     const cited = countPlatformCitations([
-      ...techCoreShape(),
+      ...numbaTekShape(),
       answer(["https://medium.com/a"]),
       answer(["https://medium.com/b"]),
     ]);
@@ -107,7 +107,7 @@ describe("evidenceBackedAdvice: what the audit page lists while report_v2 is on"
       { id: "3", recommendationKey: "press-mentions", evidenceRefs: [] },
     ];
     expect(
-      evidenceBackedAdvice(items, countPlatformCitations(techCoreShape())).map((i) => [
+      evidenceBackedAdvice(items, countPlatformCitations(numbaTekShape())).map((i) => [
         i.id,
         i.evidence.line,
       ]),

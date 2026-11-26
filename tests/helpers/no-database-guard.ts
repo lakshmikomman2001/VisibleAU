@@ -105,12 +105,17 @@ function callerFile(stack: string | undefined): string | null {
   return null;
 }
 
-/** [port, host] from the forms net.Socket#connect takes: (options), (port[, host]) and (path) for IPC. */
+/**
+ * [port, host] from the forms net.Socket#connect takes: (options), (port[, host]), (path) for IPC, and the array
+ * net.connect and tls.connect pass it already normalized ([options, callback]). S02 part 0: as the network guard has
+ * it, only a non-empty path is a pipe -- http passes the URL's `path: null` -- and the normalized array is unpacked;
+ * before, both reached a Postgres port unguarded.
+ */
 function target(args: unknown[]): { port: number; host: string } | null {
-  const [first, second] = args;
+  const [first, second] = Array.isArray(args[0]) ? (args[0] as unknown[]) : args;
   if (first && typeof first === "object") {
-    const opts = first as { port?: number | string; host?: string; path?: string };
-    if (opts.path !== undefined || opts.port === undefined) return null;
+    const opts = first as { port?: number | string; host?: string; path?: string | null };
+    if (opts.path || opts.port === undefined) return null;
     return { port: Number(opts.port), host: opts.host ?? "localhost" };
   }
   if (typeof first === "number" || (typeof first === "string" && /^\d+$/.test(first))) {

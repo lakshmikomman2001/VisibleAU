@@ -12,7 +12,6 @@ import {
 import { loadPrintableAgencyAssets, themeAssetFrom } from "@/lib/branding/agency-assets";
 import { loadPortalReports, PORTAL_LINK_SECONDS } from "@/lib/client-portal/portal-reports";
 import { storageOrNull } from "@/lib/communication/report-view";
-import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import { isEnabled } from "@/lib/flags/flags";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
@@ -180,13 +179,10 @@ export default async function ClientPortalViewPage({ params }: Props) {
         // Build 1 addendum, item 1: the client portal must show the
         // same "Check: " framing for a legacy row as every other
         // surface -- transformed here, at the source.
-        const citedDirectories = rawActions.some((r) => r.recommendationKey === "entity-profiles")
-          ? await getCitedDirectoryNames(tx, latestAudit.id, brand)
-          : [];
         actions = rawActions.map((r) => ({
           id: r.id,
           title: displayRecommendationTitle(r),
-          action: displayRecommendationAction(r, citedDirectories),
+          action: displayRecommendationAction(r),
           // 20 Nov (part 8): never "Context" or "Sentiment" -- a measured group's label, or none.
           dimensionLabel: taskDimensionLabel(r.dimension, r.recommendationKey),
           status: r.status,

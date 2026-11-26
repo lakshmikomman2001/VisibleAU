@@ -430,12 +430,6 @@ export function passesNotabilityGate(n: NotabilityEvidence): boolean {
   return outlets.size >= 2 && n.qualifyingSources.some((s) => s.scope !== "local");
 }
 
-/** The directories this audit's answers cited, most-cited first -- none when the evidence is missing. */
-function citedDirectoryNames(evidence: RecommendationEvidence): string[] {
-  if (evidence.directories.status !== "ok") return [];
-  return byShareThenName(evidence.directories.data.findings).map((f) => f.name);
-}
-
 function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | null {
   // Relevance gate: Wikipedia/entity profiles are a visibility lever, so
   // every path still needs the low-Frequency signal.
@@ -446,7 +440,7 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
     return {
       key: "entity-profiles",
       title: ENTITY_PROFILES_TITLE,
-      action: entityProfilesAction("inferred", citedDirectoryNames(evidence)),
+      action: entityProfilesAction("inferred"),
       basis: "inferred",
       expectedImpactScore: ENTITY_PROFILES_IMPACT,
     };
@@ -477,7 +471,7 @@ function evaluateWikipedia({ evidence, scoreSignal }: RuleInput): RuleOutcome | 
   return {
     key: "entity-profiles",
     title: ENTITY_PROFILES_TITLE,
-    action: entityProfilesAction("verified", citedDirectoryNames(evidence)),
+    action: entityProfilesAction("verified"),
     basis: "verified",
     evidenceRefs: [searchRef],
     expectedImpactScore: ENTITY_PROFILES_IMPACT,

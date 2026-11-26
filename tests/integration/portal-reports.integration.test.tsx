@@ -59,8 +59,8 @@ beforeAll(async () => {
     { number: 54, completedAt: "2026-11-20T03:00:00.000Z", mentions: { chatgpt: [1] } },
   ];
   a = await seedReportFixture(sql, {
-    brandName: "Hero Home Services",
-    agencyName: "Splice Marketing",
+    brandName: "Wren Home Services",
+    agencyName: "Possum Marketing",
     tier: "agency",
     audits: audit,
   });
@@ -105,7 +105,7 @@ beforeAll(async () => {
     snapshot: null,
   });
   await sql`INSERT INTO client_portal_invites (organization_id, brand_id, invite_token, invitee_name)
-    VALUES (${a.orgId}, ${a.brandId}, ${TOKEN}, 'Hero client')`;
+    VALUES (${a.orgId}, ${a.brandId}, ${TOKEN}, 'Wren client')`;
 }, 60_000);
 
 afterAll(async () => {

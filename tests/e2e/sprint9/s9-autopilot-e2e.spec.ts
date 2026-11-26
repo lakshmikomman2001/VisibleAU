@@ -50,9 +50,9 @@ async function seedBondi(orgId: string): Promise<string> {
     .insert(brands)
     .values({
       organizationId: orgId,
-      name: `${E2E_PREFIX} Bondi Plumbing`,
+      name: `${E2E_PREFIX} Galah Plumbing`,
       vertical: "tradies",
-      domain: "bondiplumbing.com.au",
+      domain: "galahplumbing.com.au",
       region: "au",
     })
     .returning();
@@ -166,7 +166,7 @@ test.describe("5.1 — The Loop, end to end", () => {
     await autopilotLoaded(page);
 
     const content = await page.textContent("body");
-    expect(content).toContain("Bondi Plumbing");
+    expect(content).toContain("Galah Plumbing");
     expect(content).toContain("Step 3 of 5");
     // 17 Nov, part 3: step 2 is the top task, never a topical gap -- topical_coverage_gaps isn't a measurement
     // (every vertical's library prompts, "no content" by default), so Bondi's seeded gap isn't shown.
@@ -211,7 +211,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
 
     // Since 84cca4d (7 Nov) the Health Check has no combined score: three checks side by side, each
     // with its own number, and "Not measured yet" for one with no result, never 0. The old "24,
@@ -231,7 +231,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   test("NO brand renders 0/100 Critical when real score is non-zero (F11)", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
     // The score circle should never show "0" followed by /100
     const scoreCircle = await page.textContent("body");
     const zeroScore = scoreCircle?.match(/\b0\s*\/\s*100/);
@@ -241,7 +241,7 @@ test.describe("5.2 — Health Check on real screen", () => {
   test("raw multidims (Position/Context/Accuracy) are absent from DOM (§12)", async ({ page }) => {
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
     const content = await page.textContent("body");
     expect(content).not.toContain("Score Position");
     expect(content).not.toContain("scorePosition");
@@ -298,7 +298,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
     await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
 
     // F26: never 5 columns. Since 84cca4d (7 Nov) the grid holds the three checks in Tailwind
     // columns (lg:grid-cols-3), not an inline repeat(N, 1fr). The #1 action is a separate panel below.
@@ -324,7 +324,7 @@ test.describe("5.3 — Responsive breakpoints", () => {
     await signInThroughForm(page, user1);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
     const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(375);
   });
@@ -374,7 +374,7 @@ test.describe("5.4 — Reduced motion (RM-02)", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await signInThroughForm(page, user1);
     await page.goto(`/brands/${bondiId}/health-check`);
-    await healthCheckLoaded(page, `${E2E_PREFIX} Bondi Plumbing`);
+    await healthCheckLoaded(page, `${E2E_PREFIX} Galah Plumbing`);
 
     const heroAnimation = await page.evaluate(() => {
       const hero = document.querySelector("[class*='motion-safe']");
@@ -461,7 +461,7 @@ test.describe("5.5 — Tier gates (F27)", () => {
     await autopilotLoaded(page);
 
     const content = await page.textContent("body");
-    expect(content).toContain("Bondi Plumbing");
+    expect(content).toContain("Galah Plumbing");
     expect(content).not.toContain("Growth plan required");
   });
 
@@ -478,7 +478,7 @@ test.describe("5.5 — Tier gates (F27)", () => {
     await autopilotLoaded(page);
 
     const content = await page.textContent("body");
-    expect(content).toContain("Bondi Plumbing");
+    expect(content).toContain("Galah Plumbing");
     expect(content).not.toContain("Growth plan required");
   });
 
@@ -616,7 +616,7 @@ test.describe("5.7 — Dashboard tracker", () => {
     await page.waitForTimeout(3000);
 
     const brandContent = await page.textContent("body");
-    expect(brandContent).toContain("Bondi Plumbing");
+    expect(brandContent).toContain("Galah Plumbing");
   });
 
   test("exactly ONE 'Work Completed' card on brand detail (F7)", async ({ page }) => {

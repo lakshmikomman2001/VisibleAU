@@ -22,7 +22,7 @@ import { reportFindings } from "@/lib/reports/report-findings";
 import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
 
 const heroEvidence = (abnVerified: boolean): LowVisibilityEvidence => ({
-  brandName: "Hero Home Services",
+  brandName: "Wren Home Services",
   everydayAnswers: 40,
   answersCitingOtherBusinesses: 6,
   businessSites: [{ domain: "jimsplumbing.com.au", answers: 4 }],
@@ -59,22 +59,22 @@ describe("Hero-shaped report data", () => {
 });
 
 describe("findings g-j's Action Center items", () => {
-  const techCoreLike = reportFindings({
+  const numbaTekLike = reportFindings({
     ...reportDataFixture("39"),
     mentionedCount: 0,
     sampleCount: 40,
     lowVisibility: {
-      brandName: "TechCore IT",
+      brandName: "NumbaTek IT",
       everydayAnswers: 40,
       answersCitingOtherBusinesses: 27,
-      businessSites: [{ domain: "kangaroo-it.com.au", answers: 27 }],
+      businessSites: [{ domain: "lorikeet-it.com.au", answers: 27 }],
       couldNotFind: [
         {
           engine: "claude",
           engineName: "Claude",
-          question: "Is TechCore IT a good choice for managed IT services in Riverstone, NSW?",
+          question: "Is NumbaTek IT a good choice for managed IT services in Riverstone, NSW?",
           quote:
-            "I was unable to find any verified information about a company specifically called TechCoreIT.",
+            "I was unable to find any verified information about a company specifically called NumbaTekIT.",
         },
       ],
       identity: {
@@ -87,10 +87,10 @@ describe("findings g-j's Action Center items", () => {
       },
     },
   });
-  const items = findingsToRecommendations(techCoreLike);
+  const items = findingsToRecommendations(numbaTekLike);
 
   it("one item per g-j finding, none for a-f", () => {
-    const rules = techCoreLike.map((f) => f.rule).filter((r) => ["g", "h", "i", "j"].includes(r));
+    const rules = numbaTekLike.map((f) => f.rule).filter((r) => ["g", "h", "i", "j"].includes(r));
     expect(items).toHaveLength(rules.length);
     expect(items.map((i) => i.recommendationKey)).toEqual(
       expect.arrayContaining([
@@ -107,7 +107,7 @@ describe("findings g-j's Action Center items", () => {
 
   it("each says the finding's own recommendation and fix, with a measured confidence", () => {
     const h = items.find((i) => i.recommendationKey === "finding-could-not-find");
-    expect(h?.title).toBe("Help AI find TechCore IT");
+    expect(h?.title).toBe("Help AI find NumbaTek IT");
     expect(h?.action).toContain("I was unable to find any verified information");
     expect(h?.confidenceBasis).toBe("verified");
     expect(h?.confidenceLabel).toBe(resolveConfidence("finding-could-not-find", "verified"));
@@ -124,6 +124,6 @@ describe("findings g-j's Action Center items", () => {
       ),
     }));
     for (const s of stored) expect(s.displayBasis).toBe("measured_citations");
-    expect(generalAdviceItems(stored, techCoreLike)).toEqual([]);
+    expect(generalAdviceItems(stored, numbaTekLike)).toEqual([]);
   });
 });

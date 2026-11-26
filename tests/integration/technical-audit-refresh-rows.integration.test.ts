@@ -27,7 +27,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     email: "owner@refresh-rows.example.com.au",
     name: "Owner",
     role: "owner",
-    organization: { id: who.orgId, name: "Splice Marketing", region: "au", metadata: {} },
+    organization: { id: who.orgId, name: "Possum Marketing", region: "au", metadata: {} },
   })),
 }));
 
@@ -52,7 +52,7 @@ beforeAll(async () => {
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
     brandName: "Banksia Roofing",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     tier: "agency",
     audits: [{ number: 61, completedAt: "2026-11-20T03:00:00.000Z", mentions: {} }],
   });

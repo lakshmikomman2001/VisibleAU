@@ -35,7 +35,7 @@ test.beforeAll(async () => {
     const [brand] = await sql<{ id: string }[]>`
       INSERT INTO brands (organization_id, name, domain, vertical, region, primary_regions, suburb, state, country,
         location_mode, location_confirmed_at, classification_status, category_confirmed_at, categories)
-      VALUES (${account.organizationId}, 'TechCore IT', 'techcore-p08.com.au', 'local_business', 'au',
+      VALUES (${account.organizationId}, 'NumbaTek IT', 'numbatek-p08.com.au', 'local_business', 'au',
         ARRAY['NSW:Riverstone']::text[], 'Riverstone', 'NSW', 'Australia', 'fixed', now(), 'complete', now(),
         ARRAY['trades_general']::text[])
       RETURNING id`;
@@ -49,7 +49,7 @@ test.beforeAll(async () => {
     for (let i = 0; i < 40; i += 1) {
       const sources = [
         ...(i < 27
-          ? [{ domain: "kangaroo-it.com.au", url: `https://kangaroo-it.com.au/s/${i}` }]
+          ? [{ domain: "lorikeet-it.com.au", url: `https://lorikeet-it.com.au/s/${i}` }]
           : []),
         ...(i < 9
           ? [
@@ -93,7 +93,7 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
     // a cold dev server (3.5-4.6 s of it compiling the route), on the parent of S01B and on S01B alike, against the
     // 5 s default; warm, 0.19-0.47 s on both.
     await expect(panel).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("p08-header")).toContainText("TechCore IT · based on audit #1");
+    await expect(page.getByTestId("p08-header")).toContainText("NumbaTek IT · based on audit #1");
     await expect(page.getByTestId("p08-measured-item").first()).toContainText(
       "See why AI recommends other providers",
     );
@@ -189,7 +189,7 @@ test.describe("S01 part 5: the report contents panel (P08)", () => {
       await sql`INSERT INTO generated_reports (brand_id, organization_id, audit_id, report_type, period_label,
           narrative_text, headline, report_tier, contents_snapshot, pdf_failure_reason)
         VALUES (${brandId}, ${account.organizationId}, ${audit.id}, 'weekly', '2026-W47', 'n',
-          'TechCore IT: AI visibility, week 47', 'standard', ${sql.json({ schema: 1, tierName: "Growth Plan" })},
+          'NumbaTek IT: AI visibility, week 47', 'standard', ${sql.json({ schema: 1, tierName: "Growth Plan" })},
           'render_error')`;
     } finally {
       await sql.end();

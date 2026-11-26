@@ -153,14 +153,14 @@ describe("the plain-English paragraphs state only measured numbers", () => {
     });
     if (!data) throw new Error("no report data");
     const narrative = reportNarrative(data, { diagnosisSection: "04" });
-    expect(narrative.headline).toBe("AI mentions Omega Services in about 1 in 6 everyday answers");
+    expect(narrative.headline).toBe("AI mentions Yabby Services in about 1 in 6 everyday answers");
     const { stripNarrativeMarkup } = await import("@/lib/reports/report-narrative");
     expect(narrative.paragraphs.map(stripNarrativeMarkup)).toEqual([
-      "When local customers ask AI for help with the kind of work Omega Services does, Omega Services comes up in about 1 in 6 answers: 5 of the 30 we counted. When it does appear, it's typically listed first, and every mention linked a source.",
-      "The engines don't agree. Perplexity mentioned Omega Services in 3 of 10 answers and ChatGPT in 2 of 10, while Gemini didn't mention it at all. Claude couldn't be measured this time.",
+      "When local customers ask AI for help with the kind of work Yabby Services does, Yabby Services comes up in about 1 in 6 answers: 5 of the 30 we counted. When it does appear, it's typically listed first, and every mention linked a source.",
+      "The engines don't agree. Perplexity mentioned Yabby Services in 3 of 10 answers and ChatGPT in 2 of 10, while Gemini didn't mention it at all. Claude couldn't be measured this time.",
       // Part 5 point 3: no listing is linked, so whether any citation was
       // the brand's own profile isn't known -- and the paragraph says so.
-      "AI leans heavily on directories, citing seven of them 36 times, and we can't yet see whether any of those citations were Omega Services' own listings: the profile links haven't been added. Adding them is the first step in this report (see section 04).",
+      "AI leans heavily on directories, citing seven of them 36 times, and we can't yet see whether any of those citations were Yabby Services' own listings: the profile links haven't been added. Adding them is the first step in this report (see section 04).",
     ]);
   });
 });
@@ -191,7 +191,7 @@ describe("generate-narrative-report stores the grounded narrative", () => {
     >`
       SELECT headline, narrative_text, mention_source_summary FROM generated_reports WHERE id = ${result.reportId}
     `;
-    expect(row.headline).toBe("AI mentions Omega Services in about 1 in 6 everyday answers");
+    expect(row.headline).toBe("AI mentions Yabby Services in about 1 in 6 everyday answers");
     expect(row.narrative_text).toContain("7 of the 40 we counted");
     for (const claim of [/archetype/i, /recognised authority/i, /trending/i, /60\.0%/, /40\.0%/]) {
       expect(row.narrative_text).not.toMatch(claim);

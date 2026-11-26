@@ -37,9 +37,9 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     tier: "agency",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     audits: [
       {
         number: 52,
@@ -48,25 +48,25 @@ beforeAll(async () => {
         directories: {
           "localbusinessguide.com.au": 14,
           "yellowpages.com.au": 3,
-          "kangaroo-it.com.au": 9,
+          "lorikeet-it.com.au": 9,
         },
       },
     ],
   });
-  await sql`UPDATE brands SET abn = '17701710947' WHERE id = ${fx.brandId}`;
+  await sql`UPDATE brands SET abn = '51824753605' WHERE id = ${fx.brandId}`;
   // Identity: one before asOf, one after (must be ignored).
   for (const [status, entity, at] of [
-    ["Active", "ASTORIO GROUP PTY LTD", "2026-11-22T01:00:00Z"],
+    ["Active", "QUOLLEN GROUP PTY LTD", "2026-11-22T01:00:00Z"],
     ["Cancelled", "LATER PTY LTD", "2026-11-25T01:00:00Z"],
   ] as const) {
     await sql`INSERT INTO brand_entity_scores (brand_id, organization_id, abn_verified, abn_number, abn_entity_name,
         abn_status, wikipedia_au_present, au_tld_domains, checked_at)
-      VALUES (${fx.brandId}, ${fx.orgId}, ${status === "Active"}, '17701710947', ${entity}, ${status}, false,
+      VALUES (${fx.brandId}, ${fx.orgId}, ${status === "Active"}, '51824753605', ${entity}, ${status}, false,
         ${sql.json(["x.com.au"])}, ${at})`;
   }
   await sql`INSERT INTO youtube_presence_audits (brand_id, organization_id, check_status, channel_title,
       channel_total_videos, last_upload_at, audited_at)
-    VALUES (${fx.brandId}, ${fx.orgId}, 'confirmed', 'TechCore IT', 14, '2026-11-02T00:00:00Z', '2026-11-21T00:00:00Z')`;
+    VALUES (${fx.brandId}, ${fx.orgId}, 'confirmed', 'NumbaTek IT', 14, '2026-11-02T00:00:00Z', '2026-11-21T00:00:00Z')`;
   const robots = {
     scoringVersion: 4,
     robots: {
@@ -98,7 +98,7 @@ beforeAll(async () => {
   // The owner linked their Yellow Pages profile.
   await sql`INSERT INTO brand_directory_listings (organization_id, brand_id, directory_key, status, profile_url,
       confirmed_at)
-    VALUES (${fx.orgId}, ${fx.brandId}, 'yellow_pages_au', 'listed', 'https://www.yellowpages.com.au/nsw/x/techcore', now())`;
+    VALUES (${fx.orgId}, ${fx.brandId}, 'yellow_pages_au', 'listed', 'https://www.yellowpages.com.au/nsw/x/numbatek', now())`;
   const [other] = await sql<{ id: string }[]>`
     INSERT INTO organizations (clerk_org_id, name, slug)
     VALUES (${`beyond-other-${fx.orgId.slice(0, 8)}`}, 'Other', ${`beyond-other-${fx.orgId.slice(0, 8)}`})
@@ -164,7 +164,7 @@ describe("getBeyondAiAnswers", () => {
     expect(a.identity).toMatchObject({
       status: "measured",
       abnVerified: true,
-      entity: "ASTORIO GROUP PTY LTD",
+      entity: "QUOLLEN GROUP PTY LTD",
     });
     expect(a.identity.checkedAt).toBe("2026-11-22T01:00:00.000Z");
     expect(a.technical).toMatchObject({ status: "measured", score: 38, max: 74 });

@@ -78,7 +78,7 @@ beforeAll(async () => {
   process.env.SERVICE_DATABASE_URL = url;
 
   hero = await seedReportFixture(su, {
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     audits: [
       { number: 46, completedAt: day(3), mentions: {} },
       { number: 47, completedAt: day(10), mentions: { chatgpt: [1, 2, 3], perplexity: [1, 2] } },

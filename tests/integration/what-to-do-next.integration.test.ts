@@ -19,7 +19,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     id: who.userId,
     organizationId: who.orgId,
     role: "owner",
-    organization: { id: who.orgId, name: "Splice Marketing", region: "au", metadata: {} },
+    organization: { id: who.orgId, name: "Possum Marketing", region: "au", metadata: {} },
   })),
 }));
 vi.mock("@/lib/inngest/client", () => ({ inngest: { send: vi.fn(async () => ({ ids: [] })) } }));
@@ -32,15 +32,15 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   fx = await seedReportFixture(sql, {
-    brandName: "TechCore IT",
+    brandName: "NumbaTek IT",
     tier: "agency",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     audits: [
       {
         number: 52,
         completedAt: "2026-11-20T03:00:00.000Z",
         mentions: {},
-        directories: { "kangaroo-it.com.au": 27, "localbusinessguide.com.au": 9, "cylex-australia.com": 2 },
+        directories: { "lorikeet-it.com.au": 27, "localbusinessguide.com.au": 9, "cylex-australia.com": 2 },
       },
     ],
   });

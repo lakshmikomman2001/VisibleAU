@@ -35,7 +35,7 @@ const ORG_ID = randomUUID();
 const BRAND_ID = randomUUID();
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"] as const;
 const CREDIT = "Your credit balance is too low to access the Anthropic API.";
-const MENTION = "Good local options: Omega Services, a Bondi plumber with fast call-outs.";
+const MENTION = "Good local options: Yabby Services, a Bondi plumber with fast call-outs.";
 const NONE = "Good local options: Alpha Plumbing and Beta Plumbing.";
 /** The terminal-state budget from the task: 15 s. */
 const SWITCH_WITHIN_MS = 15_000;
@@ -134,7 +134,7 @@ test.beforeAll(async () => {
   `;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega-running.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'yabby-running.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
 });
 
@@ -168,7 +168,7 @@ async function signIn(page: Page) {
 async function openRunning(page: Page, auditId: string) {
   await signIn(page);
   await page.goto(`/audits/${auditId}`);
-  await expect(page.getByText("Running audit for Omega Services")).toBeVisible({
+  await expect(page.getByText("Running audit for Yabby Services")).toBeVisible({
     timeout: 120_000,
   });
   // Answer the cookie banner, as a visitor would (Playwright-run follow-ups, 9 Nov, U1: left open, it
@@ -201,7 +201,7 @@ test("running -> complete: the finished page within 15 s, without a reload", asy
   const flippedAt = Date.now();
   await expect(finishedView(page)).toBeVisible({ timeout: SWITCH_WITHIN_MS });
   expect(Date.now() - flippedAt).toBeLessThanOrEqual(SWITCH_WITHIN_MS);
-  await expect(page.getByText("Running audit for Omega Services")).toHaveCount(0);
+  await expect(page.getByText("Running audit for Yabby Services")).toHaveCount(0);
   await expect(page.locator("[data-engine-total-failure]")).toBeVisible();
   await expectSameDocument(page);
 });
@@ -223,7 +223,7 @@ test("running -> complete when the first refresh comes back stale: still the fin
   const stale = await staleResponse;
   const staleBody = await stale.body();
   const staleHeaders = stale.headers();
-  await expect(page.getByText("Running audit for Omega Services")).toBeVisible();
+  await expect(page.getByText("Running audit for Yabby Services")).toBeVisible();
 
   // The first refresh after completion gets that running-view payload back.
   let servedStale = false;

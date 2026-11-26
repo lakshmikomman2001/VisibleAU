@@ -14,14 +14,14 @@ const AS_OF = new Date("2026-11-24T00:00:00Z");
 function answers(overrides: Partial<BeyondAiRaw> = {}) {
   return buildBeyondAiAnswers(
     {
-      brand: { abn: "17701710947", youtubeChannelUrl: null, domain: "techcoreit.com.au" },
+      brand: { abn: "51824753605", youtubeChannelUrl: null, domain: "numbatekit.com.au" },
       entity: {
         abnVerified: true,
-        abnNumber: "17701710947",
-        abnEntityName: "ASTORIO GROUP PTY LTD",
+        abnNumber: "51824753605",
+        abnEntityName: "QUOLLEN GROUP PTY LTD",
         abnStatus: "Active",
         wikipediaAuPresent: false,
-        auTldDomains: ["techcoreit.com.au"],
+        auTldDomains: ["numbatekit.com.au"],
         checkedAt: new Date("2026-10-10T00:00:00Z"),
       },
       youtube: null,

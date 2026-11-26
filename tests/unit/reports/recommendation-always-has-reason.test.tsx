@@ -1,5 +1,5 @@
 /**
- * 15 Nov, part 1 (Sri, audit #50, Hero Home Services): on the audit page the High card "Gemini didn't name you in
+ * 15 Nov, part 1 (Sri, audit #50, Wren Home Services): on the audit page the High card "Gemini didn't name you in
  * any of 10 answers" showed a title and nothing under it, and the PDF's "Recommended next" item 2 the same. The
  * silent-engine template (lib/reports/report-findings.ts, cb75ccf/dc7010c) gave no reason when no silent engine
  * kept its search results -- only Claude's stored answers do -- so Gemini alone, or Gemini and ChatGPT, had none.
@@ -106,7 +106,7 @@ const CASES: Array<[string, ReportData, FindingRule]> = [
       const d = reportDataFixture("39");
       d.directories.rows = d.directories.rows.slice(0, 1).map((r) => ({
         ...r,
-        suggestedProfileUrl: "https://www.hipages.com.au/connect/omegaservices",
+        suggestedProfileUrl: "https://www.hipages.com.au/connect/yabbyservices",
       }));
       return d;
     })(),

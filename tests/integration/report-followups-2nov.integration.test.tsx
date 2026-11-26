@@ -1,7 +1,7 @@
 /**
  * Report follow-ups from the first live PDF (2 Nov), against the real
  * generate route, Inngest functions and renderer, on a database seeded like
- * production's Omega Services: Audits #30-#39, #37 partial (Claude: spend
+ * production's Yabby Services: Audits #30-#39, #37 partial (Claude: spend
  * limit), #39 on Sunday 1 Nov.
  * 1. "Generate report" on Monday 2 Nov, 7:13 pm AEDT, with no week chosen:
  *    Week 44 (26 Oct – 1 Nov), the week of the audit it's based on -- not
@@ -115,7 +115,7 @@ let owner: Awaited<ReturnType<typeof seedMember>> | undefined;
 beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
   fx = await seedReportFixture(sql, {
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     audits: [...EARLIER, AUDIT_37, AUDIT_38, AUDIT_39],
   });
   // The owner's profile and membership: a role comes from the membership alone (follow-ups from
@@ -130,7 +130,7 @@ beforeAll(async () => {
     organizationId: fx.orgId,
     role: "owner",
     email: "sri@example.com.au",
-    organization: { id: fx.orgId, name: "Splice Marketing (test)" },
+    organization: { id: fx.orgId, name: "Possum Marketing (test)" },
   };
 }, 180_000);
 

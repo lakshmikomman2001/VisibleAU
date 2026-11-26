@@ -47,7 +47,7 @@ function panel() {
   return (
     <ReportContentsPanel
       brandId="b1"
-      brandName="TechCore IT"
+      brandName="NumbaTek IT"
       basisAuditNumber={52}
       periodLabel="2026-W47"
       agencyName="Splice Marketing"

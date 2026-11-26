@@ -8,7 +8,6 @@ import { questionChangeNote } from "@/lib/audit/question-set-sql";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getBrandForOrg } from "@/lib/brands";
-import { getCitedDirectoryNames } from "@/lib/directories/citation-counts";
 import {
   assertBrandAccess,
   assertTier,
@@ -170,17 +169,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       // Build 1 addendum, item 1: the agency PDF-builder preview must
       // show the same "Check: " framing for a legacy row as every
       // other surface -- transformed here, at the source.
-      .then(async (rows) => {
-        const citedDirectories = rows.some((r) => r.recommendationKey === "entity-profiles")
-          ? await getCitedDirectoryNames(tx, audit.id, brand)
-          : [];
-        return rows.map(({ recommendationKey, ...r }) => ({
+      .then((rows) =>
+        rows.map(({ recommendationKey, ...r }) => ({
           ...r,
           title: displayRecommendationTitle({ ...r, recommendationKey }),
-          action: displayRecommendationAction({ ...r, recommendationKey }, citedDirectories),
+          action: displayRecommendationAction({ ...r, recommendationKey }),
           expectedImpactScore: displayImpact({ ...r, recommendationKey }),
-        }));
-      });
+        })),
+      );
 
     // Audit #36: the same per-engine split the headline sums (successful
     // everyday answers, run 1, verified mentions) -- it used to count

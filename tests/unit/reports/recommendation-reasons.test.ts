@@ -12,7 +12,6 @@
  * And one property over all of them: every engine or directory named in a title is named in its reason.
  */
 import { describe, expect, it } from "vitest";
-import { namedCitedInAnswersList } from "@/lib/directories/cited-in-answers";
 import type { ReportEngineRow } from "@/lib/reports/report-data";
 import { type Finding, reportFindings } from "@/lib/reports/report-findings";
 import { reportDataFixture } from "../../helpers/report-data-fixture";
@@ -91,36 +90,11 @@ describe("silent engines: the reason covers every engine in the title", () => {
 });
 
 describe("directories: each named with its own count", () => {
-  it("the formatter: one, two, three", () => {
-    expect(namedCitedInAnswersList([{ name: "hipages", citedCount: 8 }], 40)).toBe(
-      "hipages is cited in 8 of 40 answers",
-    );
-    expect(
-      namedCitedInAnswersList(
-        [
-          { name: "hipages", citedCount: 8 },
-          { name: "Word of Mouth", citedCount: 6 },
-        ],
-        40,
-      ),
-    ).toBe("hipages is cited in 8 and Word of Mouth in 6 of 40 answers");
-    expect(
-      namedCitedInAnswersList(
-        [
-          { name: "hipages", citedCount: 8 },
-          { name: "Word of Mouth", citedCount: 6 },
-          { name: "Localsearch", citedCount: 5 },
-        ],
-        40,
-      ),
-    ).toBe("hipages is cited in 8, Word of Mouth in 6 and Localsearch in 5 of 40 answers");
-  });
-
   it("Link: one suggested page, and the other two still named with what to do", () => {
     const data = reportDataFixture("39");
     data.directories.rows = data.directories.rows.map((r, i) =>
       i === 0
-        ? { ...r, suggestedProfileUrl: "https://www.hipages.com.au/connect/omegaservices" }
+        ? { ...r, suggestedProfileUrl: "https://www.hipages.com.au/connect/yabbyservices" }
         : r,
     );
     const n = data.directories.totalAnswers;
@@ -128,7 +102,7 @@ describe("directories: each named with its own count", () => {
     expect(action?.title).toBe("Link your hipages, Word of Mouth and Localsearch profiles");
     // S01C part 2a, LLD amendment 59: Recommended next bodies in one style ("was cited in").
     expect(action?.detail).toBe(
-      `hipages was cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers. AI cited what looks like yours: hipages.com.au/connect/omegaservices looks like your hipages profile. Link it under Directories AI cited, so we can match it with what AI cites. Add your Word of Mouth and Localsearch profile links in brand settings.`,
+      `hipages was cited in 8, Word of Mouth in 6 and Localsearch in 5 of ${n} answers. AI cited what looks like yours: hipages.com.au/connect/yabbyservices looks like your hipages profile. Link it under Directories AI cited, so we can match it with what AI cites. Add your Word of Mouth and Localsearch profile links in brand settings.`,
     );
   });
 

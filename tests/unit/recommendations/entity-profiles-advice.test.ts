@@ -162,7 +162,7 @@ describe("existing items change at read time, from stored fields", () => {
       confidenceBasis: "verified",
       action: OLD_ACTION,
     };
-    const text = displayRecommendationAction(stored, ["hipages"]);
+    const text = displayRecommendationAction(stored);
     expect(text).not.toMatch(/wikidata/i);
     expect(text).toBe(CHECKED);
     expect(text).not.toContain("hipages");
@@ -174,6 +174,6 @@ describe("existing items change at read time, from stored fields", () => {
       confidenceBasis: "verified",
       action: "Update the page.",
     };
-    expect(displayRecommendationAction(stored, ["hipages"])).toBe("Update the page.");
+    expect(displayRecommendationAction(stored)).toBe("Update the page.");
   });
 });

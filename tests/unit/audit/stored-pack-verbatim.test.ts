@@ -1,6 +1,6 @@
 /**
  * S00 part 3 (22 Nov; LLD 8.8.1, N1): the phrasing fixes write new questions only. A brand's stored pack is asked
- * exactly as stored, byte for byte and in its order, even when it still has TechCore IT's old wording
+ * exactly as stored, byte for byte and in its order, even when it still has NumbaTek IT's old wording
  * ("managed it services", "a managed it services"), and each question is typed branded or everyday by the real rule
  * (lib/audit/flag-branded-prompts.ts), as before.
  */
@@ -32,13 +32,13 @@ const STORED = [
   "Best-value managed it services in Riverstone?",
   "Experienced managed it services in Riverstone?",
   "Highly rated managed it services near Riverstone?",
-  "Is TechCore IT a good choice for a managed it services in Riverstone?",
-  "What are the best alternatives to TechCore IT in Riverstone?",
-  "Is TechCore IT popular in Riverstone?",
+  "Is NumbaTek IT a good choice for a managed it services in Riverstone?",
+  "What are the best alternatives to NumbaTek IT in Riverstone?",
+  "Is NumbaTek IT popular in Riverstone?",
 ];
 
 const BRAND = {
-  id: "brand-techcore",
+  id: "brand-numbatek",
   promptPack: STORED,
   promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION,
   classification: {
@@ -58,8 +58,8 @@ const BRAND = {
   competitors: [],
   categories: ["general"],
   audience: "businesses",
-  name: "TechCore IT",
-  domain: "techcoreit.com.au",
+  name: "NumbaTek IT",
+  domain: "numbatekit.com.au",
   suburb: "Riverstone",
   state: "NSW",
 };

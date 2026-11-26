@@ -25,7 +25,7 @@ test.beforeAll(async () => {
     before = row ? row.value : undefined;
     const [brand] = await sql<{ id: string }[]>`
       INSERT INTO brands (organization_id, name, domain, vertical, region)
-      VALUES (${account.organizationId}, 'Hero Home Services', 'hero-p13.com.au', 'tradies', 'au') RETURNING id`;
+      VALUES (${account.organizationId}, 'Wren Home Services', 'hero-p13.com.au', 'tradies', 'au') RETURNING id`;
     const [audit] = await sql<{ id: string }[]>`
       INSERT INTO audits (brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count,
         prompts_count, runs_per_prompt, total_calls, started_at, completed_at)
@@ -43,7 +43,7 @@ test.beforeAll(async () => {
     }
     token = `e2e-p13-${brand.id}`;
     await sql`INSERT INTO client_portal_invites (organization_id, brand_id, invite_token, invitee_name)
-      VALUES (${account.organizationId}, ${brand.id}, ${token}, 'Hero client')`;
+      VALUES (${account.organizationId}, ${brand.id}, ${token}, 'Wren client')`;
     await sql`INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled)
       VALUES (${account.organizationId}, 'report_v2', true)`;
   } finally {

@@ -31,6 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
   member_removed: "Removed member",
   report_branding_changed: "Changed report branding",
   trend_exclusion_changed: "Changed which audits count in trends",
+  brand_questions_applied: "Applied new questions",
+  brand_question_archived: "Archived a question",
 };
 
 /**

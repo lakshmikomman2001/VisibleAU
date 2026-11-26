@@ -40,7 +40,11 @@ export type AuditAction =
    * again, or changed why (lib/admin/trend-exclusions.ts). metadata.summary is the sentence the trail shows:
    * "Vunnara excluded audit #46 from trends: measured with an earlier version of the mention check".
    */
-  | "trend_exclusion_changed";
+  | "trend_exclusion_changed"
+  /** S03 part 3 (LLD 8.3.1): a brand's new question set applied (metadata: version, fromVersion, added, removed). */
+  | "brand_questions_applied"
+  /** S03 part 3 (LLD 8.3.7): a question archived from a brand's library (metadata: questionId). */
+  | "brand_question_archived";
 
 export type AuditResourceType =
   | "audit"

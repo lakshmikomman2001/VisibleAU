@@ -6,6 +6,12 @@
  *   them, every other parameter kept (lib/urls/strip-tracking.ts); the stored URL is unchanged;
  * - "Make your services easy for AI to match" stated a cause the audit didn't measure: the title says what was
  *   measured, and the subtitle names a reason only where the stored rows show one (lib/reports/search-results.ts).
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/reports/audit42-copy.test.tsx; the findings' report is an
+ * invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -15,11 +21,13 @@ import type { ReportEngineRow } from "@/lib/reports/report-data";
 import { reportFindings } from "@/lib/reports/report-findings";
 import { searchResultsSeen } from "@/lib/reports/search-results";
 import { linkHref } from "@/lib/urls/strip-tracking";
-import { reportDataFixture } from "../../helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 describe("directory counts are in answers, the same unit as the evidence above them", () => {
   it("the action lists each directory's answers, never 'k of N directory citations'", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     const finding = reportFindings(data).find((f) => f.rule === "a");
     const n = data.directories.totalAnswers;
     // 13 Nov, part 3: each directory by name, as the title names them. S01C part 2a, LLD amendment 59: "Recommended
@@ -86,7 +94,7 @@ describe("an engine that never named the brand: what was measured, and only a me
     ...extra,
   });
   const silentAction = (engines: ReportEngineRow[]) =>
-    reportFindings({ ...reportDataFixture("39"), engines }).find((f) => f.rule === "b")
+    reportFindings({ ...report("allEngines"), engines }).find((f) => f.rule === "b")
       ?.recommendation;
 
   it("the title states the measurement; with no stored search results, the reason is what was measured, never a cause", () => {

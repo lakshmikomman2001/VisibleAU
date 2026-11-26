@@ -7,13 +7,21 @@
  *
  * (The brand page's audit history draws bars, never a line, and the brand's Visibility page draws no audit trend;
  * the PDF -- and the PDF builder, which renders the same document -- is the only place audits are joined.)
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/reports/trend-line-not-compared.test.tsx; the chart's report is
+ * an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ReportDocument } from "@/lib/communication/pdf-builder";
 import { trendSegments } from "@/lib/reports/pdf/report-document";
 import type { ReportData, ReportTrendPoint } from "@/lib/reports/report-data";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const seeded = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 type Props = { children?: ReactNode; [key: string]: unknown };
 
@@ -149,7 +157,7 @@ function drawn(root: ReactNode) {
 
 describe("the PDF's trend chart (Hero's #50 shape)", () => {
   function report(points: ReportTrendPoint[]): ReportData {
-    const data = reportDataFixture("39");
+    const data = seeded("allEngines");
     return { ...data, trend: { ...data.trend, points, comparableCount: 4 } };
   }
 

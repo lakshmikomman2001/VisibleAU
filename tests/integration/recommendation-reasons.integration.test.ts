@@ -10,11 +10,19 @@
  *   with its own count, and what to do for the ones with no suggested page;
  * - unmeasured engines ("Re-run with all four engines"): each engine that wasn't measured.
  * And one property over all of them: every engine or directory named in a title is named in its reason.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/reports/recommendation-reasons.test.ts; the findings' report is
+ * an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { describe, expect, it } from "vitest";
 import type { ReportEngineRow } from "@/lib/reports/report-data";
 import { type Finding, reportFindings } from "@/lib/reports/report-findings";
-import { reportDataFixture } from "../../helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 const row = (
   engine: string,
@@ -35,7 +43,7 @@ const row = (
 });
 
 const findingFor = (rule: Finding["rule"], engines: ReportEngineRow[]) =>
-  reportFindings({ ...reportDataFixture("39"), engines }).find((f) => f.rule === rule);
+  reportFindings({ ...report("allEngines"), engines }).find((f) => f.rule === rule);
 
 describe("silent engines: the reason covers every engine in the title", () => {
   it("Sri's case: Claude's measured reason, and Gemini's lack of one, both said", () => {
@@ -91,7 +99,7 @@ describe("silent engines: the reason covers every engine in the title", () => {
 
 describe("directories: each named with its own count", () => {
   it("Link: one suggested page, and the other two still named with what to do", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     data.directories.rows = data.directories.rows.map((r, i) =>
       i === 0
         ? { ...r, suggestedProfileUrl: "https://www.hipages.com.au/connect/yabbyservices" }
@@ -107,7 +115,7 @@ describe("directories: each named with its own count", () => {
   });
 
   it("Complete: each directory by name", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     // Linked, and none of the linked profiles cited: complete them.
     data.directories.rows = data.directories.rows.map((r) => ({
       ...r,
@@ -140,7 +148,8 @@ describe("unmeasured engines: Re-run names each one", () => {
 
 describe("the property: whatever a title names, its reason names", () => {
   const ENGINES = ["ChatGPT", "Claude", "Gemini", "Perplexity"];
-  const DIRECTORIES = reportDataFixture("39").directories.rows.map((r) => r.name);
+  // The report's directories, read when the tests run (the seed is made in the file's beforeAll).
+  const directories = () => report("allEngines").directories.rows.map((r) => r.name);
   const cases: Array<[string, ReportEngineRow[]]> = [
     [
       "two silent, Claude measured",
@@ -169,11 +178,11 @@ describe("the property: whatever a title names, its reason names", () => {
     ],
   ];
   it.each(cases)("%s", (_label, engines) => {
-    const findings = reportFindings({ ...reportDataFixture("39"), engines });
+    const findings = reportFindings({ ...report("allEngines"), engines });
     expect(findings.length).toBeGreaterThan(0);
     for (const f of findings) {
       const { title, detail } = f.recommendation;
-      for (const name of [...ENGINES, ...DIRECTORIES]) {
+      for (const name of [...ENGINES, ...directories()]) {
         if (new RegExp(`\\b${name}\\b`).test(title)) {
           expect(detail, `${f.rule}: "${title}"`).toMatch(new RegExp(`\\b${name}\\b`));
         }

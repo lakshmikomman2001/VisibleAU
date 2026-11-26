@@ -3,6 +3,12 @@
  * type's says what it is, on the audit page ("Local Business Guide cited in 3 of 7 answers · general directory")
  * and in the PDF's "Where AI looks" ("Local Business Guide · general directory"). The brand's own type's
  * directories read exactly as before in both, so Hero's report changes only by the rows a new citation adds.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/components/directory-kind.test.tsx; the PDF's report is an
+ * invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -13,7 +19,9 @@ import {
 import { ReportDocument } from "@/lib/reports/pdf/report-document";
 import type { ReportData } from "@/lib/reports/report-data";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 function row(overrides: Partial<DirectoryCitedPanelRow>): DirectoryCitedPanelRow {
   return {
@@ -70,14 +78,14 @@ describe("the audit page's directories panel", () => {
   });
 });
 
-/** The directories page's text, from the report a fixture renders. */
+/** The directories page's text, from the report a seed renders. */
 function pdfText(data: ReportData): string {
   return collectPdfText(<ReportDocument data={data} />).join(" ");
 }
 
 describe("the PDF's Where AI looks", () => {
   it("a cited-only directory's row names its kind; the existing rows are word for word what they were", () => {
-    const base = reportDataFixture("39");
+    const base = report("allEngines");
     const before = pdfText(base);
     const withNew: ReportData = {
       ...base,
@@ -107,7 +115,11 @@ describe("the PDF's Where AI looks", () => {
     // the name and its kind are two texts now, never "Local Business Guide · general directory" on one line.
     expect(after).toContain("Local Business Guide general directory");
     expect(after).not.toContain("Local Business Guide · general directory");
-    for (const r of base.directories.rows) expect(after).toContain(r.name);
+    // S03 part 0: the seeded rows also hold the usual directories for the brand's type that no answer cited
+    // (citedCount 0), which the page doesn't list; every cited one is still there.
+    const cited = base.directories.rows.filter((r) => r.citedCount > 0);
+    expect(cited.map((r) => r.name)).toEqual(["hipages", "Localsearch", "Word of Mouth"]);
+    for (const r of cited) expect(after).toContain(r.name);
     expect(after).not.toContain("hipages trades marketplace");
     expect(after).not.toContain("hipages · trades marketplace");
     // The rows the report had are unchanged when the new fields say they're the brand's own type's.

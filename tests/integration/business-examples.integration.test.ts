@@ -4,6 +4,12 @@
  * the PDF's glossary said "e.g. hipages" to everyone; the brand header said "tradies"; the wizard previewed plumber
  * questions; and the llms.txt preview fell back to the tradie template. Guard: none of that copy says a trade word for
  * a business that isn't a trade.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/recommendations/business-examples.test.ts; the glossary's report
+ * is an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,7 +25,9 @@ import { ENTITY_PROFILES_TITLE } from "@/lib/recommendations/entity-profiles";
 import { universalRuleCopy } from "@/lib/recommendations/triggers";
 import type { TriggerContext } from "@/lib/recommendations/types";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 const TRADE_WORDS =
   /plumb|electrician|tradie|call-?out|hipages|serviceseeking|oneflare|airtasker|master (plumbers|builders|electricians)|\bHIA\b|waternsw|building (permits|approvals)|homeimprovement|ausrenovation|trade (directories|publication)/i;
@@ -116,7 +124,7 @@ describe("the wizard previews questions for what the owner picked", () => {
 
 describe("the PDF's glossary", () => {
   it("gives one of the brand's own directories as its example, and none when it has no list", () => {
-    const base = reportDataFixture("39");
+    const base = report("allEngines");
     const glossary = (rows: typeof base.directories.rows) =>
       collectPdfPages(
         ReportDocument({ data: { ...base, directories: { ...base.directories, rows } } }),
@@ -124,7 +132,10 @@ describe("the PDF's glossary", () => {
         .flat()
         .join("\n");
     const local = base.directories.rows.filter((r) => r.key !== "hipages");
-    expect(glossary(local)).toContain("(e.g. Word of Mouth)");
+    // S03 part 0: the seeded rows come in the directory registry's order, the brand's type's usual directories among
+    // them, so the first after hipages is ServiceSeeking (the hand-composed rows were hipages, Word of Mouth, Localsearch).
+    expect(local[0].name).toBe("ServiceSeeking");
+    expect(glossary(local)).toContain("(e.g. ServiceSeeking)");
     expect(glossary(local)).not.toMatch(/hipages/);
     expect(glossary([])).toContain("An answer that links a directory page.");
   });

@@ -3,7 +3,7 @@
  * plumber's for everyone: "quotes from industry bodies (e.g. Master Plumbers AU)", "statistics (e.g. WaterNSW, ABS
  * building permits)", "subreddits (r/sydney, r/ausfinance, r/homeimprovement)", "What is your call-out fee?", "an AU
  * trade publication" -- a café or an accountant was told to quote Master Plumbers. Trade wording now reaches the
- * trades only (tests/unit/recommendations/business-examples.test.ts guards it). Every body named here is a real
+ * trades only (tests/integration/business-examples.integration.test.ts guards it). Every body named here is a real
  * Australian peak body for that business; a type with none we can name says "your industry's peak body".
  */
 import { type CategoryKey, resolveCategory } from "@/lib/prompts/templates";

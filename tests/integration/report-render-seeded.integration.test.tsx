@@ -1,9 +1,10 @@
 /**
- * S02 part 0 (LLD amendments 51, 57): the report PDF's design, Google section and cover-name checks, moved from the
- * hand-composed tests/helpers/report-data-fixture.ts (tests/unit/reports/report-pdf-design.test.tsx,
- * pdf-google-section.test.tsx and report-cover-tier.test.tsx, retired) onto invented businesses seeded as real audits
- * (tests/helpers/report-seeds.ts) and rendered by the real path (the generator, then loadReportRenderData ->
- * buildReportPdf). Every check those three files made is here, on the seeds:
+ * S02 part 0 (LLD amendments 51, 57): the report PDF's design, Google section and cover-name checks, moved from
+ * hand-composed report data (tests/unit/reports/report-pdf-design.test.tsx, pdf-google-section.test.tsx and
+ * report-cover-tier.test.tsx, retired; S03 part 0 moved the fixture's other users to the seeds and deleted it, LLD
+ * amendment 77) onto invented businesses seeded as real audits (tests/helpers/report-seeds.ts) and rendered by the real
+ * path (the generator, then loadReportRenderData -> buildReportPdf). Every check those three files made is here, on the
+ * seeds:
  * - Bluegum (every engine answered, like the old #39 fixture) and Ironstone (Claude failed every question, like #37);
  * - "plain": Bluegum with no suburb, city, state, business type or agency name (and, for the cover, on Growth);
  * - "long": Bluegum with 13 everyday questions (16 rows, so the matrix continues) and 11 weekly audits (a trend with
@@ -33,6 +34,7 @@ import {
   seedReportBrand,
   WARATAH,
 } from "@/tests/helpers/report-seeds";
+import { withCompetitors } from "@/tests/helpers/seeded-report-data";
 import { type RenderedReport, renderSeededReport } from "@/tests/helpers/seeded-report-render";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
@@ -170,26 +172,6 @@ function dataNumbers(data: ReportData): Set<string> {
   );
   for (const c of data.competitors.rows) add(c.mentions);
   return out;
-}
-
-/** The same competitor block the report builds, for the brand's own mentions against these rivals'. */
-function withCompetitors(
-  data: ReportData,
-  rows: Array<{ name: string; mentions: number }>,
-): ReportData["competitors"] {
-  const total = rows.reduce((sum, row) => sum + row.mentions, data.mentionedCount);
-  const share = (n: number) => (total > 0 ? (n / total) * 100 : null);
-  return {
-    configured: true,
-    state: total > 0 ? "measured" : "no_mentions",
-    stateDetail: "",
-    brandMentions: data.mentionedCount,
-    brandSharePct: share(data.mentionedCount),
-    totalMentions: total,
-    smallSample: total > 0 && total < 5,
-    rows: rows.map((row) => ({ ...row, sharePct: share(row.mentions) })),
-    note: null,
-  };
 }
 
 const copy = (x: RenderedReport): ReportData => structuredClone(x.data);

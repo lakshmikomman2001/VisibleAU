@@ -5,13 +5,21 @@
  * 6) "your profile links aren't added yet". Every such sentence now comes from every cited directory's linked state
  * (lib/directories/linked-state.ts), for none, some and all linked: in the summary (report-narrative.ts), the
  * finding (report-findings.ts, which the audit page shows too) and the card.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/reports/linked-state-copy.test.ts; the report the rows go into
+ * is an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts),
+ * no longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { describe, expect, it } from "vitest";
 import { linkedStateSentence } from "@/lib/directories/linked-state";
 import type { ReportData, ReportDirectoryRow } from "@/lib/reports/report-data";
 import { reportFindings } from "@/lib/reports/report-findings";
 import { reportNarrative, stripNarrativeMarkup } from "@/lib/reports/report-narrative";
-import { reportDataFixture } from "../../helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 /** Hero's shape: nine directories cited; Localsearch linked, its own profile in 2 of its 10 citations. */
 const HERO_ROWS: ReportDirectoryRow[] = [
@@ -37,7 +45,7 @@ const STALE =
   /profile links haven't been added|profile links aren't added yet|we can't yet see whether any/;
 
 function withRows(rows: ReportDirectoryRow[]): ReportData {
-  const data = reportDataFixture("39");
+  const data = report("allEngines");
   data.directories.rows = rows;
   return data;
 }

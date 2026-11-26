@@ -1,6 +1,12 @@
 /**
  * Rebrand (15 Nov), part 1 -- the emails and the report PDF say Vunnara: the sender a recipient sees, the
  * email's header (the mark and the name) and footer, and the PDF's running header, cover and closing line.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/brand/brand-email-pdf.test.tsx; the PDF is an invented business
+ * seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no longer hand-composed
+ * report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { describe, expect, it, vi } from "vitest";
 import { BRAND_COLORS, BRAND_MARK, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
@@ -9,7 +15,9 @@ import { checkFromAddress } from "@/lib/email/send";
 import { auditCompleteEmail } from "@/lib/email/templates/audit-complete";
 import { passwordResetEmail } from "@/lib/email/templates/auth";
 import { collectPdfPages } from "@/tests/helpers/pdf-text";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 const OLD_NAME = /visible[\s_.-]?au/i;
 
@@ -79,7 +87,7 @@ describe("an email", () => {
 
 describe("the report PDF", () => {
   it("every page's running header and the cover say Vunnara, and no page names the old product", () => {
-    const pages = collectPdfPages(<ReportDocument data={reportDataFixture("39")} />);
+    const pages = collectPdfPages(<ReportDocument data={report("allEngines")} />);
     expect(pages.length).toBe(7);
     const text = pages.flat().join("\n");
     // The cover's top bar: "Powered by" beside the mark and the name.

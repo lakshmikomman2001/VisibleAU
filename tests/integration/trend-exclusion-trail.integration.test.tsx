@@ -3,6 +3,12 @@
  * what Vunnara did (lib/admin/trend-exclusions.ts trendExclusionTrailSummary), and the trail's row shows that
  * sentence, by Vunnara (components/domain/governance/audit-log-row.tsx). The PDF's section 08 names the audits
  * excluded from its trend (lib/reports/report-format.ts excludedAuditsMethodItem).
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/admin/trend-exclusion-trail.test.tsx; the PDF's checks start
+ * from an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts),
+ * no longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,7 +17,9 @@ import { AuditLogRow } from "@/components/domain/governance/audit-log-row";
 import { trendExclusionTrailSummary } from "@/lib/admin/trend-exclusions";
 import { EARLIER_MENTION_CHECK_REASON } from "@/lib/audit/trend-exclusion";
 import { excludedAuditsMethodItem, trendNoteLines } from "@/lib/reports/report-format";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 describe("what the workspace's Audit Trail says", () => {
   it("excluded, included again, and a changed reason", () => {
@@ -55,7 +63,7 @@ describe("what the workspace's Audit Trail says", () => {
 
 describe("the PDF names audits excluded from its trend", () => {
   it("in the caption's notes and in section 08's What's excluded", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     data.trend.excluded = [{ auditNumber: 36, reason: EARLIER_MENTION_CHECK_REASON }];
     expect(trendNoteLines(data)).toContain(
       "Audit #36 is left out of this chart and every comparison: measured with an earlier version of the mention check.",
@@ -66,7 +74,7 @@ describe("the PDF names audits excluded from its trend", () => {
   });
 
   it("none excluded: section 08 still says it can happen", () => {
-    expect(excludedAuditsMethodItem(reportDataFixture("39"))).toBe(
+    expect(excludedAuditsMethodItem(report("allEngines"))).toBe(
       "Audits Vunnara excluded from trends, with the reason (none in this report)",
     );
   });

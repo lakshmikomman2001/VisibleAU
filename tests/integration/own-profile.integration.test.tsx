@@ -5,6 +5,12 @@
  * A cited page that is very likely the brand's own profile is offered ("This looks like your profile — link
  * it?"), linked only when the owner clicks, and the recommendation names it. A different business sharing
  * a word is never offered.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/directories/own-profile.test.tsx; the recommendation's report is
+ * an invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
@@ -19,7 +25,9 @@ import { DirectoriesCitedPanel } from "@/components/domain/audit/directories-cit
 import { likelyOwnProfileUrl } from "@/lib/directories/own-profile";
 import { findDirectoryByDomain } from "@/lib/directories/registry";
 import { reportFindings } from "@/lib/reports/report-findings";
-import { reportDataFixture } from "../../helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 const HERO = {
   name: "wrenhomeservices",
@@ -152,7 +160,7 @@ describe("the audit page offers it, and links it only when the owner clicks", ()
 
 describe("the recommendation names the page", () => {
   it("'Link your … profile' says which cited page looks like the brand's", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     data.directories.rows = data.directories.rows.map((r, i) =>
       i === 0
         ? { ...r, suggestedProfileUrl: "https://www.hipages.com.au/connect/yabbyservices" }

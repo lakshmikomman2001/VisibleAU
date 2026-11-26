@@ -2,6 +2,13 @@
  * 15 Nov, part 2 (Sri, Hero's #48 and #50): two audits that asked different everyday questions are never compared
  * (lib/audit/question-set.ts). The rule, the note's words, and the report
  * PDF's chart: hollow, with no line across a change of questions, and the caption's note.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/audit/question-set.test.tsx (the name
+ * question-set.integration.test.tsx was taken by the stored-set tests); the chart's checks start from an invented
+ * business seeded as real audits #37-#39 and rendered by the real path (tests/helpers/seeded-report-data.ts), no longer
+ * hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -14,7 +21,9 @@ import { ReportDocument, trendSegments } from "@/lib/reports/pdf/report-document
 import type { ReportData } from "@/lib/reports/report-data";
 import { trendLines, trendPointHollow } from "@/lib/reports/report-format";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
-import { reportDataFixture } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 const NOTE =
   "Questions changed between #48 and #50 (one question removed), so these aren't compared.";
@@ -85,7 +94,7 @@ describe("what changed, in words", () => {
 describe("the report PDF's chart", () => {
   /** #37 and #38 asked other questions than the basis #39; the note sits on #39. */
   function changedAt39(): ReportData {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     data.trend.points = data.trend.points.map((p) => ({
       ...p,
       otherQuestions: p.auditNumber !== 39,
@@ -113,7 +122,7 @@ describe("the report PDF's chart", () => {
       [39],
     ]);
     // The same questions throughout: #38 and #39 joined; #37 (3 of 4 engines) stands alone.
-    const same = reportDataFixture("39").trend.points.map((p, i) => ({ p, i }));
+    const same = report("allEngines").trend.points.map((p, i) => ({ p, i }));
     expect(trendSegments(same).map((s) => s.map(({ p }) => p.auditNumber))).toEqual([
       [37],
       [38, 39],

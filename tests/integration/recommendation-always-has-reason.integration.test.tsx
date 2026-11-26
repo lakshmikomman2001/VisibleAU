@@ -7,6 +7,13 @@
  * The guard: every template, in its single- and multi-engine (or one- and several-directory) cases, gives a
  * recommendation whose reason is a sentence of its own, and the PDF prints it under the title. (The audit page
  * prints the same list: tests/integration/audit-actions-evidence.integration.test.tsx renders it.)
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/reports/recommendation-always-has-reason.test.tsx; each case
+ * starts from an invented business seeded as real audits and rendered by the real path (tests/helpers/
+ * seeded-report-data.ts: every engine answering, and Claude failing every question), no longer hand-composed report
+ * data. The cases are built when the tests run, after the file's beforeAll has seeded them.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import { describe, expect, it } from "vitest";
 import { ReportDocument } from "@/lib/reports/pdf/report-document";
@@ -18,7 +25,14 @@ import {
   withAction,
 } from "@/lib/reports/report-findings";
 import { collectPdfText } from "@/tests/helpers/pdf-text";
-import { reportDataFixture, withCompetitors } from "@/tests/helpers/report-data-fixture";
+import { IRONSTONE } from "@/tests/helpers/report-seeds";
+import {
+  IRONSTONE_ALL_ENGINES,
+  seededReportData,
+  withCompetitors,
+} from "@/tests/helpers/seeded-report-data";
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES, claudeFailed: IRONSTONE });
 
 const NAMES: Record<string, string> = {
   chatgpt: "ChatGPT",
@@ -51,101 +65,102 @@ const failed = (engine: string): ReportEngineRow => ({
 });
 
 function withEngines(engines: ReportEngineRow[]): ReportData {
-  return { ...reportDataFixture("39"), engines };
+  return { ...report("allEngines"), engines };
 }
 
-/** [label, data, the rule it must produce] -- every template, one thing and several things in its title. */
-const CASES: Array<[string, ReportData, FindingRule]> = [
+/** [label, the case's data, the rule it must produce] -- every template, one thing and several things in its title. */
+const CASES: Array<[string, () => ReportData, FindingRule]> = [
   // b: silent engines -- unmeasured (Gemini, ChatGPT), measured (Claude), and mixed; one and several.
   [
     "b: Gemini alone, no search results (Sri's #50)",
-    withEngines([answered("chatgpt", 4), answered("claude", 3), answered("gemini", 0)]),
+    () => withEngines([answered("chatgpt", 4), answered("claude", 3), answered("gemini", 0)]),
     "b",
   ],
   [
     "b: Gemini and ChatGPT, neither with search results",
-    withEngines([answered("chatgpt", 0), answered("claude", 3), answered("gemini", 0)]),
+    () => withEngines([answered("chatgpt", 0), answered("claude", 3), answered("gemini", 0)]),
     "b",
   ],
   [
     "b: Claude alone, measured",
-    withEngines([answered("chatgpt", 4), answered("claude", 0, 0), answered("gemini", 2)]),
+    () => withEngines([answered("chatgpt", 4), answered("claude", 0, 0), answered("gemini", 2)]),
     "b",
   ],
   [
     "b: Claude and Gemini, Claude measured",
-    withEngines([answered("chatgpt", 4), answered("claude", 0, 3), answered("gemini", 0)]),
+    () => withEngines([answered("chatgpt", 4), answered("claude", 0, 3), answered("gemini", 0)]),
     "b",
   ],
   [
     "b: three silent, one other engine",
-    withEngines([
-      answered("chatgpt", 0),
-      answered("claude", 0),
-      answered("gemini", 0),
-      answered("perplexity", 2),
-    ]),
+    () =>
+      withEngines([
+        answered("chatgpt", 0),
+        answered("claude", 0),
+        answered("gemini", 0),
+        answered("perplexity", 2),
+      ]),
     "b",
   ],
   // c: engines that couldn't be measured.
   [
     "c: one failed engine",
-    withEngines([answered("chatgpt", 4), failed("claude"), answered("gemini", 2)]),
+    () => withEngines([answered("chatgpt", 4), failed("claude"), answered("gemini", 2)]),
     "c",
   ],
   [
     "c: two failed engines",
-    withEngines([failed("chatgpt"), answered("claude", 3), failed("gemini")]),
+    () => withEngines([failed("chatgpt"), answered("claude", 3), failed("gemini")]),
     "c",
   ],
   // a: directories -- not linked (none / some suggested), and linked but not cited.
-  ["a: three directories, none linked", reportDataFixture("39"), "a"],
+  ["a: three directories, none linked", () => report("allEngines"), "a"],
   [
     "a: one directory, a suggested page",
-    (() => {
-      const d = reportDataFixture("39");
+    () => {
+      const d = report("allEngines");
       d.directories.rows = d.directories.rows.slice(0, 1).map((r) => ({
         ...r,
         suggestedProfileUrl: "https://www.hipages.com.au/connect/yabbyservices",
       }));
       return d;
-    })(),
+    },
     "a",
   ],
   [
     "a: linked and not cited (Complete)",
-    (() => {
-      const d = reportDataFixture("39");
+    () => {
+      const d = report("allEngines");
       d.directories.rows = d.directories.rows.map((r) => ({
         ...r,
         ownerProfileLinked: true,
         ownerProfileCitedCount: 0,
       }));
       return d;
-    })(),
+    },
     "a",
   ],
   // e, f, d: one competitor, Reddit, the strength.
   [
     "e: a competitor named more often",
-    (() => {
-      const d = reportDataFixture("39");
+    () => {
+      const d = report("allEngines");
       d.competitors = withCompetitors(d, [{ name: "Rival Co", mentions: 12 }]);
       return d;
-    })(),
+    },
     "e",
   ],
   [
     "f: Reddit cited",
-    (() => {
+    () => {
       const d = withEngines([answered("chatgpt", 4), answered("claude", 3)]);
       d.directories.rows = [];
       d.sources = { ...d.sources, reddit: 6 };
       return d;
-    })(),
+    },
     "f",
   ],
-  ["d: the strength", reportDataFixture("37"), "d"],
+  ["d: the strength", () => report("claudeFailed"), "d"],
 ];
 
 function expectReason(f: Finding, label: string): void {
@@ -157,8 +172,8 @@ function expectReason(f: Finding, label: string): void {
 }
 
 describe("every recommendation has a reason", () => {
-  it.each(CASES)("%s", (label, data, rule) => {
-    const findings = reportFindings(data);
+  it.each(CASES)("%s", (label, make, rule) => {
+    const findings = reportFindings(make());
     expect(
       findings.map((f) => f.rule),
       label,
@@ -167,8 +182,10 @@ describe("every recommendation has a reason", () => {
   });
 
   // S01C part 2b, LLD amendment 60: "If the engine cited no directory: no action, and Recommended next leaves the
-  // item out." These hand-made rows carry no per-engine citations, so their silent engines cited none.
-  it.each(CASES)("the PDF prints it under the title: %s", (_label, data) => {
+  // item out." The seeded directories were cited only in Perplexity's answers (tests/helpers/seeded-report-data.ts),
+  // and Perplexity is never silent in these cases, so their silent engines cited none.
+  it.each(CASES)("the PDF prints it under the title: %s", (_label, make) => {
+    const data = make();
     const lines = collectPdfText(<ReportDocument data={data} />);
     for (const f of reportFindings(data).filter((x) => x.noAction)) {
       expect(lines, `"${f.recommendation.title}" left out`).not.toContain(f.recommendation.title);

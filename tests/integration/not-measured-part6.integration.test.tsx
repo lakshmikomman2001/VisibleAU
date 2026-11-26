@@ -4,6 +4,12 @@
  * missed: the per-engine bars of an engine with no answers (the brand page and the PDF, one helper now), the
  * agent-readiness card's "absent" for a check that never ran, and the Local AI Trust score counting its
  * unmeasured parts as 0.
+ *
+ * S03 part 0 (LLD amendment 77): moved from tests/unit/scoring/not-measured-part6.test.tsx; the PDF's report is an
+ * invented business seeded as real audits and rendered by the real path (tests/helpers/seeded-report-data.ts), no
+ * longer hand-composed report data.
+ *
+ * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
 import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
@@ -15,8 +21,8 @@ import { localTrustFromParts } from "@/lib/platform/local-ai-trust-scorer";
 import { ReportDocument } from "@/lib/reports/pdf/report-document";
 import { checkText, NOT_CHECKED, NOT_MEASURED } from "@/lib/scoring/measured";
 import { engineRowDisplay, NO_ANSWERS } from "@/lib/scoring/measured-display";
-import { collectPdfPages } from "../../helpers/pdf-text";
-import { reportDataFixture } from "../../helpers/report-data-fixture";
+import { collectPdfPages } from "@/tests/helpers/pdf-text";
+import { IRONSTONE_ALL_ENGINES, seededReportData } from "@/tests/helpers/seeded-report-data";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
@@ -29,6 +35,8 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/lib/verticals/expand-prompt", () => ({ formatLocation: (region: string) => region }));
+
+const report = seededReportData({ allEngines: IRONSTONE_ALL_ENGINES });
 
 describe("one engine's row", () => {
   it("an engine that answered gets a bar for its rate, a measured 0% included", () => {
@@ -112,7 +120,7 @@ describe("the brand page's per-engine breakdown", () => {
 
 describe("the PDF's engine rows", () => {
   it("an engine with no answers says so, with its errors, and draws no bar", () => {
-    const data = reportDataFixture("39");
+    const data = report("allEngines");
     const [first, second, ...rest] = data.engines;
     data.engines = [
       first,

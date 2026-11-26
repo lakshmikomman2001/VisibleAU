@@ -155,7 +155,17 @@ export interface AgencyActionRow {
 }
 
 export interface WhatToDoNext {
-  measured: Array<MeasuredActionSource & { included: boolean; note: string | null }>;
+  measured: Array<
+    MeasuredActionSource & {
+      included: boolean;
+      note: string | null;
+      /**
+       * S02 part 0B (LLD amendment 68): the place the agency saved for this action in the report contents panel
+       * (Agency and up). Absent or null: none saved; absent on snapshots written before S02.
+       */
+      position?: number | null;
+    }
+  >;
   agencyActions: AgencyActionRow[];
   doneSinceLast: Array<{ title: string; doneAt: string }>;
   generalAdvice: Array<{ title: string; evidence: string }>;
@@ -164,9 +174,41 @@ export interface WhatToDoNext {
   curated: boolean;
 }
 
+const OTHER_ACTION_RANK: Record<string, number> = { high: 0, medium: 1, low: 2, strength: 3 };
+
+/**
+ * OTHER ACTIONS FROM THIS AUDIT's own order (S01C part 3b, LLD amendment 61): priority -- High, Medium, Low, then
+ * strengths -- then the newest item first (undated last, as they were).
+ */
+export function compareOtherActions(
+  a: { priority: string; createdAt?: string | null },
+  b: { priority: string; createdAt?: string | null },
+): number {
+  const rank = (OTHER_ACTION_RANK[a.priority] ?? 1) - (OTHER_ACTION_RANK[b.priority] ?? 1);
+  if (rank !== 0) return rank;
+  const at = (m: { createdAt?: string | null }) =>
+    m.createdAt ? Date.parse(m.createdAt) : -Infinity;
+  return at(b) - at(a);
+}
+
+/**
+ * S02 part 0B (LLD amendment 68): the order OTHER ACTIONS FROM THIS AUDIT prints in. When the agency saved an order in
+ * the report contents panel (any of the group's actions has a saved place), that order wins, and any action without
+ * a place follows in the group's own order; otherwise High, Medium, Low, then newest first.
+ */
+export function orderOtherActions<
+  T extends { priority: string; createdAt?: string | null; position?: number | null },
+>(items: readonly T[]): T[] {
+  const placed = items
+    .filter((m) => typeof m.position === "number")
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const rest = items.filter((m) => typeof m.position !== "number").sort(compareOtherActions);
+  return [...placed, ...rest];
+}
+
 /**
  * The groups, with the agency's choices applied when `curated` (Agency and up): measured actions in the saved order
- * (unsaved ones after, in priority order), hidden ones kept with `included: false` (the panel lists them; the PDF
+ * (unsaved ones after: findings in their order, then the rest in OTHER ACTIONS' own order), hidden ones kept with `included: false` (the panel lists them; the PDF
  * drops them), notes kept. Not curated: priority order, every action included, no notes, no agency actions, both
  * toggles on.
  */
@@ -194,17 +236,30 @@ export function assembleWhatToDoNext(input: {
   const byId = new Map(input.choices.map((c) => [c.actionItemId, c]));
   const choiceOf = (m: MeasuredActionSource) =>
     m.actionItemId ? byId.get(m.actionItemId) : undefined;
-  const rank = (m: MeasuredActionSource, i: number) => {
+  const positionOf = (m: MeasuredActionSource) => {
     const p = choiceOf(m)?.position;
-    return p === null || p === undefined ? 1000 + i : p;
+    return typeof p === "number" ? p : null;
   };
-  const measured = input.measured
-    .map((m, i) => ({ m, r: rank(m, i) }))
-    .sort((a, b) => a.r - b.r)
-    .map(({ m }) => {
-      const c = choiceOf(m);
-      return { ...m, included: c ? c.included : true, note: c?.note ?? null };
-    });
+  // S02 part 0B (LLD amendment 68): the saved order first; then the findings in their own order, as before, and the
+  // other measured items in OTHER ACTIONS' own order (High, Medium, Low, then newest first; the audit page's is oldest
+  // first), so a panel saved without reordering prints OTHER ACTIONS as if none were saved.
+  const saved = input.measured
+    .filter((m) => positionOf(m) !== null)
+    .sort((a, b) => (positionOf(a) ?? 0) - (positionOf(b) ?? 0));
+  const unsaved = input.measured.filter((m) => positionOf(m) === null);
+  const measured = [
+    ...saved,
+    ...unsaved.filter((m) => m.findingRule),
+    ...unsaved.filter((m) => !m.findingRule).sort(compareOtherActions),
+  ].map((m) => {
+    const c = choiceOf(m);
+    return {
+      ...m,
+      included: c ? c.included : true,
+      note: c?.note ?? null,
+      position: positionOf(m),
+    };
+  });
   const agencyActions = [...input.agencyActions].sort(
     (a, b) => (a.position ?? 1000) - (b.position ?? 1000) || a.title.localeCompare(b.title),
   );

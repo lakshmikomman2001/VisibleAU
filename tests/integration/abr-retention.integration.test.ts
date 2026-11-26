@@ -26,6 +26,10 @@ const BRAND = {
   malformed: randomUUID(),
   deleted: randomUUID(),
   notMine: randomUUID(),
+  // S02 part 0B (amendment 72).
+  notMineRecent: randomUUID(),
+  confirmedRecent: randomUUID(),
+  unansweredRecent: randomUUID(),
 };
 
 // S01C part 5b: the brand settings route's name search and the rename's question pack, recorded (no network).
@@ -290,5 +294,43 @@ describe("'Not mine' lasts past the 12 months (amendment 65)", () => {
     searches.names.length = 0;
     await suggestionFor(BRAND.notMine);
     expect(searches.names).toEqual(["Wattle Grove Tiles and Stone"]);
+  });
+});
+
+describe("a rename clears a 'Not mine' still inside its 12 months, with its ABR data (S02 part 0B, amendment 72)", () => {
+  async function patch(brandId: string, body: Record<string, unknown>) {
+    const { PATCH } = await import("@/app/api/brands/[brandId]/route");
+    const res = await PATCH(
+      new Request("http://x", { method: "PATCH", body: JSON.stringify(body) }),
+      { params: Promise.resolve({ brandId }) },
+    );
+    expect(res.status).toBe(200);
+  }
+
+  it("other changes keep the dismissed suggestion; a new name clears it and its ABR data", async () => {
+    await brand(
+      BRAND.notMineRecent,
+      "Wattle Grove Pavers",
+      null,
+      found("86103551072", "2026-11-01T00:00:00.000Z", "dismissed"),
+    );
+    await patch(BRAND.notMineRecent, { competitors: ["Wattle Grove Rival"] });
+    expect((await brandRow(BRAND.notMineRecent)).abn_suggestion).toMatchObject({
+      status: "found",
+      answer: "dismissed",
+    });
+    await patch(BRAND.notMineRecent, { name: "Wattle Grove Pavers and Tiles" });
+    expect((await brandRow(BRAND.notMineRecent)).abn_suggestion).toBeNull();
+  });
+
+  it("a rename keeps a confirmed suggestion and one not answered yet", async () => {
+    const confirmed = found("51824753557", "2026-11-02T00:00:00.000Z", "confirmed");
+    const unanswered = found("33628104975", "2026-11-03T00:00:00.000Z");
+    await brand(BRAND.confirmedRecent, "Wattle Grove Fencing", "51824753557", confirmed);
+    await brand(BRAND.unansweredRecent, "Wattle Grove Glazing", null, unanswered);
+    await patch(BRAND.confirmedRecent, { name: "Wattle Grove Fencing Co" });
+    await patch(BRAND.unansweredRecent, { name: "Wattle Grove Glazing Co" });
+    expect((await brandRow(BRAND.confirmedRecent)).abn_suggestion).toEqual(confirmed);
+    expect((await brandRow(BRAND.unansweredRecent)).abn_suggestion).toEqual(unanswered);
   });
 });

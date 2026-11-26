@@ -40,25 +40,31 @@ export const DAILY_LIMIT_CUSTOMER_MESSAGE =
   "Today's audit limit for this workspace is reached. Audits resume after midnight (Sydney time).";
 
 /**
- * S01C part 1 (LLD amendment 58): the question generator's own failure. Its stored error ends with the model call's
- * message in brackets ("... before running the audit (HTTP 400 invalid_request_error: You have reached your
- * specified API usage limits ...)"), which is on our side; the customer gets the plain reason.
+ * S02 part 0B (LLD amendment 71): a whole audit that couldn't finish for a reason on our side -- a budget estimate, a
+ * time-out, the question generator, a runner that found no questions or no engines, an unexpected exception.
  */
-export const QUESTIONS_NOT_REFRESHED_CUSTOMER_MESSAGE = `Could not refresh this brand's questions before running the audit (${PROBLEM_ON_OUR_SIDE}).`;
+export const AUDIT_PROBLEM_ON_OUR_SIDE = `This audit couldn't finish because of ${PROBLEM_ON_OUR_SIDE}.`;
+
+/** The unconfirmed-business reason (lib/audit/get-audit-prompts.ts BrandNeedsConfirmationError), the customer's own. */
+const CONFIRM_BUSINESS_REASON =
+  "Confirm your business type and location on the brand's page before running an audit.";
 
 /**
- * A failed audit's stored error, as a customer may read it. An audit stopped by the daily spending limit
- * stored the limit's amounts (before 13 Nov in the message itself); those audits read the customer wording.
- * A reason about the customer's own setup (an unconfirmed business type) is kept as it is.
+ * A failed audit's stored error, as a customer may read it. S02 part 0B (LLD amendment 71): only the reasons about
+ * the customer's own setup keep their words -- an unconfirmed business type, and the workspace's daily limit (an
+ * audit stopped by it stored the limit's amounts, before 13 Nov in the message itself, so it reads the customer
+ * wording); every other stored error, whatever it says ("Budget exceeded", "Timed out", an exception's message),
+ * reads "This audit couldn't finish because of a problem on our side." Null when nothing is stored.
  */
 export function customerAuditError(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const { error, errorCode } = metadata as { error?: unknown; errorCode?: unknown };
   if (errorCode === "DailySpendCapExceededError") return DAILY_LIMIT_CUSTOMER_MESSAGE;
-  if (errorCode === "PromptPackGenerationError") return QUESTIONS_NOT_REFRESHED_CUSTOMER_MESSAGE;
-  if (typeof error !== "string") return null;
+  if (errorCode === "BrandNeedsConfirmationError") return CONFIRM_BUSINESS_REASON;
+  if (typeof error !== "string") return errorCode ? AUDIT_PROBLEM_ON_OUR_SIDE : null;
   if (/^Daily spending limit reached/.test(error)) return DAILY_LIMIT_CUSTOMER_MESSAGE;
-  return error;
+  if (error === CONFIRM_BUSINESS_REASON) return CONFIRM_BUSINESS_REASON;
+  return AUDIT_PROBLEM_ON_OUR_SIDE;
 }
 
 /** The audit's metadata as a customer response may carry it: the failure reason in customer wording. */

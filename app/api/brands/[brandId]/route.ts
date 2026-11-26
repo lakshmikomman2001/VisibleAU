@@ -217,12 +217,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     }
 
     // S01C part 5b (LLD amendment 65): a new name is a new search, so a "Not mine" kept past retention no longer
-    // applies to it.
+    // applies to it. S02 part 0B (amendment 72): nor does one still inside its 12 months -- that suggestion and its
+    // ABR data go too. A confirmed one, or one not answered yet, is left as it is.
     if (parsed.data.name !== undefined && parsed.data.name !== existing.name) {
       await tx
         .update(brands)
         .set({ abnSuggestion: null })
-        .where(and(eq(brands.id, brandId), sql`${brands.abnSuggestion}->>'status' = 'dismissed'`));
+        .where(
+          and(
+            eq(brands.id, brandId),
+            sql`(${brands.abnSuggestion}->>'status' = 'dismissed' OR ${brands.abnSuggestion}->>'answer' = 'dismissed')`,
+          ),
+        );
     }
 
     // Build 1 follow-up (entry-point check): this is the location-

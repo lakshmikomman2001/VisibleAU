@@ -38,7 +38,7 @@ import {
   directoriesLines,
   formatCheckDate,
 } from "../beyond-ai";
-import type { WhatToDoNext } from "../report-contents";
+import { orderOtherActions, type WhatToDoNext } from "../report-contents";
 import type { ReportData, ReportMatrixRow, ReportTrendPoint } from "../report-data";
 import {
   type EvidenceTone,
@@ -2322,19 +2322,8 @@ function Group({ label, items }: { label: string; items: ReactNode[] }) {
   );
 }
 
-const OTHER_ACTION_RANK: Record<string, number> = { high: 0, medium: 1, low: 2, strength: 3 };
-
-/** OTHER ACTIONS FROM THIS AUDIT's order: priority, then the newest item first (undated last, as they were). */
-export function compareOtherActions(
-  a: { priority: string; createdAt?: string | null },
-  b: { priority: string; createdAt?: string | null },
-): number {
-  const rank = (OTHER_ACTION_RANK[a.priority] ?? 1) - (OTHER_ACTION_RANK[b.priority] ?? 1);
-  if (rank !== 0) return rank;
-  const at = (m: { createdAt?: string | null }) =>
-    m.createdAt ? Date.parse(m.createdAt) : -Infinity;
-  return at(b) - at(a);
-}
+/** OTHER ACTIONS FROM THIS AUDIT's own order; it lives with the data now (S02 part 0B), kept here for its importers. */
+export { compareOtherActions } from "../report-contents";
 
 /** The measured action a shown finding carries (its card's pills and note), when the agency didn't hide it. */
 function actionForFinding(
@@ -2362,13 +2351,14 @@ function NextSection({ ctx }: { ctx: Ctx }) {
   const agencyName = v2?.agencyName ?? null;
   const shownRules = new Set(ctx.findings.map((f) => f.rule));
   const shownTitles = new Set(withAction(ctx.findings).map((f) => f.recommendation.title));
-  // S01C part 3b (LLD amendment 61): High, Medium, Low, then newest first (the real reports had LOW before MEDIUM).
-  const others = (next?.measured ?? [])
-    .filter(
+  // S01C part 3b (LLD amendment 61): High, Medium, Low, then newest first (the real reports had LOW before MEDIUM);
+  // S02 part 0B (amendment 68): unless the agency saved an order for the group in the report contents panel.
+  const others = orderOtherActions(
+    (next?.measured ?? []).filter(
       (m) =>
         m.included && (m.findingRule ? !shownRules.has(m.findingRule) : !shownTitles.has(m.title)),
-    )
-    .sort(compareOtherActions);
+    ),
+  );
   const agency = next?.agencyActions ?? [];
   const agencyLabelled =
     agency.length > 0 || (next?.measured ?? []).some((m) => m.included && !!m.note?.trim());

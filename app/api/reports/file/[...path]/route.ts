@@ -47,7 +47,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
   }
 
   const buffer = await readFile(/*turbopackIgnore: true*/ fullPath);
-  // S01C part 5a (LLD amendment 64): a report link names its download ("{Brand} – AI Visibility Report ...pdf", an
+  // S01C part 5a (LLD amendment 64): a report link names its download ("{Brand} - AI Visibility Report ...pdf", an
   // ASCII fallback and filename*); without a name, the file as before.
   const name = new URL(req.url).searchParams.get("name")?.trim();
   return new NextResponse(buffer, {

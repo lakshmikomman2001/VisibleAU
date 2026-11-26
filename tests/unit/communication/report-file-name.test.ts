@@ -10,6 +10,9 @@ import {
   reportFileName,
 } from "@/lib/communication/report-file-name";
 
+// S02 part 0B, LLD amendment 69: "The name uses a plain hyphen: '{Brand} - AI Visibility Report ({Tier name}) - Week {w}
+// {yyyy}.pdf' (a monthly report names its month), so Supabase Storage's ASCII fallback, which turns '–' into '_',
+// equals the real name." The five names below had "–" (S01C part 5a).
 describe("reportFileName", () => {
   it("a report with a tier: brand, tier name and week", () => {
     expect(
@@ -18,7 +21,7 @@ describe("reportFileName", () => {
         tierName: "Enhanced",
         periodLabel: "2026-W47",
       }),
-    ).toBe("Waratah Home Services – AI Visibility Report (Enhanced) – Week 47 2026.pdf");
+    ).toBe("Waratah Home Services - AI Visibility Report (Enhanced) - Week 47 2026.pdf");
   });
 
   it("an agency's own tier name", () => {
@@ -28,7 +31,7 @@ describe("reportFileName", () => {
         tierName: "Premium Audit",
         periodLabel: "2026-W05",
       }),
-    ).toBe("Bluegum Home Services – AI Visibility Report (Premium Audit) – Week 5 2026.pdf");
+    ).toBe("Bluegum Home Services - AI Visibility Report (Premium Audit) - Week 5 2026.pdf");
   });
 
   it("report_v2 off: no tier", () => {
@@ -38,7 +41,7 @@ describe("reportFileName", () => {
         tierName: null,
         periodLabel: "2026-W47",
       }),
-    ).toBe("Ironstone Property Services – AI Visibility Report – Week 47 2026.pdf");
+    ).toBe("Ironstone Property Services - AI Visibility Report - Week 47 2026.pdf");
   });
 
   it("a monthly report names its month", () => {
@@ -48,13 +51,13 @@ describe("reportFileName", () => {
         tierName: "Basic",
         periodLabel: "2026-11",
       }),
-    ).toBe("Kurrajong IT Solutions – AI Visibility Report (Basic) – November 2026.pdf");
+    ).toBe("Kurrajong IT Solutions - AI Visibility Report (Basic) - November 2026.pdf");
   });
 
   it("characters a file name can't hold become spaces", () => {
     expect(
       reportFileName({ brandName: "A/B: Plumbing", tierName: null, periodLabel: "2026-W47" }),
-    ).toBe("A B Plumbing – AI Visibility Report – Week 47 2026.pdf");
+    ).toBe("A B Plumbing - AI Visibility Report - Week 47 2026.pdf");
   });
 });
 
@@ -75,5 +78,17 @@ describe("Content-Disposition", () => {
     );
     expect(decodeURIComponent(header.split("UTF-8''")[1])).toBe(name);
     expect(header).toMatch(/^[\x20-\x7e]+$/);
+  });
+});
+
+describe("S02 part 0B (amendment 69): the name is its own ASCII fallback", () => {
+  it.each([
+    { brandName: "Waratah Home Services", tierName: "Enhanced", periodLabel: "2026-W47" },
+    { brandName: "Kurrajong IT Solutions", tierName: "Basic", periodLabel: "2026-11" },
+    { brandName: "Ironstone Property Services", tierName: null, periodLabel: "2026-W47" },
+  ])("$brandName, $periodLabel", (input) => {
+    const name = reportFileName(input);
+    expect(name).not.toMatch(/[–—]/);
+    expect(asciiFileName(name)).toBe(name);
   });
 });

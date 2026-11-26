@@ -2,9 +2,10 @@ import { reportPeriodDisplay } from "@/lib/reports/report-period";
 
 /**
  * S01C part 5a (LLD amendment 64): a report PDF's file name, wherever it leaves the app (the reports page's
- * download, the client portal's, the scheduled-report email's link): "{Brand} – AI Visibility Report ({Tier name}) –
+ * download, the client portal's, the scheduled-report email's link): "{Brand} - AI Visibility Report ({Tier name}) -
  * Week {w} {yyyy}.pdf", without the tier for a report made with report_v2 off (no contents snapshot, so no tier
- * name). The real Basic report downloaded as "5573cd17-….pdf", its storage path.
+ * name). The real Basic report downloaded as "5573cd17-….pdf", its storage path. S02 part 0B (amendment 69): a plain
+ * hyphen, not "–", so Supabase Storage's ASCII fallback (which turns "–" into "_") is the same name.
  */
 export function reportFileName(input: {
   brandName: string;
@@ -16,16 +17,16 @@ export function reportFileName(input: {
   const label = input.periodLabel?.trim() ?? "";
   const week = /^(\d{4})-W(\d{2})$/.exec(label);
   const period = week
-    ? ` – Week ${Number(week[2])} ${week[1]}`
+    ? ` - Week ${Number(week[2])} ${week[1]}`
     : label
-      ? ` – ${reportPeriodDisplay(label).title.replace(/,/g, "")}`
+      ? ` - ${reportPeriodDisplay(label).title.replace(/,/g, "")}`
       : "";
   const tier = input.tierName?.trim() ? ` (${input.tierName.trim()})` : "";
   const brand = input.brandName
     .trim()
     .replace(/[\\/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ");
-  return `${brand} – AI Visibility Report${tier}${period}.pdf`;
+  return `${brand} - AI Visibility Report${tier}${period}.pdf`;
 }
 
 /** The name in plain ASCII, for clients that don't read filename*: hyphens for dashes, no accents, no quotes. */
@@ -51,7 +52,7 @@ function extValue(name: string): string {
 
 /**
  * `attachment; filename="Waratah Home Services - AI Visibility Report (Enhanced) - Week 47 2026.pdf";
- * filename*=UTF-8''Waratah%20Home%20Services%20%E2%80%93%20…` (RFC 6266): the ASCII name first, the real one for
+ * filename*=UTF-8''Waratah%20Home%20Services%20-%20…` (RFC 6266): the ASCII name first, the real one for
  * every browser that reads filename*.
  */
 export function reportContentDisposition(name: string): string {

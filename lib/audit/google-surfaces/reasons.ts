@@ -60,8 +60,9 @@ export const GOOGLE_CUSTOMER_OWN_REASONS = {
     "Google was switched off during this audit, so the rest of its questions weren't checked.",
   costCeiling:
     "This audit reached its cost limit for Google, so the rest of its questions weren't checked.",
-  dailyCap:
-    "Today's spending limit was reached, so Google was skipped to leave room for the four AI engines.",
+  // S02 part 0B (LLD amendment 71): plain, as the engines' reasons are; it said "Today's spending limit was reached, so
+  // Google was skipped to leave room for the four AI engines." The operator pages keep the stored reason.
+  dailyCap: `Google wasn't checked in this audit because of ${OUR_SIDE}.`,
   notChecked: "This question wasn't checked this time.",
 } as const;
 

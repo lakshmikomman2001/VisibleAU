@@ -114,7 +114,9 @@ test.describe("4A — Reports list", () => {
   test("renders seeded report cards with headline and period", async ({ page }) => {
     await page.goto(`/brands/${brandId}/reports`);
     await expect(page.getByText("Weekly Visibility Report — W26")).toBeVisible();
-    await expect(page.getByText("2026-W26")).toBeVisible();
+    // S02 part 0B, LLD amendment 73: "the list prints dates as '25 Nov 2026' and the period as 'Week 47, 2026' ... it
+    // printed '25/11/2026' and '2026-W47'".
+    await expect(page.getByText("Week 26, 2026")).toBeVisible();
     await expect(page.getByText("Weekly Visibility Report — W27")).toBeVisible();
   });
 

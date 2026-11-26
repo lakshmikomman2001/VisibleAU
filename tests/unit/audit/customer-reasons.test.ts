@@ -95,9 +95,9 @@ describe("customerAuditError (a whole audit's stored error)", () => {
         "Could not refresh this brand's questions before running the audit (HTTP 400 invalid_request_error: You have reached your specified API usage limits. You will regain access on Dec 1, 2026 at 00:00 UTC.).",
       errorCode: "PromptPackGenerationError",
     });
-    expect(text).toBe(
-      "Could not refresh this brand's questions before running the audit (a problem on our side).",
-    );
+    // S02 part 0B, LLD amendment 71: "whole-audit errors other than the customer's own setup ... ('This audit couldn't
+    // finish because of a problem on our side.')" -- the generator's own sentence (S01C part 1) is one of them.
+    expect(text).toBe("This audit couldn't finish because of a problem on our side.");
   });
 
   it("reasons about the customer's own setup keep their words", () => {

@@ -37,7 +37,8 @@ import {
 import { trendExclusionLabel } from "@/lib/audit/trend-exclusion";
 import { getTypicalDurationMinutes } from "@/lib/audit/typical-duration";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { customerAuditError } from "@/lib/costs/customer-safe";
+import { isPlatformAdmin } from "@/lib/auth/platform-admin";
+import { AUDIT_PROBLEM_ON_OUR_SIDE, customerAuditError } from "@/lib/costs/customer-safe";
 import { getDirectoryCitationsForAudit } from "@/lib/directories/citation-counts";
 import { getOwnerDirectoryStatements } from "@/lib/directories/owner-statements";
 import { isEnabled } from "@/lib/flags/flags";
@@ -849,7 +850,7 @@ export default async function AuditPage({
           typicalDurationMinutes={typicalDurationMinutes}
           errorMessage={
             audit.status === "failed"
-              ? (customerAuditError(audit.metadata) ?? "Unknown error")
+              ? (customerAuditError(audit.metadata) ?? AUDIT_PROBLEM_ON_OUR_SIDE)
               : null
           }
         />
@@ -871,6 +872,9 @@ export default async function AuditPage({
     analysisData,
     responsesData,
   } = result;
+  // S02 part 0B (LLD amendment 71): the engine banner adds the provider detail for platform admins only (the existing
+  // check, read only when the banner shows). Fails closed: no session to read means no detail.
+  const showProviderDetail = fullyFailed.length > 0 && (await isPlatformAdmin().catch(() => false));
 
   // Task #46 (fix: stored value contradicting its own CI): value, CI and
   // scored/insufficient_data state for every dimension were already
@@ -999,6 +1003,7 @@ export default async function AuditPage({
         questionCount={audit.promptsCount ?? 0}
         enginesAsked={audit.engines?.length ?? 0}
         answerCount={distinctSampleCount}
+        showProviderDetail={showProviderDetail}
       />
 
       {/* HEADER -- the Visibility block sits on the right on a desktop

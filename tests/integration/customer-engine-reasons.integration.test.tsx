@@ -45,6 +45,13 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));
+// S02 part 0B (amendment 71): the audit page's engine banner asks the existing platform-admin check; off unless a test
+// turns it on (outside a request the real check can't read a session, and the page shows no detail).
+const admin = vi.hoisted(() => ({ on: false }));
+vi.mock("@/lib/auth/platform-admin", () => ({
+  isPlatformAdmin: vi.fn(async () => admin.on),
+  checkPlatformAdmin: vi.fn(async () => ({ allowed: admin.on, userId: null })),
+}));
 vi.mock("@/lib/reports/enhanced-check-runners", () => ({
   // The seeded checks are all within their windows, so an Enhanced report re-runs nothing.
   enhancedRunners: () => ({ site: async () => {}, youtube: async () => {} }),
@@ -299,5 +306,116 @@ describe("exports", () => {
     const body = await res.text();
     expect(body).not.toContain(OPERATOR_LABEL);
     expect(body).not.toContain("specified API usage limits");
+  });
+});
+
+/**
+ * S02 part 0B (LLD amendment 71): the rest of the customer-facing reasons are plain too -- the report-PDF-failed
+ * alert's org copy, Google's daily-cap reason and a whole audit's error -- and on the audit page banner a platform admin
+ * (only) also sees the provider detail. The words checked are this file's, plus the old reasons' own.
+ */
+describe("S02 part 0B: the rest of the reasons (amendment 71)", () => {
+  const OLD_WORDS = [/spending limit/i, /budget exceeded/i, /timed out/i, /storage/i];
+  const plain = (text: string) => [
+    ...internalWords(text),
+    ...OLD_WORDS.filter((re) => re.test(text)).map((re) => re.source),
+  ];
+
+  it("the report-PDF-failed alert: the org copy is one plain sentence; the operator copy keeps the reason", async () => {
+    const { reportPdfFailedEmail, REPORT_PDF_FAILED_ORG_SENTENCE } = await import(
+      "@/lib/email/templates/alerts/report-pdf-failed"
+    );
+    const { PDF_FAILURE_LABELS } = await import("@/lib/communication/types");
+    for (const reason of Object.keys(PDF_FAILURE_LABELS) as Array<
+      keyof typeof PDF_FAILURE_LABELS
+    >) {
+      const args = {
+        brandName: "Ironstone Property Services",
+        organizationName: "Possum Marketing",
+        periodLabel: "2026-W47",
+        reasonLabel: PDF_FAILURE_LABELS[reason],
+        reason,
+        reportUrl: "https://x.test/r",
+      };
+      const org = reportPdfFailedEmail({ ...args, audience: "org" });
+      const operator = reportPdfFailedEmail({ ...args, audience: "operator" });
+      expect(REPORT_PDF_FAILED_ORG_SENTENCE).toBe(
+        "We couldn't create this report because of a problem on our side. Try again in a few minutes.",
+      );
+      expect(org.text, reason).toContain(REPORT_PDF_FAILED_ORG_SENTENCE);
+      expect(org.text, reason).not.toContain(PDF_FAILURE_LABELS[reason]);
+      expect(plain([org.subject, org.text, org.html].join("\n")), reason).toEqual([]);
+      expect(operator.text, reason).toContain(PDF_FAILURE_LABELS[reason]);
+      expect(operator.text, reason).toContain(`Reason: ${reason}`);
+    }
+  });
+
+  it("Google's daily cap: the customer's reason is plain; the stored reason keeps the detail for operators", async () => {
+    const { googleCustomerReason, GOOGLE_STORED_REASON } = await import(
+      "@/lib/audit/google-surfaces/reasons"
+    );
+    const text = googleCustomerReason({
+      outcome: "skipped",
+      providerStatusCode: null,
+      outcomeReason: GOOGLE_STORED_REASON.dailyCap,
+    });
+    expect(text).toBe("Google wasn't checked in this audit because of a problem on our side.");
+    expect(plain(text ?? "")).toEqual([]);
+    expect(GOOGLE_STORED_REASON.dailyCap).toMatch(/spend limit/);
+  });
+
+  it("a whole audit that failed on our side: the API and the audit page say so plainly", async () => {
+    const auditId = randomUUID();
+    await sql`
+      INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt,
+                          metadata, started_at, prompt_pack_version, methodology_version)
+      VALUES (${auditId}, ${ironstone.brandId}, ${ironstone.orgId}, 99, 'failed', ${["chatgpt"]}, 13, 1,
+              ${sql.json({ error: "Budget exceeded", errorCode: "Error" })}, now(), 1, 2)`;
+    try {
+      current.orgId = ironstone.orgId;
+      const { GET } = await import("@/app/api/audits/[auditId]/route");
+      const res = await GET(new Request(`http://localhost/api/audits/${auditId}`), {
+        params: Promise.resolve({ auditId }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { audit: { metadata: { error?: string } } };
+      expect(body.audit.metadata.error).toBe(
+        "This audit couldn't finish because of a problem on our side.",
+      );
+      const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
+      const html = renderToStaticMarkup(
+        await AuditPage({
+          params: Promise.resolve({ auditId }),
+          searchParams: Promise.resolve({}),
+        }),
+      );
+      expect(html.replace(/&#x27;/g, "'")).toContain(
+        "This audit couldn't finish because of a problem on our side.",
+      );
+      expect(plain(html)).toEqual([]);
+    } finally {
+      await sql`DELETE FROM audits WHERE id = ${auditId}`;
+    }
+  });
+
+  it("the audit page banner: a platform admin also sees the provider detail, under the plain line", async () => {
+    current.orgId = ironstone.orgId;
+    admin.on = true;
+    try {
+      const AuditPage = (await import("@/app/(auth)/audits/[auditId]/page")).default;
+      const html = renderToStaticMarkup(
+        await AuditPage({
+          params: Promise.resolve({ auditId: ironstone.basisAuditId }),
+          searchParams: Promise.resolve({}),
+        }),
+      );
+      const plainAt = html.indexOf("Why: a problem on our side.");
+      const detailAt = html.indexOf("data-engine-failure-provider-detail");
+      expect(plainAt).toBeGreaterThan(-1);
+      expect(detailAt).toBeGreaterThan(plainAt);
+      expect(html.replace(/&#x27;/g, "'")).toContain(OPERATOR_LABEL);
+    } finally {
+      admin.on = false;
+    }
   });
 });

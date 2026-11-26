@@ -72,8 +72,9 @@ const STORE = mkdtempSync(join(tmpdir(), "s01c-report-names-"));
 let fx: ReportFixture;
 const ids = { enhanced: randomUUID(), today: randomUUID() };
 const SCHEDULE = randomUUID();
-const ENHANCED_NAME = "Waratah Home Services – AI Visibility Report (Enhanced) – Week 47 2026.pdf";
-const TODAY_NAME = "Waratah Home Services – AI Visibility Report – Week 46 2026.pdf";
+// S02 part 0B, LLD amendment 69: "The name uses a plain hyphen" (it had "–", S01C part 5a).
+const ENHANCED_NAME = "Waratah Home Services - AI Visibility Report (Enhanced) - Week 47 2026.pdf";
+const TODAY_NAME = "Waratah Home Services - AI Visibility Report - Week 46 2026.pdf";
 
 beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();

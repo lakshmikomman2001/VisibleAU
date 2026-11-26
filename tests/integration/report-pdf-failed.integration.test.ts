@@ -252,9 +252,15 @@ describe("a storage failure while making the PDF (1 Nov, part 2)", () => {
   });
 
   it("alerts the owner and the operator once per run -- not the analyst or the viewer -- with no raw message", async () => {
-    const forThisReport = resend.delivered.filter((m) => m.text.includes("2026-W44"));
+    // S02 part 0B, LLD amendment 71: the org copy is "We couldn't create this report because of a problem on our side.
+    // Try again in a few minutes." -- it no longer names the period, so this report's emails are found by its link.
+    const forThisReport = resend.delivered.filter((m) => m.text.includes(REPORT_ID));
     expect(forThisReport.map((m) => m.to).sort()).toEqual([OPERATOR, PEOPLE.owner.email].sort());
+    expect(forThisReport.find((m) => m.to === PEOPLE.owner.email)?.text).toContain(
+      "We couldn't create this report because of a problem on our side. Try again in a few minutes.",
+    );
     const ops = forThisReport.find((m) => m.to === OPERATOR);
+    expect(ops?.text).toContain("2026-W44");
     expect(ops?.subject).toBe("[ops] [Omega Services] A report PDF couldn't be created");
     expect(ops?.text).toContain("file storage couldn't be reached");
     for (const m of forThisReport) {

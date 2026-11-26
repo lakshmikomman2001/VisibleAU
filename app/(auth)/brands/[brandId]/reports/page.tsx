@@ -13,16 +13,17 @@ import {
 } from "@/components/domain/reports/report-contents-panel";
 import { useReportV2 } from "@/components/domain/reports/report-v2-context";
 import { useCan } from "@/components/domain/role-context";
-import { LayerBadge } from "@/components/phase2/layer-badge";
 import { ActionError, LoadError } from "@/components/shared/load-error";
 import { REPORT_MAX_WAIT_MS, REPORT_TAKING_LONGER_MESSAGE } from "@/lib/communication/report-poll";
 import { shouldPollReports } from "@/lib/communication/should-poll-reports";
 import type { ReportStatus } from "@/lib/communication/types";
 import { deriveReportStatus, REPORT_GENERATING_NOTE } from "@/lib/communication/types";
+import { formatCheckDate } from "@/lib/format/date";
 import { refusalMessage } from "@/lib/governance/permissions";
 import { useGatedJson } from "@/lib/hooks/use-load";
 import { STILL_WORKING_MESSAGE, useSafePoll } from "@/lib/hooks/use-safe-poll";
 import { actionFailureMessage, fetchOrFail, readJson } from "@/lib/load/fetch-json";
+import { reportPeriodDisplay } from "@/lib/reports/period-display";
 import type { ReportContentsView } from "@/lib/reports/report-contents-view";
 
 /** Steady while the poll keeps up; useSafePoll slows it to 10 s when it falls behind. */
@@ -46,6 +47,14 @@ interface ReportRow {
 }
 
 /** The row's report type name, while report_v2 is on (P17's Report pill). */
+/**
+ * S02 part 0B (LLD amendment 73; contract P17): the period as the report names it, "Week 47, 2026" or "November 2026"
+ * (the list printed "2026-W47"); null when the report has none.
+ */
+function periodTitle(label: string | null): string | null {
+  return label ? reportPeriodDisplay(label).title : null;
+}
+
 function reportTypeOf(r: ReportRow): string | null {
   return r.tierName ?? null;
 }
@@ -265,7 +274,6 @@ export default function ReportsListPage() {
               <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
                 Reports
               </h1>
-              <LayerBadge layer="communication" />
             </div>
             {loaded.status === "ready" && (
               <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
@@ -424,7 +432,7 @@ export default function ReportsListPage() {
                       {r.headline}
                     </button>
                     <div className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                      {new Date(r.createdAt).toLocaleDateString()}
+                      {formatCheckDate(r.createdAt)}
                     </div>
                     {status === "failed" && (
                       <div
@@ -450,7 +458,7 @@ export default function ReportsListPage() {
                     className="text-[12px]"
                     style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
                   >
-                    {r.periodLabel}
+                    {periodTitle(r.periodLabel)}
                   </div>
                   <div role="status" aria-live="polite">
                     <StatusBadge status={status} />
@@ -479,7 +487,7 @@ export default function ReportsListPage() {
                         }}
                         aria-label={
                           reportV2 && reportTypeOf(r)
-                            ? `Download ${reportTypeOf(r)} PDF for ${r.periodLabel ?? r.headline}`
+                            ? `Download ${reportTypeOf(r)} PDF for ${periodTitle(r.periodLabel) ?? r.headline}`
                             : `Download ${r.headline}`
                         }
                       >

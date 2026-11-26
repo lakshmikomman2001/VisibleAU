@@ -1,6 +1,10 @@
 import { TriangleAlert } from "lucide-react";
 import { customerEngineReason } from "@/lib/audit/customer-reasons";
-import { type EngineFailureReason, engineTotalFailureSentence } from "@/lib/audit/engine-failure";
+import {
+  type EngineFailureReason,
+  engineNameList,
+  engineTotalFailureSentence,
+} from "@/lib/audit/engine-failure";
 
 export interface FullyFailedEngine {
   engine: string;
@@ -27,11 +31,17 @@ export function EngineTotalFailureBanner({
   questionCount,
   enginesAsked,
   answerCount,
+  showProviderDetail = false,
 }: {
   failedEngines: FullyFailedEngine[];
   questionCount: number;
   enginesAsked: number;
   answerCount: number;
+  /**
+   * S02 part 0B (LLD amendment 71): a platform admin (lib/auth/platform-admin.ts) also sees the provider detail, under
+   * the plain line; everyone else sees only the plain line.
+   */
+  showProviderDetail?: boolean;
 }) {
   if (failedEngines.length === 0) return null;
   const reasons = [...new Set(failedEngines.map((f) => customerEngineReason(f.reason)))];
@@ -66,6 +76,17 @@ export function EngineTotalFailureBanner({
         <p style={{ margin: "4px 0 0", color: "var(--text-secondary)" }} data-engine-failure-why>
           Why: {reasons.join("; ")}. Drift alerts and the weekly trend leave this audit out.
         </p>
+        {showProviderDetail && (
+          <p
+            style={{ margin: "4px 0 0", color: "var(--text-tertiary)", fontSize: 12 }}
+            data-engine-failure-provider-detail
+          >
+            Platform admins only:{" "}
+            {failedEngines
+              .map((f) => `${engineNameList([f.engine])}: ${f.reason.label}. ${f.reason.check}`)
+              .join(" ")}
+          </p>
+        )}
       </div>
     </div>
   );

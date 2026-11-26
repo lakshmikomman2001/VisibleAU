@@ -1,7 +1,9 @@
 /* =============================================================================
  * Vunnara UI contract: client enhancements (canonical)
  * Repo path : docs/prototypes/vunnara-ui-config.ts
- * Version   : 1.7 · 26 Nov 2026 (1.7: LLD amendment 68: the agency's saved order for other actions wins in P09).
+ * Version   : 1.8 · 27 Nov 2026 (1.8: S02 as built and LLD amendment 79: P02 intro names the plan's engines, singular
+ *             forms, template pill, the audit on the section line, a squares legend, the Questions tile).
+ *             1.7 · 26 Nov 2026 (1.7: LLD amendment 68: the agency's saved order for other actions wins in P09).
  *             1.6 · 25 Nov 2026 (1.6: the real reports' review, LLD amendments 61–63: P09 Over time before
  *             Beyond AI answers, rows kept together, page fill; other actions in Inter and by priority; P07/P09 Beyond
  *             tile copy; P08 outline order). 1.5 · 25 Nov 2026 (1.5: S01B review: Method kept whole, strengths without a status pill, a hidden
@@ -796,12 +798,14 @@ const P02: ScreenSpec = {
     'DraftBar sticky at the bottom in edit mode',
   ],
   nodes: [
-    { id: 'P02.header', component: 'PageHeader', copy: 'Questions|Version {version} · applied {date} by {userName} · {everyday} everyday + {branded} that name your business · comparing since audit #{auditNumber}', bind: 'GET /questions → set', behaviour: ['"comparing since audit #N" = first audit with the current question_set_hash; omitted when no audit used this version yet ("not used in an audit yet")', 'Version 1 created by the backfill reads "Version 1 · your original questions"'] },
-    { id: 'P02.header.history', component: 'Button', variant: 'secondary', copy: 'History', behaviour: ['Opens a read-only Drawer: versions newest first, each "Version {v} · {date} · {userName} · {everyday} everyday · used in audits #{a}–#{b}"'] },
+    { id: 'P02.entry', component: 'Card', variant: 'tile (the brand overview\'s existing tool tile)', copy: 'Questions|What every audit asks', showWhen: 'flag question_library on', behaviour: ['First of the brand overview\'s tools; opens /brands/:id/questions. Brand pages are routes opened from tiles, not a tab strip (S02 as built, amendment 79)', 'Flag off: the overview\'s links are exactly as before'] },
+    { id: 'P02.header', component: 'PageHeader', copy: 'Questions|Version {version} · applied {date} by {userName} · {everyday} everyday + {branded} that name your business · comparing since audit #{auditNumber}', bind: 'GET /questions → set', behaviour: ['"comparing since audit #N" = first audit with the current question_set_hash; omitted when no audit used this version yet ("not used in an audit yet")', 'Version 1 created by the backfill reads "Version 1 · your original questions"', 'One question naming the business reads "1 that names your business" (amendment 79)'] },
+    { id: 'P02.header.history', component: 'Button', variant: 'secondary', copy: 'History', behaviour: ['Opens a read-only Drawer: versions newest first, each "Version {v} · {date} · {userName} · {everyday} everyday · used in audits #{a}–#{b}"', 'One audit: "used in audit #{a}"; none: "not used in an audit yet" (amendment 79)'] },
     { id: 'P02.header.edit', component: 'Button', variant: 'primary', copy: 'Edit questions', showWhen: 'role can edit and flag agency_questions on (S03)', behaviour: ['Enters edit mode (URL ?edit=1); button hidden while editing'] },
-    { id: 'P02.intro', component: 'Banner', variant: 'neutral', copy: 'Every audit asks these questions on ChatGPT, Claude, Gemini and Perplexity. Only everyday questions count toward your score.|How questions are chosen', behaviour: ['Link opens the methodology page anchor (existing /methodology, VERIFY anchor)'] },
-    { id: 'P02.section.local', component: 'List', copy: '{reachLabel}|{n} questions|Last audit: {m} of {a} answers named you', bind: 'set.items grouped by reach', behaviour: ['Header uses ReachHeader; "· small sample" after the count when n < 5', 'Right text omitted when the version has no audit yet', 'Without flag visibility_reach there is one section titled "Everyday questions"'] },
-    { id: 'P02.row', component: 'QuestionRow', variant: 'view / edit', copy: '{text}|Named you:', bind: 'item.text, item.source, item.service_label, item.intent, lastResult[engine]', behaviour: ['Source pill: Original set (neutral) / AI-suggested (ai) / Written by {agencyName} (agency)', 'Chips: service label, intent label (intents map)', 'EngineDots from the last audit that used this question; omitted if none'] },
+    { id: 'P02.intro', component: 'Banner', variant: 'neutral', copy: 'Every audit asks these questions on {engines}. Only everyday questions count toward your score.|How questions are chosen', behaviour: ['Link opens the methodology page anchor (/methodology#how-we-gather-answers)', '{engines}: the engines the workspace\'s plan asks, in EngineDots order: "ChatGPT, Claude, Gemini and Perplexity" on Starter and up, "ChatGPT and Perplexity" on Free (amendment 79)'] },
+    { id: 'P02.legend', component: 'Text', variant: 'help', copy: 'Squares, left to right: {engineList} · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.', behaviour: ['Once, under the intro, only when a row shows EngineDots', '{engineList}: the plan\'s engines joined with " · ", in EngineDots order (amendment 79)'] },
+    { id: 'P02.section.local', component: 'List', copy: '{reachLabel}|{n} questions|Last audit (#{auditNumber}): {m} of {a} answers named you', bind: 'set.items grouped by reach', behaviour: ['Header uses ReachHeader; "· small sample" after the count when n < 5', 'Right text omitted when the version has no audit yet', 'Without flag visibility_reach there is one section titled "Everyday questions"'] },
+    { id: 'P02.row', component: 'QuestionRow', variant: 'view / edit', copy: '{text}|Named you:', bind: 'item.text, item.source, item.service_label, item.intent, lastResult[engine]', behaviour: ['Source pill: Original set (neutral) / From your business type (neutral; template) / AI-suggested (ai) / Written by {agencyName} (agency; "Written by your agency" until S03 binds the name)', 'Chips: service label, intent label (intents map)', 'EngineDots from the last audit that used this question; omitted if none'] },
     { id: 'P02.row.more', component: 'IconButton', variant: 'Menu', copy: 'More actions for {text}', behaviour: ['View mode: Copy text, See answers in the last audit', 'Edit mode: Edit wording (archives old, adds new), Swap for a suggestion, Move to another area (S04), Move up, Move down, Remove from set, Archive'] },
     { id: 'P02.row.weak', component: 'QuestionRow', variant: 'weak', copy: 'AI doesn\'t name any business here (last 2 audits)|Swap', showWhen: 'flag qi_learning on and the question is flagged (S09)', behaviour: ['"Swap" opens P16 inline under the row'] },
     { id: 'P02.section.branded', component: 'List', copy: 'Names your business|{n} questions · not scored|Shown in results, never counted', behaviour: ['Rows use variant branded with pill "Names your business · not scored"; never draggable into reach sections'] },
@@ -1427,8 +1431,8 @@ export const uiDecisions = [
 ] as const;
 
 export const uiConfig = {
-  version: '1.7',
-  date: '2026-11-26',
+  version: '1.8',
+  date: '2026-11-27',
   precedence, color, contrast, fontFamily, typography, typeRule, space, spaceRule, radius, shadow, motion, zIndex,
   breakpoints, layout, icons, scoreBands, reachLabels, engines, intents, components, screens, conflicts, uiDecisions,
 } as const;

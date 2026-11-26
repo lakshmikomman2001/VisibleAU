@@ -1,6 +1,6 @@
 # Claude Code runbook: Vunnara client enhancements (sprints S00, S00B, S01, S01B, S01C, S02–S10, then the S11 full test suite)
 
-Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.10 · 26 Nov 2026 (after S01C)
+Repo path: `docs/lld/CLAUDE-CODE-RUNBOOK.md` · version 1.11 · 27 Nov 2026 (after S02)
 
 Follow this file at the start of every sprint session, before Part 1. Its rules apply on top of the sprint prompt. If a sprint prompt is stricter, the sprint prompt wins.
 
@@ -8,10 +8,10 @@ Follow this file at the start of every sprint session, before Part 1. Its rules 
 
 | Path | What it is | Who writes it |
 |---|---|---|
-| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.11): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
+| `docs/lld/vunnara-client-enhancements-lld-v1.md` | The LLD (v1.12): the build spec for behaviour, data, APIs, security, tests. **Section 0** holds Sri's decisions and the amendments from S00: read it first | Sri / Claude (chat) |
 | `docs/lld/design/Vunnara-client-improvements-design.pdf`, `docs/lld/design/Vunnara-question-intelligence-design-v3.pdf` | Design documents: the reasoning behind the LLD. Read only where a sprint names them. The LLD wins over them | Sri / Claude (chat) |
 | `docs/lld/as-is-verification.md` | What the code actually does, checked against the LLD (S00 Part 1). Where it says the LLD is wrong, it wins | You, in S00 |
-| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.7): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
+| `docs/prototypes/vunnara-ui-config.ts` | The UI contract (v1.8): every screen's nodes, copy, states, accessibility, responsive rules, acceptance. Each colour token names its `app` variable: use that one in code. Check it compiles with `npx tsc --noEmit --strict --target es2022 --lib es2022 --module esnext --moduleResolution bundler --skipLibCheck docs/prototypes/vunnara-ui-config.ts` | Sri / Claude (chat) |
 | `docs/prototypes/client-enhancements-v2.html`, `docs/prototypes/screens/*.png` | The visual reference, rendered from the contract | Sri / Claude (chat) |
 | `docs/prototypes/PROTOTYPE-GUIDE.md` | How to build a screen from the contract and report on it | Sri / Claude (chat) |
 | `docs/prototypes/token-map.md` | Contract tokens and components mapped to the app's own (S00 Part 0b) | You, in S00 |
@@ -71,6 +71,7 @@ Then reply with a short plan: the parts in order, the files you expect to touch,
 - **Playwright memory** (measured in S00's run on 22 Nov 2026: Sri's machine has 16 GB with about 7.5 GB free once other apps are closed; one run peaks at 3.5–6.7 GB, nearly all of it the `next dev` server, which keeps every page it compiles). For every Playwright run: one worker; a fresh server for each spec or shard, never reused; ≥ 6 GB free before it starts (if not, wait 60 seconds and check again, up to 3 times, then mark it "not run: memory"); stop the run if free memory falls below 1.2 GB while it runs. A stopped run is not a failure: rerun only the tests it didn't reach, by `file:line`, on a fresh server; the spec counts as passed only if every test passed on a clean server. Run these specs in shards, one shard after another (`--shard=i/N`, as S00's run did): `tests/e2e/sprint9/s9-autopilot-e2e.spec.ts` (3; shard 1 of 2 came within 0.07 GB of the stop on 26 Nov 2026), `tests/e2e/sprint2/sprint2-workflow.spec.ts` (2), `tests/e2e/sprint3/sprint3-visibility.spec.ts` (2; it peaked at 6.06 GB unsharded on 24 Nov), `tests/e2e/responsive/responsive-shell.spec.ts` (8). Report each run's peak memory and lowest free memory, and name any other spec whose run peaked above 6 GB so it joins this list. After each run, check its server and browser processes have exited and the server's port is free.
 - On Windows, don't watch a log file with `tail -F` (or anything that keeps it open) while it is being written: the writer loses lines (S00's run lost 52). Write each run's result to its own record and read the logs when the run ends.
 - No production writes. Migrations are written as `db/prod-fixes/<n>-run1…run4` sets that Sri applies in Neon (production branch `br-ancient-tooth`) before he pushes.
+- **Run sets fit Neon's SQL editor** (LLD amendment 80): it shows at most 25 result tabs, and the production role can't `SET ROLE visibleau_app`. run2 ends with one summary SELECT of what it wrote, just before COMMIT; run3 checks row-level security from the catalogue (policies, FORCE, grants) with no role switch; run1 and run3 keep each check's expected result in a comment above it. A run file that must exceed 25 statements says so at its top, and puts its most important check last.
 - No mock, seed or placeholder data in production code paths; recorded fixtures in tests only; no live provider calls in tests.
 - No `any`. FORCE RLS with `current_setting('app.current_org_id', true)::uuid` policies on new organisation tables; global reference tables go on the read-only list from S05 on (D-GT; before S05 the app role has DML on every table, as production does); no new `serviceDb` uses. Secrets by variable name only; never print `.env.neon` values.
 - Provider and LLM costs are visible to operators only, never in customer responses or pages.
@@ -123,7 +124,7 @@ Follow docs/lld/CLAUDE-CODE-RUNBOOK.md (read order and pre-flight), then execute
 
 **Start a sprint with a docs update first** (when Claude (chat) sends a newer pack)
 ```
-Read docs/latets/Enhancements/vunnara-client-enhancements-v1.15/vunnara-enhancements/UPDATE-HERE.md and do what it says.
+Read docs/latets/Enhancements/vunnara-client-enhancements-v1.16/vunnara-enhancements/UPDATE-HERE.md and do what it says.
 ```
 
 **Resume an interrupted sprint** (local commits from earlier parts exist)
@@ -148,8 +149,8 @@ Continue sprint S05 from Part 2: I've approved the taxonomy seed (my edits, if a
 | S01 | `S01-report-v2.md` | Done (pushed 24 Nov 2026, `bb5248d5`; 0154 applied; live checks passed) |
 | S01B | `S01B-report-polish.md` | Done (pushed 25 Nov 2026, `69eb1fcd`; no migration; Inngest resynced) |
 | S01C | `S01C-real-report-fixes.md` | Done (pushed 26 Nov 2026, `00fad405`; no migration; no Inngest resync; the 9 remaining Playwright specs passed before the push) |
-| S02 | `S02-question-library.md` | S01C pushed; the real Basic, Standard and Enhanced reports regenerated for Splice and checked with Claude (chat) (done 26 Nov 2026); started with the v1.15 `UPDATE-HERE.md` step |
-| S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production |
+| S02 | `S02-question-library.md` | Done (0155 applied and pushed 27 Nov 2026, `717e8c40`; Inngest resynced; parity confirmed on Hero's audit #56; `question_library` on for Splice only) |
+| S03 | `S03-agency-questions.md` | S02 pushed, 0155 applied, hash parity confirmed in production (done 27 Nov 2026); started with the v1.16 `UPDATE-HERE.md` step |
 | S04 | `S04-visibility-reach.md` | S03 pushed, 0156 applied, checked |
 | S05 | `S05-business-taxonomy.md` | S04 pushed, 0157 applied |
 | S06 | `S06-website-analysis-writer.md` | S05 pushed, 0158 applied, taxonomy approved |

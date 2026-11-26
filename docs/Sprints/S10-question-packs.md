@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S10-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD **section 0** (v1.11 decisions and amendments) first, then sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
+Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD **section 0** (v1.12 decisions and amendments) first, then sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 

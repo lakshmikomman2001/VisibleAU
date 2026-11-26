@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S03-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S02 pushed and hash parity confirmed in production); say which hash. Read LLD **section 0** (v1.11 decisions and amendments) first, then sections 4, 7.1, 7.6, 7A (0156), 8.2.3, 8.3 (all), 10, 11, 20 (D2, D3, D4) and appendices C2, E; contract screens P02 (edit mode), P03, P04, P05, P07 (mix and split lines), P10 step 3 (for the confirm-screen questions step).
+Start with `git fetch origin` and build on `origin/main` (S02 pushed: `717e8c40`, 27 Nov 2026; 0155 applied; hash parity confirmed on Hero's audit #56); say which hash. Read LLD **section 0** (v1.12 decisions and amendments) first, then sections 4, 7.1, 7.6, 7A (0156), 8.2.3, 8.3 (all), 10, 11, 20 (D2, D3, D4) and appendices C2, E; contract screens P02 (edit mode), P03, P04, P05, P07 (mix and split lines), P10 step 3 (for the confirm-screen questions step).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -15,6 +15,20 @@ Start with `git fetch origin` and build on `origin/main` (S02 pushed and hash pa
 - Decision defaults: D2 split score shown; D3 10 everyday included per paid plan; D4 Starter chooses among suggestions only. Follow Sri's choice if changed.
 - Limits are enforced on the server; the UI only reflects them.
 - If the LLD contradicts the code, the code wins: report with file:line; continue only with independent parts.
+- Migration 0156's run set follows runbook section 5's Neon rule (LLD amendment 80): run2 ends with one summary SELECT before COMMIT; run3 needs no role switch.
+
+## 0. Carry-overs from S02 (not flagged; one commit per item group; live for everyone on push where it changes what a customer sees)
+- **The PDF code font** (amendment 76): replace JetBrains Mono 400/500 with JetBrains Mono NL 400/500 (the official no-ligature build; OFL; same metrics) wherever react-pdf registers it. First a render test, RED on the parent: every mono run (the cover's report name with an Agency tier name, evidence lines, audit tags, the Method page) printing "--", "...", "::", "//", "->", "==", "++", "</" and "A++" renders without "Offset is outside the bounds of the DataView". The embedded-font tests (Inter, Fraunces, JetBrains Mono) name the NL family; page counts of the four seeds unchanged (compare with S01C's `page-counts.json`). N14 and N15 hold. Remove the `pdf: false` workaround in the moved XSS check.
+- **Client data in tests, the rest** (amendment 77):
+  - replace the recorded DataForSEO answers (`tests/fixtures/google-surfaces/dataforseo/{aim,aio}-task-get-q11/q13.json`, the task-post files, golden `stored-answer-aio-q11.json`, spec 09) with invented recordings of the same shape (an invented business, invented reviewers and sites, no allegations), keep their consumer tests' assertions, and remove the guard's named exception;
+  - rename the four client names in the remaining tests with S02 Part 0's mapping, then widen `tests/unit/copy/no-client-data-in-tests.test.ts` to all of `tests/` and `db/seed`;
+  - move the 12 remaining users of `tests/helpers/report-data-fixture.ts` to the seeds (`tests/helpers/report-seeds.ts`), then delete the helper if nothing uses it.
+- **Question refresh failure** (amendment 78): `customerAuditError` keeps S01C's sentence for `PromptPackGenerationError`: "Could not refresh this brand's questions before running the audit (a problem on our side)." Its banned-words test still passes.
+- **Questions page details** (amendment 79, contract v1.8 P02): the intro names the plan's engines; the section line reads "Last audit (#{auditNumber}): {m} of {a} answers named you"; the legend `P02.legend` under the intro; the singular forms; the template pill. Component tests; Playwright: the specs the mapper lists (spec 16 among them).
+- **Switching a flag on for everyone** (amendment 81): on `/admin/settings`, ticking a flag's Everyone box opens the existing confirm dialog "Turn {flag} on for every workspace?" (Cancel / Turn on for everyone); Cancel leaves it unticked and saves nothing; unticking needs no confirmation; the per-workspace dropdown is unchanged. Tests; Playwright: the mapped admin spec.
+- **Cascade test** (amendment 75): an integration test on the real schema hard-deletes a brand, and separately a workspace, whose citations and engine-call failures carry `question_id`s, and both succeed; deleting a question a set uses on its own still fails.
+- **Local `visibleau_test`** (amendment 82): recreate it from the migrations (local only), so 0155 and 0156 apply; section2's tests pass on it.
+- Report-back for Part 0: what changed per item, tests RED/GREEN, and what a customer sees change on push (the font: nothing visible apart from the ligature sequences now printing as plain characters).
 
 ## 1. Plan entitlements (LLD 7.6, 8.3.5) and migration 0156
 - Question limits are new work: today `PROMPTS_PER_AUDIT = 10` applies to every plan and `market_ai_budget_policies.max_prompts_per_audit` is never read (LLD section 0, #21). Don't wire the unused policy column; put the limits in `tiers.ts`.
@@ -50,7 +64,7 @@ On "Confirm your business details", add a **Questions** step after the details: 
 - Per part: file:line, changes, tests (RED/GREEN, by name), guards, Playwright run, "not run: memory" (with the specs) or "not needed (no UI change)".
 - UI: for each screen touched, the guide's per-screen block (nodes built of specified, states, acceptance pass/fail, screenshots in `.qa/screens/S03/` at 1240 and 390, deviations with the contract change you propose).
 - Commit hashes and `git log origin/main..main --oneline`.
-- Push notes: migration 0156 first; Inngest resync (no, unless the audit-start check changed a function: say which); safe while an audit runs; flag `agency_questions` off.
+- Push notes: Part 0's customer-visible changes (live for everyone); migration 0156 first; Inngest resync (no, unless the audit-start check changed a function: say which); safe while an audit runs; flag `agency_questions` off.
 
 Commit messages end with these two lines exactly:
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

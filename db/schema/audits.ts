@@ -13,6 +13,7 @@ import {
 import { brands } from "./brands";
 import { configBundleCache } from "./config-bundle-cache";
 import { organizations } from "./organizations";
+import { brandQuestionSets } from "./questions";
 
 // Task #46 (6th follow-up), Part C: audits.status is a plain TEXT
 // column, never an enum -- every writer and every reader in the
@@ -74,6 +75,11 @@ export const audits = pgTable(
     // row): comparisons fall back to promptPackVersion, which is stamped before a stale pack is regenerated, so
     // it can miss a change of questions (Hero's #48 and #50).
     questionSetHash: text("question_set_hash"),
+    // S02 part 1 (migration 0155): the question set the audit asked (lib/audit/get-audit-prompts.ts); NULL for audits
+    // before S02 and for a brand with no set (today's logic). Cleared if the set is ever removed (ON DELETE SET NULL).
+    questionSetId: uuid("question_set_id").references(() => brandQuestionSets.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     // Phase 2 Sprint 1 columns (nullable, safe migration)
     configBundleId: uuid("config_bundle_id").references(() => configBundleCache.id),

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -11,6 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
+import { brandQuestions } from "./questions";
 
 export const citations = pgTable(
   "citations",
@@ -46,6 +48,9 @@ export const citations = pgTable(
     // stores the already-expanded text, with no link back to its template) --
     // they stay unfiltered until the next audit.complete run.
     isBrandedPrompt: boolean("is_branded_prompt"),
+    // S02 part 1 (migration 0155): the library question this answer answered; NULL for rows before S02 and for an
+    // audit of a brand with no question set.
+    questionId: uuid("question_id").references(() => brandQuestions.id),
     // Audit reliability, Part B: a name match alone isn't proof it's
     // THIS business ("Omega Services" is a common name) -- verified
     // only when a cited URL is the brand's own domain, or the text
@@ -143,5 +148,9 @@ export const citations = pgTable(
       table.engine,
       table.promptIndex,
     ),
+    // S02 part 1 (migration 0155): the Questions tab's last results, by question.
+    questionIdx: index("citations_question")
+      .on(table.questionId)
+      .where(sql`${table.questionId} IS NOT NULL`),
   }),
 );

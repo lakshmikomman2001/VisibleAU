@@ -63,6 +63,8 @@ export * from "./prompt-pack-coverage";
 export * from "./prompt-volume-estimates";
 export * from "./provider-market-capabilities";
 export * from "./query-fan-out-results";
+// S02 part 1 (migration 0155): the question library and versioned question sets.
+export * from "./questions";
 export * from "./rate-limit-counters";
 export * from "./recommendation-research";
 export * from "./remediation-tasks";

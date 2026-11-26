@@ -42,6 +42,10 @@ const RLS_TENANT_TABLES = new Set([
   "brandConsensusChecks",
   "brandEntityScores",
   "brandGoogleLocations",
+  // S02 part 1 (migration 0155): FORCE RLS on app.current_org_id, as 0154.
+  "brandQuestions",
+  "brandQuestionSets",
+  "brandQuestionSetItems",
   "brandWebMentions",
   "brands",
   "bulkOperations",

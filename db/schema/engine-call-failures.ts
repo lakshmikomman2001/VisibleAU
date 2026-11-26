@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -11,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { audits } from "./audits";
 import { organizations } from "./organizations";
+import { brandQuestions } from "./questions";
 
 /**
  * Audit reliability, Part A -- every failed (engine, prompt) call,
@@ -41,6 +43,8 @@ export const engineCallFailures = pgTable(
     // Nullable, no backfill -- legacy rows are NULL and can't collide.
     promptIndex: integer("prompt_index"),
     isBrandedPrompt: boolean("is_branded_prompt").notNull(),
+    // S02 part 1 (migration 0155): the library question this call asked; NULL before S02 or with no question set.
+    questionId: uuid("question_id").references(() => brandQuestions.id),
     errorClass: text("error_class", {
       enum: [
         "rate_limited",
@@ -81,5 +85,9 @@ export const engineCallFailures = pgTable(
     auditEnginePromptIdxUniqueIdx: uniqueIndex(
       "engine_call_failures_audit_engine_prompt_idx_unique_idx",
     ).on(table.auditId, table.engine, table.promptIndex),
+    // S02 part 1 (migration 0155).
+    questionIdx: index("engine_call_failures_question")
+      .on(table.questionId)
+      .where(sql`${table.questionId} IS NOT NULL`),
   }),
 );

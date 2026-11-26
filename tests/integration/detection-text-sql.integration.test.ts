@@ -14,13 +14,13 @@ const SAMPLES = [
   "Ｏｍｅｇａ Services",
   "Om​ega‌ ‍Ser⁠vi﻿ces­",
   "Omega‐Services Omega‑Services Omega‒Services",
-  "Omega_Services _here_",
+  "Yabby_Services _here_",
   "**Omega** Services and *Norwest*",
   "`Omega` [Services]",
   "Omega**Services",
-  "*   **Omega Services** - Norwest\n2. [Jim's Plumbing](https://jims.com.au) **24/7**",
+  "*   **Yabby Services** - Norwest\n2. [Jim's Plumbing](https://jims.com.au) **24/7**",
   "Line one.\n\n**Omega**\tServices\r\n_Norwest_",
-  "Omega Services, Norwest NSW.",
+  "Yabby Services, Norwest NSW.",
   "",
 ];
 

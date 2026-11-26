@@ -71,7 +71,7 @@ const OPERATOR = "ops@engine-failure-test.example.com.au";
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"];
 const CREDIT =
   "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.";
-const MENTION = "Good local options: Omega Services, a Bondi plumber with fast call-outs.";
+const MENTION = "Good local options: Yabby Services, a Bondi plumber with fast call-outs.";
 const NONE = "Good local options: Alpha Plumbing and Beta Plumbing.";
 
 let client: ReturnType<typeof postgres>;
@@ -132,7 +132,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega-etf.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'omega-etf.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
   await seedAudit(FULL_OLD, 35, { claudeFails: false, status: "complete", daysAgo: 3 });
   await seedAudit(PARTIAL, 37, { claudeFails: true, status: "complete", daysAgo: 2 });
@@ -206,7 +206,7 @@ describe("running page: answered and failed are separate", () => {
       <AuditRunningView
         auditId={RUNNING}
         brandId={BRAND_ID}
-        brandName="Omega Services"
+        brandName="Yabby Services"
         initialStatus="running"
         initialProgress={100}
         initialMentionedCount={5}
@@ -391,10 +391,10 @@ describe("operator alert: owner and operator, once", () => {
     const operatorEmail = delivered.find((d) => d.to === OPERATOR);
     const ownerEmail = delivered.find((d) => d.to === OWNER);
     expect(operatorEmail?.subject).toBe(
-      "[ops] [Omega Services] Claude returned an error for every question in Audit #37",
+      "[ops] [Yabby Services] Claude returned an error for every question in Audit #37",
     );
     expect(ownerEmail?.subject).toBe(
-      "[Omega Services] Claude returned an error for every question in Audit #37",
+      "[Yabby Services] Claude returned an error for every question in Audit #37",
     );
     expect(ownerEmail?.text).toContain(
       "Claude returned an error for all 13 questions, so this audit's Visibility is based on 3 engines (30 answers).",

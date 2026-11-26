@@ -28,7 +28,7 @@ describe("GET /api/brands", () => {
 
     const org1 = await seedOrganization({
       clerkOrgId: TEST_USER_1.clerkOrgId,
-      name: "Bondi Plumbing Co",
+      name: "Galah Plumbing Co",
       region: "au",
       tier: "agency", // agency = 5 brands (sufficient for multi-brand list tests)
     });
@@ -72,8 +72,8 @@ describe("GET /api/brands", () => {
   it("returns only the current org's brands — not other orgs'", async () => {
     await seedBrand({
       organizationId: org1Id,
-      name: "Bondi Plumbing",
-      domain: "bondiplumbing.com.au",
+      name: "Galah Plumbing",
+      domain: "galahplumbing.com.au",
       vertical: "tradies",
     });
     await seedBrand({
@@ -95,7 +95,7 @@ describe("GET /api/brands", () => {
     expect(brands).toHaveLength(2);
     expect(brands.every((b) => b.organizationId === org1Id)).toBe(true);
     expect(brands.map((b) => b.name)).toEqual(
-      expect.arrayContaining(["Bondi Plumbing", "Parramatta Plumbing"]),
+      expect.arrayContaining(["Galah Plumbing", "Parramatta Plumbing"]),
     );
   });
 

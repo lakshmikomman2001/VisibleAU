@@ -42,7 +42,7 @@ function stubApi(branding: Record<string, unknown> | null, audit: typeof AUDIT |
           : url === "/api/brands"
             ? // The route's own shape (app/api/brands/route.ts): the builder reads only that since the
               // af8de42..d1eb5a1 follow-ups (part 1); an array here was never an answer the route gives.
-              { brands: [{ id: "b-omega", name: "Omega Services" }] }
+              { brands: [{ id: "b-omega", name: "Yabby Services" }] }
             : { audit, actionItems: [], engineStats: [], priorAudit: null };
       return new Response(JSON.stringify(body), { status: 200 });
     }),
@@ -51,7 +51,7 @@ function stubApi(branding: Record<string, unknown> | null, audit: typeof AUDIT |
 
 beforeEach(() => {
   stubApi({
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     logoUrl: "/api/branding/logo/org/logo.png",
     primaryColor: "#0066CC",
     secondaryColor: "#1A1A1A",
@@ -78,7 +78,7 @@ describe("the White-Label Report Builder's branding", () => {
     render(<PdfBuilderPage />);
     await screen.findByRole("heading", { name: "Branding" });
     expect(screen.getByText("Agency name")).toBeInTheDocument();
-    expect(screen.getByText("Splice Marketing")).toBeInTheDocument();
+    expect(screen.getByText("Possum Marketing")).toBeInTheDocument();
     expect(screen.getByText("02 9000 0000")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Change these in Account → Report branding" }),
@@ -102,7 +102,7 @@ describe("the White-Label Report Builder's branding", () => {
   it("the preview's header: the saved agency and its logo", async () => {
     stubApi(
       {
-        agencyName: "Splice Marketing",
+        agencyName: "Possum Marketing",
         logoUrl: "/api/branding/logo/org/logo.png",
         contactLine: null,
       },

@@ -106,7 +106,7 @@ describe("Data Residency: DataForSEO, in its own documents' words", () => {
 
 describe("the completion email", () => {
   const base = {
-    brandName: "Bondi Plumbing",
+    brandName: "Galah Plumbing",
     auditNumber: 7,
     mentionRate: 25,
     mentionedCount: 3,

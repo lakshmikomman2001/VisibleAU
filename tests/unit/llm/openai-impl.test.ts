@@ -433,11 +433,11 @@ describe("OpenAIImpl -- the stored answer joins separate runs of text with a new
   it("text, a search, then text starting with the brand name: separated by a newline", async () => {
     generateTextMock.mockResolvedValue(
       baseGenerateTextResult({
-        text: "Searching for Norwest plumbersOmega Services is one.",
+        text: "Searching for Norwest plumbersYabby Services is one.",
         content: [
           { type: "text", text: "Searching for Norwest plumbers" },
           ...search("ws_2"),
-          { type: "text", text: "Omega Services is one." },
+          { type: "text", text: "Yabby Services is one." },
         ],
       }),
     );
@@ -448,7 +448,7 @@ describe("OpenAIImpl -- the stored answer joins separate runs of text with a new
       task: "brand_mention",
     });
 
-    expect(result.response).toBe("Searching for Norwest plumbers\nOmega Services is one.");
+    expect(result.response).toBe("Searching for Norwest plumbers\nYabby Services is one.");
   });
 
   it("a search, then one answer: stored exactly as written", async () => {

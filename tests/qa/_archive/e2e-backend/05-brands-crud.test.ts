@@ -40,7 +40,7 @@ describe("/api/brands/[brandId]", () => {
 
     const org1 = await seedOrganization({
       clerkOrgId: TEST_USER_1.clerkOrgId,
-      name: "Bondi Plumbing Co",
+      name: "Galah Plumbing Co",
       region: "au",
       tier: "growth",
     });
@@ -67,8 +67,8 @@ describe("/api/brands/[brandId]", () => {
 
     brand1 = await seedBrand({
       organizationId: org1Id,
-      name: "Bondi Plumbing",
-      domain: "bondiplumbing.com.au",
+      name: "Galah Plumbing",
+      domain: "galahplumbing.com.au",
       vertical: "tradies",
       region: "au",
       competitors: ["rival.com.au"],
@@ -90,8 +90,8 @@ describe("/api/brands/[brandId]", () => {
       // Sprint 1 §6: POST/PATCH use { brand } wrapper; GET does not
       const brand = body as Brand;
       expect(brand.id).toBe(brand1.id);
-      expect(brand.name).toBe("Bondi Plumbing");
-      expect(brand.domain).toBe("bondiplumbing.com.au");
+      expect(brand.name).toBe("Galah Plumbing");
+      expect(brand.domain).toBe("galahplumbing.com.au");
       expect(brand.vertical).toBe("tradies");
       expect(brand.region).toBe("au");
       expect(brand.organizationId).toBe(org1Id);
@@ -126,14 +126,14 @@ describe("/api/brands/[brandId]", () => {
     it("returns 200 + { brand: Brand } wrapper (V4 fix — Sprint 4 reads body)", async () => {
       const { status, body } = await patch(
         `/api/brands/${brand1.id}`,
-        { name: "Bondi Plumbing Services" },
+        { name: "Galah Plumbing Services" },
         token1,
       );
 
       expect(status).toBe(200);
       // PATCH uses { brand } wrapper (V4 fix — Sprint 4 UI reads the updated brand)
       const { brand } = body as { brand: Brand };
-      expect(brand.name).toBe("Bondi Plumbing Services");
+      expect(brand.name).toBe("Galah Plumbing Services");
       expect(brand.id).toBe(brand1.id);
     });
 
@@ -173,7 +173,7 @@ describe("/api/brands/[brandId]", () => {
       expect(status).not.toBe(401);
 
       const inDb = await getBrandById(brand1.id);
-      expect(inDb!.name).toBe("Bondi Plumbing");
+      expect(inDb!.name).toBe("Galah Plumbing");
     });
 
     it("returns 404 for non-existent brand PATCH", async () => {
@@ -271,7 +271,7 @@ describe("/api/brands/[brandId]", () => {
     it("PATCH by org2 → 404, brand name unchanged in DB", async () => {
       const { status } = await patch(`/api/brands/${brand1.id}`, { name: "Attacker" }, token2);
       expect(status).toBe(404);
-      expect((await getBrandById(brand1.id))!.name).toBe("Bondi Plumbing");
+      expect((await getBrandById(brand1.id))!.name).toBe("Galah Plumbing");
     });
 
     it("DELETE by org2 → 404, brand not soft-deleted", async () => {
@@ -284,8 +284,8 @@ describe("/api/brands/[brandId]", () => {
       const { status, body } = await get(`/api/brands/${brand1.id}`, token2);
       expect(status).toBe(404);
       const bodyStr = JSON.stringify(body);
-      expect(bodyStr).not.toContain("Bondi Plumbing");
-      expect(bodyStr).not.toContain("bondiplumbing.com.au");
+      expect(bodyStr).not.toContain("Galah Plumbing");
+      expect(bodyStr).not.toContain("galahplumbing.com.au");
     });
   });
 });

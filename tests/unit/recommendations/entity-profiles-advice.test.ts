@@ -41,7 +41,7 @@ const ctx: TriggerContext = {
 
 const NO_ARTICLE = {
   status: "ok" as const,
-  data: { articleExists: false, articleUrl: null, query: "Omega Services Australia" },
+  data: { articleExists: false, articleUrl: null, query: "Yabby Services Australia" },
 };
 
 function finding(name: string, citedCount: number): DirectoryVisibilityFinding {

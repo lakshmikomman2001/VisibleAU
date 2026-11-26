@@ -28,7 +28,7 @@ const MEASURED_COST_USD = 0.37;
 const PROPS = {
   auditId: "audit-1",
   brandId: "brand-1",
-  brandName: "Omega Services",
+  brandName: "Yabby Services",
   initialProgress: 38,
   initialMentionedCount: 1,
   initialSampleCount: 18,

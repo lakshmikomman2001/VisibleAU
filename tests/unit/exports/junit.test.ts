@@ -19,7 +19,7 @@ function audit(k: number, n: number, detail: Partial<MentionDetailCounts> = {}):
   return {
     id: "audit-1",
     brandId: "brand-1",
-    brandName: "Omega Services",
+    brandName: "Yabby Services",
     createdAt: new Date("2026-10-25T00:00:00.000Z"),
     headline:
       n >= 10

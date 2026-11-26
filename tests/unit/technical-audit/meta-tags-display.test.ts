@@ -12,12 +12,12 @@ import {
   hasGranularMetaFields,
 } from "@/app/(auth)/brands/[brandId]/meta-tags/page";
 
-function crawlWithHtml(html: string, title = "Bondi Plumbing | Plumber Bondi | Blocked Drains"): CrawlResult {
+function crawlWithHtml(html: string, title = "Galah Plumbing | Plumber Bondi | Blocked Drains"): CrawlResult {
   return {
-    domain: "bondiplumbing.com.au",
+    domain: "galahplumbing.com.au",
     pages: [
       {
-        url: "https://www.bondiplumbing.com.au/",
+        url: "https://www.galahplumbing.com.au/",
         statusCode: 200,
         title,
         textContent: "",
@@ -39,13 +39,13 @@ function crawlWithHtml(html: string, title = "Bondi Plumbing | Plumber Bondi | B
 // (>160, too long), og:title + og:description present, og:image missing,
 // canonical present, no hreflang.
 const BONDI_DESCRIPTION =
-  "Bondi Plumbing has been servicing Bondi since 1995. Our emergency plumbing service is genuine operating 24/7 for all your blocked drains, hot water & gas fitting issues CALL 9023 3243.";
+  "Galah Plumbing has been servicing Bondi since 1995. Our emergency plumbing service is genuine operating 24/7 for all your blocked drains, hot water & gas fitting issues CALL 9023 3243.";
 const BONDI_HTML = `
   <html><head>
     <meta name="description" content="${BONDI_DESCRIPTION}">
-    <meta property="og:title" content="Bondi Plumbing">
+    <meta property="og:title" content="Galah Plumbing">
     <meta property="og:description" content="${BONDI_DESCRIPTION}">
-    <link rel="canonical" href="https://www.bondiplumbing.com.au/">
+    <link rel="canonical" href="https://www.galahplumbing.com.au/">
   </head><body></body></html>
 `;
 

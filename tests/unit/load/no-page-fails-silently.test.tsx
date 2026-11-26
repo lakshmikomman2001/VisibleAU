@@ -431,7 +431,7 @@ describe("the sweep: the same shape elsewhere", () => {
 describe("Run audit says why it didn't start", () => {
   const brand = {
     id: BRAND,
-    name: "Omega Services",
+    name: "Yabby Services",
     domain: "omega.com.au",
     vertical: "tradies",
     region: "au",

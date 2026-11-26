@@ -102,7 +102,7 @@ test.beforeAll(async () => {
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack,
       prompt_pack_generator_version, classification_status, classification, categories, audience,
       category_confirmed_at, suburb, state, country, location_mode, location_confirmed_at)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omegaservices.com.au', 'tradies', 'au',
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'yabbyservices.com.au', 'tradies', 'au',
       ARRAY['NSW:Norwest']::text[], ${sql.json(questions)}, ${PROMPT_GENERATOR_VERSION}, 'complete',
       ${sql.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
       ARRAY['trades_plumbing']::text[], 'households', now(), 'Norwest', 'NSW', 'Australia', 'fixed', now())
@@ -186,7 +186,7 @@ test("the operator's Save: Saving…, Saved, kept after a reload; No change when
   await signIn(page);
   await page.goto(`/admin/settings?workspace=${ORG_ID}`);
   const field = page.locator(`[data-admin-field="postcode-${BRAND_ID}"]`);
-  const input = field.getByLabel("Postcode for Omega Services");
+  const input = field.getByLabel("Postcode for Yabby Services");
   const save = field.getByRole("button", { name: "Save" });
   await expect(save).toBeDisabled();
   await input.fill("2153");
@@ -247,7 +247,7 @@ for (const width of [375, 1280] as const) {
       await expect(selected).toContainText("Plan: Growth");
       await expect(selected.locator("[data-admin-surface]")).toHaveCount(2);
       await expect(page.locator(`[data-admin-brand="${BRAND_ID}"]`)).toContainText(
-        "Omega Services",
+        "Yabby Services",
       );
       await fits(page);
     });

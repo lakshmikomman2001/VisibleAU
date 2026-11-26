@@ -67,7 +67,7 @@ async function insertBrand(
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state,
       location_mode, location_confirmed_at, classification_status, classification, created_at, updated_at)
-    VALUES (${id}, ${ORG_ID}, 'herohomeservices', ${`${id.slice(0, 8)}.example.com.au`}, 'tradies', 'au',
+    VALUES (${id}, ${ORG_ID}, 'wrenhomeservices', ${`${id.slice(0, 8)}.example.com.au`}, 'tradies', 'au',
       ARRAY['NSW:Yennora']::text[], 'Yennora', 'NSW', 'fixed', now(), ${status},
       ${classification === null ? null : sql.json(classification as never)},
       now() - make_interval(mins => ${updatedMinutesAgo}), now() - make_interval(mins => ${updatedMinutesAgo}))

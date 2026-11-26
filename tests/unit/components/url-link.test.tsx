@@ -13,15 +13,15 @@ import { EvidenceLink } from "@/components/domain/action-center/evidence-link";
 import { displayUrl, UrlLink } from "@/components/shared/url-link";
 
 const LONG =
-  "https://www.hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567/?utm_source=chatgpt.com";
+  "https://www.hipages.com.au/connect/yabbyservicesplumbingandgasfittingbondi/service/1234567/?utm_source=chatgpt.com";
 // 9 Nov (part 6): what the link opens -- the same URL without the AI's tracking tag (lib/urls/strip-tracking.ts).
 const LONG_HREF =
-  "https://www.hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567/";
+  "https://www.hipages.com.au/connect/yabbyservicesplumbingandgasfittingbondi/service/1234567/";
 
 describe("displayUrl", () => {
   it("is the host (no www.) and path -- no protocol, query or trailing slash", () => {
     expect(displayUrl(LONG)).toBe(
-      "hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567",
+      "hipages.com.au/connect/yabbyservicesplumbingandgasfittingbondi/service/1234567",
     );
   });
 
@@ -38,14 +38,14 @@ describe("UrlLink", () => {
   it("one line with an ellipsis; the full URL in href and title; a 'new tab' accessible name", () => {
     render(<UrlLink url={LONG} />);
     const link = screen.getByRole("link", {
-      name: "Open hipages.com.au/connect/omegaservicesplumbingandgasfittingbondi/service/1234567 in a new tab",
+      name: "Open hipages.com.au/connect/yabbyservicesplumbingandgasfittingbondi/service/1234567 in a new tab",
     });
     expect(link).toHaveAttribute("href", LONG_HREF);
     expect(link).toHaveAttribute("title", LONG_HREF);
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).toHaveTextContent(
-      /^hipages\.com\.au\/connect\/omegaservicesplumbingandgasfittingbondi\/service\/1234567$/,
+      /^hipages\.com\.au\/connect\/yabbyservicesplumbingandgasfittingbondi\/service\/1234567$/,
     );
     expect(link).toHaveStyle({
       whiteSpace: "nowrap",

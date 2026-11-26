@@ -28,9 +28,9 @@ describe("captureEvidenceSnapshots -- write-time: only run_number = 1 is capture
     // replay rows per pair never reach this function at all once the
     // WHERE clause (asserted above) is applied by the real DB.
     const filteredCitations = [
-      { engine: "chatgpt", prompt: "Is Bondi Plumbing good?", responseSnippet: "Yes, well regarded.", sentimentScore: "0.80" },
-      { engine: "claude", prompt: "Is Bondi Plumbing good?", responseSnippet: "Generally positive.", sentimentScore: "0.70" },
-      { engine: "chatgpt", prompt: "Bondi Plumbing vs Plumbing 911", responseSnippet: "Both are reputable.", sentimentScore: "0.50" },
+      { engine: "chatgpt", prompt: "Is Galah Plumbing good?", responseSnippet: "Yes, well regarded.", sentimentScore: "0.80" },
+      { engine: "claude", prompt: "Is Galah Plumbing good?", responseSnippet: "Generally positive.", sentimentScore: "0.70" },
+      { engine: "chatgpt", prompt: "Galah Plumbing vs Plumbing 911", responseSnippet: "Both are reputable.", sentimentScore: "0.50" },
     ];
 
     const inserted: unknown[] = [];
@@ -58,7 +58,7 @@ describe("captureEvidenceSnapshots -- write-time: only run_number = 1 is capture
     // Each distinct (engine, prompt) pair still gets its own snapshot --
     // the run_number filter removes replays, not genuine variety.
     expect((inserted[0] as { engine: string }).engine).toBe("chatgpt");
-    expect((inserted[2] as { prompt: string }).prompt).toBe("Bondi Plumbing vs Plumbing 911");
+    expect((inserted[2] as { prompt: string }).prompt).toBe("Galah Plumbing vs Plumbing 911");
   });
 });
 

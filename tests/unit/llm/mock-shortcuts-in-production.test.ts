@@ -43,7 +43,7 @@ describe("in production every mock shortcut refuses", () => {
   it("LLM_MODE=mock with NODE_ENV=production: brand classification throws, never the canned answer", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("LLM_MODE", "mock");
-    await expect(classifyBrand("Bondi Plumbing", "bondiplumbing.com.au")).rejects.toThrow(
+    await expect(classifyBrand("Galah Plumbing", "galahplumbing.com.au")).rejects.toThrow(
       MockInProductionError,
     );
   });
@@ -52,7 +52,7 @@ describe("in production every mock shortcut refuses", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("LLM_MODE", "mock");
-    await expect(classifyBrand("Bondi Plumbing", "bondiplumbing.com.au")).rejects.toThrow(
+    await expect(classifyBrand("Galah Plumbing", "galahplumbing.com.au")).rejects.toThrow(
       MockInProductionError,
     );
   });
@@ -107,7 +107,7 @@ describe("in local development (and under vitest) they behave as before", () => 
     vi.stubEnv("ABN_LOOKUP_BYPASS", "mock-verified");
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const classification = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const classification = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(classification.category).toBe("saas_design_tools");
 
     const { tx } = fakeTx({ id: "row-1", abnVerified: false, abnNumber: ABN });

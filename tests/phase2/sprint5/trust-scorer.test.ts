@@ -453,7 +453,7 @@ describe("computeTrustSummary — task #39: stub-backed scores never leak a stal
     vi.resetModules();
   });
 
-  // Reproduces the exact live Bondi Plumbing case diagnosed before task
+  // Reproduces the exact live Galah Plumbing case diagnosed before task
   // #39's fix: entity 2/10 -> 20 (the OLD scoreOf10-based scale), a
   // stale LinkedIn stub row (presenceScore 0, from the old all-false/0
   // stub input), a stale Consensus stub row (consistencyScore 100, from

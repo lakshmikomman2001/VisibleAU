@@ -66,7 +66,7 @@ const OWNER = "owner@coverage-surfaces.example.com.au";
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"];
 const USAGE_LIMIT =
   "HTTP 400 invalid_request_error: You have reached your specified API usage limits. You will regain access on Nov 1, 2026 at 00:00 UTC.";
-const MENTION = "Good local options: Omega Services, a Bondi plumber with fast call-outs.";
+const MENTION = "Good local options: Yabby Services, a Bondi plumber with fast call-outs.";
 const NONE = "Good local options: Alpha Plumbing and Beta Plumbing.";
 const NOTE =
   "Based on 3 of 4 engines. Claude returned an error for every question: a problem on our side.";
@@ -127,7 +127,7 @@ beforeAll(async () => {
     SELECT ${ORG_ID}, id, 'owner', now(), now(), true FROM users WHERE clerk_user_id = ${`cov-${ORG_ID}`}
   `;
   for (const [id, name, domain] of [
-    [BRAND_PARTIAL, "Omega Services", "omega-cov.example.com.au"],
+    [BRAND_PARTIAL, "Yabby Services", "omega-cov.example.com.au"],
     [BRAND_FULL, "Sigma Plumbing", "sigma-cov.example.com.au"],
   ]) {
     await client`
@@ -299,7 +299,7 @@ describe("audit-complete email (1 Nov, item 4)", () => {
     const [email] = await sendFor(PARTIAL);
     expect(email.to).toBe(OWNER);
     expect(email.subject).toBe(
-      "Audit #37 complete: Omega Services — Visibility 17% (3 of 4 engines)",
+      "Audit #37 complete: Yabby Services — Visibility 17% (3 of 4 engines)",
     );
     expect(email.text).toContain(NOTE);
     expect(email.text).not.toContain("What to check");

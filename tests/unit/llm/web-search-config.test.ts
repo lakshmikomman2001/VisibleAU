@@ -132,11 +132,11 @@ describe("geminiAnswerSources", () => {
         sourceType: "url",
         id: "1",
         url: REDIRECT,
-        title: "WWW.OmegaServices.com.au",
+        title: "WWW.YabbyServices.com.au",
       },
     ];
     expect(geminiAnswerSources(sources)).toEqual([
-      { url: REDIRECT, domain: "omegaservices.com.au" },
+      { url: REDIRECT, domain: "yabbyservices.com.au" },
     ]);
   });
 
@@ -147,7 +147,7 @@ describe("geminiAnswerSources", () => {
         sourceType: "url",
         id: "1",
         url: REDIRECT,
-        title: "Omega Services - Official Site",
+        title: "Yabby Services - Official Site",
       },
       { type: "source", sourceType: "url", id: "2", url: `${REDIRECT}2` },
     ];
@@ -156,9 +156,9 @@ describe("geminiAnswerSources", () => {
 
   it("never reads a domain out of the url itself, only the title", () => {
     const sources = [
-      { type: "source", sourceType: "url", id: "1", url: "https://omegaservices.com.au/real-page" },
+      { type: "source", sourceType: "url", id: "1", url: "https://yabbyservices.com.au/real-page" },
     ];
-    expect(geminiAnswerSources(sources)).toEqual(["https://omegaservices.com.au/real-page"]);
+    expect(geminiAnswerSources(sources)).toEqual(["https://yabbyservices.com.au/real-page"]);
   });
 
   it("ignores non-url sources and non-array input", () => {
@@ -193,13 +193,13 @@ describe("anthropicAnswerSources", () => {
 
   it("lists the cited pages first, then the search results the answer never cited as cited: false", () => {
     const sources = [
-      searchResult("https://omegaservices.com.au/"),
+      searchResult("https://yabbyservices.com.au/"),
       searchResult("https://hipages.com.au/plumbers"),
       citation("https://hipages.com.au/plumbers"),
     ];
     expect(anthropicAnswerSources(sources)).toEqual([
       "https://hipages.com.au/plumbers",
-      { url: "https://omegaservices.com.au/", cited: false },
+      { url: "https://yabbyservices.com.au/", cited: false },
     ]);
   });
 

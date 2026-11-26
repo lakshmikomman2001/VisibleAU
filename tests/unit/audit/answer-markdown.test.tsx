@@ -19,15 +19,15 @@ const ANSWER = [
   "",
   "1. **Hero** Home Services (Yennora-based)",
   "   - Address: 9/3 Dursley Rd, Yennora NSW 2161",
-  "   - Profile: ([localsearch.com.au](https://www.localsearch.com.au/profile/hero-home-services/yennora-nsw?utm_source=openai))",
+  "   - Profile: ([localsearch.com.au](https://www.localsearch.com.au/profile/wren-home-services/yennora-nsw?utm_source=openai))",
   "2. Fixit Plumbing",
   "",
   "| Provider | Location/Service Area | Highlights |",
   "|------|------|------|",
-  "| **Hero Home Services** | Yennora | Hot water repairs |",
+  "| **Wren Home Services** | Yennora | Hot water repairs |",
   "| Fixit Plumbing | Fairfield | _Same-day_ service |",
   "",
-  "**Hero Home Services** is an excellent choice.",
+  "**Wren Home Services** is an excellent choice.",
 ].join("\n");
 
 describe("formatted, not raw", () => {
@@ -40,10 +40,10 @@ describe("formatted, not raw", () => {
     expect(out).toMatch(
       /<table[^>]*><thead><tr><th[^>]*>Provider<\/th><th[^>]*>Location\/Service Area<\/th><th[^>]*>Highlights<\/th>/,
     );
-    expect(out).toMatch(/<td[^>]*><strong>Hero Home Services<\/strong><\/td>/);
+    expect(out).toMatch(/<td[^>]*><strong>Wren Home Services<\/strong><\/td>/);
     expect(out).toMatch(/<td[^>]*><em>Same-day<\/em> service<\/td>/);
     expect(out).toContain(
-      '<a href="https://www.localsearch.com.au/profile/hero-home-services/yennora-nsw" target="_blank" rel="noopener noreferrer nofollow"',
+      '<a href="https://www.localsearch.com.au/profile/wren-home-services/yennora-nsw" target="_blank" rel="noopener noreferrer nofollow"',
     );
     expect(out).toContain(">localsearch.com.au</a>");
     expect(out).not.toMatch(/\*\*|\|------|utm_source/);

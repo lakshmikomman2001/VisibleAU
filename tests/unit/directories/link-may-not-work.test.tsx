@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: 
 const AUDIT_48 =
   "https://www.yellowpages.com.au/yennora-nsw-2161-nsw-2161-nsw-2161-nsw-2161-nsw-2161/handyman-services";
 const REAL_PAGE = "https://www.yellowpages.com.au/find/handyman-services/yennora-nsw-2161";
-const TYPED_PAGE = "https://www.hipages.com.au/connect/hero-home-services";
+const TYPED_PAGE = "https://www.hipages.com.au/connect/wren-home-services";
 
 /** The two queries the panel's function makes: citations rows, then no confirmed listings. */
 function stubDb(rows: Array<{ citedSources: unknown }>): DbClient {

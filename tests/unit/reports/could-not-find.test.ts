@@ -16,9 +16,9 @@ describe("couldNotFindQuote", () => {
   });
 
   it.each([
-    ["I could not find any information about Omega Services.", "could not find any information"],
+    ["I could not find any information about Yabby Services.", "could not find any information"],
     ["Sadly I couldn't find any information on them.", "couldn't find any information"],
-    ["There is no publicly available information about Hero Home Services.", "there is no"],
+    ["There is no publicly available information about Wren Home Services.", "there is no"],
     ["I don't have specific information about NumbaTek IT.", "I don't have"],
     ["There's no information available online about this business.", "no information available"],
     ["I could not verify that this company exists.", "I could not verify"],

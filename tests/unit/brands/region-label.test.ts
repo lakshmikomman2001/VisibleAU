@@ -50,12 +50,12 @@ describe("resolveRegionLabel", () => {
     expect(label).toBe("New Zealand");
   });
 
-  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services case
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Yabby Services case
   // -- "Norwest" isn't in the curated lib/locations list, so city is
   // correctly NULL (never a guessed city). Appending the state keeps
   // the label a real, disambiguated place rather than a bare suburb
   // name that could exist in more than one state.
-  it("appends the state when the suburb is confirmed but there's no curated city (Omega Services' real case)", () => {
+  it("appends the state when the suburb is confirmed but there's no curated city (Yabby Services' real case)", () => {
     const label = resolveRegionLabel({
       suburb: "Norwest",
       city: null,

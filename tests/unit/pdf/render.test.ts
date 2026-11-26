@@ -110,7 +110,7 @@ describe("renderAuditPdf", () => {
       accuracy: scored(100),
     };
     const data: AuditPdfData = {
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       auditNumber: 30,
       headline: scored(16.2),
       dimensions,

@@ -46,10 +46,10 @@ describe("point 4: agency branding", () => {
     expect(
       resolveAgencyBranding(
         { ...empty, agencyName: "  ", logoUrl: "https://cdn.example.com/brand-logo.png" },
-        { ...empty, agencyName: "Splice Marketing", contactLine: "splice.example.com.au" },
+        { ...empty, agencyName: "Possum Marketing", contactLine: "splice.example.com.au" },
       ),
     ).toEqual({
-      name: "Splice Marketing",
+      name: "Possum Marketing",
       logoUrl: "https://cdn.example.com/brand-logo.png",
       contactLine: "splice.example.com.au",
       footerText: null,
@@ -67,7 +67,7 @@ describe("point 4: agency branding", () => {
   });
 
   it("initials for the logo tile", () => {
-    expect(agencyInitials("Splice Marketing")).toBe("SP");
+    expect(agencyInitials("Possum Marketing")).toBe("PO");
     expect(agencyInitials("Acme")).toBe("AC");
   });
 });

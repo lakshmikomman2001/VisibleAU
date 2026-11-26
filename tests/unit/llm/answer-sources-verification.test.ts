@@ -29,7 +29,7 @@ vi.mock("@/lib/llm/cache", () => ({
 }));
 
 const BRAND = {
-  domain: "omegaservices.com.au",
+  domain: "yabbyservices.com.au",
   suburb: "Norwest",
   city: null,
   state: "NSW",
@@ -40,7 +40,7 @@ const BRAND = {
 function storeAndVerify(output: Pick<CompleteOutput, "response" | "citedUrls">) {
   const sources = mergeCitedSources(extractCitations(output.response), output.citedUrls);
   const verification = verifyMention({
-    matchIndex: output.response.indexOf("Omega Services"),
+    matchIndex: output.response.indexOf("Yabby Services"),
     responseText: output.response,
     citedSources: sources,
     brand: BRAND,
@@ -86,18 +86,18 @@ describe("Claude: only a page the answer cited verifies", () => {
     const output = await claude([
       anthropicText("I'll search for local plumbers."),
       ...anthropicSearch("srvtoolu_1", [
-        "https://omegaservices.com.au/",
+        "https://yabbyservices.com.au/",
         "https://hipages.com.au/plumbers",
       ]),
-      anthropicCitedText("A popular choice is Omega Services.", "https://hipages.com.au/plumbers"),
+      anthropicCitedText("A popular choice is Yabby Services.", "https://hipages.com.au/plumbers"),
     ]);
     const { sources, verification } = storeAndVerify(output);
 
     expect(sources).toEqual([
       { domain: "hipages.com.au", url: "https://hipages.com.au/plumbers", origin: "retrieved" },
       {
-        domain: "omegaservices.com.au",
-        url: "https://omegaservices.com.au/",
+        domain: "yabbyservices.com.au",
+        url: "https://yabbyservices.com.au/",
         origin: "retrieved",
         cited: false,
       },
@@ -108,8 +108,8 @@ describe("Claude: only a page the answer cited verifies", () => {
   it("an answer that cites the brand's site verifies by domain", async () => {
     const output = await claude([
       anthropicText("I'll search for local plumbers."),
-      ...anthropicSearch("srvtoolu_1", ["https://omegaservices.com.au/"]),
-      anthropicCitedText("Omega Services is a popular choice.", "https://omegaservices.com.au/"),
+      ...anthropicSearch("srvtoolu_1", ["https://yabbyservices.com.au/"]),
+      anthropicCitedText("Yabby Services is a popular choice.", "https://yabbyservices.com.au/"),
     ]);
 
     expect(storeAndVerify(output).verification).toBe("verified_domain");
@@ -118,14 +118,14 @@ describe("Claude: only a page the answer cited verifies", () => {
 
 describe("Gemini: the sites its grounding titles name are stored and verify", () => {
   it("a grounding title naming the brand's domain verifies; each site is stored with its link", async () => {
-    const output = await gemini("A popular choice is Omega Services.", [
-      { uri: `${GOOGLE_REDIRECT}a`, title: "omegaservices.com.au" },
+    const output = await gemini("A popular choice is Yabby Services.", [
+      { uri: `${GOOGLE_REDIRECT}a`, title: "yabbyservices.com.au" },
       { uri: `${GOOGLE_REDIRECT}b`, title: "hipages.com.au" },
     ]);
     const { sources, verification } = storeAndVerify(output);
 
     expect(sources).toEqual([
-      { domain: "omegaservices.com.au", url: `${GOOGLE_REDIRECT}a`, origin: "retrieved" },
+      { domain: "yabbyservices.com.au", url: `${GOOGLE_REDIRECT}a`, origin: "retrieved" },
       { domain: "hipages.com.au", url: `${GOOGLE_REDIRECT}b`, origin: "retrieved" },
     ]);
     expect(verification).toBe("verified_domain");
@@ -133,11 +133,11 @@ describe("Gemini: the sites its grounding titles name are stored and verify", ()
 
   it("the same answer served from the cache still verifies by domain", async () => {
     getCachedMock.mockResolvedValue({
-      response: "A popular choice is Omega Services.",
+      response: "A popular choice is Yabby Services.",
       tokensUsed: 80,
       costEstimateUsd: 0,
       model: "gemini-2.5-flash",
-      citedUrls: [{ url: `${GOOGLE_REDIRECT}a`, domain: "omegaservices.com.au" }],
+      citedUrls: [{ url: `${GOOGLE_REDIRECT}a`, domain: "yabbyservices.com.au" }],
       isCacheHit: true,
     });
     const { GoogleImpl } = await import("@/lib/llm/google-impl");

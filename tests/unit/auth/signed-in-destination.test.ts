@@ -115,7 +115,7 @@ describe("/sign-in from an invite, nobody signed in", () => {
   }
 
   it("says who to sign in as and what it joins, read for that invite's workspace and token", async () => {
-    heading.mockResolvedValue({ maskedEmail: "lee…om@example.com", orgName: "Splice Marketing" });
+    heading.mockResolvedValue({ maskedEmail: "lee…om@example.com", orgName: "Possum Marketing" });
     const props = await signInFormProps(INVITE);
     expect(heading).toHaveBeenCalledWith(
       "0f9d8c7b-6a5e-4d3c-8b2a-1f0e9d8c7b6a",
@@ -125,7 +125,7 @@ describe("/sign-in from an invite, nobody signed in", () => {
       orgId: "0f9d8c7b-6a5e-4d3c-8b2a-1f0e9d8c7b6a",
       token: "AbC_-12345xyzAbC_-123",
       maskedEmail: "lee…om@example.com",
-      orgName: "Splice Marketing",
+      orgName: "Possum Marketing",
     });
   });
 

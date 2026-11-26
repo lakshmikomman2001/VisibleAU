@@ -1,5 +1,5 @@
 /**
- * Mock-gate and retention follow-ups (9 Nov), part 9 -- Omega Services' Trust page showed "Overall Trust Score 0/100"
+ * Mock-gate and retention follow-ups (9 Nov), part 9 -- Yabby Services' Trust page showed "Overall Trust Score 0/100"
  * with an empty bar, under text saying no trust data was available and "Run an audit or check to establish a
  * baseline score", though Omega had 5 audits. Its Entity score was 0 from facts nobody had checked: the ABN lookup
  * skipped (no ABR GUID), the .au domain never looked at, no Wikipedia article found.
@@ -53,7 +53,7 @@ beforeAll(async () => {
     VALUES (${ORG}, ${`cus_${ORG}`}, ${`sub_${ORG}`}, 'price_agency_pro_test', 'agency_pro', 'monthly', 'active')
   `;
   for (const [id, name] of [
-    [UNCHECKED, "Omega Services"],
+    [UNCHECKED, "Yabby Services"],
     [MEASURED_ZERO, "Zero Plumbing"],
   ] as const) {
     await sql`
@@ -88,9 +88,9 @@ describe("the Trust score: not measured is not 0", () => {
     expect(body.overallTrustScore).toBeNull();
     expect(body.overallBasis).toBeNull();
     // Since the af8de42..d1eb5a1 follow-ups (part 4): no "Not measured yet." of its own (the card shows it just
-    // above), and "Omega Services'" -- it began "Not measured yet. Omega Services's Trust Score".
+    // above), and "Yabby Services'" -- it began "Not measured yet. Yabby Services's Trust Score".
     expect(String(body.rationale)).not.toContain(NOT_MEASURED);
-    expect(String(body.rationale)).toMatch(/^Omega Services' Trust Score comes from /);
+    expect(String(body.rationale)).toMatch(/^Yabby Services' Trust Score comes from /);
     expect(String(body.rationale)).toContain(
       "the Entity check (ABN, .au domain and Wikipedia AU) and the YouTube check",
     );

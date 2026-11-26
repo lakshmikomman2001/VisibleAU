@@ -60,7 +60,7 @@ describe("Autopilot step 2: the most urgent open task, in words", () => {
       explainability: null,
       draft: null,
       brandId: "b1",
-      brandName: "Hero Home Services",
+      brandName: "Wren Home Services",
     } as unknown as AutopilotLoopData;
     render(<AutopilotLoop data={data} />);
     expect(screen.getAllByText("Top priority of 3 open tasks").length).toBeGreaterThan(0);

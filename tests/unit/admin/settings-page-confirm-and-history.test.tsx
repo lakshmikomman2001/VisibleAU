@@ -46,7 +46,7 @@ const LOGIN_REJECTED: GoogleOperatorHealth["providerErrorGroups"]["groups"][numb
   at: "2026-11-12T08:31:00.000Z",
   auditNumber: 44,
   workspace: "Splice",
-  brand: "Omega Services",
+  brand: "Yabby Services",
   code: 40100,
   category: "login rejected",
   message: "40100 You are not authorized to access this resource.",
@@ -197,7 +197,7 @@ describe("the Changes log folds saves that changed nothing", () => {
         at: new Date(Date.UTC(2026, 10, 11, 2, 30 - i)).toISOString(),
         scope: "brand" as const,
         setting: "google_location_postcode",
-        target: "Omega Services",
+        target: "Yabby Services",
         from: "2153",
         to: "2153",
         by: "operator@example.test",
@@ -206,7 +206,7 @@ describe("the Changes log folds saves that changed nothing", () => {
         at: "2026-11-11T01:00:00.000Z",
         scope: "brand" as const,
         setting: "google_location_postcode",
-        target: "Omega Services",
+        target: "Yabby Services",
         from: null,
         to: "2153",
         by: "operator@example.test",
@@ -234,7 +234,7 @@ describe("Provider errors say when the last one was", () => {
             startedAt: "2026-11-19T08:55:00.000Z",
             at: "2026-11-19T09:10:00.000Z",
             auditNumber: 61,
-            brand: "Omega Services",
+            brand: "Yabby Services",
             questions: 26,
             checked: 26,
           },
@@ -242,7 +242,7 @@ describe("Provider errors say when the last one was", () => {
       }),
     );
     expect(container.querySelector("[data-admin-provider-errors-summary]")).toHaveTextContent(
-      "No provider errors since 12 Nov 19:31 Sydney time (last Google run: 26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Omega Services)",
+      "No provider errors since 12 Nov 19:31 Sydney time (last Google run: 26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Yabby Services)",
     );
     const older = container.querySelector("[data-admin-provider-errors-older]");
     expect(older).toHaveTextContent("1 older error, from before the last clean Google run");
@@ -263,7 +263,7 @@ describe("Provider errors say when the last one was", () => {
             startedAt: "2026-11-19T08:55:00.000Z",
             at: "2026-11-19T09:10:00.000Z",
             auditNumber: 61,
-            brand: "Omega Services",
+            brand: "Yabby Services",
             questions: 26,
             checked: 26,
           },

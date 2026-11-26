@@ -19,7 +19,7 @@ const ORG = "0f9d8c7b-6a5e-4d3c-8b2a-1f0e9d8c7b6a";
 const TOKEN = "AbC_-12345xyzAbC_-123";
 const CHOICE = {
   choice: true,
-  orgName: "Splice Marketing",
+  orgName: "Possum Marketing",
   role: "analyst",
   ownWorkspaceName: "Lee's Agency",
   expiresAt: "2026-11-13T23:00:00Z", // 14 Nov in Sydney
@@ -51,7 +51,7 @@ afterEach(() => {
 async function page() {
   const { AcceptInvite } = await import("@/app/invite/[orgId]/[token]/invite-client");
   render(createElement(AcceptInvite, { orgId: ORG, token: TOKEN, email: "lee@example.com" }));
-  await screen.findByRole("button", { name: "Switch to Splice Marketing" });
+  await screen.findByRole("button", { name: "Switch to Possum Marketing" });
 }
 
 const posts = () => calls.filter((c) => c.method === "POST");
@@ -61,7 +61,7 @@ describe("an invite for an account with its own workspace", () => {
     await page();
     expect(
       screen.getByText(
-        "You're invited to join Splice Marketing as an analyst. You're working in Lee's Agency now.",
+        "You're invited to join Possum Marketing as an analyst. You're working in Lee's Agency now.",
       ),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Not now" })).toBeVisible();
@@ -71,7 +71,7 @@ describe("an invite for an account with its own workspace", () => {
 
   it("'Switch' says what happens to its own workspace, plainly, before anything changes", async () => {
     await page();
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
     const warning = document.querySelector("[data-switch-warning]");
     expect(warning).toHaveTextContent("Lee's Agency stays exactly as it is");
     expect(warning).toHaveTextContent("including billing");
@@ -82,8 +82,8 @@ describe("an invite for an account with its own workspace", () => {
 
   it("confirming switches: POSTs the accept, then opens the dashboard", async () => {
     await page();
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
     await waitFor(() => expect(window.location.href).toBe("/dashboard"));
     expect(posts()).toEqual([
       {
@@ -95,7 +95,7 @@ describe("an invite for an account with its own workspace", () => {
 
   it("'Cancel' goes back to the choice, with nothing sent", async () => {
     await page();
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByRole("button", { name: "Not now" })).toBeVisible();
     expect(posts()).toEqual([]);
@@ -124,8 +124,8 @@ describe("an invite for an account with its own workspace", () => {
       },
     };
     await page();
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Splice Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Possum Marketing" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/expired/);
     expect(window.location.href).toBe("");
   });

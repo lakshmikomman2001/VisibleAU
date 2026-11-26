@@ -1,5 +1,5 @@
 /**
- * 14 Nov, part 1 (Sri's review of audit #48): Hero Home Services (General trades, Yennora) had "What Australian tech
+ * 14 Nov, part 1 (Sri's review of audit #48): Wren Home Services (General trades, Yennora) had "What Australian tech
  * companies are leading in their space in 2025?" as Q11, counted as an everyday question. It came from
  * buildEnrichedPrompts (lib/prompts/build-prompt-pack.ts), which added it for every Australian-founded brand
  * (auRelevance "au_founded") whatever its vertical, though it names no brand.
@@ -104,8 +104,8 @@ describe("every question in a brand's set is its own: its categories' questions,
   it("Hero's shape (General trades, households, Australian-founded): no tech question", () => {
     const pack = buildPromptPack(
       classification("trades_general", "consumer", "au_founded"),
-      "Hero Home Services",
-      "herohomeservices.com.au",
+      "Wren Home Services",
+      "wrenhomeservices.com.au",
       { categories: ["trades_general"], competitors: [], audience: "households" },
       REGION,
       10,
@@ -115,7 +115,7 @@ describe("every question in a brand's set is its own: its categories' questions,
     expect(
       pack.filter(
         (q) =>
-          !isBrandedPrompt(q, { name: "Hero Home Services", domain: "herohomeservices.com.au" }),
+          !isBrandedPrompt(q, { name: "Wren Home Services", domain: "wrenhomeservices.com.au" }),
       ),
     ).toHaveLength(10);
   });

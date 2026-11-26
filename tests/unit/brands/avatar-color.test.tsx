@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * 17 Nov, part 4 -- a brand's avatar colour comes from the brand (a hash of its id), never its place in a list: Omega
+ * 17 Nov, part 4 -- a brand's avatar colour comes from the brand (a hash of its id), never its place in a list: Yabby
  * Services' went from purple to teal when other brands were deleted (GRADIENTS[i % 5]), and the brand page always used
  * the first gradient. Every brand avatar -- the brands list, the brand row, the brand page -- uses the one function, and
  * the white initials are AA on every colour in both themes.
  *
- * Leftovers task, part 4 (17 Nov): five gradients made two of a few brands share one (Hero Home Services and Omega
+ * Leftovers task, part 4 (17 Nov): five gradients made two of a few brands share one (Wren Home Services and Yabby
  * Services were both orange; two of three brands share one 52% of the time). The hash now picks a hue anywhere on the
  * wheel and one of three tones -- still from the id alone.
  */
@@ -30,7 +30,7 @@ const ids = (n: number, seed: string) =>
     return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
   });
 
-const OMEGA = "3ed7f357-3ddf-4ecd-8116-a6c232cccf27";
+const YABBY = "3ed7f357-3ddf-4ecd-8116-a6c232cccf27";
 
 /** OKLCH -> linear sRGB (Björn Ottosson's OKLab matrices). */
 function oklchToLinear(L: number, c: number, hueDeg: number): [number, number, number] {
@@ -93,14 +93,14 @@ function shareWithALookAlike(brands: number, trials: number): number {
 
 describe("a brand's colour is its own", () => {
   it("the same brand gets the same colour every time, from its id", () => {
-    expect(brandAvatarBackground(OMEGA)).toBe(brandAvatarBackground(OMEGA));
-    expect(brandAvatarBackground(OMEGA)).toMatch(/^linear-gradient\(135deg, oklch\(/);
+    expect(brandAvatarBackground(YABBY)).toBe(brandAvatarBackground(YABBY));
+    expect(brandAvatarBackground(YABBY)).toMatch(/^linear-gradient\(135deg, oklch\(/);
   });
 
   it("deleting or adding another brand doesn't change it", () => {
-    const before = brandAvatarBackground(OMEGA);
+    const before = brandAvatarBackground(YABBY);
     for (const other of ids(30, "others")) brandAvatarBackground(other);
-    expect(brandAvatarBackground(OMEGA)).toBe(before);
+    expect(brandAvatarBackground(YABBY)).toBe(before);
   });
 
   it("spreads brands round the whole colour wheel and over all three tones", () => {
@@ -163,9 +163,9 @@ describe("every brand avatar uses it", () => {
   it("a brand row's colour doesn't depend on where it sits", async () => {
     const { BrandRow } = await import("@/components/domain/brand/brand-row");
     const brand = {
-      id: OMEGA,
-      name: "Omega Services",
-      domain: "omega.com.au",
+      id: YABBY,
+      name: "Yabby Services",
+      domain: "yabby.com.au",
       vertical: "tradies",
       region: "au",
       primaryRegions: ["NSW:Norwest"],
@@ -174,11 +174,11 @@ describe("every brand avatar uses it", () => {
       lastAuditStatus: null,
     };
     const first = render(<BrandRow brand={brand} index={0} isLast={false} />);
-    const firstAvatar = first.getByText("O");
+    const firstAvatar = first.getByText("Y");
     const firstBackground = firstAvatar.style.background;
     first.unmount();
     const later = render(<BrandRow brand={brand} index={3} isLast />);
-    expect(later.getByText("O").style.background).toBe(firstBackground);
-    expect(firstBackground).toBe(brandAvatarBackground(OMEGA));
+    expect(later.getByText("Y").style.background).toBe(firstBackground);
+    expect(firstBackground).toBe(brandAvatarBackground(YABBY));
   });
 });

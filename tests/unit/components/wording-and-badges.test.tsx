@@ -65,14 +65,14 @@ describe("a role after 'as' has its article", () => {
     const email = (role: string) =>
       teamInviteEmail({
         inviterName: "Sri",
-        orgName: "Splice Marketing",
+        orgName: "Possum Marketing",
         role,
         acceptUrl: "https://app.vunnara.com.au/invite/x/y",
         expiresAt: NOW,
       });
-    expect(email("analyst").text).toContain("join Splice Marketing on Vunnara as an analyst.");
+    expect(email("analyst").text).toContain("join Possum Marketing on Vunnara as an analyst.");
     // The inbox preview line too (in the HTML).
-    expect(email("analyst").html).toContain("Join Splice Marketing on Vunnara as an analyst.");
+    expect(email("analyst").html).toContain("Join Possum Marketing on Vunnara as an analyst.");
     expect(email("viewer").text).toContain("as a viewer.");
     expect(email("admin").text).toContain("as an admin.");
     expect(email("analyst").text).not.toMatch(/as analyst\b/);
@@ -83,7 +83,7 @@ describe("a role after 'as' has its article", () => {
       "fetch",
       vi.fn(async () =>
         Response.json({
-          orgName: "Splice Marketing",
+          orgName: "Possum Marketing",
           role: "analyst",
           forNewAccount: true,
           email: "lee@example.com",
@@ -95,7 +95,7 @@ describe("a role after 'as' has its article", () => {
       createElement(InviteSignUp, { orgId: "0f9d8c7b-6a5e-4d3c-8b2a-1f0e9d8c7b6a", token: "tok" }),
     );
     expect(
-      await screen.findByText(/You've been invited to join Splice Marketing as an analyst\./),
+      await screen.findByText(/You've been invited to join Possum Marketing as an analyst\./),
     ).toBeInTheDocument();
   });
 

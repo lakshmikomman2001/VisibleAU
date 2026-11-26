@@ -68,7 +68,7 @@ describe("⚠️ FFF — checkAiDiscovery: ai.txt accepts either standard locati
 
   it("absent at both locations -> 0, honest (the real Bondi shape)", async () => {
     mockFetch(() => JSON_404());
-    const result = await checkAiDiscovery("bondiplumbing.com.au");
+    const result = await checkAiDiscovery("galahplumbing.com.au");
     expect(result.findings.aiTxtPresent).toBe(false);
     expect(result.findings.aiSummaryPresent).toBe(false);
     expect(result.findings.aiFaqPresent).toBe(false);

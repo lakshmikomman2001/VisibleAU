@@ -103,7 +103,7 @@ describe("analyzeRobots -- every crawler, one evaluator", () => {
   });
 
   it("REGRESSION -- Bondi's real, permissive robots.txt still scores 18 of 18", () => {
-    const bondi = `Sitemap: https://www.bondiplumbing.com.au/sitemap.xml
+    const bondi = `Sitemap: https://www.galahplumbing.com.au/sitemap.xml
 User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 `;

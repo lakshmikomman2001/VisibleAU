@@ -1,7 +1,11 @@
 /**
- * Google AI surfaces, Phase 1 -- a fetch that answers lib/serp/dataforseo.ts with DataForSEO's REAL responses
- * from the 11 Nov live sample (tests/fixtures/google-surfaces/dataforseo/, trimmed: fields dropped, nothing
- * changed or invented). No call leaves the machine.
+ * Google AI surfaces, Phase 1 -- a fetch that answers lib/serp/dataforseo.ts with DataForSEO's responses from the
+ * 11 Nov live sample (tests/fixtures/google-surfaces/dataforseo/, trimmed: fields dropped). No call leaves the machine.
+ * S03 part 0 (LLD amendment 77): the two questions that name the business (q11, q13, both surfaces) and the two
+ * task_post files are invented recordings of the same shape -- an invented business (Yabby Services), invented
+ * reviewers and sites, no allegations -- since the real ones were a client's own Google answers. Every key, item,
+ * element, id, cost and date is as recorded, and each real link became one invented link, so the number of links,
+ * which are Google's own and which are the business's own site are as recorded. q01 and q07 are as recorded.
  *
  * - task_post: each posted question gets its recorded task (matched by its text), in the order posted.
  * - task_get/advanced/<id>: the recorded result for that task id.

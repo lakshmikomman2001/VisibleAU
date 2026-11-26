@@ -22,7 +22,7 @@ describe("CATEGORY_KEYS stays in sync with CATEGORY_TEMPLATES", () => {
 });
 
 describe("resolveCategory (Vunnara Build 1, Part C: closed category enum)", () => {
-  it("Omega Services' real bad classifier output maps to trades_general, not general", () => {
+  it("Yabby Services' real bad classifier output maps to trades_general, not general", () => {
     expect(resolveCategory("trades_general_services")).toBe("trades_general");
   });
 

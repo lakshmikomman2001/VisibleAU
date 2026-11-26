@@ -55,10 +55,10 @@ const ORGANIC_PROMPTS = [
   "Best plumbing companies for commercial fitouts in Sydney CBD?",
 ];
 const BRANDED_PROMPTS = [
-  "Bondi Plumbing vs Plumbing 911 — which is better for Australian businesses?",
-  "Bondi Plumbing vs Local Plumbing Sydney — which is better for Australian businesses?",
-  "What are the best alternatives to Bondi Plumbing in Australia?",
-  "Is Bondi Plumbing popular in Australia?",
+  "Galah Plumbing vs Plumbing 911 — which is better for Australian businesses?",
+  "Galah Plumbing vs Local Plumbing Sydney — which is better for Australian businesses?",
+  "What are the best alternatives to Galah Plumbing in Australia?",
+  "Is Galah Plumbing popular in Australia?",
 ];
 
 let client: ReturnType<typeof postgres>;

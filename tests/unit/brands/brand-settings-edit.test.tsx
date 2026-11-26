@@ -29,8 +29,8 @@ import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 
 const BRAND = {
   id: "hero-brand",
-  name: "herohomeservices",
-  domain: "herohomeservices.com.au",
+  name: "wrenhomeservices",
+  domain: "wrenhomeservices.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [] as string[],
@@ -74,7 +74,7 @@ describe("Edit and Save", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const nameField = screen.getByLabelText("Brand name");
     await waitFor(() => expect(document.activeElement).toBe(nameField));
-    fireEvent.change(nameField, { target: { value: "Hero Home Services" } });
+    fireEvent.change(nameField, { target: { value: "Wren Home Services" } });
     let release: (r: Response) => void = () => {};
     patchAnswer = () =>
       new Promise<Response>((r) => {
@@ -85,8 +85,8 @@ describe("Edit and Save", () => {
     await act(async () => release(new Response(JSON.stringify({ brand: {} }), { status: 200 })));
     expect(await screen.findByText("Saved")).toBeInTheDocument();
     expect(patchBody()).toEqual({
-      name: "Hero Home Services",
-      domain: "herohomeservices.com.au",
+      name: "Wren Home Services",
+      domain: "wrenhomeservices.com.au",
       vertical: "tradies",
     });
     expect(router.refresh).toHaveBeenCalled();
@@ -100,13 +100,13 @@ describe("Edit and Save", () => {
     render(<BrandDetailClient {...PROPS} brand={BRAND} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "Hero Home Services" },
+      target: { value: "Wren Home Services" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "Save changes" })[0]);
     expect((await screen.findAllByText("That domain is already a brand.")).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByLabelText("Brand name")).toHaveValue("Hero Home Services");
+    expect(screen.getByLabelText("Brand name")).toHaveValue("Wren Home Services");
     expect(screen.getByLabelText("Brand name")).toBeEnabled();
     expect(router.refresh).not.toHaveBeenCalled();
   });

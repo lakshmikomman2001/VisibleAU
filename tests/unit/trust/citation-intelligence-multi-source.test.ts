@@ -59,7 +59,7 @@ describe("buildCitationSourceIntelligence -- counts every cited source, not just
   });
 
   it("one response citing 3 domains of different types contributes to 3 distinct categories, not 1", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "perplexity",
         brandMentioned: false,
@@ -85,7 +85,7 @@ describe("buildCitationSourceIntelligence -- counts every cited source, not just
   });
 
   it("the same engine's second response, citing 2 more au_directory domains, adds to that category's count (not a new row)", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
@@ -119,7 +119,7 @@ describe("buildCitationSourceIntelligence -- counts every cited source, not just
   // "other" bucket -- it surfaces instead as a NO_CITATIONS_SOURCE_TYPE
   // row (Part B's "{Engine} cited no sources in {N} answers.").
   it("a response with zero extracted/structured sources contributes to NO category -- not even 'other' -- and surfaces as NO_CITATIONS_SOURCE_TYPE instead", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       { engine: "gemini", brandMentioned: false, prompt: "No citable sources here", citedSources: [] },
     ]);
 
@@ -152,7 +152,7 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
       prompt: `Prompt ${i}`,
       citedSources: [{ domain: "randomsite123.com.au", url: `https://randomsite123.com.au/${i}` }],
     }));
-    const { tx } = mockTx("bondiplumbing.com.au", citations);
+    const { tx } = mockTx("galahplumbing.com.au", citations);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-4", "brand-4", "org-4");
 
@@ -167,7 +167,7 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
     const unclassifiable = (i: number) => [
       { domain: "randomsite123.com.au", url: `https://randomsite123.com.au/${i}` },
     ];
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
@@ -192,7 +192,7 @@ describe("buildCitationSourceIntelligence -- 'other' is unclassified, not badged
   });
 
   it("a real category still gets genuine Critical/Warning/Opportunity/Covered severity -- the override is specific to 'other'", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "perplexity",
         brandMentioned: false,
@@ -218,11 +218,11 @@ describe("buildCitationSourceIntelligence -- brandPresent definition", () => {
   });
 
   it("brandPresent is true when the response that cited the source also mentioned the brand", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: true,
-        prompt: "Is Bondi Plumbing on hipages?",
+        prompt: "Is Galah Plumbing on hipages?",
         citedSources: [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }],
       },
     ]);
@@ -233,12 +233,12 @@ describe("buildCitationSourceIntelligence -- brandPresent definition", () => {
   });
 
   it("brandPresent is true when the cited source IS the brand's own domain, even if brandMentioned is false", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
         prompt: "What do local plumbers' sites look like?",
-        citedSources: [{ domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }],
+        citedSources: [{ domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }],
       },
     ]);
 
@@ -257,7 +257,7 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
   });
 
   it("google.com/maps and business.google.com still classify review_site, and both normalise to google.com in top_domains", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
@@ -279,7 +279,7 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
   });
 
   it("neither sourceType nor the isBrand badge is fooled by a domain that merely CONTAINS the brand's domain as a substring (task #46, 6th follow-up)", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
@@ -293,8 +293,8 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
           // -- previously the classifier's OWN substring check disagreed
           // with this badge and called it "brand_owned" anyway.
           {
-            domain: "bondiplumbing.com.au.evil-tracker.com",
-            url: "https://bondiplumbing.com.au.evil-tracker.com/phish",
+            domain: "galahplumbing.com.au.evil-tracker.com",
+            url: "https://galahplumbing.com.au.evil-tracker.com/phish",
           },
         ],
       },
@@ -308,20 +308,20 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
   });
 
   it("isBrand IS set for a genuine www./subdomain variant of the brand's own registrable domain", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
         prompt: "Prompt A",
         citedSources: [
-          { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/" },
+          { domain: "www.galahplumbing.com.au", url: "https://www.galahplumbing.com.au/" },
         ],
       },
     ]);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-11", "brand-11", "org-11");
 
-    expect(result[0].topDomains[0].domain).toBe("bondiplumbing.com.au");
+    expect(result[0].topDomains[0].domain).toBe("galahplumbing.com.au");
     expect(result[0].topDomains[0].isBrand).toBe(true);
   });
 
@@ -330,14 +330,14 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
   // can no longer disagree, because both now derive from the exact same
   // registrable-domain comparison on the exact same rawDomain.
   it("invariant: sourceType === 'brand_owned' IFF every one of its topDomains entries has isBrand: true", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: false,
         prompt: "Prompt A",
         citedSources: [
-          { domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" },
-          { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/contact" },
+          { domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" },
+          { domain: "www.galahplumbing.com.au", url: "https://www.galahplumbing.com.au/contact" },
         ],
       },
       {
@@ -347,8 +347,8 @@ describe("buildCitationSourceIntelligence -- top_domains normalisation doesn't d
         citedSources: [
           { domain: "hipages.com.au", url: "https://hipages.com.au/a" },
           {
-            domain: "bondiplumbing.com.au.evil-tracker.com",
-            url: "https://bondiplumbing.com.au.evil-tracker.com/x",
+            domain: "galahplumbing.com.au.evil-tracker.com",
+            url: "https://galahplumbing.com.au.evil-tracker.com/x",
           },
         ],
       },
@@ -384,7 +384,7 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
   });
 
   it("a response citing an IP address alongside a real domain only counts the real one", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "gemini",
         brandMentioned: false,
@@ -419,7 +419,7 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
       prompt: `Prompt ${i}`,
       citedSources: [{ domain: "192.168.1.1", url: `https://192.168.1.1/page${i}` }],
     }));
-    const { tx } = mockTx("bondiplumbing.com.au", junkCitations);
+    const { tx } = mockTx("galahplumbing.com.au", junkCitations);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-13", "brand-13", "org-13");
 
@@ -430,7 +430,7 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
   });
 
   it("invariant: citationCount === sum(top_domains[].count) when the card has <= 8 distinct domains", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "claude",
         brandMentioned: false,
@@ -464,7 +464,7 @@ describe("buildCitationSourceIntelligence -- count integrity (task #46): junk en
       prompt: `Prompt ${i}`,
       citedSources: [{ domain: `site${i}.com.au`, url: `https://site${i}.com.au/` }],
     }));
-    const { tx } = mockTx("bondiplumbing.com.au", manyDomainCitations);
+    const { tx } = mockTx("galahplumbing.com.au", manyDomainCitations);
 
     const result = await buildCitationSourceIntelligence(tx as any, "audit-15", "brand-15", "org-15");
     const other = result.find((r) => r.sourceType === "other");
@@ -485,7 +485,7 @@ describe("buildCitationSourceIntelligence -- gov.au groups by full hostname (tas
   });
 
   it("fairtrading.nsw.gov.au and service.nsw.gov.au stay as two distinct top_domains entries, not merged into nsw.gov.au", async () => {
-    const { tx } = mockTx("bondiplumbing.com.au", [
+    const { tx } = mockTx("galahplumbing.com.au", [
       {
         engine: "perplexity",
         brandMentioned: false,

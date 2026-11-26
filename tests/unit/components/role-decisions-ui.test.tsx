@@ -81,7 +81,7 @@ describe("decision 2: role descriptions come from the matrix, and say only the o
   it("a brand's page: an admin, who can edit it, is told only the owner deletes it; the owner isn't", () => {
     const brand = {
       id: "test-brand-id",
-      name: "Omega Services",
+      name: "Yabby Services",
       domain: "omega.com.au",
       vertical: "tradies",
       region: "au",
@@ -179,7 +179,7 @@ describe("decision 3: integrations are an owner's or admin's", () => {
         id: "inv-1",
         inviteToken: token,
         brandId: "brand-1",
-        brandName: "Omega Services",
+        brandName: "Yabby Services",
         inviteeName: "Client Co",
         status: "active",
         expiresAt: null,
@@ -192,7 +192,7 @@ describe("decision 3: integrations are an owner's or admin's", () => {
   it("client portals, an analyst: no Create Invite, copy or revoke, and why", async () => {
     answers["GET /api/client-portal/invites"] = portalInvite(null);
     as("analyst", <ClientPortalsView canCreate />);
-    expect(await screen.findByText("Omega Services")).toBeVisible();
+    expect(await screen.findByText("Yabby Services")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Create Invite" })).toBeNull();
     expect(screen.queryByTitle("Copy portal link")).toBeNull();
     expect(screen.queryByRole("button", { name: "Revoke" })).toBeNull();
@@ -202,7 +202,7 @@ describe("decision 3: integrations are an owner's or admin's", () => {
   it("client portals, an admin: all three", async () => {
     answers["GET /api/client-portal/invites"] = portalInvite("tok_abcdefghijklmnop");
     as("admin", <ClientPortalsView canCreate />);
-    expect(await screen.findByText("Omega Services")).toBeVisible();
+    expect(await screen.findByText("Yabby Services")).toBeVisible();
     expect(screen.getByRole("button", { name: "Create Invite" })).toBeVisible();
     expect(screen.getByTitle("Copy portal link")).toBeVisible();
     expect(screen.getByRole("button", { name: "Revoke" })).toBeVisible();
@@ -265,7 +265,7 @@ describe("decision 9: the only owner can't switch away from a workspace with peo
     const TOKEN = "AbC_-12345xyzAbC_-123";
     answers[`GET /api/organizations/${ORG}/members/accept?token=${TOKEN}`] = {
       choice: true,
-      orgName: "Splice Marketing",
+      orgName: "Possum Marketing",
       role: "analyst",
       ownWorkspaceName: "Lee's Agency",
       expiresAt: "2026-11-13T23:00:00Z",
@@ -273,7 +273,7 @@ describe("decision 9: the only owner can't switch away from a workspace with peo
     };
     const { AcceptInvite } = await import("@/app/invite/[orgId]/[token]/invite-client");
     render(<AcceptInvite orgId={ORG} token={TOKEN} email="lee@example.com" />);
-    const switchButton = await screen.findByRole("button", { name: "Switch to Splice Marketing" });
+    const switchButton = await screen.findByRole("button", { name: "Switch to Possum Marketing" });
     expect(switchButton).toBeDisabled();
     expect(screen.getByText(BLOCKED)).toBeVisible();
     expect(screen.getByRole("button", { name: "Not now" })).toBeEnabled();

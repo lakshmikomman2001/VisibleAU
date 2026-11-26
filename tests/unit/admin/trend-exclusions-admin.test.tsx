@@ -3,7 +3,7 @@
  * 15 Nov, part 4 (Sri's review): /admin/audits tidy-up (components/domain/admin/trend-exclusions-admin.tsx).
  * - No reason is chosen for you: every row starts at "Choose a reason…", and Exclude stays disabled until one is
  *   chosen or typed (one click used to exclude, with the preset reason already picked).
- * - Deleted brands' audits (Bondi Plumbing, Get Plumbing, hipages, plumber to the rescue) are hidden unless the
+ * - Deleted brands' audits (Galah Plumbing, Get Plumbing, hipages, plumber to the rescue) are hidden unless the
  *   operator shows them, and then labelled "brand deleted".
  * - A capped list says so: "Showing the latest 50 of 73 complete audits".
  * - The breadcrumb is the operator's, not the workspace's: "Operator > Trend exclusions", on every /admin page.
@@ -42,7 +42,7 @@ const audit = (n: number, extra: Partial<TrendExclusionAudit> = {}): TrendExclus
   auditNumber: n,
   completedAt: "2026-11-14T01:00:00.000Z",
   brandId: "b1",
-  brandName: "Hero Home Services",
+  brandName: "Wren Home Services",
   workspaceName: "Hero",
   excludedFromTrendsReason: null,
   brandDeleted: false,
@@ -105,7 +105,7 @@ describe("deleted brands' audits", () => {
         view={view({
           showDeletedBrands: true,
           deletedBrandAudits: 1,
-          audits: [audit(50), audit(12, { brandName: "Bondi Plumbing", brandDeleted: true })],
+          audits: [audit(50), audit(12, { brandName: "Galah Plumbing", brandDeleted: true })],
         })}
       />,
     );

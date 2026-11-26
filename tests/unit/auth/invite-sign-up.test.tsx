@@ -55,7 +55,7 @@ async function signUpPage() {
 const NEW_ACCOUNT = {
   status: 200,
   body: {
-    orgName: "Splice Marketing",
+    orgName: "Possum Marketing",
     role: "analyst",
     forNewAccount: true,
     email: "lee@example.com",
@@ -67,13 +67,13 @@ describe("sign-up from an invite to an address with no account", () => {
     answers.preview = NEW_ACCOUNT;
     await signUpPage();
     expect(
-      await screen.findByRole("heading", { name: "Join Splice Marketing on Vunnara" }),
+      await screen.findByRole("heading", { name: "Join Possum Marketing on Vunnara" }),
     ).toBeVisible();
     const email = screen.getByLabelText("Email");
     expect(email).toHaveValue("lee@example.com");
     expect(email).toHaveAttribute("readonly");
     expect(screen.queryByLabelText(/agency name/i)).toBeNull();
-    expect(screen.getByText(/invited to join Splice Marketing as an analyst/)).toBeVisible();
+    expect(screen.getByText(/invited to join Possum Marketing as an analyst/)).toBeVisible();
     expect(calls[0].url).toBe(`/api/invites/${ORG}/${TOKEN}`);
   });
 
@@ -84,7 +84,7 @@ describe("sign-up from an invite to an address with no account", () => {
     fireEvent.change(await screen.findByLabelText("Full name"), { target: { value: "Lee" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "CorrectHorse123!" } });
     fireEvent.click(
-      screen.getByRole("button", { name: "Create account and join Splice Marketing" }),
+      screen.getByRole("button", { name: "Create account and join Possum Marketing" }),
     );
     await waitFor(() => expect(window.location.href).toBe("/dashboard"));
     const post = calls.find((c) => c.url.endsWith("/sign-up"));
@@ -132,7 +132,7 @@ describe("sign-up from an invite to an address with no account", () => {
   it("an invite for an existing account says to sign in, back to the invite", async () => {
     answers.preview = {
       status: 200,
-      body: { orgName: "Splice Marketing", role: "admin", forNewAccount: false },
+      body: { orgName: "Possum Marketing", role: "admin", forNewAccount: false },
     };
     await signUpPage();
     expect(await screen.findByText(/for an existing Vunnara account/)).toBeVisible();

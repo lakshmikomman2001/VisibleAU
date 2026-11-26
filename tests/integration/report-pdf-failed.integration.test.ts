@@ -105,7 +105,7 @@ beforeAll(async () => {
 
   await client`
     INSERT INTO organizations (id, clerk_org_id, name, slug)
-    VALUES (${ORG_ID}, ${`pdff-${ORG_ID}`}, 'Splice Marketing (test)', ${`pdff-${ORG_ID}`})
+    VALUES (${ORG_ID}, ${`pdff-${ORG_ID}`}, 'Possum Marketing (test)', ${`pdff-${ORG_ID}`})
   `;
   await client`
     INSERT INTO subscriptions (organization_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, tier, billing_interval, status)
@@ -123,7 +123,7 @@ beforeAll(async () => {
   }
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega-pdff.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'omega-pdff.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
   // The report that's been "Generating..." (no PDF yet), and an older one that has a PDF.
   await client`
@@ -224,7 +224,7 @@ function signIn(who: keyof typeof PEOPLE) {
     organizationId: ORG_ID,
     role: p.role,
     email: p.email,
-    organization: { id: ORG_ID, name: "Splice Marketing (test)" },
+    organization: { id: ORG_ID, name: "Possum Marketing (test)" },
   };
 }
 
@@ -261,7 +261,7 @@ describe("a storage failure while making the PDF (1 Nov, part 2)", () => {
     );
     const ops = forThisReport.find((m) => m.to === OPERATOR);
     expect(ops?.text).toContain("2026-W44");
-    expect(ops?.subject).toBe("[ops] [Omega Services] A report PDF couldn't be created");
+    expect(ops?.subject).toBe("[ops] [Yabby Services] A report PDF couldn't be created");
     expect(ops?.text).toContain("file storage couldn't be reached");
     for (const m of forThisReport) {
       expect(m.text).not.toContain("ENOTFOUND");
@@ -378,7 +378,7 @@ describe("/admin/reports: why a PDF failed, for the operator (14 Nov, part 6)", 
     const html = await page();
     expect(html).toContain("data-admin-forbidden");
     expect(html).not.toContain("ENOTFOUND");
-    expect(html).not.toContain("Omega Services");
+    expect(html).not.toContain("Yabby Services");
   });
 
   it("the customer's reports list: the stalled one is failed after 10 minutes, the new one still generating", async () => {

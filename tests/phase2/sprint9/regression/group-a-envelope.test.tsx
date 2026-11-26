@@ -109,7 +109,7 @@ describe("F11 — health-check renders real scores, not zeros", () => {
 // ─── F15: Autopilot with real brand name + promptsCount ────────────────────
 
 describe("F15 — autopilot renders brand name and promptsCount", () => {
-  // Bondi Plumbing — real answer key:
+  // Galah Plumbing — real answer key:
   //   scoreComposite=23.67, engineCount=2 (chatgpt, perplexity), promptsCount=15
   //   #1 action: "Update local directory listings" (priority 5000)
   //   topGap: "Emergency Plumbing" (plumbing_emergency cluster)
@@ -147,12 +147,12 @@ describe("F15 — autopilot renders brand name and promptsCount", () => {
     explainability: null,
     draft: null,
     brandId: "test-brand-id",
-    brandName: "Bondi Plumbing",
+    brandName: "Galah Plumbing",
   };
 
   it("renders the brand name, NOT the literal 'Brand'", () => {
     const { container } = render(<AutopilotLoop data={BONDI_AUTOPILOT} />);
-    expect(container.textContent).toContain("Bondi Plumbing");
+    expect(container.textContent).toContain("Galah Plumbing");
   });
 
   // 17 Nov, part 3: no "N prompts" in step 1 (prompts_count counted the branded questions too); the audit's own
@@ -240,7 +240,7 @@ describe("F17 — autopilot loop advances on a task with no gap", () => {
       explainability: null,
       draft: null,
       brandId: "b1",
-      brandName: "Bondi Plumbing",
+      brandName: "Galah Plumbing",
     };
     const { container } = render(<AutopilotLoop data={data} />);
     expect(container.textContent).toContain("Fix schema markup");

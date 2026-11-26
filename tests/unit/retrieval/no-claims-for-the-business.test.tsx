@@ -57,7 +57,7 @@ describe("the llms.txt a business copies", () => {
   });
 
   it("a tradie's licence and insurance are fill-ins, not claims", () => {
-    const text = generateLlmsTxt("Bondi Plumbing", "bondiplumbing.com.au", "tradies", "Bondi");
+    const text = generateLlmsTxt("Galah Plumbing", "galahplumbing.com.au", "tradies", "Bondi");
     expect(text).toContain("> Licence number: [add yours, or delete this line]");
     expect(text).toContain(
       "> Public liability insurance: [your insurer and cover, or delete this line]",
@@ -83,8 +83,8 @@ describe("the llms.txt a business copies", () => {
   it("the page says, above the template, that bracketed lines are completed or deleted before publishing", () => {
     const html = renderToStaticMarkup(
       <LlmsTxtPreview
-        brandName="Bondi Plumbing"
-        domain="bondiplumbing.com.au"
+        brandName="Galah Plumbing"
+        domain="galahplumbing.com.au"
         vertical="tradies"
         regions="Bondi"
       />,

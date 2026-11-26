@@ -48,7 +48,7 @@ function stubFetch(audit: () => Promise<Response>) {
 
 async function createBrand() {
   render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-  fireEvent.change(screen.getByLabelText("Brand name"), { target: { value: "Omega Services" } });
+  fireEvent.change(screen.getByLabelText("Brand name"), { target: { value: "Yabby Services" } });
   fireEvent.change(screen.getByLabelText("Domain"), { target: { value: "omega.com.au" } });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
   fireEvent.click(screen.getByText("select-pack"));
@@ -87,7 +87,7 @@ describe("the wizard never ends on an error", () => {
 
 const BRAND = {
   id: "brand-1",
-  name: "Omega Services",
+  name: "Yabby Services",
   domain: "omega.com.au",
   vertical: "tradies",
   region: "au",

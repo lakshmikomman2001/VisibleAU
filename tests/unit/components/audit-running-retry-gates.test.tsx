@@ -24,7 +24,7 @@ import { AuditRunningView } from "@/components/domain/audit/audit-running";
 const BASE_PROPS = {
   auditId: "audit-1",
   brandId: "brand-1",
-  brandName: "Omega Services",
+  brandName: "Yabby Services",
   initialStatus: "failed",
   initialProgress: 38,
   initialMentionedCount: 2,

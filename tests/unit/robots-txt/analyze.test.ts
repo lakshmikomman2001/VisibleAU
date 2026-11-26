@@ -35,7 +35,7 @@ function crawl(robotsTxt: string | null, statusCode = 200): CrawlResult {
 
 // Bondi's real, permissive robots.txt (task Y/BB/JJ): User-agent: * with
 // no Disallow, a Sitemap line, a Content-Signal opt-in line.
-const BONDI_REAL_ROBOTS = `Sitemap: https://www.bondiplumbing.com.au/sitemap.xml
+const BONDI_REAL_ROBOTS = `Sitemap: https://www.galahplumbing.com.au/sitemap.xml
 User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 `;

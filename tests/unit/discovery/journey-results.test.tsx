@@ -36,7 +36,7 @@ const STORED: TurnResult[] = [
   },
   {
     turn: 3,
-    prompt: "Is Bondi Plumbing licensed?",
+    prompt: "Is Galah Plumbing licensed?",
     brand_mentioned: true,
     position: 2,
     context_label: "mentioned",

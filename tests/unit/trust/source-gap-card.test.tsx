@@ -229,7 +229,7 @@ describe("SourceGapCard -- top cited domains (task #45)", () => {
       React.createElement(SourceGapCard, {
         source: baseSource({
           topDomains: [
-            { domain: "bondiplumbing.com.au", count: 1, origin: "recalled", isBrand: true },
+            { domain: "galahplumbing.com.au", count: 1, origin: "recalled", isBrand: true },
           ],
         }),
       }),

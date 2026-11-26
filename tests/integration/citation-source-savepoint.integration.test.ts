@@ -46,7 +46,7 @@ beforeAll(async () => {
   client = postgres(TEST_DB_URL, { max: 1 });
 
   await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${TEST_ORG_ID}, 'csi-savepoint-clerk', 'CSI Savepoint Org', 'csi-savepoint') ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Savepoint Brand', 'bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Savepoint Brand', 'galahplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 401, 'complete', ARRAY['chatgpt'], NOW()) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_ID_NO_TX}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 402, 'complete', ARRAY['chatgpt'], NOW()) ON CONFLICT (id) DO NOTHING`;
 

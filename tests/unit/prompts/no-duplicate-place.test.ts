@@ -11,7 +11,7 @@ import type { BrandClassification } from "@/lib/types/brand";
  * the hotfix-1 fix for city = NULL) and "Bondi" (a curated city,
  * bare suburb). intentSignals here deliberately embed the suburb name
  * ("emergency <category> Norwest" / "emergency <category> Bondi") --
- * the exact shape that produced the live Omega Services bug -- so
+ * the exact shape that produced the live Yabby Services bug -- so
  * every category is checked against the actual failure mode, not just
  * well-formed static templates that were never going to trigger it.
  */

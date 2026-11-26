@@ -168,7 +168,7 @@ describe("llm/cache -- citedUrls persist across a cache hit", () => {
     const { getCached, setCached } = await import("@/lib/llm/cache");
     const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
     const stored: Array<string | AnswerSource> = [
-      { url: redirect, domain: "omegaservices.com.au" },
+      { url: redirect, domain: "yabbyservices.com.au" },
       "https://hipages.com.au/plumbers",
       { url: "https://yelp.com/x", cited: false },
     ];

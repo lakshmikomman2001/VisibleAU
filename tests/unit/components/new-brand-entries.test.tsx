@@ -62,7 +62,7 @@ async function renderShell(usage: BrandUsage) {
   return render(
     <BreadcrumbProvider>
       <CurrentBrandProvider>
-        <AppShell orgName="Bondi Plumbing" orgTier="growth" userName="Sri Owner" brandUsage={usage}>
+        <AppShell orgName="Galah Plumbing" orgTier="growth" userName="Sri Owner" brandUsage={usage}>
           <p>Page</p>
         </AppShell>
       </CurrentBrandProvider>

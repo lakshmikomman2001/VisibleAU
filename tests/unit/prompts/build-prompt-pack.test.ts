@@ -10,7 +10,7 @@ import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import type { BrandClassification } from "@/lib/types/brand";
 
-const PLUMBER_BRAND = { name: "Bondi Plumbing", domain: "bondiplumbing.com.au" };
+const PLUMBER_BRAND = { name: "Galah Plumbing", domain: "galahplumbing.com.au" };
 const PLUMBER_CLASSIFICATION: BrandClassification = {
   category: "trades_plumbing",
   buyerType: "consumer",
@@ -142,7 +142,7 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
     expect(hasPlumbing).toBe(true);
   });
 
-  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services bug
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Yabby Services bug
   // -- classification.category is "trades_general_services" (not a
   // real CATEGORY_KEYS entry, resolves to the generic "general" label)
   // but the owner confirmed Plumbing + Electrical + General. The one
@@ -156,8 +156,8 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
     };
     const pack = buildPromptPack(
       omegaClassification,
-      "Omega Services",
-      "omegaservices.com.au",
+      "Yabby Services",
+      "yabbyservices.com.au",
       { competitors: [], categories: ["trades_plumbing", "trades_electrical", "trades_general"] },
       "Norwest",
       10,
@@ -196,6 +196,6 @@ describe("buildPromptPack — organic budget (Part E.3/E.4)", () => {
     // service phrase ("a plumber"), never the raw CATEGORY_LABELS
     // value ("Plumbing") mid-sentence -- see no-raw-category-label.test.ts
     // for the full sweep across every category.
-    expect(pack).toContain("Is Bondi Plumbing a good choice for a plumber in Bondi?");
+    expect(pack).toContain("Is Galah Plumbing a good choice for a plumber in Bondi?");
   });
 });

@@ -64,20 +64,20 @@ describe("the branded-question rule reads aliases too", () => {
 
 /** Answers written the way the engines answer (lists, bold, possessives, near-misses, the domain). */
 const ANSWERS = [
-  "Here are some options:\n1. **Hero Home Services** (Yennora-based) -- handyman work.\n2. Fixit Bros.",
-  "Hero-Home-Services is often recommended for small repairs.",
-  "I couldn't find information about a business called Hero Home Services.",
-  "Omega Services' plumbers cover Norwest.",
+  "Here are some options:\n1. **Wren Home Services** (Yennora-based) -- handyman work.\n2. Fixit Bros.",
+  "Wren-Home-Services is often recommended for small repairs.",
+  "I couldn't find information about a business called Wren Home Services.",
+  "Yabby Services' plumbers cover Norwest.",
   "**Omega** Services is listed on hipages.",
-  "SuperOmega Services is a different company.",
-  "Visit omega-services.com.au to book.",
+  "SuperYabby Services is a different company.",
+  "Visit yabby-services.com.au to book.",
   "Popular choices include Jim's Plumbing and Norwest Plumbing Co.",
   "",
 ];
 const BRANDS = [
-  { name: "Hero Home Services", domain: "herohomeservices.com.au" },
-  { name: "herohomeservices", domain: "herohomeservices.com.au" },
-  { name: "Omega Services", domain: "omega-services.com.au" },
+  { name: "Wren Home Services", domain: "wrenhomeservices.com.au" },
+  { name: "wrenhomeservices", domain: "wrenhomeservices.com.au" },
+  { name: "Yabby Services", domain: "yabby-services.com.au" },
   { name: "Omega", domain: "omega.com.au" },
 ];
 
@@ -94,10 +94,10 @@ describe("N3: for a brand without aliases (every existing brand), nothing it det
   it("the branded rule with aliases [] is the rule without them", () => {
     for (const brand of BRANDS)
       for (const q of [
-        "Is Hero Home Services a good choice for a handyman in Yennora?",
+        "Is Wren Home Services a good choice for a handyman in Yennora?",
         "Best handyman in Yennora?",
-        "Is Omega Services popular in Norwest?",
-        "Tell me about omega-services.com.au",
+        "Is Yabby Services popular in Norwest?",
+        "Tell me about yabby-services.com.au",
       ])
         expect(isBrandedPrompt(q, { ...brand, aliases: [] })).toBe(isBrandedPrompt(q, brand));
   });

@@ -92,10 +92,10 @@ describe("the wizard suggests the site's own name", () => {
       vi.fn(async () => Response.json({ error: "no" }, { status: 429 })),
     );
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(domainField(), { target: { value: "hero-home-services.com.au" } });
+    fireEvent.change(domainField(), { target: { value: "wren-home-services.com.au" } });
     fireEvent.blur(domainField());
     await waitFor(() => expect(fetch).toHaveBeenCalled());
-    expect(nameField()).toHaveValue("Hero Home Services");
+    expect(nameField()).toHaveValue("Wren Home Services");
     expect(document.querySelector("[data-name-suggested]")).toHaveTextContent(
       "From your web address. Change it if customers write it differently.",
     );

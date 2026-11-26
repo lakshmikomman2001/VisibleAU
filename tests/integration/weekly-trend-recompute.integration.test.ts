@@ -92,7 +92,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region)
-    VALUES (${BRAND}, ${ORG}, 'Hero Home Services', 'herohome.com.au', 'tradies', 'au')
+    VALUES (${BRAND}, ${ORG}, 'Wren Home Services', 'herohome.com.au', 'tradies', 'au')
   `;
   await seedAudit(AUDIT_1, 1, WEDNESDAY, 3);
   // The second audit is still running; it completes in the second test.

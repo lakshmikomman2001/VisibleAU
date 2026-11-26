@@ -3,7 +3,7 @@
  *
  * Task Y found `lib/technical-audit/orchestrate.ts` treated ANY 2xx response
  * from /llms.txt as "present" (`if (r.ok) llmsTxtContent = await r.text()`),
- * with no content-type or body-shape check. bondiplumbing.com.au has no
+ * with no content-type or body-shape check. galahplumbing.com.au has no
  * llms.txt at all -- the URL soft-404s to the site's own HTML homepage --
  * yet the Technical Audit scored it 9/18 ("present" + "depth" + likely
  * "fullTxt", since a real webpage is almost always >1500 chars and the
@@ -22,7 +22,7 @@ const SOFT_404_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Bondi Plumbing — Sydney's trusted local plumber</title>
+<title>Galah Plumbing — Sydney's trusted local plumber</title>
 <meta name="description" content="24/7 emergency plumbing across Bondi and the Eastern Suburbs." />
 <link rel="stylesheet" href="/_next/static/css/app.css" />
 </head>
@@ -30,11 +30,11 @@ const SOFT_404_HTML = `<!DOCTYPE html>
 <div id="__next">
 <header><nav><a href="/">Home</a><a href="/services">Services</a><a href="/contact">Contact</a></nav></header>
 <main>
-<h1>Bondi Plumbing</h1>
+<h1>Galah Plumbing</h1>
 <p>Sydney's trusted local plumber, serving the Eastern Suburbs for over 15 years. Call us for emergency repairs,
 blocked drains, hot water systems, and bathroom renovations. Fully licensed and insured.</p>
 <section><h2>Our services</h2><ul><li>Emergency plumbing</li><li>Blocked drains</li><li>Hot water systems</li></ul></section>
-<footer><p>&copy; 2026 Bondi Plumbing. All rights reserved.</p></footer>
+<footer><p>&copy; 2026 Galah Plumbing. All rights reserved.</p></footer>
 </main>
 </div>
 <!-- A real page ships far more markup than this shell -- head tags, inlined
@@ -50,24 +50,24 @@ blocked drains, hot water systems, and bathroom renovations. Fully licensed and 
 </body>
 </html>`;
 
-const REAL_LLMS_TXT = `# Bondi Plumbing
+const REAL_LLMS_TXT = `# Galah Plumbing
 
 > Sydney's trusted local plumber, serving the Eastern Suburbs for over 15 years.
 
 ## Services
 
 We offer emergency plumbing, blocked drains, hot water systems, and bathroom renovations.
-See our [services page](https://bondiplumbing.com.au/services) for full details, our
-[pricing guide](https://bondiplumbing.com.au/pricing), and [service areas](https://bondiplumbing.com.au/areas).
+See our [services page](https://galahplumbing.com.au/services) for full details, our
+[pricing guide](https://galahplumbing.com.au/pricing), and [service areas](https://galahplumbing.com.au/areas).
 
 ## About
 
-Bondi Plumbing has been operating since 2011. Read [our story](https://bondiplumbing.com.au/about) and
-[customer reviews](https://bondiplumbing.com.au/reviews).
+Galah Plumbing has been operating since 2011. Read [our story](https://galahplumbing.com.au/about) and
+[customer reviews](https://galahplumbing.com.au/reviews).
 
 ## Contact
 
-Call 24/7 or [book online](https://bondiplumbing.com.au/book). ${"Extra padding to clear the 1500 character depth threshold reliably. ".repeat(15)}
+Call 24/7 or [book online](https://galahplumbing.com.au/book). ${"Extra padding to clear the 1500 character depth threshold reliably. ".repeat(15)}
 
 ## Licensing
 

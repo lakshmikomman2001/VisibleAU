@@ -65,7 +65,7 @@ async function renderBannerAndShell() {
       <BreadcrumbProvider>
         <CurrentBrandProvider>
           <AppShell
-            orgName="Bondi Plumbing"
+            orgName="Galah Plumbing"
             orgTier="growth"
             userName="Sri Owner"
             brandUsage={{ count: 1, limit: 1, canAdd: false, upgradePlan: "Agency" }}

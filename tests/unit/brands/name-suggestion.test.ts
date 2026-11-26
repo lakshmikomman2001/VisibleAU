@@ -47,8 +47,8 @@ describe("suggestBrandName: the site's own name, in order", () => {
   });
 
   it("then the domain's own words, when it shows them; nothing when it doesn't", () => {
-    expect(suggestBrandName(null, "hero-home-services.com.au")).toEqual({
-      name: "Hero Home Services",
+    expect(suggestBrandName(null, "wren-home-services.com.au")).toEqual({
+      name: "Wren Home Services",
       source: "domain",
     });
     expect(suggestBrandName(null, "numbatekit.com.au")).toBeNull();

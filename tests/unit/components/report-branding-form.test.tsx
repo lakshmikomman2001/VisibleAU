@@ -15,7 +15,7 @@ import {
 } from "@/components/domain/branding/report-branding-form";
 
 const WORKSPACE: WorkspaceBrandingValues = {
-  agencyName: "Splice Marketing",
+  agencyName: "Possum Marketing",
   logoUrl: null,
   footerText: "",
   contactLine: "02 9000 0000",
@@ -24,7 +24,7 @@ const WORKSPACE: WorkspaceBrandingValues = {
   accentColor: "#FF6B35",
 };
 const BRANDS = [
-  { id: "b-omega", name: "Omega Services" },
+  { id: "b-omega", name: "Yabby Services" },
   { id: "b-sigma", name: "Sigma Plumbing" },
 ];
 
@@ -59,7 +59,7 @@ function lastBody(): Record<string, unknown> {
 describe("the workspace's branding", () => {
   it("shows what's saved, labelled, and previews the report's own top bar and footer with it", () => {
     render(<ReportBrandingForm workspace={WORKSPACE} overrides={{}} brands={BRANDS} />);
-    expect(screen.getByLabelText("Agency name")).toHaveValue("Splice Marketing");
+    expect(screen.getByLabelText("Agency name")).toHaveValue("Possum Marketing");
     expect(screen.getByLabelText("Footer text")).toHaveAttribute("placeholder", "Confidential");
     expect(screen.getByLabelText("Contact line")).toHaveValue("02 9000 0000");
     expect(
@@ -67,9 +67,9 @@ describe("the workspace's branding", () => {
     ).toBeInTheDocument();
     const src = new URL(preview().src, "http://localhost");
     expect(src.pathname).toBe("/api/report-branding/preview");
-    expect(src.searchParams.get("agencyName")).toBe("Splice Marketing");
+    expect(src.searchParams.get("agencyName")).toBe("Possum Marketing");
     expect(src.searchParams.get("contactLine")).toBe("02 9000 0000");
-    expect(src.searchParams.get("brandName")).toBe("Omega Services");
+    expect(src.searchParams.get("brandName")).toBe("Yabby Services");
   });
 
   it("the preview follows what's typed", async () => {
@@ -77,7 +77,7 @@ describe("the workspace's branding", () => {
     await userEvent.type(screen.getByLabelText("Agency name"), " Pty Ltd");
     await waitFor(() =>
       expect(new URL(preview().src, "http://localhost").searchParams.get("agencyName")).toBe(
-        "Splice Marketing Pty Ltd",
+        "Possum Marketing Pty Ltd",
       ),
     );
   });
@@ -94,7 +94,7 @@ describe("the workspace's branding", () => {
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/report-branding");
     expect(lastBody()).toEqual({
       brandId: null,
-      agencyName: "Splice Marketing",
+      agencyName: "Possum Marketing",
       logoUrl: null,
       footerText: "Commercial in confidence",
       contactLine: "02 9000 0000",
@@ -139,13 +139,13 @@ describe("a brand's own branding", () => {
     await userEvent.selectOptions(screen.getByLabelText("Branding for"), "b-sigma");
     const name = screen.getByLabelText("Agency name");
     expect(name).toHaveValue("");
-    expect(name).toHaveAttribute("placeholder", "Splice Marketing");
+    expect(name).toHaveAttribute("placeholder", "Possum Marketing");
     expect(screen.queryByText("Client portal colours")).toBeNull();
     // The preview prints what Sigma's reports would: the workspace's values.
     await waitFor(() => {
       const shown = new URL(preview().src, "http://localhost").searchParams;
       expect(shown.get("brandName")).toBe("Sigma Plumbing");
-      expect(shown.get("agencyName")).toBe("Splice Marketing");
+      expect(shown.get("agencyName")).toBe("Possum Marketing");
     });
 
     await userEvent.type(name, "Splice Digital");

@@ -80,7 +80,7 @@ afterAll(async () => {
 describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
   it("fires: real organic sources cited across engines, none is the brand's domain", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Fires", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Fires", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90001, new Date());
 
     await insertCitation({
@@ -109,7 +109,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("silent: the brand's own domain was cited", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Cited", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Cited", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90002, new Date());
 
     await insertCitation({
@@ -118,7 +118,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       prompt: "best plumber",
       citedSources: [
         { domain: "hipages.com.au", url: "https://hipages.com.au/a" },
-        { domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" },
+        { domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" },
       ],
     });
 
@@ -128,7 +128,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("silent: brand's domain is the 9th distinct domain in one response -- regression guard against using top_domains (capped at 8)", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Ninth", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Ninth", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90003, new Date());
 
     const citedSources = [
@@ -140,7 +140,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       { domain: "d6.example.com", url: "https://d6.example.com" },
       { domain: "d7.example.com", url: "https://d7.example.com" },
       { domain: "d8.example.com", url: "https://d8.example.com" },
-      { domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }, // 9th
+      { domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }, // 9th
     ];
     await insertCitation({ auditId, engine: "claude", prompt: "top 9 plumbers", citedSources });
 
@@ -166,7 +166,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("silent: engines cited nothing at all -- the NO_CITATIONS_SOURCE_TYPE row covers that case instead", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Empty", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Empty", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90005, new Date());
 
     await insertCitation({ auditId, engine: "claude", prompt: "best plumber", citedSources: [] });
@@ -183,7 +183,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("matches www./subdomain variants of the brand's registrable domain", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Subdomain", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Subdomain", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90006, new Date());
 
     await insertCitation({
@@ -192,7 +192,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       prompt: "best plumber",
       citedSources: [
         { domain: "hipages.com.au", url: "https://hipages.com.au/a" },
-        { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/contact" },
+        { domain: "www.galahplumbing.com.au", url: "https://www.galahplumbing.com.au/contact" },
       ],
     });
 
@@ -202,7 +202,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("excludes run_number > 1 (replay) rows: a replay-only brand citation does NOT suppress the diagnosis", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Replay", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Replay", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90007, new Date());
 
     // Organic (run_number=1): real sources, never the brand's domain.
@@ -221,7 +221,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       engine: "claude",
       prompt: "best plumber",
       runNumber: 2,
-      citedSources: [{ domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }],
+      citedSources: [{ domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }],
     });
 
     const diagnoses = await diagnose(db, { brandId });
@@ -234,7 +234,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("excludes branded-prompt rows: a branded-prompt-only brand citation does NOT suppress the diagnosis", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Branded", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Branded", "galahplumbing.com.au");
     const auditId = await makeCompletedAudit(brandId, 90008, new Date());
 
     // Organic: real sources, never the brand's domain.
@@ -245,15 +245,15 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       isBrandedPrompt: false,
       citedSources: [{ domain: "oneflare.com.au", url: "https://oneflare.com.au/a" }],
     });
-    // Branded prompt (e.g. "is Bondi Plumbing good?"): cites the brand's
+    // Branded prompt (e.g. "is Galah Plumbing good?"): cites the brand's
     // own domain. If branded rows weren't excluded, this would wrongly
     // suppress the diagnosis.
     await insertCitation({
       auditId,
       engine: "perplexity",
-      prompt: "is bondi plumbing good",
+      prompt: "is galah plumbing good",
       isBrandedPrompt: true,
-      citedSources: [{ domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }],
+      citedSources: [{ domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }],
     });
 
     const diagnoses = await diagnose(db, { brandId });
@@ -266,7 +266,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 
   it("reads the latest completed audit only -- an older audit's state does not leak in", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD LatestOnly", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD LatestOnly", "galahplumbing.com.au");
     const olderAuditId = await makeCompletedAudit(brandId, 90009, new Date("2026-01-01"));
     const latestAuditId = await makeCompletedAudit(brandId, 90010, new Date("2026-06-01"));
 
@@ -275,7 +275,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
       auditId: olderAuditId,
       engine: "claude",
       prompt: "best plumber",
-      citedSources: [{ domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }],
+      citedSources: [{ domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }],
     });
     // Latest audit: real sources, never the brand's domain.
     await insertCitation({
@@ -301,7 +301,7 @@ describe("checkBrandDomainNotCited via diagnose() -- real DB", () => {
 describe("competitor_cited_instead via diagnose() -- never from head-to-head comparison rows", () => {
   it("comparison rows naming a competitor make no 'cited instead' claim", async () => {
     const { db } = await import("@/db/client");
-    const brandId = await makeBrand("CFBD Competitor", "bondiplumbing.com.au");
+    const brandId = await makeBrand("CFBD Competitor", "galahplumbing.com.au");
     const olderAuditId = await makeCompletedAudit(brandId, 90011, new Date("2026-01-01"));
     const latestAuditId = await makeCompletedAudit(brandId, 90012, new Date("2026-06-01"));
 

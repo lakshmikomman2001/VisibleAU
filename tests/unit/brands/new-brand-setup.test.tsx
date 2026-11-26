@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * 13 Nov (Sri's walk-through, part 1): a new brand can never dead-end before its first audit. Sri created
- * herohomeservices.com.au (Tradies, Yennora NSW); the page said the first audit couldn't start, "Run audit to
+ * wrenhomeservices.com.au (Tradies, Yennora NSW); the page said the first audit couldn't start, "Run audit to
  * try again", "Classification is still running — questions may use a generic fallback", "Classification
  * pending" -- and showed no confirmation panel until a Save happened to refresh it.
  *
@@ -24,8 +24,8 @@ import type { ClassificationState } from "@/lib/brands/classification-state";
 
 const HERO = {
   id: "hero-brand",
-  name: "herohomeservices",
-  domain: "herohomeservices.com.au",
+  name: "wrenhomeservices",
+  domain: "wrenhomeservices.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [],

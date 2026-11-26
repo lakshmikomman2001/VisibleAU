@@ -3,7 +3,7 @@
  * extractListRank (lib/audit/extract-list-rank.ts) replaced
  * detectBrandMention's old "count capitalised word groups before the
  * match" heuristic, which had nothing to do with real list structure
- * (production evidence, audit #30 Omega Services: ChatGPT ranked Omega
+ * (production evidence, audit #30 Yabby Services: ChatGPT ranked Omega
  * 4th, stored as 33; 8th, stored as 53; Perplexity's first bullet
  * stored as 4). This proves the extractor against synthetic text
  * shaped exactly like real ChatGPT/Perplexity list output, including
@@ -33,20 +33,20 @@ describe("extractListRank", () => {
       "1. Acme Plumbing",
       "2. Best Pipes Co",
       "3. City Plumbing Services",
-      "4. Omega Services",
+      "4. Yabby Services",
       "5. Reliable Plumbers",
     ].join("\n");
-    const idx = indexOf(response, "4. Omega Services");
+    const idx = indexOf(response, "4. Yabby Services");
     expect(extractListRank(response, idx + 3)).toBe(4);
   });
 
   it("a numbered line far down a list (two-digit rank) still reads its own number directly", () => {
     const lines = ["Top 10 electricians:"];
     for (let i = 1; i <= 7; i++) lines.push(`${i}. Competitor ${i}`);
-    lines.push("8. Omega Services");
+    lines.push("8. Yabby Services");
     lines.push("9. Competitor 9");
     const response = lines.join("\n");
-    const idx = indexOf(response, "8. Omega Services");
+    const idx = indexOf(response, "8. Yabby Services");
     expect(extractListRank(response, idx + 3)).toBe(8);
   });
 
@@ -54,30 +54,30 @@ describe("extractListRank", () => {
     const response = [
       "Local options worth checking out:",
       "- Acme Plumbing",
-      "- Omega Services",
+      "- Yabby Services",
       "- Best Pipes Co",
     ].join("\n");
-    const idx = indexOf(response, "- Omega Services");
+    const idx = indexOf(response, "- Yabby Services");
     expect(extractListRank(response, idx + 2)).toBe(2);
   });
 
   it("a blank line inside a bulleted list does not break the contiguous run", () => {
-    const response = ["- Acme Plumbing", "", "- Omega Services", "- Best Pipes Co"].join("\n");
-    const idx = indexOf(response, "- Omega Services");
+    const response = ["- Acme Plumbing", "", "- Yabby Services", "- Best Pipes Co"].join("\n");
+    const idx = indexOf(response, "- Yabby Services");
     expect(extractListRank(response, idx + 2)).toBe(2);
   });
 
   it("a mention in plain prose (no list marker on its own line) returns null -- 'mentioned, not ranked', never a guessed rank", () => {
     const response =
-      "For plumbing in Sydney, many homeowners turn to Omega Services, among several other reputable local providers.";
-    const idx = indexOf(response, "Omega Services");
+      "For plumbing in Sydney, many homeowners turn to Yabby Services, among several other reputable local providers.";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBeNull();
   });
 
   it("a wrapped continuation line with no marker of its own returns null rather than inheriting the item above's rank", () => {
     const response = [
       "1. Acme Plumbing",
-      "2. Omega Services, a long-running local",
+      "2. Yabby Services, a long-running local",
       "   business serving the greater metro area",
       "3. Best Pipes Co",
     ].join("\n");
@@ -88,8 +88,8 @@ describe("extractListRank", () => {
   });
 
   it("a bullet character appearing mid-sentence, not at the start of its line, is prose -- not a list item", () => {
-    const response = "Our top pick - Omega Services - stood out for its fast turnaround.";
-    const idx = indexOf(response, "Omega Services");
+    const response = "Our top pick - Yabby Services - stood out for its fast turnaround.";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBeNull();
   });
 
@@ -104,44 +104,44 @@ describe("extractListRank", () => {
       "1. Acme Trade Services",
       "2. City Wide Repairs",
       "3. Local Fix Co",
-      "4. Omega Services",
+      "4. Yabby Services",
       "5. Metro Maintenance",
     ].join("\n");
     const chatgptAnswerB = (() => {
       const lines = ["Based on availability and reviews, consider:"];
       for (let i = 1; i <= 7; i++) lines.push(`${i}. Provider ${i}`);
-      lines.push("8. Omega Services");
+      lines.push("8. Yabby Services");
       return lines.join("\n");
     })();
     const perplexityAnswerA = [
-      "- Omega Services",
+      "- Yabby Services",
       "- Reliable Local Co",
       "- Budget Trade Services",
     ].join("\n");
     const perplexityAnswerB = [
       "- Reliable Local Co",
-      "- Omega Services",
+      "- Yabby Services",
       "- Budget Trade Services",
     ].join("\n");
     const perplexityAnswerC = [
       "- Reliable Local Co",
       "- Budget Trade Services",
-      "- Omega Services",
+      "- Yabby Services",
     ].join("\n");
     const perplexityAnswerD = (() => {
       const lines: string[] = [];
       for (let i = 1; i <= 7; i++) lines.push(`- Provider ${i}`);
-      lines.push("- Omega Services");
+      lines.push("- Yabby Services");
       return lines.join("\n");
     })();
 
     const ranks = [
-      extractListRank(chatgptAnswerA, indexOf(chatgptAnswerA, "4. Omega Services") + 3),
-      extractListRank(chatgptAnswerB, indexOf(chatgptAnswerB, "8. Omega Services") + 3),
-      extractListRank(perplexityAnswerA, indexOf(perplexityAnswerA, "- Omega Services") + 2),
-      extractListRank(perplexityAnswerB, indexOf(perplexityAnswerB, "- Omega Services") + 2),
-      extractListRank(perplexityAnswerC, indexOf(perplexityAnswerC, "- Omega Services") + 2),
-      extractListRank(perplexityAnswerD, indexOf(perplexityAnswerD, "- Omega Services") + 2),
+      extractListRank(chatgptAnswerA, indexOf(chatgptAnswerA, "4. Yabby Services") + 3),
+      extractListRank(chatgptAnswerB, indexOf(chatgptAnswerB, "8. Yabby Services") + 3),
+      extractListRank(perplexityAnswerA, indexOf(perplexityAnswerA, "- Yabby Services") + 2),
+      extractListRank(perplexityAnswerB, indexOf(perplexityAnswerB, "- Yabby Services") + 2),
+      extractListRank(perplexityAnswerC, indexOf(perplexityAnswerC, "- Yabby Services") + 2),
+      extractListRank(perplexityAnswerD, indexOf(perplexityAnswerD, "- Yabby Services") + 2),
     ];
 
     expect(ranks).toEqual([4, 8, 1, 2, 3, 8]);
@@ -177,78 +177,78 @@ describe("extractListRank", () => {
  * section divider -- not a simplified restatement.
  */
 describe("extractListRank -- markdown-wrapped numbered lines (production audit #30)", () => {
-  it("production excerpt 1: ChatGPT's '**4. Omega Services**' (bold-wrapping the whole item) ranks 4", () => {
+  it("production excerpt 1: ChatGPT's '**4. Yabby Services**' (bold-wrapping the whole item) ranks 4", () => {
     const response =
-      "**4. Omega Services**  \n" +
-      "- Based in Norwest (Suite 6964, 26 Brookhollow Avenue), licensed (Licence No. 361573C), ...";
-    const idx = indexOf(response, "Omega Services");
+      "**4. Yabby Services**  \n" +
+      "- Based in Norwest (Suite 101, 9 Quoll Court), licensed (Licence No. 900417C), ...";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
-  it("production excerpt 2: ChatGPT's second answer -- a '---' section divider then a blank line before '**8. Omega Services**' -- ranks 8, explicit number, never reset by the divider", () => {
+  it("production excerpt 2: ChatGPT's second answer -- a '---' section divider then a blank line before '**8. Yabby Services**' -- ranks 8, explicit number, never reset by the divider", () => {
     const response =
       "---\n" +
       "\n" +
-      "**8. Omega Services**  \n" +
+      "**8. Yabby Services**  \n" +
       "- Located in Norwest, this provider offers plumbing, electrical, hot water, and drain services. ...";
-    const idx = indexOf(response, "Omega Services");
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(8);
   });
 
-  it("production excerpt 3: Perplexity's '- **Omega Services** — ...' (bold NAME on an ordinary bullet) still ranks via the existing bullet rule, unaffected by the markdown fix", () => {
+  it("production excerpt 3: Perplexity's '- **Yabby Services** — ...' (bold NAME on an ordinary bullet) still ranks via the existing bullet rule, unaffected by the markdown fix", () => {
     const response = [
       "- **Acme Trade Co** — Licensed and insured.",
-      "- **Omega Services** — Licensed and insured, NSW licence **361573C**; ...",
+      "- **Yabby Services** — Licensed and insured, NSW licence **900417C**; ...",
     ].join("\n");
-    const idx = indexOf(response, "Omega Services");
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(2);
   });
 
   it("'**4.** Name' -- bold wraps only the number+punctuation, not the name", () => {
-    const response = "**4.** Omega Services";
-    const idx = indexOf(response, "Omega Services");
+    const response = "**4.** Yabby Services";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
   it("'4) Name' -- a closing-paren numbered item, no bold", () => {
-    const response = "4) Omega Services";
-    const idx = indexOf(response, "Omega Services");
+    const response = "4) Yabby Services";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
   it("'### 4. Name' -- a markdown heading prefix before the number", () => {
-    const response = "### 4. Omega Services";
-    const idx = indexOf(response, "Omega Services");
+    const response = "### 4. Yabby Services";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
   it("'#### 4) Name' -- a deeper heading level, closing-paren separator", () => {
-    const response = "#### 4) Omega Services";
-    const idx = indexOf(response, "Omega Services");
+    const response = "#### 4) Yabby Services";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
   it("'**#4 Name**' -- a bold '#N' rank marker, no period/paren separator at all", () => {
-    const response = "**#4 Omega Services**";
-    const idx = indexOf(response, "Omega Services");
+    const response = "**#4 Yabby Services**";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
   it("a numbered item whose name is a markdown link -- already worked pre-fix, pinned down here", () => {
-    const response = "4. [Omega Services](https://omegaservices.example.com.au)";
-    const idx = indexOf(response, "Omega Services");
+    const response = "4. [Yabby Services](https://yabbyservices.example.com.au)";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(4);
   });
 
-  it("a bare '**Omega Services**' bold phrase with no number/bullet at all is still prose -- never fabricates a rank", () => {
-    const response = "**Omega Services** is a well-regarded local plumber.";
-    const idx = indexOf(response, "Omega Services");
+  it("a bare '**Yabby Services**' bold phrase with no number/bullet at all is still prose -- never fabricates a rank", () => {
+    const response = "**Yabby Services** is a well-regarded local plumber.";
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBeNull();
   });
 
   it("a full synthetic ChatGPT-style answer: intro paragraph, 8 bold-numbered items separated by '---', Omega last -- ranks 8", () => {
     const lines = ["Here are well-regarded local providers to consider:", ""];
-    const names = ["A", "B", "C", "D", "E", "F", "G", "Omega Services"];
+    const names = ["A", "B", "C", "D", "E", "F", "G", "Yabby Services"];
     names.forEach((name, i) => {
       if (i > 0) {
         lines.push("---");
@@ -258,7 +258,7 @@ describe("extractListRank -- markdown-wrapped numbered lines (production audit #
       lines.push(`- A reputable local option serving the area. ...`);
     });
     const response = lines.join("\n");
-    const idx = indexOf(response, "Omega Services");
+    const idx = indexOf(response, "Yabby Services");
     expect(extractListRank(response, idx)).toBe(8);
   });
 });

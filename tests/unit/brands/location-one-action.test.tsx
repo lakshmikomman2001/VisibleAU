@@ -24,11 +24,11 @@ vi.mock("next/navigation", () => ({
 import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client";
 import { locationNeed } from "@/lib/brands/location-need";
 
-/** Hero Home Services as it is after migration 0146: Yennora confirmed on 12 Nov, no postcode yet. */
+/** Wren Home Services as it is after migration 0146: Yennora confirmed on 12 Nov, no postcode yet. */
 const HERO = {
   id: "hero-brand",
-  name: "Hero Home Services",
-  domain: "herohomeservices.com.au",
+  name: "Wren Home Services",
+  domain: "wrenhomeservices.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [] as string[],

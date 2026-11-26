@@ -15,8 +15,8 @@ import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client
 
 const BRAND = {
   id: "brand-1",
-  name: "Hero Home Services",
-  domain: "herohomeservices.com.au",
+  name: "Wren Home Services",
+  domain: "wrenhomeservices.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [],
@@ -57,7 +57,7 @@ describe("a brand with no audits", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(router.refresh).toHaveBeenCalledTimes(1);
     // The brand itself still shows: its name and its settings.
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Hero Home Services");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Wren Home Services");
     expect(screen.getByText("Brand settings")).toBeInTheDocument();
   });
 });

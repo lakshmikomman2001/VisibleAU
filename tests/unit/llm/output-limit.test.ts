@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 const PROMPT = "Good plumber in Norwest?";
-const ANSWER = "Omega Services is a plumber in Norwest.";
+const ANSWER = "Yabby Services is a plumber in Norwest.";
 
 /** An OpenAI Responses API answer; `cutOff` is one that stopped at max_output_tokens. */
 function openaiResponse(cutOff = false): Record<string, unknown> {
@@ -65,7 +65,7 @@ function perplexityResponse(finishReason = "stop"): Record<string, unknown> {
       { index: 0, message: { role: "assistant", content: ANSWER }, finish_reason: finishReason },
     ],
     usage: { prompt_tokens: 20, completion_tokens: 30, total_tokens: 50 },
-    citations: ["https://omegaservices.com.au/"],
+    citations: ["https://yabbyservices.com.au/"],
   };
 }
 

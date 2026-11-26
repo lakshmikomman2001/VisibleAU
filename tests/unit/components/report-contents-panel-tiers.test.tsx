@@ -76,10 +76,10 @@ const GROWTH = [
 function props(over: Partial<ReportContentsPanelProps> = {}): ReportContentsPanelProps {
   return {
     brandId: "b1",
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     basisAuditNumber: 54,
     periodLabel: "2026-W47",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     curated: true,
     whatToDoNext: NEXT,
     tierOptions: AGENCY,
@@ -277,7 +277,7 @@ describe("loading (P08.states.loading)", () => {
       enabled: true,
       curated: true,
       tier: "agency",
-      brandName: "Hero Home Services",
+      brandName: "Wren Home Services",
       periodLabel: "2026-W47",
       basis: { auditId: "a1", auditNumber: 54 },
       whatToDoNext: NEXT,
@@ -287,7 +287,7 @@ describe("loading (P08.states.loading)", () => {
         defaultTier: null,
         choices: [],
       },
-      agencyName: "Splice Marketing",
+      agencyName: "Possum Marketing",
       tiers: AGENCY,
       defaultTier: "enhanced",
     };

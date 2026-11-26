@@ -1,6 +1,6 @@
 /**
  * Vunnara (21 Oct), item 1 -- the hotfix's own named regression test.
- * Production audit #30 (Omega Services) stored `citations.position`
+ * Production audit #30 (Yabby Services) stored `citations.position`
  * values written by the OLD character-offset heuristic (pre-a093ceb):
  * ChatGPT's 4th-listed mention came out as 33, its 8th as 53;
  * Perplexity's 1st/2nd/3rd bullets came out as 4/8/14, its 8th as 17.
@@ -41,8 +41,8 @@ const ROWS: { legacyPosition: number; realRank: number; snippet: string }[] = [
     legacyPosition: 33,
     realRank: 4,
     snippet:
-      "**4. Omega Services**  \n" +
-      "- Based in Norwest (Suite 6964, 26 Brookhollow Avenue), licensed (Licence No. 361573C), ...",
+      "**4. Yabby Services**  \n" +
+      "- Based in Norwest (Suite 101, 9 Quoll Court), licensed (Licence No. 900417C), ...",
   },
   {
     legacyPosition: 53,
@@ -50,19 +50,19 @@ const ROWS: { legacyPosition: number; realRank: number; snippet: string }[] = [
     snippet:
       "---\n" +
       "\n" +
-      "**8. Omega Services**  \n" +
+      "**8. Yabby Services**  \n" +
       "- Located in Norwest, this provider offers plumbing, electrical, hot water, and drain services. ...",
   },
   {
     legacyPosition: 4,
     realRank: 1,
-    snippet: "- **Omega Services** — Licensed and insured, NSW licence **361573C**; ranked 1st.",
+    snippet: "- **Yabby Services** — Licensed and insured, NSW licence **900417C**; ranked 1st.",
   },
   {
     legacyPosition: 8,
     realRank: 2,
     snippet:
-      "- A Local Competitor — a well-reviewed alternative.\n- **Omega Services** — has strong local reviews.",
+      "- A Local Competitor — a well-reviewed alternative.\n- **Yabby Services** — has strong local reviews.",
   },
   {
     legacyPosition: 14,
@@ -70,7 +70,7 @@ const ROWS: { legacyPosition: number; realRank: number; snippet: string }[] = [
     snippet:
       "- A Local Competitor — a well-reviewed alternative.\n" +
       "- Another Competitor — also well regarded.\n" +
-      "- **Omega Services** — a solid choice too.",
+      "- **Yabby Services** — a solid choice too.",
   },
   {
     legacyPosition: 17,
@@ -78,7 +78,7 @@ const ROWS: { legacyPosition: number; realRank: number; snippet: string }[] = [
     snippet: (() => {
       const lines: string[] = [];
       for (let i = 1; i <= 7; i++) lines.push(`- Provider ${i} — a reputable local option.`);
-      lines.push("- **Omega Services** — rounds out the list.");
+      lines.push("- **Yabby Services** — rounds out the list.");
       return lines.join("\n");
     })(),
   },
@@ -95,7 +95,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omegaservices.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'yabbyservices.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'], ARRAY[]::text[])
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at,

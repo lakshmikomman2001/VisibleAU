@@ -1,6 +1,6 @@
 /**
  * Real YouTube Data API v3 check, tightened after a live false match:
- * brand "Bondi Plumbing" matched a channel literally titled "Bondi
+ * brand "Galah Plumbing" matched a channel literally titled "Bondi
  * Plumbing" whose video descriptions linked getplumbing.com.au -- a
  * different company. Name alone is never "confirmed" -- confirmation
  * requires domain corroboration (the brand's own domain mentioned in the
@@ -109,15 +109,15 @@ describe("extractDomains -- finds real domains, ignores generic platforms", () =
 
 describe("scoreChannelMatch -- name-similarity only (no longer sufficient alone to confirm)", () => {
   it("exact normalized title match scores high but is just a name signal", () => {
-    const score = scoreChannelMatch("Bondi Plumbing", "bondiplumbing.com.au", {
-      title: "Bondi Plumbing",
+    const score = scoreChannelMatch("Galah Plumbing", "galahplumbing.com.au", {
+      title: "Galah Plumbing",
       description: "",
     });
     expect(score).toBeGreaterThan(MIN_NAME_SIMILARITY_TO_ENRICH);
   });
 
   it("a completely unrelated channel scores 0 (not even worth enriching)", () => {
-    const score = scoreChannelMatch("Bondi Plumbing", "bondiplumbing.com.au", {
+    const score = scoreChannelMatch("Galah Plumbing", "galahplumbing.com.au", {
       title: "MrBeast",
       description: "Last to leave wins $500,000.",
     });
@@ -135,7 +135,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     vi.stubEnv("YOUTUBE_API_KEY", "");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result).toEqual({ status: "unavailable", reason: "missing_api_key" });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -146,13 +146,13 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         searchResponse([
-          { channelId: "UC_wrong", title: "Bondi Plumbing", description: "Plumbing videos." },
+          { channelId: "UC_wrong", title: "Galah Plumbing", description: "Plumbing videos." },
         ]),
       )
       .mockResolvedValueOnce(
         channelsResponse({
           channelId: "UC_wrong",
-          title: "Bondi Plumbing",
+          title: "Galah Plumbing",
           description: "Your local plumbing experts.",
           subscriberCount: 12,
           videoCount: 8,
@@ -168,7 +168,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
         ]),
       );
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result.status).toBe("unconfirmed");
     if (result.status === "unconfirmed") {
@@ -187,13 +187,13 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         searchResponse([
-          { channelId: "UC_wrong", title: "Bondi Plumbing", description: "Plumbing videos." },
+          { channelId: "UC_wrong", title: "Galah Plumbing", description: "Plumbing videos." },
         ]),
       )
       .mockResolvedValueOnce(
         channelsResponse({
           channelId: "UC_wrong",
-          title: "Bondi Plumbing",
+          title: "Galah Plumbing",
           description: "",
           subscriberCount: 2,
           videoCount: 1,
@@ -209,7 +209,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
         ]),
       );
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result.status).toBe("unconfirmed");
     if (result.status === "unconfirmed") {
@@ -223,13 +223,13 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         searchResponse([
-          { channelId: "UC_maybe", title: "Bondi Plumbing", description: "Plumbing videos." },
+          { channelId: "UC_maybe", title: "Galah Plumbing", description: "Plumbing videos." },
         ]),
       )
       .mockResolvedValueOnce(
         channelsResponse({
           channelId: "UC_maybe",
-          title: "Bondi Plumbing",
+          title: "Galah Plumbing",
           description: "Thanks for watching!",
           subscriberCount: 5,
           videoCount: 2,
@@ -240,7 +240,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
         playlistItemsResponse([{ description: "Like and subscribe!", publishedAt: "2020-01-01T00:00:00Z" }]),
       );
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result.status).toBe("unconfirmed");
     if (result.status === "unconfirmed") {
@@ -315,7 +315,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(searchResponse([]));
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result).toEqual({ status: "not_found" });
   });
@@ -328,7 +328,7 @@ describe("checkYoutubePresence -- four honest outcomes", () => {
       ]),
     );
 
-    const result = await checkYoutubePresence("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await checkYoutubePresence("Galah Plumbing", "galahplumbing.com.au");
 
     expect(result.status).toBe("not_found");
     expect(fetchSpy).toHaveBeenCalledTimes(1); // only the search call, never enriched

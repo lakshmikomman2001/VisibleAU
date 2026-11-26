@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Live invite test follow-ups (8 Nov), part 1 -- sign-in opened from an invite to an account says what's
- * happening, "Sign in as s***@outlook.com to join Splice Marketing", asks only for the password (the
+ * happening, "Sign in as s***@outlook.com to join Possum Marketing", asks only for the password (the
  * address is the invite's own), signs in through the invite (part 2), and goes back to the invite.
  */
 import "@testing-library/jest-dom/vitest";
@@ -29,7 +29,7 @@ const JOINING = {
   orgId: ORG,
   token: TOKEN,
   maskedEmail: "s***@outlook.com",
-  orgName: "Splice Marketing",
+  orgName: "Possum Marketing",
 };
 
 beforeAll(async () => {
@@ -54,7 +54,7 @@ describe("sign-in from an invite to an account", () => {
   it("says who to sign in as and what it joins, and asks only for the password", async () => {
     const { container } = await form();
     expect(
-      screen.getByRole("heading", { name: "Sign in as s***@outlook.com to join Splice Marketing" }),
+      screen.getByRole("heading", { name: "Sign in as s***@outlook.com to join Possum Marketing" }),
     ).toBeInTheDocument();
     expect(container.querySelector('input[type="email"]')).toBeNull();
     expect(container.querySelector('input[type="password"]')).not.toBeNull();

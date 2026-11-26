@@ -135,7 +135,7 @@ describe("a brand made before the confirm step, with audits", () => {
         <BrandDetailClient
           brand={{
             id: "b1",
-            name: "Omega Services",
+            name: "Yabby Services",
             domain: "omega.com.au",
             vertical: "tradies",
             region: "au",

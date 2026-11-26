@@ -29,7 +29,7 @@ describe("accuracyDimensionScore", () => {
   });
 
   // Audit reliability, Part B: an unverified name match (a common name
-  // hitting a different business, audit #30's Omega Services) must not
+  // hitting a different business, audit #30's Yabby Services) must not
   // count as an accurately-sourced mention even though it has a real
   // citedSources entry -- it was never confirmed to be THIS business.
   it("unverified mention with a source is still excluded, not counted as accurate", () => {
@@ -38,7 +38,7 @@ describe("accuracyDimensionScore", () => {
         {
           brandMentioned: true,
           mentionVerification: "unverified",
-          citedSources: [{ domain: "omega-plumbing.com.au", url: "https://omega-plumbing.com.au" }],
+          citedSources: [{ domain: "yabby-plumbing.com.au", url: "https://yabby-plumbing.com.au" }],
         },
       ]),
     ).toBe(0);

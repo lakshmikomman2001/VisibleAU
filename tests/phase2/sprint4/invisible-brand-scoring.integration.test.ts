@@ -42,7 +42,7 @@ vi.mock("@/lib/brand-entity/wikipedia-au", async (importOriginal) =>
 // under vitest makes getLLMService() return MockLLM automatically
 // (lib/llm/index.ts), and the audit's own metadata.mockScenario selects
 // deterministic fixtures: lib/llm/mock-responses/*/no_mention.json never
-// names any brand; happy_path.json always names "Bondi Plumbing".
+// names any brand; happy_path.json always names "Galah Plumbing".
 // ---------------------------------------------------------------------------
 
 const TEST_PREFIX = `k-invisible-${Date.now()}`;
@@ -59,7 +59,7 @@ async function seedAuditReadyBrand(opts: {
    * (correct for the "invisible brand" case, which never mentions the
    * brand at all); the "genuinely-mentioned" case below passes the
    * domain lib/llm/mock-responses/*\/happy_path.json actually cites
-   * ("bondiplumbing.com.au") so its mention is real AND verified, not
+   * ("galahplumbing.com.au") so its mention is real AND verified, not
    * real but incorrectly unverified for an unrelated reason. */
   domain?: string;
 }) {
@@ -184,9 +184,9 @@ describe("K — invisible brand (0 of N mentions) scores ~0, not the old 13.75 f
     async () => {
       const { audit } = await seedAuditReadyBrand({
         orgSuffix: "visible",
-        brandName: "Bondi Plumbing",
+        brandName: "Galah Plumbing",
         mockScenario: "happy_path",
-        domain: "bondiplumbing.com.au",
+        domain: "galahplumbing.com.au",
       });
 
       await runAuditInline(audit.id);

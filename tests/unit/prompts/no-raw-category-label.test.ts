@@ -5,7 +5,7 @@ import type { BrandClassification } from "@/lib/types/brand";
 
 /**
  * Vunnara hotfix 3 (19 Oct, post-9c2c73a), item 3 -- the live bug:
- * "Is Omega Services a good choice for Plumbing in Norwest, NSW?"
+ * "Is Yabby Services a good choice for Plumbing in Norwest, NSW?"
  * inserts the raw CATEGORY_LABELS value ("Plumbing") into the branded
  * "good choice" template. categoryServicePhrase() now supplies a
  * natural phrase ("a plumber") instead -- swept across every
@@ -69,15 +69,15 @@ describe("buildPromptPack -- no raw CATEGORY_LABELS value mid-sentence", () => {
     };
     const pack = buildPromptPack(
       omegaClassification,
-      "Omega Services",
-      "omegaservices.com.au",
+      "Yabby Services",
+      "yabbyservices.com.au",
       { competitors: [], categories: ["trades_plumbing", "trades_electrical", "trades_general"], audience: "households" },
       "Norwest, NSW",
       10,
-      "omega-services-real-brand-id",
+      "yabby-services-real-brand-id",
     );
     const goodChoice = pack.find((t) => t.includes("a good choice"));
-    expect(goodChoice).toBe("Is Omega Services a good choice for a plumber in Norwest, NSW?");
+    expect(goodChoice).toBe("Is Yabby Services a good choice for a plumber in Norwest, NSW?");
     expect(goodChoice).not.toContain("Plumbing");
   });
 });

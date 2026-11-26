@@ -22,13 +22,13 @@ function facts39(overrides: Partial<AllowedFacts> = {}): AllowedFacts {
     auditNumbers: new Set([37, 38, 39]),
     engines: new Set(["ChatGPT", "Claude", "Gemini", "Perplexity"]),
     claims: new Set(),
-    names: ["Omega Services", "hipages", "Word of Mouth", "Localsearch"],
+    names: ["Yabby Services", "hipages", "Word of Mouth", "Localsearch"],
     ...overrides,
   };
 }
 
 const CORRECT =
-  "When local customers ask AI for help with the kind of work Omega Services does, Omega Services comes up in about 1 in 6 answers: 7 of the 40 we counted.";
+  "When local customers ask AI for help with the kind of work Yabby Services does, Yabby Services comes up in about 1 in 6 answers: 7 of the 40 we counted.";
 
 describe("groundNarrative", () => {
   it("keeps a sentence whose every number is measured", () => {
@@ -69,7 +69,7 @@ describe("groundNarrative", () => {
   it("drops verdicts no rule computes: 'recognised authority', 'leader', 'best'", () => {
     for (const sentence of [
       "The brand sits in the recognised authority quadrant.",
-      "Omega Services is the local leader for handyman work.",
+      "Yabby Services is the local leader for handyman work.",
       "AI calls it the best choice in Castle Hill.",
     ]) {
       expect(sentenceProblem(sentence, facts39())).toBe("banned_word");
@@ -77,7 +77,7 @@ describe("groundNarrative", () => {
   });
 
   it("drops an engine the audit didn't ask, a wrong rank, a wrong audit number and a wrong number word", () => {
-    expect(sentenceProblem("Copilot mentioned Omega Services in 4 of 10 answers.", facts39())).toBe(
+    expect(sentenceProblem("Copilot mentioned Yabby Services in 4 of 10 answers.", facts39())).toBe(
       "engine",
     );
     expect(sentenceProblem("It's typically listed at #2.", facts39())).toBe("rank");
@@ -135,7 +135,7 @@ describe("aboutHowOften", () => {
 
 describe("possessive", () => {
   it("adds 's, or just ' after a final s", () => {
-    expect(possessive("Omega Services")).toBe("Omega Services'");
+    expect(possessive("Yabby Services")).toBe("Yabby Services'");
     expect(possessive("Acme")).toBe("Acme's");
   });
 });

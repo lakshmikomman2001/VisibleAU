@@ -63,10 +63,10 @@ const NEXT: WhatToDoNext = {
 function props(over: Partial<ReportContentsPanelProps> = {}): ReportContentsPanelProps {
   return {
     brandId: "b1",
-    brandName: "Hero Home Services",
+    brandName: "Wren Home Services",
     basisAuditNumber: 54,
     periodLabel: "2026-W47",
-    agencyName: "Splice Marketing",
+    agencyName: "Possum Marketing",
     curated: true,
     whatToDoNext: NEXT,
     // S01 part 8 (P08.tier): the panel opens with its report type; Enhanced here, as every v2 report was in part 5.
@@ -96,7 +96,7 @@ describe("Agency and up", () => {
     render(<ReportContentsPanel {...props()} />);
     expect(screen.getByRole("heading", { name: "Report contents" })).toBeInTheDocument();
     expect(screen.getByTestId("p08-header")).toHaveTextContent(
-      "Hero Home Services · based on audit #54 · Week 47",
+      "Wren Home Services · based on audit #54 · Week 47",
     );
     const items = screen.getAllByTestId("p08-measured-item");
     expect(items).toHaveLength(2);
@@ -212,7 +212,7 @@ describe("Agency and up", () => {
       ),
     );
     render(<ReportContentsPanel {...props()} />);
-    expect(screen.getByTestId("p08-agency")).toHaveTextContent("Recommended by Splice Marketing");
+    expect(screen.getByTestId("p08-agency")).toHaveTextContent("Recommended by Possum Marketing");
     fireEvent.click(screen.getByTestId("p08-add-action"));
     fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
       target: { value: "Refresh the service pages" },

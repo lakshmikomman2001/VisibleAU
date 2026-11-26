@@ -48,7 +48,7 @@ describe("citation-source-classifier", () => {
 
   it("classifies Google Business Profile as review_site (same local-business/review data surface as google.com/maps)", () => {
     expect(classifySourceType("https://business.google.com/abc")).toBe("review_site");
-    expect(classifySourceType("https://g.page/bondiplumbing")).toBe("review_site");
+    expect(classifySourceType("https://g.page/galahplumbing")).toBe("review_site");
   });
 
   it("classifies news URLs", () => {
@@ -67,14 +67,14 @@ describe("citation-source-classifier", () => {
   // (lib/audit/extract-citations.ts) instead of a substring-of-URL
   // check -- this table is the exact scenario set the task asked for.
   it.each([
-    ["https://www.bondiplumbing.com.au/contact", "bondiplumbing.com.au", true],
-    ["bondiplumbing.com.au", "bondiplumbing.com.au", true],
-    ["https://bondiplumbingservices.com.au", "bondiplumbing.com.au", false],
-    ["https://hipages.com.au/connect/bondiplumbing", "bondiplumbing.com.au", false],
-    ["https://bondiplumbing.com.au.evil.example", "bondiplumbing.com.au", false],
-    ["https://WWW.BONDIPLUMBING.COM.AU/Contact", "bondiplumbing.com.au", true],
-    ["https://bondiplumbing.com.au./contact", "bondiplumbing.com.au", true],
-    ["https://bondiplumbing.com.au/contact", "", false],
+    ["https://www.galahplumbing.com.au/contact", "galahplumbing.com.au", true],
+    ["galahplumbing.com.au", "galahplumbing.com.au", true],
+    ["https://galahplumbingservices.com.au", "galahplumbing.com.au", false],
+    ["https://hipages.com.au/connect/galahplumbing", "galahplumbing.com.au", false],
+    ["https://galahplumbing.com.au.evil.example", "galahplumbing.com.au", false],
+    ["https://WWW.GALAHPLUMBING.COM.AU/Contact", "galahplumbing.com.au", true],
+    ["https://galahplumbing.com.au./contact", "galahplumbing.com.au", true],
+    ["https://galahplumbing.com.au/contact", "", false],
   ] as const)("brand match for %s vs brandDomain=%s is %s", (url, brandDomain, expected) => {
     const type = classifySourceTypeWithBrand(url, brandDomain);
     expect(type === "brand_owned").toBe(expected);
@@ -100,7 +100,7 @@ describe("citation-source-classifier", () => {
   // au_directory seed description but never actually matched by this
   // pattern list -- the same docs/code drift task #41 found for Hipages.
   it("classifies Word of Mouth as au_directory", () => {
-    expect(classifySourceType("https://www.womo.com.au/biz/bondi-plumbing")).toBe("au_directory");
+    expect(classifySourceType("https://www.womo.com.au/biz/galah-plumbing")).toBe("au_directory");
   });
 
   // Task #46 Part B: trade/industry bodies -- domains confirmed real via
@@ -165,7 +165,7 @@ describe("citation-source-classifier", () => {
   // before classifying (see the classifier's own doc comment for the
   // one-line justification per domain).
   it.each([
-    ["https://www.wordofmouth.com.au/biz/bondi-plumbing", "au_directory"],
+    ["https://www.wordofmouth.com.au/biz/galah-plumbing", "au_directory"],
     ["https://servicetasker.com.au/task/plumber-sydney", "au_directory"],
     ["https://www.homedone.com.au/plumbers/sydney", "au_directory"],
     ["https://www.bestinhood.com/sydney/plumbers", "review_site"],

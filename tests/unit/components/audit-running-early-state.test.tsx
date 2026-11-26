@@ -31,7 +31,7 @@ const BEHIND = "Still running · results will appear when done";
 const EARLY: ComponentProps<typeof AuditRunningView> = {
   auditId: "audit-38",
   brandId: "brand-1",
-  brandName: "Omega Services",
+  brandName: "Yabby Services",
   initialStatus: "running",
   initialProgress: (1 / 52) * 100,
   initialMentionedCount: 0,

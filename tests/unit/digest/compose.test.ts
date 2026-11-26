@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { buildDigestHtml } from "@/lib/digest/compose";
 
 const BRANDS = [
-  { brandName: "[S9QA] Bondi Plumbing", mentionRate: 73 },
+  { brandName: "[S9QA] Galah Plumbing", mentionRate: 73 },
   { brandName: "[S9QA] Coogee Electrics", mentionRate: 61 },
   { brandName: "[S9QA] Score-null Brand", mentionRate: null },
 ];
@@ -23,7 +23,7 @@ describe("[S9QA] F05 — buildDigestHtml — portfolio weekly email (T3)", () =>
 
   it("F05-02: contains all brand names", () => {
     const html = buildDigestHtml(BRANDS);
-    expect(html).toContain("[S9QA] Bondi Plumbing");
+    expect(html).toContain("[S9QA] Galah Plumbing");
     expect(html).toContain("[S9QA] Coogee Electrics");
     expect(html).toContain("[S9QA] Score-null Brand");
   });

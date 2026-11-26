@@ -177,28 +177,28 @@ describe("brand aliases on a real database", () => {
 
   it("POST keeps the wizard's aliases and the site's suggestion", async () => {
     const res = await create({
-      name: "Hero Home Services",
-      domain: "hero-home-services.com.au",
+      name: "Wren Home Services",
+      domain: "wren-home-services.com.au",
       vertical: "tradies",
-      aliases: ["HeroHomeServices"],
-      nameSuggestion: "Hero Home Services",
+      aliases: ["WrenHomeServices"],
+      nameSuggestion: "Wren Home Services",
       locationMode: "online_only",
     });
     expect(res.status).toBe(201);
     const { brand } = (await res.json()) as { brand: { id: string } };
     expect(await stored(brand.id)).toEqual({
-      name: "Hero Home Services",
-      aliases: ["HeroHomeServices"],
-      name_suggestion: "Hero Home Services",
+      name: "Wren Home Services",
+      aliases: ["WrenHomeServices"],
+      name_suggestion: "Wren Home Services",
     });
   });
 
   it("S01 part 0: the site's suggestion is cut to 120 characters when written, never refused", async () => {
-    const long = `Hero Home Services ${"and more ".repeat(20)}`.trim();
+    const long = `Wren Home Services ${"and more ".repeat(20)}`.trim();
     expect(long.length).toBeGreaterThan(120);
     const res = await create({
-      name: "Hero Home Services",
-      domain: "hero-home-services-long.com.au",
+      name: "Wren Home Services",
+      domain: "wren-home-services-long.com.au",
       vertical: "tradies",
       nameSuggestion: long,
       locationMode: "online_only",
@@ -212,22 +212,22 @@ describe("brand aliases on a real database", () => {
 
   it("POST refuses an alias that is the name, and a brand made without aliases has none", async () => {
     const refused = await create({
-      name: "Omega Services",
-      domain: "omega-services.com.au",
+      name: "Yabby Services",
+      domain: "yabby-services.com.au",
       vertical: "tradies",
-      aliases: ["omega services"],
+      aliases: ["yabby services"],
       locationMode: "online_only",
     });
     expect(refused.status).toBe(400);
     const res = await create({
-      name: "Omega Services",
-      domain: "omega-services.com.au",
+      name: "Yabby Services",
+      domain: "yabby-services.com.au",
       vertical: "tradies",
       locationMode: "online_only",
     });
     const { brand } = (await res.json()) as { brand: { id: string } };
     expect(await stored(brand.id)).toEqual({
-      name: "Omega Services",
+      name: "Yabby Services",
       aliases: [],
       name_suggestion: null,
     });
@@ -252,8 +252,8 @@ describe("GET /api/brands/name-suggestion", () => {
 
   it("a page that can't be read falls back to the domain's words, or nothing", async () => {
     crawl.fail = true;
-    expect(await (await suggestion("hero-home-services.com.au")).json()).toMatchObject({
-      name: "Hero Home Services",
+    expect(await (await suggestion("wren-home-services.com.au")).json()).toMatchObject({
+      name: "Wren Home Services",
       source: "domain",
     });
     expect(await (await suggestion("numbatekit.com.au")).json()).toEqual({

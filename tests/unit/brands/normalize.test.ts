@@ -3,67 +3,67 @@ import { brandNamePattern, domainStem, normalizeBrandName } from "@/lib/brands/n
 
 describe("normalizeBrandName", () => {
   it("trims leading/trailing whitespace", () => {
-    expect(normalizeBrandName("  Omega Services  ")).toBe("Omega Services");
+    expect(normalizeBrandName("  Yabby Services  ")).toBe("Yabby Services");
   });
   it("collapses internal whitespace to single spaces", () => {
-    expect(normalizeBrandName("Omega    Services")).toBe("Omega Services");
-    expect(normalizeBrandName("Omega\tServices")).toBe("Omega Services");
+    expect(normalizeBrandName("Yabby    Services")).toBe("Yabby Services");
+    expect(normalizeBrandName("Yabby\tServices")).toBe("Yabby Services");
   });
   it("NFKC-normalizes Unicode (e.g. fullwidth forms collapse to ASCII)", () => {
-    // U+FF2F etc. (fullwidth "OMEGA") NFKC-normalizes to plain ASCII.
-    expect(normalizeBrandName("ＯＭＥＧＡ")).toBe("OMEGA");
+    // U+FF2F etc. (fullwidth "YABBY") NFKC-normalizes to plain ASCII.
+    expect(normalizeBrandName("ＹＡＢＢＹ")).toBe("YABBY");
   });
   it("a leading-space stored name normalizes the same as the clean one", () => {
-    expect(normalizeBrandName(" Omega Services")).toBe(normalizeBrandName("Omega Services"));
+    expect(normalizeBrandName(" Yabby Services")).toBe(normalizeBrandName("Yabby Services"));
   });
 });
 
 describe("domainStem", () => {
   it("strips a .com.au TLD and non-letters", () => {
-    expect(domainStem("omega-services.com.au")).toBe("omegaservices");
+    expect(domainStem("yabby-services.com.au")).toBe("yabbyservices");
   });
   it("strips a plain .com TLD", () => {
-    expect(domainStem("bondiplumbing.com")).toBe("bondiplumbing");
+    expect(domainStem("galahplumbing.com")).toBe("galahplumbing");
   });
   it("lowercases", () => {
-    expect(domainStem("OMEGA-SERVICES.COM.AU")).toBe("omegaservices");
+    expect(domainStem("YABBY-SERVICES.COM.AU")).toBe("yabbyservices");
   });
   it("strips a protocol and path if present", () => {
-    expect(domainStem("https://omega-services.com.au/contact")).toBe("omegaservices");
+    expect(domainStem("https://yabby-services.com.au/contact")).toBe("yabbyservices");
   });
 });
 
 describe("brandNamePattern (Vunnara Build 1, Part A)", () => {
-  const NAME = "Omega Services";
+  const NAME = "Yabby Services";
 
   it("matches a quoted mention", () => {
-    expect('"Omega Services" is a great choice.').toMatch(brandNamePattern(NAME));
+    expect('"Yabby Services" is a great choice.').toMatch(brandNamePattern(NAME));
   });
   it("matches a markdown-bolded mention", () => {
-    expect("**Omega Services** is a great choice.").toMatch(brandNamePattern(NAME));
+    expect("**Yabby Services** is a great choice.").toMatch(brandNamePattern(NAME));
   });
   it("matches a trailing possessive with a bare apostrophe (name already ends in s)", () => {
-    expect("Omega Services' reputation is strong.").toMatch(brandNamePattern(NAME));
+    expect("Yabby Services' reputation is strong.").toMatch(brandNamePattern(NAME));
   });
   it("matches a trailing possessive with 's on a name that doesn't end in s", () => {
-    expect("Omega's reputation is strong.").toMatch(brandNamePattern("Omega"));
-    expect("Omega’s reputation is strong.").toMatch(brandNamePattern("Omega"));
+    expect("Yabby's reputation is strong.").toMatch(brandNamePattern("Yabby"));
+    expect("Yabby’s reputation is strong.").toMatch(brandNamePattern("Yabby"));
   });
   it("matches a hyphenated variant", () => {
-    expect("Omega-Services offers 24/7 support.").toMatch(brandNamePattern(NAME));
+    expect("Yabby-Services offers 24/7 support.").toMatch(brandNamePattern(NAME));
   });
   it("matches regardless of case", () => {
-    expect("OMEGA SERVICES is well regarded.").toMatch(brandNamePattern(NAME));
+    expect("YABBY SERVICES is well regarded.").toMatch(brandNamePattern(NAME));
   });
   it("does not match a longer word sharing the same prefix", () => {
-    expect("Omegaservicesx is a different company.").not.toMatch(brandNamePattern(NAME));
+    expect("Yabbyservicesx is a different company.").not.toMatch(brandNamePattern(NAME));
   });
   it("does not match a different word", () => {
-    expect("Omega Servicing does plumbing repairs.").not.toMatch(brandNamePattern(NAME));
+    expect("Yabby Servicing does plumbing repairs.").not.toMatch(brandNamePattern(NAME));
   });
   it("matches a leading-space stored name the same as the clean one", () => {
-    const withLeadingSpace = brandNamePattern(" Omega Services");
-    expect("Omega Services is great.").toMatch(withLeadingSpace);
+    const withLeadingSpace = brandNamePattern(" Yabby Services");
+    expect("Yabby Services is great.").toMatch(withLeadingSpace);
   });
   it("escapes regex metacharacters in the name", () => {
     expect("A+ Plumbing is great.").toMatch(brandNamePattern("A+ Plumbing"));

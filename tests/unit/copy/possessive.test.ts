@@ -1,5 +1,5 @@
 /**
- * Follow-ups from af8de42..d1eb5a1 (10 Nov), part 4 (Sri: the Trust page read "Omega Services's Trust Score") --
+ * Follow-ups from af8de42..d1eb5a1 (10 Nov), part 4 (Sri: the Trust page read "Yabby Services's Trust Score") --
  * one helper makes a name possessive (lib/copy/possessive.ts), and no copy adds "'s" to an interpolated name
  * itself. The Trust page's rationale under "Not measured yet" no longer starts with "Not measured yet." again.
  */
@@ -18,7 +18,7 @@ readSourcesBeforeAll([...NON_TEST_ROOTS]);
 
 describe("possessive", () => {
   it("a name ending in s takes only the apostrophe", () => {
-    expect(possessive("Omega Services")).toBe("Omega Services'");
+    expect(possessive("Yabby Services")).toBe("Yabby Services'");
     expect(possessive("Bondi Plumbers")).toBe("Bondi Plumbers'");
     expect(possessive("ACME LABS")).toBe("ACME LABS'");
   });
@@ -29,7 +29,7 @@ describe("possessive", () => {
   });
 
   it("trailing spaces don't count", () => {
-    expect(possessive("Omega Services ")).toBe("Omega Services'");
+    expect(possessive("Yabby Services ")).toBe("Yabby Services'");
   });
 });
 
@@ -46,14 +46,14 @@ describe("the copy uses it", () => {
     );
   });
 
-  it("an explained score reads 'Omega Services' trust score', not 'Services's'", () => {
+  it("an explained score reads 'Yabby Services' trust score', not 'Services's'", () => {
     const { rationale } = ExplainabilityService.annotate({
       score: 40,
       scoreLabel: "Trust Score",
       maxScore: 100,
-      context: { brandName: "Omega Services", dimension: "trust" },
+      context: { brandName: "Yabby Services", dimension: "trust" },
     });
-    expect(rationale).toMatch(/^Omega Services' /);
+    expect(rationale).toMatch(/^Yabby Services' /);
     expect(rationale).not.toContain("Services's");
   });
 
@@ -76,14 +76,14 @@ describe("the copy uses it", () => {
   it("a journey template's {brandName}'s is filled with the possessive, as the AI engines are asked", () => {
     const fill = (template: string, brandName: string) =>
       fillJourneyPrompt(template, { brandName, serviceType: "plumbing", location: "Bondi" });
-    expect(fill("What are {brandName}'s management fees?", "Omega Services")).toBe(
-      "What are Omega Services' management fees?",
+    expect(fill("What are {brandName}'s management fees?", "Yabby Services")).toBe(
+      "What are Yabby Services' management fees?",
     );
     expect(fill("Tell me about {brandName}'s features", "Acme")).toBe(
       "Tell me about Acme's features",
     );
-    expect(fill("Is {brandName} the best {serviceType} in {location}?", "Omega Services")).toBe(
-      "Is Omega Services the best plumbing in Bondi?",
+    expect(fill("Is {brandName} the best {serviceType} in {location}?", "Yabby Services")).toBe(
+      "Is Yabby Services the best plumbing in Bondi?",
     );
     expect(sourceText("db/seed/prebuilt-journeys.ts")).toContain("{brandName}'s");
   });

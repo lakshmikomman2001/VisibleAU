@@ -90,7 +90,7 @@ describe("buildCitationSourceIntelligence -- the aggregate replace failing doesn
   });
 
   it("completes successfully, writes the per-audit row, and returns the result -- even when the aggregate replace throws", async () => {
-    const { tx, insertedPerAudit } = mockTxThrowingOnAggregateReplace("bondiplumbing.com.au", [
+    const { tx, insertedPerAudit } = mockTxThrowingOnAggregateReplace("galahplumbing.com.au", [
       {
         engine: "chatgpt",
         brandMentioned: true,
@@ -117,7 +117,7 @@ describe("buildCitationSourceIntelligence -- the aggregate replace failing doesn
   });
 
   it("logs a structured error naming the brand/audit when the aggregate replace fails on both attempts", async () => {
-    const { tx } = mockTxThrowingOnAggregateReplace("bondiplumbing.com.au", [
+    const { tx } = mockTxThrowingOnAggregateReplace("galahplumbing.com.au", [
       {
         engine: "claude",
         brandMentioned: false,
@@ -221,7 +221,7 @@ describe("buildCitationSourceIntelligence -- top_domains column missing: both in
 
   it("per-audit AND aggregate rows are both still written, without topDomains, when that column doesn't exist", async () => {
     const { tx, insertedPerAudit, insertedAggregate, deleteCalls } = mockTxThrowingOnTopDomains(
-      "bondiplumbing.com.au",
+      "galahplumbing.com.au",
       [
         {
           engine: "chatgpt",

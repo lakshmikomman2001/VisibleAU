@@ -1,6 +1,6 @@
 /**
  * Leftovers task, part 6 (17 Nov; Sri's production check of 16 Nov): the agency dashboard's "Pending drift alerts"
- * counted a deleted brand's alerts (production: 3 for the deleted Bondi Plumbing), and GET /api/drift-alerts listed
+ * counted a deleted brand's alerts (production: 3 for the deleted Galah Plumbing), and GET /api/drift-alerts listed
  * them. Both now count live brands only, as the drift alerts page already did (lib/drift/pending-alerts.ts).
  *
  * Real DB: one live brand and one deleted brand, each with an unacknowledged alert.
@@ -59,8 +59,8 @@ beforeAll(async () => {
     INSERT INTO organizations (id, clerk_org_id, name, slug)
     VALUES (${ORG}, ${`drift-live-${ORG}`}, 'Drift Live Brands Test Org', ${`drift-live-${ORG}`})
   `;
-  await brandWithAlert(LIVE, "Hero Home Services", false);
-  await brandWithAlert(DELETED, "Bondi Plumbing", true);
+  await brandWithAlert(LIVE, "Wren Home Services", false);
+  await brandWithAlert(DELETED, "Galah Plumbing", true);
 }, 60_000);
 
 afterAll(async () => {
@@ -81,7 +81,7 @@ describe("drift alerts are counted and listed for live brands only", () => {
     const res = await GET(new Request("http://localhost/api/drift-alerts?acknowledged=false"));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { alerts: { brandId: string; brandName: string }[] };
-    expect(body.alerts.map((a) => a.brandName)).toEqual(["Hero Home Services"]);
+    expect(body.alerts.map((a) => a.brandName)).toEqual(["Wren Home Services"]);
   });
 
   it("the agency dashboard's Pending drift alerts uses the same count", () => {

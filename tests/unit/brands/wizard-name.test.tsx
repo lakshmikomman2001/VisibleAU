@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * 13 Nov (Sri's walk-through, part 2): the wizard's default brand name. A domain that shows its words
- * ("hero-home-services.com.au") suggests "Hero Home Services", editable before creating; a run-together
- * label used as the name ("herohomeservices") is asked about -- Continue waits until the owner writes it
+ * ("wren-home-services.com.au") suggests "Wren Home Services", editable before creating; a run-together
+ * label used as the name ("wrenhomeservices") is asked about -- Continue waits until the owner writes it
  * the way customers do or keeps it -- never used silently.
  */
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -32,25 +32,25 @@ describe("the wizard's brand name", () => {
   it("a domain that shows its words suggests a readable name, which the owner can change", () => {
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
     fireEvent.change(screen.getByLabelText("Domain"), {
-      target: { value: "hero-home-services.com.au" },
+      target: { value: "wren-home-services.com.au" },
     });
-    expect(screen.getByLabelText("Brand name")).toHaveValue("Hero Home Services");
+    expect(screen.getByLabelText("Brand name")).toHaveValue("Wren Home Services");
     expect(document.querySelector("[data-name-suggested]")).toHaveTextContent(
       "From your web address. Change it if customers write it differently.",
     );
     expect(continueButton()).toBeEnabled();
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "Hero Home Services Pty Ltd" },
+      target: { value: "Wren Home Services Pty Ltd" },
     });
     // The owner's own name stands when the domain changes again.
     fireEvent.change(screen.getByLabelText("Domain"), { target: { value: "hero-homes.com.au" } });
-    expect(screen.getByLabelText("Brand name")).toHaveValue("Hero Home Services Pty Ltd");
+    expect(screen.getByLabelText("Brand name")).toHaveValue("Wren Home Services Pty Ltd");
   });
 
   it("a run-together domain suggests nothing (the words can't be told apart)", () => {
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
     fireEvent.change(screen.getByLabelText("Domain"), {
-      target: { value: "herohomeservices.com.au" },
+      target: { value: "wrenhomeservices.com.au" },
     });
     expect(screen.getByLabelText("Brand name")).toHaveValue("");
     expect(continueButton()).toBeDisabled();
@@ -59,22 +59,22 @@ describe("the wizard's brand name", () => {
   it("the run-together label as the name is asked about; Continue waits for an answer", () => {
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
     fireEvent.change(screen.getByLabelText("Domain"), {
-      target: { value: "herohomeservices.com.au" },
+      target: { value: "wrenhomeservices.com.au" },
     });
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "herohomeservices" },
+      target: { value: "wrenhomeservices" },
     });
     expect(screen.getByRole("alert")).toHaveTextContent("is your web address without its spaces");
     expect(continueButton()).toBeDisabled();
     // Writing it the way customers do answers it...
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "Hero Home Services" },
+      target: { value: "Wren Home Services" },
     });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(continueButton()).toBeEnabled();
     // ...and so does keeping it, on purpose.
     fireEvent.change(screen.getByLabelText("Brand name"), {
-      target: { value: "herohomeservices" },
+      target: { value: "wrenhomeservices" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Keep/ }));
     expect(screen.queryByRole("alert")).toBeNull();

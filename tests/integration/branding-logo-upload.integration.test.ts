@@ -66,7 +66,7 @@ beforeAll(async () => {
   sql = postgres(getTestDatabaseUrl(), { max: 1 });
   storageDir = mkdtempSync(join(tmpdir(), "vunnara-logos-"));
   for (const [org, name] of [
-    [ORG, "Splice Marketing"],
+    [ORG, "Possum Marketing"],
     [OTHER_ORG, "Other Agency"],
   ]) {
     const tag = org.slice(0, 8);
@@ -286,7 +286,7 @@ describe("POST /api/brands saves the brand's own uploaded logo, and only that", 
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: "Splice Marketing",
+            name: "Possum Marketing",
             domain: `splice-${randomUUID().slice(0, 8)}.example.com.au`,
             vertical: "tradies",
             locationMode: "online_only",

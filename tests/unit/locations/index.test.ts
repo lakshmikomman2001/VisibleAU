@@ -46,7 +46,7 @@ describe("findLocation", () => {
   });
 });
 
-// Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services bug --
+// Vunnara hotfix (18 Oct, post-df27ef8): the live Yabby Services bug --
 // the wizard and the location-confirm card each used to inline
 // `findLocation(entry)?.city ?? <the suburb itself>`, inventing a city
 // for every suburb outside the curated list. This is the one shared
@@ -56,7 +56,7 @@ describe("resolveCityForSuburb (Vunnara hotfix, 18 Oct)", () => {
     expect(resolveCityForSuburb("NSW:Bondi")).toBe("Sydney");
   });
 
-  it("returns NULL, never the suburb itself, for an uncurated suburb (Omega Services' real case)", () => {
+  it("returns NULL, never the suburb itself, for an uncurated suburb (Yabby Services' real case)", () => {
     expect(resolveCityForSuburb("NSW:Norwest")).toBeNull();
   });
 

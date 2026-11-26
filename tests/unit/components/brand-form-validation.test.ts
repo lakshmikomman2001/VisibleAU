@@ -15,8 +15,8 @@ const createBrandSchema = z.object({
 describe("Brand create form validation (Zod schema)", () => {
   it("accepts valid brand with all required fields", () => {
     const result = createBrandSchema.safeParse({
-      name: "Bondi Plumbing",
-      domain: "bondiplumbing.com.au",
+      name: "Galah Plumbing",
+      domain: "galahplumbing.com.au",
       vertical: "tradies",
     });
     expect(result.success).toBe(true);

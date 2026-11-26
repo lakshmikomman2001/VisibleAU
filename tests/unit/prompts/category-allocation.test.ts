@@ -86,7 +86,7 @@ describe("buildTaggedOrganicPrompts -- category quota allocation (hotfix 3, item
     expect(counts.trades_electrical).toBe(10);
   });
 
-  // Vunnara hotfix 3, item 1: Omega Services' real, confirmed shape --
+  // Vunnara hotfix 3, item 1: Yabby Services' real, confirmed shape --
   // the exact case the bug report was filed against.
   it("Omega's exact fixture (trades_plumbing, trades_electrical, trades_general) gives 4/3/3", () => {
     const omegaClassification: BrandClassification = {
@@ -104,7 +104,7 @@ describe("buildTaggedOrganicPrompts -- category quota allocation (hotfix 3, item
       "households",
       "Norwest, NSW",
       10,
-      "omega-services-real-brand-id",
+      "yabby-services-real-brand-id",
     );
     expect(tagged).toHaveLength(10);
     const counts = countsByCategory(tagged);

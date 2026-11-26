@@ -40,7 +40,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'bondiplumbing2.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Galah Plumbing', 'galahplumbing2.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
   `;
   for (const [id, n] of [
     [LEGACY_AUDIT_ID, 8],

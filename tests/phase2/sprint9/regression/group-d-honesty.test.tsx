@@ -38,14 +38,14 @@ import {
 
 // ─── F8: the two NULLs are DIFFERENT ──────────────────────────────────────
 
-// Bondi Plumbing (tradies, non-SaaS), each check on its own scale since 7 Nov:
+// Galah Plumbing (tradies, non-SaaS), each check on its own scale since 7 Nov:
 //   AI presence 0% (0 of 20), site readiness 21 of 98, local authority not scored yet.
 const BONDI: HealthCheckData = {
   aiPresence: { value: "0%", detail: "0 of 20", band: "low", ci: { lower: 0, upper: 16 } },
   siteReadiness: { score: 21, max: 98, on: "14 Jun" },
   localAuthority: null,
   topAction: null,
-  brandName: "Bondi Plumbing",
+  brandName: "Galah Plumbing",
   auditDate: "15 Jun 2026",
   engineCount: 4,
   isSaas: false,

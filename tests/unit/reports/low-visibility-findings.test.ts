@@ -261,12 +261,12 @@ describe("when a rule's condition doesn't hold", () => {
   it("Hero-like data (named in a third, ABN verified, profile linked, no cited-only directory) gets none", () => {
     const counted = countLowVisibilityEvidence(
       numbaTekAnswers().filter((a) => a.organic),
-      "herohomeservices.com.au",
+      "wrenhomeservices.com.au",
     );
     const hero: LowVisibilityData = {
       ...findingsData(3, [dirRow("Yellow Pages", 17, true, true), dirRow("Hotfrog", 1, false)]),
       lowVisibility: {
-        brandName: "Hero Home Services",
+        brandName: "Wren Home Services",
         everydayAnswers: counted.everydayAnswers,
         answersCitingOtherBusinesses: counted.answersCitingOtherBusinesses,
         businessSites: counted.businessSites,

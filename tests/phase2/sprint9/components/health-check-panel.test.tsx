@@ -62,7 +62,7 @@ const METROPOLITAN: HealthCheckData = {
 // Bondi real values: Visibility 0% (0 of 20), technical 21 of 98, local trust not scored.
 const BONDI: HealthCheckData = {
   ...METROPOLITAN,
-  brandName: "Bondi Plumbing",
+  brandName: "Galah Plumbing",
   engineCount: 2,
   aiPresence: { value: "0%", detail: "0 of 20", band: "low", ci: { lower: 0, upper: 16 } },
   siteReadiness: { score: 21, max: 98, on: "14 Jun" },

@@ -2,8 +2,8 @@
 /**
  * S01 part 0 (carry-over from S00 part 4; LLD 8.8.2, T2): the wizard offers the site's own name.
  *
- * In production on 23 Nov 2026, GET /api/brands/name-suggestion?domain=herohomeservices.com.au answered
- * {"name":"Hero Home Services","source":"og:site_name",...}, but a name typed before the domain ("herohomeservices")
+ * In production on 23 Nov 2026, GET /api/brands/name-suggestion?domain=wrenhomeservices.com.au answered
+ * {"name":"Wren Home Services","source":"og:site_name",...}, but a name typed before the domain ("wrenhomeservices")
  * kept the field, and the answer was stored without being shown (wizard-form.tsx before S01: it filled the name only
  * while the field was empty or still the wizard's suggestion). Now the answer is offered beside the name ("Use ..."),
  * and inside the run-together notice next to "Keep". A typed name is never replaced without a click.
@@ -32,11 +32,11 @@ const AUDIT_CONFIG = {
   promptsPerAudit: 10,
 };
 
-/** The production answer for herohomeservices.com.au, 23 Nov 2026 (S01 prompt, Part 0), as recorded. */
+/** The production answer for wrenhomeservices.com.au, 23 Nov 2026 (S01 prompt, Part 0), as recorded. */
 const HERO_ANSWER = {
-  name: "Hero Home Services",
+  name: "Wren Home Services",
   source: "og:site_name",
-  aliases: ["herohomeservices", "HeroHomeServices"],
+  aliases: ["wrenhomeservices", "WrenHomeServices"],
 };
 const NUMBATEK_ANSWER = { name: "NumbaTek IT", source: "title", aliases: [] };
 
@@ -64,22 +64,22 @@ const enterDomain = (value: string) => {
 };
 
 describe("the wizard offers the site's name when the owner typed another", () => {
-  it("herohomeservices typed first: the run-together notice offers 'Hero Home Services' next to Keep", async () => {
+  it("wrenhomeservices typed first: the run-together notice offers 'Wren Home Services' next to Keep", async () => {
     stubRoute(() => Response.json(HERO_ANSWER));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(nameField(), { target: { value: "herohomeservices" } });
-    enterDomain("herohomeservices.com.au");
+    fireEvent.change(nameField(), { target: { value: "wrenhomeservices" } });
+    enterDomain("wrenhomeservices.com.au");
     await waitFor(() => expect(askStatus()).toBe("answered"));
 
     const notice = document.querySelector("[data-name-run-together]");
-    expect(notice).toHaveTextContent("“herohomeservices” is your web address without its spaces.");
-    expect(notice).toHaveTextContent("Use “Hero Home Services” · Keep “herohomeservices”");
+    expect(notice).toHaveTextContent("“wrenhomeservices” is your web address without its spaces.");
+    expect(notice).toHaveTextContent("Use “Wren Home Services” · Keep “wrenhomeservices”");
     // Never replaced without the click, and no second offer under the notice.
-    expect(nameField()).toHaveValue("herohomeservices");
+    expect(nameField()).toHaveValue("wrenhomeservices");
     expect(screen.queryByTestId("wizard-site-name-offer")).toBeNull();
 
     fireEvent.click(screen.getByTestId("wizard-use-site-name"));
-    expect(nameField()).toHaveValue("Hero Home Services");
+    expect(nameField()).toHaveValue("Wren Home Services");
     expect(document.querySelector("[data-name-run-together]")).toBeNull();
     expect(document.querySelector('[data-name-suggested="site"]')).toHaveTextContent(
       "Suggested from your website's name. Edit if it's different.",
@@ -104,8 +104,8 @@ describe("the wizard offers the site's name when the owner typed another", () =>
   it("an empty name is filled as before, and the name equal to the site's offers nothing", async () => {
     stubRoute(() => Response.json(HERO_ANSWER));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    enterDomain("herohomeservices.com.au");
-    await waitFor(() => expect(nameField()).toHaveValue("Hero Home Services"));
+    enterDomain("wrenhomeservices.com.au");
+    await waitFor(() => expect(nameField()).toHaveValue("Wren Home Services"));
     expect(screen.queryByTestId("wizard-site-name-offer")).toBeNull();
     expect(document.querySelector("[data-name-run-together]")).toBeNull();
   });
@@ -113,12 +113,12 @@ describe("the wizard offers the site's name when the owner typed another", () =>
   it("no name from the site: no offer, the notice keeps only Keep", async () => {
     stubRoute(() => Response.json({ name: null, source: null, aliases: [] }));
     render(<WizardForm auditConfig={AUDIT_CONFIG} />);
-    fireEvent.change(nameField(), { target: { value: "herohomeservices" } });
-    enterDomain("herohomeservices.com.au");
+    fireEvent.change(nameField(), { target: { value: "wrenhomeservices" } });
+    enterDomain("wrenhomeservices.com.au");
     await waitFor(() => expect(askStatus()).toBe("answered"));
     expect(screen.queryByTestId("wizard-use-site-name")).toBeNull();
     expect(document.querySelector("[data-name-run-together]")).toHaveTextContent(
-      "Keep “herohomeservices”",
+      "Keep “wrenhomeservices”",
     );
   });
 

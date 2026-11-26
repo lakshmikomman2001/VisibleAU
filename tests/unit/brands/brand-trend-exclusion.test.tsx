@@ -17,8 +17,8 @@ import { visibilityDisplay } from "@/lib/scoring/visibility-display";
 
 const BRAND = {
   id: "brand-1",
-  name: "Hero Home Services",
-  domain: "herohomeservices.com.au",
+  name: "Wren Home Services",
+  domain: "wrenhomeservices.com.au",
   vertical: "tradies",
   region: "au",
   competitors: [],

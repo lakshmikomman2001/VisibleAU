@@ -35,7 +35,7 @@ afterAll(() => vi.unstubAllEnvs());
 function notificationEmails(): Record<string, RenderedEmail> {
   return {
     auditComplete: auditCompleteEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       auditNumber: 36,
       mentionRate: 7.5,
       mentionedCount: 3,
@@ -44,7 +44,7 @@ function notificationEmails(): Record<string, RenderedEmail> {
       auditUrl: `${APP}/audits/a1`,
     }),
     scheduledReport: scheduledReportEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       frequency: "monthly",
       periodLabel: "October 2026",
       audit: { auditNumber: 36, mentionRate: 7.5, mentionedCount: 3, sampleCount: 40 },
@@ -56,40 +56,40 @@ function notificationEmails(): Record<string, RenderedEmail> {
     weeklyDigest: weeklyDigestEmail({
       date: SYDNEY_AFTERNOON,
       brands: [
-        { brandName: "Omega Services", mentionRate: 7.5, mentionedCount: 3, sampleCount: 40 },
+        { brandName: "Yabby Services", mentionRate: 7.5, mentionedCount: 3, sampleCount: 40 },
         { brandName: "Delta Plumbing", mentionRate: null, mentionedCount: 0, sampleCount: 0 },
       ],
     }),
     hallucination: hallucinationAlertEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       auditNumber: 36,
       criticalCount: 1,
       warningCount: 2,
       reviewUrl: `${APP}/brands/b1/trust/hallucinations`,
     }),
     scheduleNeedsConfirmation: scheduleNeedsConfirmationEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       confirmUrl: `${APP}/brands/b1#confirm-business-details`,
     }),
     promptPackFailed: promptPackGenerationFailedEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       brandUrl: `${APP}/brands/b1`,
     }),
     consensus: consensusAlertEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       sourceType: "google_business, yelp",
       discrepancyDetails: "Average consistency score is 52/100 across 4 sources.",
       consensusUrl: `${APP}/brands/b1/trust/consensus`,
     }),
     drift: driftAlertEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       dimension: "Visibility",
       scoreBefore: 20,
       scoreAfter: 8,
       auditUrl: `${APP}/audits/a1`,
     }),
     volatility: volatilityAlertEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       currentScore: 18.4,
       trend: "Three of the five most-cited sources changed since last month.",
       recommendedAction: "Keep your directory listings up to date.",
@@ -169,7 +169,7 @@ describe("details", () => {
 
   it("the digest says 'No successful answers yet', never 0%", () => {
     const { text } = notificationEmails().weeklyDigest;
-    expect(text).toContain("- Omega Services: 8% · 3 of 40 answers");
+    expect(text).toContain("- Yabby Services: 8% · 3 of 40 answers");
     expect(text).toContain("- Delta Plumbing: No successful answers yet");
   });
 
@@ -177,7 +177,7 @@ describe("details", () => {
     const withAudit = notificationEmails().scheduledReport;
     expect(withAudit.text).toContain("Visibility 8% · mentioned in 3 of 40 answers");
     const noAudit = scheduledReportEmail({
-      brandName: "Omega Services",
+      brandName: "Yabby Services",
       frequency: "weekly",
       periodLabel: null,
       audit: null,

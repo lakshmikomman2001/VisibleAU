@@ -10,38 +10,38 @@ function mockBrand(name: string, domain: string): Brand {
 test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompetitors", () => {
   test("F03-01: {brand} placeholder is replaced", async () => {
     const result = expandPrompt("{brand} is great", {
-      brand: mockBrand("Bondi Plumbing", "bondiplumbing.com.au"),
+      brand: mockBrand("Galah Plumbing", "galahplumbing.com.au"),
       competitors: [],
       locations: [],
     });
-    expect(result).toEqual(["Bondi Plumbing is great"]);
+    expect(result).toEqual(["Galah Plumbing is great"]);
   });
 
   test("F03-02: {domain} placeholder is replaced", async () => {
     const result = expandPrompt("Visit {domain}", {
-      brand: mockBrand("Test Brand", "bondiplumbing.com.au"),
+      brand: mockBrand("Test Brand", "galahplumbing.com.au"),
       competitors: [],
       locations: [],
     });
-    expect(result).toEqual(["Visit bondiplumbing.com.au"]);
+    expect(result).toEqual(["Visit galahplumbing.com.au"]);
   });
 
   test("F03-03: {competitors} with entries → joined list", async () => {
     const result = expandPrompt("{brand} vs {competitors}", {
-      brand: mockBrand("Bondi Plumbing", "test.com.au"),
+      brand: mockBrand("Galah Plumbing", "test.com.au"),
       competitors: ["Eastern Plumbing Co", "City Pipes"],
       locations: [],
     });
-    expect(result).toEqual(["Bondi Plumbing vs Eastern Plumbing Co, City Pipes"]);
+    expect(result).toEqual(["Galah Plumbing vs Eastern Plumbing Co, City Pipes"]);
   });
 
   test('F03-04: {competitors} empty → "other local providers" (CB3 fix)', async () => {
     const result = expandPrompt("{brand} vs {competitors}", {
-      brand: mockBrand("Bondi Plumbing", "test.com.au"),
+      brand: mockBrand("Galah Plumbing", "test.com.au"),
       competitors: [],
       locations: [],
     });
-    expect(result).toEqual(["Bondi Plumbing vs other local providers"]);
+    expect(result).toEqual(["Galah Plumbing vs other local providers"]);
   });
 
   test('F03-05: {location} expands to "Suburb, STATE" format (CA3 fix)', async () => {
@@ -66,11 +66,11 @@ test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompeti
 
   test("F03-07: no-placeholder template with empty locations still returns [expanded]", async () => {
     const result = expandPrompt("{brand} is great", {
-      brand: mockBrand("Bondi Plumbing", "test.com.au"),
+      brand: mockBrand("Galah Plumbing", "test.com.au"),
       competitors: [],
       locations: [],
     });
-    expect(result).toEqual(["Bondi Plumbing is great"]);
+    expect(result).toEqual(["Galah Plumbing is great"]);
   });
 
   test("F03-08: location without colon passes through unchanged", async () => {
@@ -83,7 +83,7 @@ test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompeti
   });
 
   // A brand name without the suburb: since 3eea59c (22 Oct) expandPrompt validates each question,
-  // and lib/prompts/validate-question.ts drops one that names the place twice ("Bondi Plumbing ...
+  // and lib/prompts/validate-question.ts drops one that names the place twice ("Galah Plumbing ...
   // near Bondi" came back as []).
   test("F03-09: all 4 placeholders replaced in one template", async () => {
     const result = expandPrompt("{brand} ({domain}) vs {competitors} near {location}", {
@@ -113,10 +113,10 @@ test.describe("F03: expandPrompt — placeholders, formatLocation, formatCompeti
 
   test("F03-11: {brand} used multiple times in one template (global replace)", async () => {
     const result = expandPrompt("{brand} — call {brand} today", {
-      brand: mockBrand("Bondi Plumbing", "test.com.au"),
+      brand: mockBrand("Galah Plumbing", "test.com.au"),
       competitors: [],
       locations: [],
     });
-    expect(result).toEqual(["Bondi Plumbing — call Bondi Plumbing today"]);
+    expect(result).toEqual(["Galah Plumbing — call Galah Plumbing today"]);
   });
 });

@@ -5,8 +5,8 @@ describe("BrandCard component", () => {
     const brand = {
       id: "brand-uuid-1",
       organizationId: "org-uuid-1",
-      name: "Bondi Plumbing",
-      domain: "bondiplumbing.com.au",
+      name: "Galah Plumbing",
+      domain: "galahplumbing.com.au",
       vertical: "tradies" as const,
       region: "au" as const,
       competitors: [],
@@ -16,8 +16,8 @@ describe("BrandCard component", () => {
       deletedAt: null,
     };
 
-    expect(brand.name).toBe("Bondi Plumbing");
-    expect(brand.domain).toBe("bondiplumbing.com.au");
+    expect(brand.name).toBe("Galah Plumbing");
+    expect(brand.domain).toBe("galahplumbing.com.au");
     expect(brand.vertical).toBe("tradies");
   });
 

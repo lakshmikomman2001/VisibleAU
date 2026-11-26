@@ -1,7 +1,7 @@
 /**
  * Google AI surfaces, Phase 1, parts 0 and 2 -- the real pipeline on a real database, with DataForSEO answered
  * by its REAL 11 Nov responses (tests/helpers/dataforseo-recorded.ts; no call leaves the machine) and the four
- * engines by MockLLM. The questions are the sample's own four (two everyday, two naming Omega Services), for
+ * engines by MockLLM. The questions are the sample's own four (two everyday, two naming Yabby Services), for
  * a brand set up as Omega was: Norwest NSW, an operator-set postcode of 2153.
  *
  * Proves:
@@ -77,7 +77,7 @@ async function newAudit(opts: { name?: string } = {}) {
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack,
       prompt_pack_generator_version, classification_status, classification, categories, audience,
       category_confirmed_at, suburb, state, country, location_mode, location_confirmed_at)
-    VALUES (${brandId}, ${ORG}, ${opts.name ?? "Omega Services"}, 'omegaservices.com.au', 'tradies', 'au',
+    VALUES (${brandId}, ${ORG}, ${opts.name ?? "Yabby Services"}, 'yabbyservices.com.au', 'tradies', 'au',
       ARRAY['NSW:Norwest']::text[], ${client.json(QUESTIONS)}, ${PROMPT_GENERATOR_VERSION}, 'complete',
       ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
       ARRAY['trades_plumbing']::text[], 'households', now(), 'Norwest', 'NSW', 'Australia', 'fixed', now())

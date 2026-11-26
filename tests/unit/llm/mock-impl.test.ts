@@ -22,7 +22,7 @@ describe("MockLLM", () => {
       prompt: "Best plumber near Bondi Beach",
       task: "brand_mention",
     });
-    expect(result.response).toContain("Bondi Plumbing");
+    expect(result.response).toContain("Galah Plumbing");
   });
 
   it("falls back to first fixture when no pattern matches", async () => {
@@ -42,7 +42,7 @@ describe("MockLLM", () => {
       prompt: "Best plumber in Sydney",
       task: "brand_mention",
     });
-    expect(result.response).not.toContain("Bondi Plumbing");
+    expect(result.response).not.toContain("Galah Plumbing");
   });
 
   it("partial_failure throws on ~40% of calls", async () => {
@@ -79,6 +79,6 @@ describe("MockLLM", () => {
       task: "brand_mention",
       metadata: { mockScenario: "no_mention" },
     });
-    expect(result.response).not.toContain("Bondi Plumbing");
+    expect(result.response).not.toContain("Galah Plumbing");
   });
 });

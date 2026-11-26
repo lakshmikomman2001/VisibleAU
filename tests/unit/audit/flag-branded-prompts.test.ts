@@ -20,7 +20,7 @@ import {
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import type { BrandClassification } from "@/lib/types/brand";
 
-const BONDI_BRAND = { name: "Bondi Plumbing", domain: "bondiplumbing.com.au" };
+const BONDI_BRAND = { name: "Galah Plumbing", domain: "galahplumbing.com.au" };
 // Vunnara Build 1, Part C.6: classification.competitors is the
 // classifier's raw, unconfirmed guess -- buildEnrichedPrompts' "vs"
 // prompts now only ever come from the USER-CONFIRMED brands.competitors
@@ -40,9 +40,9 @@ const BONDI_CLASSIFICATION: BrandClassification = {
   ],
 };
 
-// Omega Services' real, prod-verified classification shape (Part 2
+// Yabby Services' real, prod-verified classification shape (Part 2
 // addendum, diag-0063): no user-confirmed competitors, 2+ intentSignals.
-const OMEGA_BRAND = { name: "Omega Services", domain: "omega-services.com.au" };
+const OMEGA_BRAND = { name: "Yabby Services", domain: "yabby-services.com.au" };
 const OMEGA_CLASSIFICATION: BrandClassification = {
   category: "trades_general_services",
   buyerType: "smb",
@@ -54,11 +54,11 @@ const OMEGA_CLASSIFICATION: BrandClassification = {
 
 describe("isBrandedPrompt — direct mentions", () => {
   it("flags a prompt naming the brand", () => {
-    expect(isBrandedPrompt("Is Bondi Plumbing a reputable tradesperson?", BONDI_BRAND)).toBe(true);
+    expect(isBrandedPrompt("Is Galah Plumbing a reputable tradesperson?", BONDI_BRAND)).toBe(true);
   });
 
   it("flags a prompt containing the brand's domain ({domain}-only templates)", () => {
-    expect(isBrandedPrompt("Visit bondiplumbing.com.au for a free quote.", BONDI_BRAND)).toBe(true);
+    expect(isBrandedPrompt("Visit galahplumbing.com.au for a free quote.", BONDI_BRAND)).toBe(true);
   });
 
   it("does not flag a neutral category-template prompt", () => {
@@ -75,7 +75,7 @@ describe("isBrandedPrompt — direct mentions", () => {
   });
 });
 
-describe("isBrandedPrompt — Omega Services' real shape (Part 2 addendum)", () => {
+describe("isBrandedPrompt — Yabby Services' real shape (Part 2 addendum)", () => {
   const enriched = buildEnrichedPrompts(OMEGA_CLASSIFICATION, OMEGA_BRAND.name);
 
   // Vunnara hotfix 2 (19 Oct, post-609e323), item 3: the 2 intent-
@@ -130,16 +130,16 @@ describe("isBrandedPrompt — Bondi's legacy prompts are branded", () => {
     expect(enriched.length).toBeGreaterThan(0);
     for (const text of enriched) {
       // Bondi has real competitors and the enriched pool always names
-      // "Bondi Plumbing" itself in every non-"vs" prompt too -- but the
+      // "Galah Plumbing" itself in every non-"vs" prompt too -- but the
       // "vs" prompts name the competitor, not Bondi, so check each on
       // its own merits rather than assuming every enriched prompt is
       // branded by construction (that was the OLD, now-deleted rule).
       const namesBondiOrDomain = isBrandedPrompt(text, BONDI_BRAND);
-      const namesBondi = /bondi plumbing/i.test(text);
+      const namesBondi = /galah plumbing/i.test(text);
       if (namesBondi) expect(namesBondiOrDomain).toBe(true);
     }
     // At least the "alternatives"/"popular" prompts, which always name
-    // Bondi Plumbing directly, must be flagged.
+    // Galah Plumbing directly, must be flagged.
     const popular = enriched.find((t) => t.includes("popular"));
     const alternatives = enriched.find((t) => t.includes("alternatives"));
     expect(popular && isBrandedPrompt(popular, BONDI_BRAND)).toBe(true);

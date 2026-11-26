@@ -155,7 +155,7 @@ describe("the client portal page on a plan without it", () => {
                 id: "i1",
                 inviteToken: "tok_abcdefghijklmnop",
                 brandId: "b1",
-                brandName: "Omega Services",
+                brandName: "Yabby Services",
                 inviteeName: "Harbour client",
                 status: "active",
                 expiresAt: null,

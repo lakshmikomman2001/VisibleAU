@@ -41,7 +41,7 @@ beforeAll(async () => {
   // (mirrors the actual signup flow)
   const orgPayload1 = orgCreatedPayload({
     clerkOrgId: TEST_USER_1.clerkOrgId,
-    name: "Acceptance Org 1 — Bondi Plumbing",
+    name: "Acceptance Org 1 — Galah Plumbing",
     region: "au",
     tier: "growth",
   });
@@ -129,8 +129,8 @@ describe("Sprint 1 §11 Acceptance Criteria — Backend", () => {
     const { status, body } = await post(
       "/api/brands",
       {
-        name: "Bondi Plumbing",
-        domain: "bondiplumbing.com.au",
+        name: "Galah Plumbing",
+        domain: "galahplumbing.com.au",
         vertical: "tradies",
         competitors: ["rival.com.au"],
         primaryRegions: ["NSW:Bondi"],
@@ -141,7 +141,7 @@ describe("Sprint 1 §11 Acceptance Criteria — Backend", () => {
     expect(status).toBe(201);
     const { brand } = body as { brand: Brand };
     createdBrandId = brand.id;
-    expect(brand.name).toBe("Bondi Plumbing");
+    expect(brand.name).toBe("Galah Plumbing");
     expect(brand.organizationId).toBe(org1Id);
     expect(brand.region).toBe("au"); // inherited from org
   });
@@ -152,7 +152,7 @@ describe("Sprint 1 §11 Acceptance Criteria — Backend", () => {
     const brands = body as Brand[];
     const found = brands.find((b) => b.id === createdBrandId);
     expect(found).toBeDefined();
-    expect(found!.name).toBe("Bondi Plumbing");
+    expect(found!.name).toBe("Galah Plumbing");
   });
 
   it("§11: Brand can be retrieved individually (GET /api/brands/[id])", async () => {
@@ -166,12 +166,12 @@ describe("Sprint 1 §11 Acceptance Criteria — Backend", () => {
   it("§11: Brand can be updated inline (PATCH → 200 + brand body)", async () => {
     const { status, body } = await patch(
       `/api/brands/${createdBrandId}`,
-      { name: "Bondi Plumbing Services" },
+      { name: "Galah Plumbing Services" },
       token1,
     );
     expect(status).toBe(200);
     const { brand } = body as { brand: Brand };
-    expect(brand.name).toBe("Bondi Plumbing Services");
+    expect(brand.name).toBe("Galah Plumbing Services");
   });
 
   it("§11: Region is pinned (PATCH cannot change region)", async () => {

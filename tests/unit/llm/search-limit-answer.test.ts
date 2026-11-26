@@ -52,13 +52,13 @@ describe("a 6th search over the limit", () => {
       ...fiveSearches,
       ...anthropicSearchError("srvtoolu_6", "max_uses_exceeded"),
       anthropicCitedText(
-        "Omega Services is a well-reviewed plumber in Norwest.",
+        "Yabby Services is a well-reviewed plumber in Norwest.",
         "https://site1.com.au/",
       ),
     ]);
 
     expect(output.response).toBe(
-      "I'll search for plumbers near Norwest.\nOmega Services is a well-reviewed plumber in Norwest.",
+      "I'll search for plumbers near Norwest.\nYabby Services is a well-reviewed plumber in Norwest.",
     );
     expect(output.stopReason).toBe("end_turn");
     expect(output.citedUrls?.[0]).toBe("https://site1.com.au/");
@@ -77,7 +77,7 @@ describe("a 6th search over the limit", () => {
   it("a search that broke for any other reason still fails the call, even with text after it", async () => {
     const err = await claude([
       ...anthropicSearchError("srvtoolu_1", "unavailable"),
-      anthropicText("Based on what I know, Omega Services is a plumber."),
+      anthropicText("Based on what I know, Yabby Services is a plumber."),
     ]).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(SearchToolError);

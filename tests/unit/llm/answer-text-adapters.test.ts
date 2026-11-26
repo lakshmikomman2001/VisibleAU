@@ -21,7 +21,7 @@ vi.mock("@/lib/llm/cache", () => ({
   AUDIT_RETRY_CACHE_WINDOW_MS: 60 * 60 * 1000,
 }));
 
-const BRAND = { name: "Omega Services", domain: "omegaservices.com.au" };
+const BRAND = { name: "Yabby Services", domain: "yabbyservices.com.au" };
 
 describe("the real adapters store the joined text (canned provider responses, real AI SDK)", () => {
   beforeEach(() => {
@@ -48,16 +48,16 @@ describe("the real adapters store the joined text (canned provider responses, re
   it("Claude: text before a search ending in a letter, then the brand name: a newline between, and the mention found", async () => {
     const output = await claude([
       anthropicText("I'll search for plumbers near Norwest"),
-      ...anthropicSearch("srvtoolu_1", ["https://omegaservices.com.au/"]),
+      ...anthropicSearch("srvtoolu_1", ["https://yabbyservices.com.au/"]),
       anthropicCitedText(
-        "Omega Services is a well-reviewed plumber",
-        "https://omegaservices.com.au/",
+        "Yabby Services is a well-reviewed plumber",
+        "https://yabbyservices.com.au/",
       ),
       anthropicText(" based in Norwest."),
     ]);
 
     expect(output.response).toBe(
-      "I'll search for plumbers near Norwest\nOmega Services is a well-reviewed plumber based in Norwest.",
+      "I'll search for plumbers near Norwest\nYabby Services is a well-reviewed plumber based in Norwest.",
     );
     expect((await detectBrandMention(output.response, BRAND)).found).toBe(true);
   });
@@ -81,7 +81,7 @@ describe("the real adapters store the joined text (canned provider responses, re
   });
 
   it("Claude: an answer with no search, one block, is stored byte for byte", async () => {
-    const only = "Here are three options:\n\n1. **Omega Services** - Norwest\n2. Jim's Plumbing\n";
+    const only = "Here are three options:\n\n1. **Yabby Services** - Norwest\n2. Jim's Plumbing\n";
     const output = await claude([anthropicText(only)]);
     expect(output.response).toBe(only);
   });
@@ -93,7 +93,7 @@ describe("the real adapters store the joined text (canned provider responses, re
         geminiResponse(
           [
             { text: "Here are some plumbers in Norwest:\n\n" },
-            { text: "*   **Omega Services** - 24/7 call-outs." },
+            { text: "*   **Yabby Services** - 24/7 call-outs." },
           ],
           "STOP",
           [{ uri: `${GOOGLE_REDIRECT}a`, title: "hipages.com.au" }],
@@ -109,7 +109,7 @@ describe("the real adapters store the joined text (canned provider responses, re
     });
 
     expect(output.response).toBe(
-      "Here are some plumbers in Norwest:\n\n*   **Omega Services** - 24/7 call-outs.",
+      "Here are some plumbers in Norwest:\n\n*   **Yabby Services** - 24/7 call-outs.",
     );
   });
 });

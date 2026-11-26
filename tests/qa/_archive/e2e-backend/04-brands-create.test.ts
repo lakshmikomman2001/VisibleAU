@@ -24,8 +24,8 @@ describe("POST /api/brands", () => {
   let orgId: string;
 
   const validBrand = {
-    name: "Bondi Plumbing",
-    domain: "bondiplumbing.com.au",
+    name: "Galah Plumbing",
+    domain: "galahplumbing.com.au",
     vertical: "tradies",
     competitors: ["competitor1.com.au"],
     primaryRegions: ["NSW:Bondi", "NSW:Coogee"],
@@ -68,8 +68,8 @@ describe("POST /api/brands", () => {
     const { brand } = body as { brand: Brand };
 
     expect(brand.id).toBeDefined();
-    expect(brand.name).toBe("Bondi Plumbing");
-    expect(brand.domain).toBe("bondiplumbing.com.au");
+    expect(brand.name).toBe("Galah Plumbing");
+    expect(brand.domain).toBe("galahplumbing.com.au");
     expect(brand.vertical).toBe("tradies");
     expect(brand.organizationId).toBe(orgId);
     expect(brand.deletedAt).toBeNull();
@@ -93,12 +93,12 @@ describe("POST /api/brands", () => {
   it("strips https:// protocol and trailing slash from domain", async () => {
     const { status, body } = await post(
       "/api/brands",
-      { ...validBrand, domain: "https://bondiplumbing.com.au/" },
+      { ...validBrand, domain: "https://galahplumbing.com.au/" },
       token,
     );
     expect(status).toBe(201);
     const { brand } = body as { brand: Brand };
-    expect(brand.domain).toBe("bondiplumbing.com.au");
+    expect(brand.domain).toBe("galahplumbing.com.au");
   });
 
   it("stores competitors and primaryRegions correctly", async () => {

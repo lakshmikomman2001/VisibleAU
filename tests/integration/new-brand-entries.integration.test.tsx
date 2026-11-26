@@ -132,7 +132,7 @@ beforeAll(async () => {
   // Growth has one brand: this workspace has it, plus one it deleted.
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, deleted_at) VALUES
-      (${BRAND}, ${ORG}, 'Bondi Plumbing', ${`bondi-${RUN}.example.com.au`}, 'tradies', 'au', ${[]}, NULL),
+      (${BRAND}, ${ORG}, 'Galah Plumbing', ${`bondi-${RUN}.example.com.au`}, 'tradies', 'au', ${[]}, NULL),
       (${DELETED_BRAND}, ${ORG}, 'Old Plumbing', ${`old-${RUN}.example.com.au`}, 'tradies', 'au', ${[]}, now())
   `;
   currentUser.value = {

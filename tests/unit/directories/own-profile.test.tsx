@@ -82,7 +82,7 @@ describe("likelyOwnProfileUrl", () => {
     expect(
       likelyOwnProfileUrl(
         localsearch().profileUrlPattern,
-        ["https://www.localsearch.com.au/profile/omega-plumbing/gosford-nsw"],
+        ["https://www.localsearch.com.au/profile/yabby-plumbing/gosford-nsw"],
         omega,
       ),
     ).toBeNull();

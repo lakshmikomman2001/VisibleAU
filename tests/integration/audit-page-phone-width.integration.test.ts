@@ -43,10 +43,10 @@ vi.mock("next/navigation", () => ({
 const ENGINES = ["chatgpt", "claude", "gemini", "perplexity"];
 const WIDTHS = [320, 375, 1280];
 // A long name and a long metadata line are the realistic worst case.
-const BRAND_NAME = "Omega Services Plumbing & Gas Fitting";
+const BRAND_NAME = "Yabby Services Plumbing & Gas Fitting";
 
 const RANKED_MENTION =
-  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Omega Services Plumbing & Gas Fitting, fast call-outs.\n5. Delta Plumbing";
+  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Yabby Services Plumbing & Gas Fitting, fast call-outs.\n5. Delta Plumbing";
 const NO_MENTION = "Good local options: Alpha Plumbing, Beta Plumbing and Gamma Plumbing.";
 
 const RESET_CSS = `
@@ -76,7 +76,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack, prompt_pack_generator_version, classification_status, classification, category_confirmed_at, location_mode)
-    VALUES (${BRAND_ID}, ${ORG_ID}, ${BRAND_NAME}, 'omegaservicesplumbing.example.com.au', 'tradies', 'au',
+    VALUES (${BRAND_ID}, ${ORG_ID}, ${BRAND_NAME}, 'yabbyservicesplumbing.example.com.au', 'tradies', 'au',
       ARRAY[]::text[], ${client.json(["q"])}, ${PROMPT_GENERATOR_VERSION}, 'complete',
       ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
       now(), 'fixed')
@@ -98,7 +98,7 @@ beforeAll(async () => {
           INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, is_branded_prompt, mention_verification, sentiment_label, context_label, response_text, response_snippet, cited_sources, llm_model, llm_cost_usd)
           VALUES (${auditId}, ${engine}, ${`Who is a reliable plumber near Bondi Junction? (${index})`}, ${index}, 1, ${mentioned}, false,
             ${mentioned ? "verified_location" : null}, 'neutral', 'absent', ${text}, ${text.slice(0, 500)},
-            ${client.json(mentioned ? [{ url: "https://hipages.com.au/connect/omegaservicesplumbingandgasfitting/service/123456", domain: "hipages.com.au" }] : [])},
+            ${client.json(mentioned ? [{ url: "https://hipages.com.au/connect/yabbyservicesplumbingandgasfitting/service/123456", domain: "hipages.com.au" }] : [])},
             'test-model', '0.010000')
         `;
       }
@@ -106,7 +106,7 @@ beforeAll(async () => {
   }
   await client`
     INSERT INTO engine_call_failures (audit_id, organization_id, engine, prompt, prompt_index, is_branded_prompt, error_class, error_message, attempts, latency_ms, cost_usd)
-    VALUES (${FINISHED_AUDIT}, ${ORG_ID}, 'claude', 'Is Omega Services popular in Bondi?', 12, true, 'other', 'Bad request', 1, 1100, '0')
+    VALUES (${FINISHED_AUDIT}, ${ORG_ID}, 'claude', 'Is Yabby Services popular in Bondi?', 12, true, 'other', 'Bad request', 1, 1100, '0')
   `;
 
   browser = await chromium.launch();

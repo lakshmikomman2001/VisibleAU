@@ -48,7 +48,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omegaservices.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'yabbyservices.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
   `;
   // The running audit: 13 questions x 4 engines x 1 run = 52 answers,
   // 18 citations + 2 failures = 20 answered so far.
@@ -84,7 +84,7 @@ beforeAll(async () => {
     INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label, llm_cost_usd)
     VALUES (
       ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt verified', 90, 1, true, 'verified_domain',
-      ${"**3. Omega Services**  \n- Licensed and insured, NSW licence 361573C; a strong local option."},
+      ${"**3. Yabby Services**  \n- Licensed and insured, NSW licence 900417C; a strong local option."},
       'positive', 'listed', '0'
     )
   `;
@@ -92,7 +92,7 @@ beforeAll(async () => {
     INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, mention_verification, response_text, sentiment_label, context_label, llm_cost_usd)
     VALUES (
       ${AUDIT_ID}, 'chatgpt', 'prompt chatgpt unverified', 91, 1, true, 'unverified',
-      ${"Omega Services operates somewhere in New South Wales, among others."},
+      ${"Yabby Services operates somewhere in New South Wales, among others."},
       'neutral', 'absent', '0'
     )
   `;

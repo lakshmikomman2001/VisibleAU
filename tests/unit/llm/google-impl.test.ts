@@ -238,7 +238,7 @@ describe("GoogleImpl -- grounding sources keep their real site (audit reliabilit
             sourceType: "url",
             id: "1",
             url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
-            title: "omegaservices.com.au",
+            title: "yabbyservices.com.au",
           },
         ],
       }),
@@ -255,7 +255,7 @@ describe("GoogleImpl -- grounding sources keep their real site (audit reliabilit
     expect(result.citedUrls).toEqual([
       {
         url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
-        domain: "omegaservices.com.au",
+        domain: "yabbyservices.com.au",
       },
     ]);
   });

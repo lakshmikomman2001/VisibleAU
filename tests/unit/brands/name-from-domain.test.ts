@@ -13,15 +13,15 @@ import { pluralise } from "@/lib/format/pluralise";
 
 describe("readableNameFromDomain", () => {
   it.each([
-    ["hero-home-services.com.au", "Hero Home Services"],
+    ["wren-home-services.com.au", "Wren Home Services"],
     ["https://www.smith-and-jones.com.au/contact", "Smith and Jones"],
-    ["bondi_plumbing.com.au", "Bondi Plumbing"],
+    ["galah_plumbing.com.au", "Galah Plumbing"],
   ])("%s -> %s", (domain, name) => {
     expect(readableNameFromDomain(domain)).toBe(name);
   });
 
   it.each([
-    "herohomeservices.com.au",
+    "wrenhomeservices.com.au",
     "omega.com.au",
     "",
   ])("%s: no guess (the words don't show, or one word)", (domain) => {
@@ -29,23 +29,23 @@ describe("readableNameFromDomain", () => {
   });
 
   it("domainLabel strips the scheme, www and the suffix", () => {
-    expect(domainLabel("https://www.HeroHomeServices.com.au/x")).toBe("herohomeservices");
+    expect(domainLabel("https://www.WrenHomeServices.com.au/x")).toBe("wrenhomeservices");
   });
 });
 
 describe("isRunTogetherDomainName", () => {
   it("the bare label as the name is asked about", () => {
-    expect(isRunTogetherDomainName("herohomeservices", "herohomeservices.com.au")).toBe(true);
-    expect(isRunTogetherDomainName("HeroHomeServices", "https://herohomeservices.com.au")).toBe(
+    expect(isRunTogetherDomainName("wrenhomeservices", "wrenhomeservices.com.au")).toBe(true);
+    expect(isRunTogetherDomainName("WrenHomeServices", "https://wrenhomeservices.com.au")).toBe(
       true,
     );
   });
 
   it.each([
-    ["Hero Home Services", "herohomeservices.com.au"],
+    ["Wren Home Services", "wrenhomeservices.com.au"],
     ["Omega", "omega.com.au"],
     ["plumbers", "plumbers.com.au"],
-    ["herohomeservices", "otherdomain.com.au"],
+    ["wrenhomeservices", "otherdomain.com.au"],
   ])("%s for %s is not", (name, domain) => {
     expect(isRunTogetherDomainName(name, domain)).toBe(false);
   });

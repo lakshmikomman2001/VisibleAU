@@ -45,7 +45,7 @@ beforeAll(async () => {
   `;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, location_mode, location_confirmed_at)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Hero Home Services', 'hero.example.com.au', 'tradies', 'au', ARRAY['NSW:Yennora']::text[], 'Yennora', 'NSW', 'fixed', now())
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Wren Home Services', 'hero.example.com.au', 'tradies', 'au', ARRAY['NSW:Yennora']::text[], 'Yennora', 'NSW', 'fixed', now())
   `;
 }, 30_000);
 

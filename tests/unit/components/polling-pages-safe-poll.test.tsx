@@ -266,7 +266,7 @@ describe("the sample audit's running page (public, the lead funnel)", () => {
 function reportBody(pdfUrl: string | null) {
   return {
     id: "report-1",
-    headline: "Omega Services: week 44",
+    headline: "Yabby Services: week 44",
     narrativeText: "Visibility held steady this week.",
     periodLabel: "2026-W44",
     reportType: "weekly",
@@ -380,7 +380,7 @@ describe("a report's page while its PDF generates", () => {
 function reportRow(pdfUrl: string | null) {
   return {
     id: "report-1",
-    headline: "Omega Services: week 44",
+    headline: "Yabby Services: week 44",
     periodLabel: "2026-W44",
     reportType: "weekly",
     pdfUrl,

@@ -25,18 +25,18 @@ test.describe("F04: Brand Mention Detection (Sprint 2)", () => {
     const fp = path.join(process.cwd(), "lib/llm/mock-responses/chatgpt/happy_path.json");
     const data = JSON.parse(fs.readFileSync(fp, "utf-8"));
     const hasPlumber = data.some((d: { response: string }) =>
-      d.response.toLowerCase().includes("bondi plumbing"),
+      d.response.toLowerCase().includes("galah plumbing"),
     );
     expect(hasPlumber).toBe(true);
   });
 
-  test("F04-04: no_mention fixture does NOT contain Bondi Plumbing", async () => {
+  test("F04-04: no_mention fixture does NOT contain Galah Plumbing", async () => {
     const fs = require("node:fs");
     const path = require("node:path");
     const fp = path.join(process.cwd(), "lib/llm/mock-responses/chatgpt/no_mention.json");
     const data = JSON.parse(fs.readFileSync(fp, "utf-8"));
     const hasBrand = data.some((d: { response: string }) =>
-      d.response.toLowerCase().includes("bondi plumbing"),
+      d.response.toLowerCase().includes("galah plumbing"),
     );
     expect(hasBrand).toBe(false);
   });

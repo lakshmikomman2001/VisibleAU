@@ -80,7 +80,7 @@ async function rejection(promise: Promise<unknown>): Promise<IncompleteAnswerErr
 const paused = anthropicMessage(
   [
     anthropicText("I'll search for plumbers near Norwest."),
-    ...anthropicSearch("srvtoolu_1", ["https://omegaservices.com.au/"]),
+    ...anthropicSearch("srvtoolu_1", ["https://yabbyservices.com.au/"]),
   ],
   "pause_turn",
 );
@@ -92,8 +92,8 @@ describe("Claude pause_turn: the paused turn is sent back to carry on", () => {
       anthropicMessage(
         [
           anthropicCitedText(
-            "Omega Services is a well-reviewed plumber in Norwest.",
-            "https://omegaservices.com.au/",
+            "Yabby Services is a well-reviewed plumber in Norwest.",
+            "https://yabbyservices.com.au/",
           ),
         ],
         "end_turn",
@@ -115,13 +115,13 @@ describe("Claude pause_turn: the paused turn is sent back to carry on", () => {
           {
             type: "web_search_tool_result",
             tool_use_id: "srvtoolu_1",
-            content: [{ url: "https://omegaservices.com.au/", encrypted_content: "enc" }],
+            content: [{ url: "https://yabbyservices.com.au/", encrypted_content: "enc" }],
           },
         ],
       },
     ]);
     expect(output.response).toBe(
-      "I'll search for plumbers near Norwest.\nOmega Services is a well-reviewed plumber in Norwest.",
+      "I'll search for plumbers near Norwest.\nYabby Services is a well-reviewed plumber in Norwest.",
     );
     expect(output.stopReason).toBe("end_turn");
     expect(output.truncated).toBe(false);
@@ -179,12 +179,12 @@ describe("every other stop reason", () => {
   it("Claude end_turn: complete, its stop reason stored, cached", async () => {
     vi.stubGlobal(
       "fetch",
-      cannedFetch([anthropicMessage([anthropicText("Omega Services is good.")], "end_turn", 0)])
+      cannedFetch([anthropicMessage([anthropicText("Yabby Services is good.")], "end_turn", 0)])
         .fetchStub,
     );
     const output = await claude();
     expect(output).toMatchObject({
-      response: "Omega Services is good.",
+      response: "Yabby Services is good.",
       stopReason: "end_turn",
       truncated: false,
     });
@@ -195,12 +195,12 @@ describe("every other stop reason", () => {
     vi.stubGlobal(
       "fetch",
       cannedFetch([
-        anthropicMessage([anthropicText("Omega Services is a plumber in")], "max_tokens", 0),
+        anthropicMessage([anthropicText("Yabby Services is a plumber in")], "max_tokens", 0),
       ]).fetchStub,
     );
     const output = await claude();
     expect(output).toMatchObject({
-      response: "Omega Services is a plumber in",
+      response: "Yabby Services is a plumber in",
       stopReason: "max_tokens",
       truncated: true,
     });
@@ -243,14 +243,14 @@ describe("every other stop reason", () => {
 
   it("Gemini MAX_TOKENS: kept, flagged as truncated, never cached", async () => {
     const output = await gemini(
-      geminiResponse([{ text: "Omega Services is a plumber in" }], "MAX_TOKENS"),
+      geminiResponse([{ text: "Yabby Services is a plumber in" }], "MAX_TOKENS"),
     );
     expect(output).toMatchObject({ stopReason: "MAX_TOKENS", truncated: true });
     expect(setCachedMock).not.toHaveBeenCalled();
   });
 
   it("Gemini STOP: complete", async () => {
-    const output = await gemini(geminiResponse([{ text: "Omega Services is good." }], "STOP"));
+    const output = await gemini(geminiResponse([{ text: "Yabby Services is good." }], "STOP"));
     expect(output).toMatchObject({ stopReason: "STOP", truncated: false });
   });
 });

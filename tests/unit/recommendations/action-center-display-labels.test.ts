@@ -212,7 +212,7 @@ describe("directory-visibility basis (item 1)", () => {
 describe("entity-profiles priority and title (item 2)", () => {
   const noArticle = {
     status: "ok" as const,
-    data: { articleExists: false, articleUrl: null, query: "Omega Services Australia" },
+    data: { articleExists: false, articleUrl: null, query: "Yabby Services Australia" },
   };
 
   it("a local business that isn't notable for Wikipedia gets Low and a title naming the real steps", () => {

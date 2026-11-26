@@ -19,9 +19,9 @@ import {
 
 function makePage(overrides: Partial<CrawlPage>): CrawlPage {
   return {
-    url: "https://bondiplumbing.com.au/",
+    url: "https://galahplumbing.com.au/",
     statusCode: 200,
-    title: "Bondi Plumbing | Plumber Bondi | Blocked Drains",
+    title: "Galah Plumbing | Plumber Bondi | Blocked Drains",
     textContent: "",
     wordCount: 0,
     excerpt: "",
@@ -34,7 +34,7 @@ function makePage(overrides: Partial<CrawlPage>): CrawlPage {
 
 function makeCrawl(pages: CrawlPage[]): CrawlResult {
   return {
-    domain: "bondiplumbing.com.au",
+    domain: "galahplumbing.com.au",
     pages,
     robotsTxt: null,
     sitemapXml: null,
@@ -68,14 +68,14 @@ describe("⚠️ YY — checkPageSSR: honest content measure, not a byte-ratio",
       <nav>Home About Services Contact</nav>
       <main>Real content paragraph. </main>
       <a href="tel:0290233243">Call us</a>
-      <a href="mailto:info@bondiplumbing.com.au">Email</a>
+      <a href="mailto:info@galahplumbing.com.au">Email</a>
       Book a service, get a quote, contact us today.
       <script type="application/ld+json">{"@type":"LocalBusiness"}</script>
       <footer>Footer links</footer>
     </body></html>`;
 
     const page = makePage({ html, wordCount: 1454 });
-    const result = checkPageSSR(page, "bondiplumbing.com.au");
+    const result = checkPageSSR(page, "galahplumbing.com.au");
 
     expect(result.wordCount).toBe(1454);
     expect(result.contentVerdict).toBe("good");
@@ -87,7 +87,7 @@ describe("⚠️ YY — checkPageSSR: honest content measure, not a byte-ratio",
   it("a genuinely thin/CSR page (little server-rendered content) -> review", () => {
     const html = `<html><head></head><body><div id="root"></div></body></html>`;
     const page = makePage({ html, wordCount: 5 });
-    const result = checkPageSSR(page, "bondiplumbing.com.au");
+    const result = checkPageSSR(page, "galahplumbing.com.au");
 
     expect(result.contentVerdict).toBe("none");
     expect(result.status).toBe("review");
@@ -95,7 +95,7 @@ describe("⚠️ YY — checkPageSSR: honest content measure, not a byte-ratio",
 
   it("a thin-but-not-empty page (some content, below the good bar) -> review, verdict 'thin'", () => {
     const page = makePage({ html: "<html></html>", wordCount: 120 });
-    const result = checkPageSSR(page, "bondiplumbing.com.au");
+    const result = checkPageSSR(page, "galahplumbing.com.au");
 
     expect(result.contentVerdict).toBe("thin");
     expect(result.status).toBe("review");
@@ -103,7 +103,7 @@ describe("⚠️ YY — checkPageSSR: honest content measure, not a byte-ratio",
 
   it("no longer exposes jsDisabledContentPct at all", () => {
     const page = makePage({ wordCount: 1454 });
-    const result = checkPageSSR(page, "bondiplumbing.com.au");
+    const result = checkPageSSR(page, "galahplumbing.com.au");
     expect(result).not.toHaveProperty("jsDisabledContentPct");
   });
 });
@@ -119,7 +119,7 @@ describe("⚠️ YY — the composite Technical Score (scoreContent) is unaffect
       wordCount: 1454,
     });
 
-    const result = await checkSSR("bondiplumbing.com.au", makeCrawl([homepage]));
+    const result = await checkSSR("galahplumbing.com.au", makeCrawl([homepage]));
     expect(result.score).toBe(6); // unchanged scoring path
   });
 
@@ -131,7 +131,7 @@ describe("⚠️ YY — the composite Technical Score (scoreContent) is unaffect
 
   it("regression: Bondi's real content-quality shape is unchanged end to end", async () => {
     const homepage = makePage({ wordCount: 1454, html: "<html><body>x</body></html>" });
-    const result = await checkSSR("bondiplumbing.com.au", makeCrawl([homepage]));
+    const result = await checkSSR("galahplumbing.com.au", makeCrawl([homepage]));
     expect(result.score).toBe(6); // matches task JJ/KK's confirmed 6/6
     expect(result.contentSSR.pages[0].status).toBe("ok"); // now consistent with the real score
   });

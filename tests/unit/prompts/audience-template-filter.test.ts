@@ -73,7 +73,7 @@ describe("Omega's fixture -- 4/3/3, no commercial/fitout wording for its househo
       "households",
       "Norwest, NSW",
       10,
-      "omega-services-real-brand-id",
+      "yabby-services-real-brand-id",
     );
     const counts = { trades_plumbing: 0, trades_electrical: 0, trades_general: 0 };
     for (const t of tagged) counts[t.category as keyof typeof counts]++;
@@ -83,12 +83,12 @@ describe("Omega's fixture -- 4/3/3, no commercial/fitout wording for its househo
   it("no question in Omega's households pack carries commercial/fitout wording", () => {
     const pack = buildPromptPack(
       omegaClassification,
-      "Omega Services",
-      "omegaservices.com.au",
+      "Yabby Services",
+      "yabbyservices.com.au",
       { competitors: [], categories, audience: "households" },
       "Norwest, NSW",
       10,
-      "omega-services-real-brand-id",
+      "yabby-services-real-brand-id",
     );
     for (const text of pack) {
       expect(text).not.toMatch(/commercial fitout/i);

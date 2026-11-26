@@ -60,8 +60,8 @@ beforeAll(async () => {
   client = postgres(TEST_DB_URL, { max: 1 });
 
   await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${TEST_ORG_ID}, 'csi-replace-clerk', 'CSI Replace Org', 'csi-replace') ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand', 'bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_2_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand 2', 'bondiplumbing2.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand', 'galahplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_2_ID}, ${TEST_ORG_ID}, 'CSI Replace Brand 2', 'galahplumbing2.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   for (const [id, num] of [
     [AUDIT_N_ID, 501],
     [AUDIT_N1_ID, 502],

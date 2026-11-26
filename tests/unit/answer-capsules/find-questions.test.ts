@@ -1,6 +1,6 @@
 /**
  * ⚠️ NNN fixed three real bugs in the Answer Capsules detector (task MMM
- * found them live against bondiplumbing.com.au): first-sentence-only
+ * found them live against galahplumbing.com.au): first-sentence-only
  * measurement instead of the real answer, a sibling-walk that silently
  * returned "" on page-builder markup, and a dangling capsuleFinding.
  *
@@ -26,7 +26,7 @@ function words(n: number): string {
 
 function makePage(html: string): CrawlPage {
   return {
-    url: "https://bondiplumbing.com.au/",
+    url: "https://galahplumbing.com.au/",
     statusCode: 200,
     title: "",
     textContent: "",
@@ -181,7 +181,7 @@ describe("⚠️ NNN/OOO — measurement: a tight 20-25 word range, too-short OR
   });
 });
 
-describe("⚠️ OOO — live Bondi reconciliation (real markup shapes, first-block counts verified live against bondiplumbing.com.au)", () => {
+describe("⚠️ OOO — live Bondi reconciliation (real markup shapes, first-block counts verified live against galahplumbing.com.au)", () => {
   function bondiShapedPages(): CrawlPage[] {
     return [
       // "What's your plumbing emergency?" (H3, /emergency-plumber-bondi) --

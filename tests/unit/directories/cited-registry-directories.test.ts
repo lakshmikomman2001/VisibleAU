@@ -5,7 +5,7 @@
  *
  * - NumbaTek IT, audit #52's shape (a general local business): Local Business Guide, Directso, Whereis, LinkedIn,
  *   Nextdoor, Birdeye and Cylex were cited and not shown; now each is, with its count and kind.
- * - Hero Home Services, audit #54's shape (a trades business): the ten relevant directories' figures are what they
+ * - Wren Home Services, audit #54's shape (a trades business): the ten relevant directories' figures are what they
  *   were; a directory appears beside them only when an answer cites it.
  * The audits' own answers are production data (not in the repo); these are answers' cited sources in their shape.
  */
@@ -45,8 +45,8 @@ const HERO = {
   id: "brand-hero",
   region: "au",
   categories: ["trades_general"],
-  name: "Hero Home Services",
-  domain: "herohomeservices.com.au",
+  name: "Wren Home Services",
+  domain: "wrenhomeservices.com.au",
 };
 
 /** Answers shaped like audit #52's: the directories T6 lists, plus pages that are no directory. */
@@ -149,19 +149,19 @@ describe("NumbaTek IT (audit #52's shape): every cited registry directory, with 
 /** Answers shaped like audit #54's: trades marketplaces and the general local directories. */
 const HERO_54 = [
   answer(
-    "https://hipages.com.au/connect/hero-home-services",
+    "https://hipages.com.au/connect/wren-home-services",
     "https://www.yellowpages.com.au/nsw/yennora/hero",
   ),
   answer("https://hipages.com.au/connect/other-handyman"),
   answer(
-    "https://www.oneflare.com.au/b/hero-home-services",
+    "https://www.oneflare.com.au/b/wren-home-services",
     "https://www.localsearch.com.au/profile/hero",
   ),
   answer("https://www.wordofmouth.com.au/reviews/hero"),
   answer(),
 ];
 
-describe("Hero Home Services (audit #54's shape): unchanged unless a new directory is cited", () => {
+describe("Wren Home Services (audit #54's shape): unchanged unless a new directory is cited", () => {
   it("the ten relevant directories, in order, with the counts they had; nothing else", async () => {
     const { results } = await getDirectoryCitationsForAudit(mockTx(HERO_54), "audit-54", HERO);
     expect(results.map((r) => [r.directory.key, r.citedCount, r.relevantToBrand])).toEqual([
@@ -182,7 +182,7 @@ describe("Hero Home Services (audit #54's shape): unchanged unless a new directo
     const before = await getDirectoryCitationsForAudit(mockTx(HERO_54), "audit-54", HERO);
     const withHotfrog = [
       ...HERO_54,
-      answer("https://www.hotfrog.com.au/company/hero-home-services"),
+      answer("https://www.hotfrog.com.au/company/wren-home-services"),
     ];
     const after = await getDirectoryCitationsForAudit(mockTx(withHotfrog), "audit-54", HERO);
     expect(after.results.slice(0, 10).map((r) => [r.directory.key, r.citedCount])).toEqual(
@@ -196,7 +196,7 @@ describe("Hero Home Services (audit #54's shape): unchanged unless a new directo
   it("the advice is what it was: Hotfrog isn't in it", async () => {
     const withHotfrog = [
       ...HERO_54,
-      answer("https://www.hotfrog.com.au/company/hero-home-services"),
+      answer("https://www.hotfrog.com.au/company/wren-home-services"),
     ];
     const evidence = toDirectoryVisibility(
       await getDirectoryCitationsForAudit(mockTx(withHotfrog), "audit-54", HERO),

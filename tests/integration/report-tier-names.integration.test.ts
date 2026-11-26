@@ -24,7 +24,7 @@ vi.mock("@/lib/auth/current-user", () => ({
     email: "someone@tier-names.example.com.au",
     name: "Someone",
     role: "member",
-    organization: { id: ORG, name: "Splice Marketing", region: "au", metadata: {} },
+    organization: { id: ORG, name: "Possum Marketing", region: "au", metadata: {} },
   })),
 }));
 
@@ -46,7 +46,7 @@ async function setFlag(on: boolean) {
 beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
-  await sql`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${ORG}, ${`tn-${ORG}`}, 'Splice Marketing', ${`tn-${ORG}`})`;
+  await sql`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${ORG}, ${`tn-${ORG}`}, 'Possum Marketing', ${`tn-${ORG}`})`;
   for (const [id, role] of [
     [OWNER, "owner"],
     [ANALYST, "analyst"],

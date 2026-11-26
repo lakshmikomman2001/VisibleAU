@@ -22,7 +22,7 @@ const ENGINES = ["chatgpt", "claude"];
 
 const ORGANIC_PROMPT_MENTIONED = "Best plumber in Bondi?";
 const ORGANIC_PROMPT_NOT_MENTIONED = "Who offers emergency plumbing in Sydney?";
-const BRANDED_PROMPT = "Is Bondi Plumbing any good?";
+const BRANDED_PROMPT = "Is Galah Plumbing any good?";
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ organizationId: ORG_ID }),
@@ -44,7 +44,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'bondiplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Galah Plumbing', 'galahplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, completed_at)
@@ -54,7 +54,7 @@ beforeAll(async () => {
   // Organic question, mentioned by chatgpt, not by claude.
   const [mentionedRow] = await client<{ id: string }[]>`
     INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources, response_snippet)
-    VALUES (${AUDIT_ID}, 'chatgpt', ${ORGANIC_PROMPT_MENTIONED}, 1, true, false, ${client.json([])}, 'Bondi Plumbing is great.')
+    VALUES (${AUDIT_ID}, 'chatgpt', ${ORGANIC_PROMPT_MENTIONED}, 1, true, false, ${client.json([])}, 'Galah Plumbing is great.')
     RETURNING id
   `;
   mentionedCitationId = mentionedRow.id;

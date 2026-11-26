@@ -31,7 +31,7 @@ vi.mock("@/lib/auth/current-user", () => ({
           id: USER,
           organizationId: ORG,
           role: who.role,
-          organization: { id: ORG, name: "Splice Marketing", region: "au", metadata: {} },
+          organization: { id: ORG, name: "Possum Marketing", region: "au", metadata: {} },
         }
       : null,
   ),
@@ -59,7 +59,7 @@ beforeAll(async () => {
   process.env.DATABASE_URL = getTestDatabaseUrl();
   process.env.SERVICE_DATABASE_URL = getTestDatabaseUrl();
   for (const [org, name] of [
-    [ORG, "Splice Marketing"],
+    [ORG, "Possum Marketing"],
     [OTHER_ORG, "Other Agency"],
   ] as const) {
     await sql`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${org}, ${`rc-${org}`}, ${name}, ${`rc-${org}`})`;
@@ -72,7 +72,7 @@ beforeAll(async () => {
     INSERT INTO org_members (organization_id, user_id, role, expires_at, accepted_at, is_active)
     VALUES (${ORG}, ${USER}, 'owner', now(), now(), true)
   `;
-  await sql`INSERT INTO brands (id, organization_id, name, domain, vertical, region) VALUES (${BRAND}, ${ORG}, 'Hero Home Services', ${`${BRAND.slice(0, 8)}.com.au`}, 'tradies', 'au')`;
+  await sql`INSERT INTO brands (id, organization_id, name, domain, vertical, region) VALUES (${BRAND}, ${ORG}, 'Wren Home Services', ${`${BRAND.slice(0, 8)}.com.au`}, 'tradies', 'au')`;
   await sql`INSERT INTO brands (id, organization_id, name, domain, vertical, region) VALUES (${OTHER_BRAND}, ${OTHER_ORG}, 'Other Brand', ${`${OTHER_BRAND.slice(0, 8)}.com.au`}, 'tradies', 'au')`;
   await sql`
     INSERT INTO action_items (id, organization_id, brand_id, recommendation_key, dimension, title, action, confidence_label, expected_impact_score, status)
@@ -192,7 +192,7 @@ describe("Agency: saving", () => {
       curated: boolean;
       agencyName: string;
     };
-    expect(view).toMatchObject({ enabled: true, curated: true, agencyName: "Splice Marketing" });
+    expect(view).toMatchObject({ enabled: true, curated: true, agencyName: "Possum Marketing" });
     const res = await prefs("PUT", {
       includeDoneSinceLast: false,
       choices: [{ actionItemId: ITEM, included: false, position: 0, note: XSS }],

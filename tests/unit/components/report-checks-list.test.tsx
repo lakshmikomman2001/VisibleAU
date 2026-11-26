@@ -50,7 +50,7 @@ function panel() {
       brandName="NumbaTek IT"
       basisAuditNumber={52}
       periodLabel="2026-W47"
-      agencyName="Splice Marketing"
+      agencyName="Possum Marketing"
       curated
       whatToDoNext={null}
       tierOptions={(["basic", "standard", "enhanced"] as const).map((tier) => ({

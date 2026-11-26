@@ -21,7 +21,7 @@ import { scoreYoutubePresenceFromChannel } from "@/lib/trust/youtube-auditor";
 import { checkYoutubePresence, parseYoutubeCount } from "@/lib/trust/youtube-channel-lookup";
 import { buildYoutubePresenceAuditRow } from "@/lib/trust/youtube-presence-check";
 
-const HIPAGES = [{ domain: "hipages.com.au", url: "https://hipages.com.au/connect/bondiplumbing" }];
+const HIPAGES = [{ domain: "hipages.com.au", url: "https://hipages.com.au/connect/galahplumbing" }];
 
 describe("isCountedMention -- the audit page's mention (EXCLUDE_UNVERIFIED)", () => {
   it("a verified mention and a legacy row (no verification recorded) count; an unverified name match doesn't", () => {
@@ -49,7 +49,7 @@ describe("computeCitationSourceGroups -- 'Covered' only for a mention the audit 
           mentionVerification: "unverified",
         },
       ],
-      "bondiplumbing.com.au",
+      "galahplumbing.com.au",
       "audit-50",
     );
     expect(group.sourceType).toBe("au_directory");
@@ -67,7 +67,7 @@ describe("computeCitationSourceGroups -- 'Covered' only for a mention the audit 
           mentionVerification: "verified_location",
         },
       ],
-      "bondiplumbing.com.au",
+      "galahplumbing.com.au",
       "audit-50",
     );
     expect(group.brandPresentInSource).toBe(true);
@@ -109,7 +109,7 @@ describe("getLatestAuditCitationSources -- the latest complete audit's own answe
     const result = await getLatestAuditCitationSources(
       txAnswering([
         [{ id: "audit-50", auditNumber: 50, completedAt }],
-        [{ domain: "bondiplumbing.com.au" }],
+        [{ domain: "galahplumbing.com.au" }],
         [
           {
             engine: "chatgpt",
@@ -186,7 +186,7 @@ describe("YouTube -- not found isn't a measured 0, and a hidden count isn't 0", 
             items: [
               {
                 id: "UC_hidden",
-                snippet: { title: "Bondi Plumbing", description: "" },
+                snippet: { title: "Galah Plumbing", description: "" },
                 statistics: { hiddenSubscriberCount: true, videoCount: "12" },
                 contentDetails: { relatedPlaylists: { uploads: "UU_hidden" } },
               },
@@ -197,8 +197,8 @@ describe("YouTube -- not found isn't a measured 0, and a hidden count isn't 0", 
       .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] })));
 
     const outcome = await checkYoutubePresence(
-      "Bondi Plumbing",
-      "bondiplumbing.com.au",
+      "Galah Plumbing",
+      "galahplumbing.com.au",
       "https://www.youtube.com/channel/UC_hidden",
     );
     expect(outcome.status).toBe("confirmed");
@@ -213,7 +213,7 @@ describe("YouTube -- not found isn't a measured 0, and a hidden count isn't 0", 
       new Response(JSON.stringify({ items: [] })),
     );
 
-    const row = await buildYoutubePresenceAuditRow("Bondi Plumbing", "bondiplumbing.com.au");
+    const row = await buildYoutubePresenceAuditRow("Galah Plumbing", "galahplumbing.com.au");
     expect(row.checkStatus).toBe("not_found");
     expect(row.presenceScore).toBeNull();
     expect(row.gaps[0]).toMatch(/No YouTube channel found/);
@@ -226,10 +226,10 @@ describe("ExplainabilityService -- no comparison with other brands nothing measu
       score: 85,
       scoreLabel: "Trust",
       maxScore: 100,
-      context: { brandName: "Bondi Plumbing", dimension: "trust" },
+      context: { brandName: "Galah Plumbing", dimension: "trust" },
     });
     expect(rationale).toBe(
-      "Bondi Plumbing's trust score of 85/100 is strong on the signals it measures.",
+      "Galah Plumbing's trust score of 85/100 is strong on the signals it measures.",
     );
     expect(rationale).not.toMatch(/top tier/i);
   });

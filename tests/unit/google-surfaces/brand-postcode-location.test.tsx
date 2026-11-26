@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * 13 Nov (Sri's walk-through, part 8): Hero Home Services is in Yennora NSW (2161), but its Google block used
+ * 13 Nov (Sri's walk-through, part 8): Wren Home Services is in Yennora NSW (2161), but its Google block used
  * "Sydney NSW ... Results for Sydney NSW, not your suburb" -- no operator postcode, Yennora isn't one of the
  * provider's places, and the app's suburb list has no postcodes. The owner gives the postcode with the
  * suburb now; Google uses it; the operator's postcode is an override; "not your suburb" stays for a

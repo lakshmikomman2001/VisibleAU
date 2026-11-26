@@ -68,7 +68,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega-rl.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'omega-rl.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
   const completedAt = new Date(Date.now() - 3600000);
   const startedAt = new Date(completedAt.getTime() - 3 * 60000);

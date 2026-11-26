@@ -1,10 +1,10 @@
 /**
  * 13 Nov (Sri's walk-through, part 2) -- the name round trip, real DB and routes. Sri renamed
- * "herohomeservices" to "Hero Home Services" while the brand still needed confirmation, and the name
+ * "wrenhomeservices" to "Wren Home Services" while the brand still needed confirmation, and the name
  * looked unchanged. Reproduced: the save itself stores the name (also while confirmation is pending), and
  * the page's heading and breadcrumb read it on the refresh; what didn't follow were the top bar's brand
  * switcher (it reloads its own list on BRANDS_CHANGED_EVENT now, the unit test) and the audit's questions:
- * the frozen pack kept "Is herohomeservices a good choice ...?" -- a rename regenerates it now.
+ * the frozen pack kept "Is wrenhomeservices a good choice ...?" -- a rename regenerates it now.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -74,7 +74,7 @@ beforeAll(async () => {
       INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state,
         location_mode, location_confirmed_at, classification_status, classification, categories, audience,
         category_confirmed_at)
-      VALUES (${id}, ${ORG_ID}, 'herohomeservices', ${`${id.slice(0, 8)}.example.com.au`}, 'tradies', 'au',
+      VALUES (${id}, ${ORG_ID}, 'wrenhomeservices', ${`${id.slice(0, 8)}.example.com.au`}, 'tradies', 'au',
         ARRAY['NSW:Yennora']::text[], 'Yennora', 'NSW', 'fixed', now(), ${status}, ${sql.json(CLASSIFICATION)},
         ${status === "complete" ? sql`ARRAY['trades_plumbing']::text[]` : sql`ARRAY[]::text[]`},
         ${status === "complete" ? "households" : null}, ${status === "complete" ? sql`now()` : null})
@@ -119,20 +119,20 @@ function crumbsOf(node: ReactNode): Array<{ label: string }> | null {
 describe("renaming a brand", () => {
   it("while it still needs confirmation: the name is stored, and the page's heading and breadcrumb read it", async () => {
     const res = await patch(PENDING, {
-      name: "Hero Home Services",
+      name: "Wren Home Services",
       domain: `${PENDING.slice(0, 8)}.example.com.au`,
       vertical: "tradies",
     });
     expect(res.status).toBe(200);
     const [row] = await sql<{ name: string }[]>`SELECT name FROM brands WHERE id = ${PENDING}`;
-    expect(row.name).toBe("Hero Home Services");
+    expect(row.name).toBe("Wren Home Services");
 
     const { default: Page } = await import("@/app/(auth)/brands/[brandId]/page");
     const element = await Page({ params: Promise.resolve({ brandId: PENDING }) } as never);
-    expect(crumbsOf(element)?.at(-1)?.label).toBe("Hero Home Services");
+    expect(crumbsOf(element)?.at(-1)?.label).toBe("Wren Home Services");
     const html = renderToStaticMarkup(element as ReactElement);
-    expect(html).toMatch(/<h1[^>]*>Hero Home Services<\/h1>/);
-    expect(html).not.toContain(">herohomeservices<");
+    expect(html).toMatch(/<h1[^>]*>Wren Home Services<\/h1>/);
+    expect(html).not.toContain(">wrenhomeservices<");
   });
 
   it("a ready brand's questions name it the new way (the pack is regenerated)", async () => {
@@ -143,23 +143,23 @@ describe("renaming a brand", () => {
       `
       )[0];
     const before = await pack();
-    expect(before.prompt_pack.join("\n")).toContain("herohomeservices");
+    expect(before.prompt_pack.join("\n")).toContain("wrenhomeservices");
     const res = await patch(READY, {
-      name: "Hero Home Services",
+      name: "Wren Home Services",
       domain: `${READY.slice(0, 8)}.example.com.au`,
       vertical: "tradies",
     });
     expect(res.status).toBe(200);
     const after = await pack();
-    expect(after.prompt_pack.join("\n")).toContain("Is Hero Home Services a good choice");
-    expect(after.prompt_pack.join("\n")).not.toContain("herohomeservices");
+    expect(after.prompt_pack.join("\n")).toContain("Is Wren Home Services a good choice");
+    expect(after.prompt_pack.join("\n")).not.toContain("wrenhomeservices");
     expect(after.prompt_pack_version ?? 0).toBeGreaterThan(before.prompt_pack_version ?? 0);
   });
 
   it("a Professional services brand can save (its vertical was refused before)", async () => {
     await sql`UPDATE brands SET vertical = 'professional_services' WHERE id = ${PENDING}`;
     const res = await patch(PENDING, {
-      name: "Hero Home Services",
+      name: "Wren Home Services",
       domain: `${PENDING.slice(0, 8)}.example.com.au`,
       vertical: "professional_services",
     });

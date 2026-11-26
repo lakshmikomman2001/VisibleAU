@@ -9,20 +9,20 @@ import {
 
 describe("extractCitations", () => {
   it("extracts markdown link URLs", () => {
-    const r = extractCitations("See [Bondi Plumbing](https://bondiplumbing.com.au) for details.");
-    expect(r).toContainEqual(expect.objectContaining({ domain: "bondiplumbing.com.au" }));
+    const r = extractCitations("See [Galah Plumbing](https://galahplumbing.com.au) for details.");
+    expect(r).toContainEqual(expect.objectContaining({ domain: "galahplumbing.com.au" }));
   });
   it("extracts bare https URLs", () => {
-    const r = extractCitations("Visit https://bondiplumbing.com.au for a quote.");
-    expect(r).toContainEqual(expect.objectContaining({ domain: "bondiplumbing.com.au" }));
+    const r = extractCitations("Visit https://galahplumbing.com.au for a quote.");
+    expect(r).toContainEqual(expect.objectContaining({ domain: "galahplumbing.com.au" }));
   });
   it("extracts domain-only .com.au references", () => {
-    const r = extractCitations("You can also try bondiplumbing.com.au directly.");
-    expect(r).toContainEqual(expect.objectContaining({ domain: "bondiplumbing.com.au" }));
+    const r = extractCitations("You can also try galahplumbing.com.au directly.");
+    expect(r).toContainEqual(expect.objectContaining({ domain: "galahplumbing.com.au" }));
   });
   it("deduplicates same domain across formats", () => {
-    const r = extractCitations("[Link](https://bondiplumbing.com.au) and bondiplumbing.com.au");
-    expect(r.filter((s) => s.domain === "bondiplumbing.com.au")).toHaveLength(1);
+    const r = extractCitations("[Link](https://galahplumbing.com.au) and galahplumbing.com.au");
+    expect(r.filter((s) => s.domain === "galahplumbing.com.au")).toHaveLength(1);
   });
   it("empty response → empty array", () => {
     expect(extractCitations("")).toEqual([]);
@@ -55,9 +55,9 @@ describe("extractCitations -- drops hosts that don't resolve to a real ICANN dom
 
   it("a valid domain alongside a junk one keeps only the valid one", () => {
     const r = extractCitations(
-      "Try https://192.168.1.1/page or https://bondiplumbing.com.au instead.",
+      "Try https://192.168.1.1/page or https://galahplumbing.com.au instead.",
     );
-    expect(r).toEqual([expect.objectContaining({ domain: "bondiplumbing.com.au" })]);
+    expect(r).toEqual([expect.objectContaining({ domain: "galahplumbing.com.au" })]);
   });
 
   it("logs a debug message (no PII) when dropping, but never throws", () => {
@@ -109,11 +109,11 @@ describe("mergeCitedSources", () => {
   });
 
   it("structured URLs are listed first (more reliable -- wins as classify-citation-sources.ts's primary source)", () => {
-    const extracted = extractCitations("See bondiplumbing.com.au for details.");
+    const extracted = extractCitations("See galahplumbing.com.au for details.");
     const merged = mergeCitedSources(extracted, ["https://hipages.com.au/connect/plumber"]);
 
     expect(merged[0].domain).toBe("hipages.com.au");
-    expect(merged[1].domain).toBe("bondiplumbing.com.au");
+    expect(merged[1].domain).toBe("galahplumbing.com.au");
   });
 
   it("de-duplicates by domain between structured and extracted", () => {
@@ -124,7 +124,7 @@ describe("mergeCitedSources", () => {
   });
 
   it("undefined structuredUrls is a no-op -- just the extracted sources", () => {
-    const extracted = extractCitations("See bondiplumbing.com.au for details.");
+    const extracted = extractCitations("See galahplumbing.com.au for details.");
     expect(mergeCitedSources(extracted, undefined)).toEqual(extracted);
   });
 
@@ -179,14 +179,14 @@ describe("mergeCitedSources", () => {
     });
 
     it("the answer writing a searched site's domain in its text counts as citing it", () => {
-      const extracted = extractCitations("Book at omegaservices.com.au today.");
+      const extracted = extractCitations("Book at yabbyservices.com.au today.");
       const merged = mergeCitedSources(extracted, [
-        { url: "https://omegaservices.com.au/", cited: false },
+        { url: "https://yabbyservices.com.au/", cited: false },
       ]);
       expect(merged).toEqual([
         {
-          domain: "omegaservices.com.au",
-          url: "https://omegaservices.com.au/",
+          domain: "yabbyservices.com.au",
+          url: "https://yabbyservices.com.au/",
           origin: "retrieved",
         },
       ]);
@@ -202,17 +202,17 @@ describe("mergeCitedSources", () => {
  */
 describe("origin tagging", () => {
   it("extractCitations always tags its own output 'recalled'", () => {
-    const sources = extractCitations("See bondiplumbing.com.au and https://hipages.com.au/a");
+    const sources = extractCitations("See galahplumbing.com.au and https://hipages.com.au/a");
     expect(sources.length).toBeGreaterThan(0);
     expect(sources.every((s) => s.origin === "recalled")).toBe(true);
   });
 
   it("mergeCitedSources tags structured URLs 'retrieved' and extracted ones stay 'recalled'", () => {
-    const extracted = extractCitations("See bondiplumbing.com.au for details.");
+    const extracted = extractCitations("See galahplumbing.com.au for details.");
     const merged = mergeCitedSources(extracted, ["https://hipages.com.au/connect/plumber"]);
 
     expect(merged.find((s) => s.domain === "hipages.com.au")?.origin).toBe("retrieved");
-    expect(merged.find((s) => s.domain === "bondiplumbing.com.au")?.origin).toBe("recalled");
+    expect(merged.find((s) => s.domain === "galahplumbing.com.au")?.origin).toBe("recalled");
   });
 });
 

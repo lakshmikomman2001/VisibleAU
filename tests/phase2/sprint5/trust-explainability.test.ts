@@ -99,7 +99,7 @@ describe("ExplainabilityService.annotate() — G3-01 platform contract", () => {
   });
 
   // 9 Nov (mock-gate follow-ups, part 9): a measured 0 is a result, never "no data" -- that read as though
-  // nothing had been checked (Omega Services' Trust page). Nothing checked at all is sampleSize 0.
+  // nothing had been checked (Yabby Services' Trust page). Nothing checked at all is sampleSize 0.
   it("zero score → a measured-zero rationale, not 'no data'; nothing checked → not measured", () => {
     const result = ExplainabilityService.annotate({
       score: 0,

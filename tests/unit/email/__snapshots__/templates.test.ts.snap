@@ -8,7 +8,7 @@ exports[`snapshots (HTML and text) > auditComplete 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Audit #36 complete: Omega Services — Visibility 8%</title>
+<title>Audit #36 complete: Yabby Services — Visibility 8%</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
 <div style="display:none;max-height:0;overflow:hidden;">Visibility 8% · mentioned in 3 of 40 answers</div>
@@ -17,7 +17,7 @@ exports[`snapshots (HTML and text) > auditComplete 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Audit #36 for Omega Services is complete</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Audit #36 for Yabby Services is complete</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility 8% · mentioned in 3 of 40 answers</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Finished 25 Oct 2026, 3:42 PM (Sydney time).</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/audits/a1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">View the audit</a></p>
@@ -30,10 +30,10 @@ exports[`snapshots (HTML and text) > auditComplete 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "Audit #36 complete: Omega Services — Visibility 8%",
+  "subject": "Audit #36 complete: Yabby Services — Visibility 8%",
   "text": "Vunnara
 
-Audit #36 for Omega Services is complete
+Audit #36 for Yabby Services is complete
 
 Visibility 8% · mentioned in 3 of 40 answers
 
@@ -58,7 +58,7 @@ exports[`snapshots (HTML and text) > consensus 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] Brand consistency issue — google_business, yelp</title>
+<title>[Yabby Services] Brand consistency issue — google_business, yelp</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
 <div style="display:none;max-height:0;overflow:hidden;">Average consistency score is 52/100 across 4 sources.</div>
@@ -67,7 +67,7 @@ exports[`snapshots (HTML and text) > consensus 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Omega Services&#39; details don&#39;t match everywhere</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Yabby Services&#39; details don&#39;t match everywhere</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Sources with differences: google_business, yelp.</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Average consistency score is 52/100 across 4 sources.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1/trust/consensus" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">See the differences</a></p>
@@ -80,10 +80,10 @@ exports[`snapshots (HTML and text) > consensus 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] Brand consistency issue — google_business, yelp",
+  "subject": "[Yabby Services] Brand consistency issue — google_business, yelp",
   "text": "Vunnara
 
-Omega Services' details don't match everywhere
+Yabby Services' details don't match everywhere
 
 Sources with differences: google_business, yelp.
 
@@ -108,7 +108,7 @@ exports[`snapshots (HTML and text) > drift 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] Visibility dropped</title>
+<title>[Yabby Services] Visibility dropped</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
 <div style="display:none;max-height:0;overflow:hidden;">Visibility went from 20 to 8.</div>
@@ -117,7 +117,7 @@ exports[`snapshots (HTML and text) > drift 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Visibility dropped for Omega Services</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Visibility dropped for Yabby Services</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility: 20 → 8 (down 12)</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/audits/a1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">View the audit</a></p>
 </td></tr>
@@ -129,10 +129,10 @@ exports[`snapshots (HTML and text) > drift 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] Visibility dropped",
+  "subject": "[Yabby Services] Visibility dropped",
   "text": "Vunnara
 
-Visibility dropped for Omega Services
+Visibility dropped for Yabby Services
 
 Visibility: 20 → 8 (down 12)
 
@@ -202,17 +202,17 @@ exports[`snapshots (HTML and text) > hallucination 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] AI answers got facts about your business wrong</title>
+<title>[Yabby Services] AI answers got facts about your business wrong</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
-<div style="display:none;max-height:0;overflow:hidden;">1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.</div>
+<div style="display:none;max-height:0;overflow:hidden;">1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Yabby Services.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
 <tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">AI answers got facts about Omega Services wrong</h1>
-<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.</p>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">AI answers got facts about Yabby Services wrong</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Yabby Services.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1/trust/hallucinations" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Review what they said</a></p>
 </td></tr>
 </table>
@@ -223,12 +223,12 @@ exports[`snapshots (HTML and text) > hallucination 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] AI answers got facts about your business wrong",
+  "subject": "[Yabby Services] AI answers got facts about your business wrong",
   "text": "Vunnara
 
-AI answers got facts about Omega Services wrong
+AI answers got facts about Yabby Services wrong
 
-In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Omega Services.
+In audit #36, we found 1 critical inaccuracy and 2 possible inaccuracies in what AI engines said about Yabby Services.
 
 Review what they said:
 https://app.vunnara.com.au/brands/b1/trust/hallucinations
@@ -296,16 +296,16 @@ exports[`snapshots (HTML and text) > promptPackFailed 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] Audit not run — couldn&#39;t prepare its questions</title>
+<title>[Yabby Services] Audit not run — couldn&#39;t prepare its questions</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
-<div style="display:none;max-height:0;overflow:hidden;">An audit for Omega Services didn&#39;t run. Nothing was spent.</div>
+<div style="display:none;max-height:0;overflow:hidden;">An audit for Yabby Services didn&#39;t run. Nothing was spent.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
 <tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">An audit for Omega Services didn&#39;t run</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">An audit for Yabby Services didn&#39;t run</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">The audit didn&#39;t run because its questions couldn&#39;t be refreshed first. No AI engine was asked anything and nothing was spent. Reviewing the brand&#39;s business details usually fixes this.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Review business details</a></p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">You&#39;ll get this email at most once a day for this brand.</p>
@@ -318,10 +318,10 @@ exports[`snapshots (HTML and text) > promptPackFailed 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] Audit not run — couldn't prepare its questions",
+  "subject": "[Yabby Services] Audit not run — couldn't prepare its questions",
   "text": "Vunnara
 
-An audit for Omega Services didn't run
+An audit for Yabby Services didn't run
 
 The audit didn't run because its questions couldn't be refreshed first. No AI engine was asked anything and nothing was spent. Reviewing the brand's business details usually fixes this.
 
@@ -346,17 +346,17 @@ exports[`snapshots (HTML and text) > scheduleNeedsConfirmation 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] Scheduled audits paused — confirm business details to resume</title>
+<title>[Yabby Services] Scheduled audits paused — confirm business details to resume</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
-<div style="display:none;max-height:0;overflow:hidden;">Scheduled audits for Omega Services are paused until you confirm its details.</div>
+<div style="display:none;max-height:0;overflow:hidden;">Scheduled audits for Yabby Services are paused until you confirm its details.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
 <tr><td align="center" style="padding:24px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Scheduled audits for Omega Services are paused</h1>
-<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Scheduled audits for Omega Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.</p>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Scheduled audits for Yabby Services are paused</h1>
+<p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Scheduled audits for Yabby Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.</p>
 <p style="margin:8px 0 24px;"><a href="https://app.vunnara.com.au/brands/b1#confirm-business-details" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Confirm business details</a></p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#71717a;">Scheduled audits start again once you&#39;ve confirmed. You won&#39;t get this email again for this brand unless it&#39;s paused again.</p>
 </td></tr>
@@ -368,12 +368,12 @@ exports[`snapshots (HTML and text) > scheduleNeedsConfirmation 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] Scheduled audits paused — confirm business details to resume",
+  "subject": "[Yabby Services] Scheduled audits paused — confirm business details to resume",
   "text": "Vunnara
 
-Scheduled audits for Omega Services are paused
+Scheduled audits for Yabby Services are paused
 
-Scheduled audits for Omega Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.
+Scheduled audits for Yabby Services are paused until you confirm its business type and location. It takes about 30 seconds, and makes sure every audit asks the right questions for your business.
 
 Confirm business details:
 https://app.vunnara.com.au/brands/b1#confirm-business-details
@@ -396,7 +396,7 @@ exports[`snapshots (HTML and text) > scheduledReport 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Omega Services AI visibility report — October 2026</title>
+<title>Yabby Services AI visibility report — October 2026</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
 <div style="display:none;max-height:0;overflow:hidden;">Visibility 8% · mentioned in 3 of 40 answers</div>
@@ -405,7 +405,7 @@ exports[`snapshots (HTML and text) > scheduledReport 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Monthly report: Omega Services</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Monthly report: Yabby Services</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Visibility 8% · mentioned in 3 of 40 answers</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">From audit #36.</p>
 <p style="margin:8px 0 24px;"><a href="https://files.example.com/signed/r1.pdf?token=abc" style="display:inline-block;background:#18181b;color:#fafafa;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:12px 20px;border-radius:6px;">Download the PDF report</a></p>
@@ -422,10 +422,10 @@ exports[`snapshots (HTML and text) > scheduledReport 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "Omega Services AI visibility report — October 2026",
+  "subject": "Yabby Services AI visibility report — October 2026",
   "text": "Vunnara
 
-Monthly report: Omega Services
+Monthly report: Yabby Services
 
 Visibility 8% · mentioned in 3 of 40 answers
 
@@ -507,7 +507,7 @@ exports[`snapshots (HTML and text) > volatility 1`] = `
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>[Omega Services] The sources AI cites for you are changing quickly</title>
+<title>[Yabby Services] The sources AI cites for you are changing quickly</title>
 </head>
 <body style="margin:0;padding:0;background:#fafafa;">
 <div style="display:none;max-height:0;overflow:hidden;">Three of the five most-cited sources changed since last month.</div>
@@ -516,7 +516,7 @@ exports[`snapshots (HTML and text) > volatility 1`] = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;">
 <tr><td style="padding:24px 32px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="22" height="22" align="center" valign="middle" data-brand-mark style="width:22px;height:22px;background:#2563EB;border-radius:6px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#FFFFFF;">V</td><td style="padding-left:8px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:15px;font-weight:700;color:#09090b;">Vunnara</td></tr></table></td></tr>
 <tr><td style="padding:16px 32px 16px;">
-<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">The sources AI cites for Omega Services are changing quickly</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">The sources AI cites for Yabby Services are changing quickly</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:18px;line-height:27px;color:#09090b;font-weight:600;">Volatility 18.4 (alert threshold 15.0)</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Three of the five most-cited sources changed since last month.</p>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">What to do: Keep your directory listings up to date.</p>
@@ -529,10 +529,10 @@ exports[`snapshots (HTML and text) > volatility 1`] = `
 </table>
 </body>
 </html>",
-  "subject": "[Omega Services] The sources AI cites for you are changing quickly",
+  "subject": "[Yabby Services] The sources AI cites for you are changing quickly",
   "text": "Vunnara
 
-The sources AI cites for Omega Services are changing quickly
+The sources AI cites for Yabby Services are changing quickly
 
 Volatility 18.4 (alert threshold 15.0)
 
@@ -567,7 +567,7 @@ exports[`snapshots (HTML and text) > weeklyDigest 1`] = `
 <tr><td style="padding:16px 32px 16px;">
 <h1 style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:20px;line-height:28px;font-weight:600;color:#09090b;">Your weekly digest, 25 Oct 2026</h1>
 <p style="margin:0 0 16px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:21px;color:#52525b;">Visibility is how often AI answers to everyday customer questions mention each brand.</p>
-<table role="table" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px;"><thead><tr><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:600;color:#71717a;font-size:12px;">Brand</th><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;color:#71717a;font-size:12px;">Visibility</th></tr></thead><tbody><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Omega Services</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">8% · 3 of 40 answers</td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Delta Plumbing</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">No successful answers yet</td></tr></tbody></table>
+<table role="table" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px;"><thead><tr><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:600;color:#71717a;font-size:12px;">Brand</th><th scope="col" style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;color:#71717a;font-size:12px;">Visibility</th></tr></thead><tbody><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Yabby Services</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">8% · 3 of 40 answers</td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:left;font-weight:400;">Delta Plumbing</td><td style="padding:8px 0;border-bottom:1px solid #e4e4e7;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;font-size:14px;line-height:20px;color:#09090b;text-align:right;font-weight:600;">No successful answers yet</td></tr></tbody></table>
 </td></tr>
 </table>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
@@ -585,7 +585,7 @@ Your weekly digest, 25 Oct 2026
 Visibility is how often AI answers to everyday customer questions mention each brand.
 
 Brand — Visibility
-- Omega Services: 8% · 3 of 40 answers
+- Yabby Services: 8% · 3 of 40 answers
 - Delta Plumbing: No successful answers yet
 
 ---

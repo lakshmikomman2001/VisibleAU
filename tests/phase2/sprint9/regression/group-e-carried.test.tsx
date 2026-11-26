@@ -70,7 +70,7 @@ describe("F9/F13 — explainability renders honest placeholder, NOT fabrication"
     explainability: null,
     draft: null,
     brandId: "b1",
-    brandName: "Bondi Plumbing",
+    brandName: "Galah Plumbing",
   };
 
   // 17 Nov, part 2: no placeholder promising an explanation nothing supplies.

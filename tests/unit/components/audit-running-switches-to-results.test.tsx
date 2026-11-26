@@ -27,7 +27,7 @@ import {
 const PROPS = {
   auditId: "audit-37",
   brandId: "brand-1",
-  brandName: "Omega Services",
+  brandName: "Yabby Services",
   initialStatus: "running",
   initialProgress: 100,
   initialMentionedCount: 5,

@@ -177,7 +177,7 @@ describe("patterns 2-7 unchanged", () => {
   });
 
   it("does NOT flag a benign comment followed by an unrelated keyword later in the page (task DDD false-positive fix, the live Bondi case)", () => {
-    // Reproduces the real shape found on bondiplumbing.com.au (task CCC):
+    // Reproduces the real shape found on galahplumbing.com.au (task CCC):
     // a benign tracking-injection comment near the top, then ordinary
     // safety copy containing "ignored" much later -- the old unanchored
     // regex matched 60,649 chars across both.
@@ -206,7 +206,7 @@ describe("patterns 2-7 unchanged", () => {
 });
 
 describe("⚠️ DDD — live Bondi page shape: 0 injections after the fix (was 2)", () => {
-  it("the real bondiplumbing.com.au homepage/emergency-page shape produces no false positives", () => {
+  it("the real galahplumbing.com.au homepage/emergency-page shape produces no false positives", () => {
     // Reconstructs the exact two false-positive triggers task CCC found
     // live: a benign tracking-injection comment, plus ordinary later copy
     // containing "ignored" -- and a page with only normal spaces, no real

@@ -19,7 +19,7 @@ const NOT_AN_EXAMPLE: Array<[RegExp, string]> = [
   [/komman/i, "a real person"],
   [/srininbox|sri@vunnara/i, "a real person's email"],
   [/58 ?110 ?395 ?714/, "an ABN that passes the ABN checksum, so probably a real business's"],
-  [/bondi ?plumbing/i, "bondiplumbing.com.au is a live site"],
+  [/bondi ?plumbing/i, "galahplumbing.com.au is a live site"],
   [/eastern plumbing/i, "names a plausibly real business"],
   [/mybusiness\.com/i, "mybusiness.com.au is a live site"],
   [/@agency\.com\.au/i, "agency.com.au has live mail servers"],

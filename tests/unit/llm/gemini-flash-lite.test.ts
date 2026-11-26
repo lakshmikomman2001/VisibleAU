@@ -57,7 +57,7 @@ function flashLiteResponse(
   return {
     candidates: [
       {
-        content: { role: "model", parts: [{ text: "Omega Services is a plumber in Norwest." }] },
+        content: { role: "model", parts: [{ text: "Yabby Services is a plumber in Norwest." }] },
         finishReason: "STOP",
         ...(queries === undefined && Object.keys(grounding).length === 0
           ? {}
@@ -65,7 +65,7 @@ function flashLiteResponse(
               groundingMetadata: {
                 ...(queries === undefined ? {} : { webSearchQueries: queries }),
                 groundingChunks: [
-                  { web: { uri: `${GOOGLE_REDIRECT}a`, title: "omegaservices.com.au" } },
+                  { web: { uri: `${GOOGLE_REDIRECT}a`, title: "yabbyservices.com.au" } },
                 ],
                 groundingSupports: [],
                 ...grounding,
@@ -180,7 +180,7 @@ describe("cost: tokens plus US$0.014 for each search query the answer ran", () =
       const { output } = await gemini(body);
       expect(output.costEstimateUsd).toBeNull();
       expect(output.capReserveUsd).toBeCloseTo(TOKENS_USD, 9);
-      expect(output.response).toContain("Omega Services");
+      expect(output.response).toContain("Yabby Services");
     }
   });
 

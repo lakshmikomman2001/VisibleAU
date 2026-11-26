@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { auditCompleteEmail } from "@/lib/email/templates/audit-complete";
 
 const INPUT = {
-  brandName: "Bondi Plumbing",
+  brandName: "Galah Plumbing",
   auditNumber: 36,
   mentionRate: 7.5,
   mentionedCount: 3,
@@ -28,7 +28,7 @@ describe("auditCompleteEmail", () => {
     const headline = "Visibility 8% · mentioned in 3 of 40 answers";
     expect(email.html).toContain(headline);
     expect(email.text).toContain(headline);
-    expect(email.subject).toBe("Audit #36 complete: Bondi Plumbing — Visibility 8%");
+    expect(email.subject).toBe("Audit #36 complete: Galah Plumbing — Visibility 8%");
   });
 
   it("shows the finish time in Sydney time, and links to the audit", () => {

@@ -29,7 +29,7 @@ const USAGE = { canAdd: true, used: 1, limit: 5 } as unknown as Parameters<
 
 const BRAND = {
   id: "test-brand-id",
-  name: "Omega Services",
+  name: "Yabby Services",
   domain: "omega.com.au",
   vertical: "tradies",
   region: "au",
@@ -142,7 +142,7 @@ describe("a brand's audit schedule: a viewer sees it and changes nothing", () =>
     as(
       role,
       <BrandScheduleView
-        brand={{ id: "b1", name: "Omega Services", domain: "omega.com.au" }}
+        brand={{ id: "b1", name: "Yabby Services", domain: "omega.com.au" }}
         schedule={null}
         tierFrequency="weekly"
         maxScheduled={10}

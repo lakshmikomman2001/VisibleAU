@@ -67,8 +67,8 @@ beforeAll(async () => {
 const SNAPSHOT = {
   id: "s1",
   engine: "chatgpt",
-  prompt: "Is Bondi Plumbing reputable?",
-  rawResponse: "Bondi Plumbing has good reviews on Google and hipages.",
+  prompt: "Is Galah Plumbing reputable?",
+  rawResponse: "Galah Plumbing has good reviews on Google and hipages.",
   capturedAt: "2026-11-14T23:30:00.000Z",
   askedByName: true,
 };
@@ -196,7 +196,7 @@ describe("Entity Score", () => {
             wikidataImplemented: false,
             auDirectoryPresence: null,
             rationale:
-              "Bondi Plumbing's entity authority score of 25/100 highlights significant gaps.",
+              "Galah Plumbing's entity authority score of 25/100 highlights significant gaps.",
             confidence_label: "High",
             scoreLevel: "Low",
             top_action: null,
@@ -225,7 +225,7 @@ describe("YouTube Presence scorecard", () => {
           channelTotalVideos: 24,
           lastUploadAt: null,
           rationale:
-            "Bondi Plumbing's YouTube presence score of 57/100 shows moderate performance.",
+            "Galah Plumbing's YouTube presence score of 57/100 shows moderate performance.",
           confidence_label: null,
           scoreLevel: "Medium",
           top_action: null,
@@ -250,7 +250,7 @@ describe("Overall Trust Score card", () => {
         score={25}
         basis="Based on: Entity 25/100"
         maxScore={100}
-        rationale="Bondi Plumbing's trust score of 25/100 highlights significant gaps."
+        rationale="Galah Plumbing's trust score of 25/100 highlights significant gaps."
         confidenceLabel={null}
         notes={notes}
       />,

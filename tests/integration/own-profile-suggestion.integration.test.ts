@@ -15,7 +15,7 @@ const USER_ID = randomUUID();
 const BRAND_ID = randomUUID();
 const AUDIT_ID = randomUUID();
 const PROFILE =
-  "https://www.localsearch.com.au/profile/hero-home-services/yennora-nsw/hot-water-systems/1234567";
+  "https://www.localsearch.com.au/profile/wren-home-services/yennora-nsw/hot-water-systems/1234567";
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: vi.fn(async () => ({
@@ -47,7 +47,7 @@ beforeAll(async () => {
   `;
   await sql`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, suburb, state, postcode, location_mode, location_confirmed_at, categories)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'herohomeservices', 'herohomeservices.com.au', 'tradies', 'au',
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'wrenhomeservices', 'wrenhomeservices.com.au', 'tradies', 'au',
       ARRAY['NSW:Yennora']::text[], 'Yennora', 'NSW', '2161', 'fixed', now(), ARRAY['trades_plumbing']::text[])
   `;
   await sql`
@@ -57,7 +57,7 @@ beforeAll(async () => {
   await sql`
     INSERT INTO citations (audit_id, engine, prompt, prompt_index, run_number, brand_mentioned, is_branded_prompt, sentiment_label, context_label, response_text, response_snippet, cited_sources)
     VALUES (${AUDIT_ID}, 'chatgpt', 'Best hot water repair in Yennora, NSW?', 0, 1, false, false, 'neutral', 'absent',
-      'Hero Home Services (Yennora-based)', 'Hero Home Services (Yennora-based)',
+      'Wren Home Services (Yennora-based)', 'Wren Home Services (Yennora-based)',
       ${sql.json([{ url: `${PROFILE}?utm_source=openai`, domain: "localsearch.com.au", cited: true }])})
   `;
 }, 30_000);
@@ -81,8 +81,8 @@ async function localsearchRow() {
     id: BRAND_ID,
     region: "au",
     categories: ["trades_plumbing"],
-    name: "herohomeservices",
-    domain: "herohomeservices.com.au",
+    name: "wrenhomeservices",
+    domain: "wrenhomeservices.com.au",
     suburb: "Yennora",
     state: "NSW",
     postcode: "2161",

@@ -372,19 +372,19 @@ describe("stale-content -- crawled Last-Modified dates (classifyFreshness)", () 
       data: {
         datedPages: [
           {
-            url: "https://bondiplumbing.test/pricing",
+            url: "https://galahplumbing.test/pricing",
             lastModified: "2025-06-01T00:00:00.000Z",
             daysSinceModified: 502,
             freshnessRisk: "stale",
           },
           {
-            url: "https://bondiplumbing.test/",
+            url: "https://galahplumbing.test/",
             lastModified: "2026-10-01T00:00:00.000Z",
             daysSinceModified: 15,
             freshnessRisk: "fresh",
           },
           {
-            url: "https://bondiplumbing.test/services",
+            url: "https://galahplumbing.test/services",
             lastModified: "2026-06-01T00:00:00.000Z",
             daysSinceModified: 137,
             freshnessRisk: "stale",
@@ -400,12 +400,12 @@ describe("stale-content -- crawled Last-Modified dates (classifyFreshness)", () 
     expect(rec?.confidenceLabel).toBe("confirmed");
     expect(rec?.title).toBe("Refresh 2 pages that haven't changed in 90+ days");
     expect(rec?.action).toContain(
-      "https://bondiplumbing.test/pricing (502 days) and https://bondiplumbing.test/services (137 days)",
+      "https://galahplumbing.test/pricing (502 days) and https://galahplumbing.test/services (137 days)",
     );
-    expect(rec?.action).not.toContain("https://bondiplumbing.test/ ");
+    expect(rec?.action).not.toContain("https://galahplumbing.test/ ");
     expect(rec?.evidenceRefs.map((r) => r.url)).toEqual([
-      "https://bondiplumbing.test/pricing",
-      "https://bondiplumbing.test/services",
+      "https://galahplumbing.test/pricing",
+      "https://galahplumbing.test/services",
     ]);
   });
 
@@ -478,7 +478,7 @@ describe("stale-content -- crawled Last-Modified dates (classifyFreshness)", () 
 describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notability gate", () => {
   const noArticle = {
     status: "ok" as const,
-    data: { articleExists: false, articleUrl: null, query: "Bondi Plumbing Australia" },
+    data: { articleExists: false, articleUrl: null, query: "Galah Plumbing Australia" },
   };
 
   it("no article + no notability signal -> 'confirmed' entity-profiles alternatives, NOT a Wikipedia-article ask", async () => {
@@ -493,7 +493,7 @@ describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notabi
     expect(rec?.action).not.toContain("Wikidata");
     expect(rec?.action).toMatch(/local press or on community sites/);
     expect(rec?.action).toMatch(/we don't recommend writing one yet/);
-    expect(rec?.evidenceRefs[0]?.summary).toContain('"Bondi Plumbing Australia": no article found');
+    expect(rec?.evidenceRefs[0]?.summary).toContain('"Galah Plumbing Australia": no article found');
   });
 
   it("copy never promises what WP:NCORP would reject (no 'local coverage is enough')", async () => {
@@ -556,8 +556,8 @@ describe("wikipedia-article / entity-profiles -- checkWikipediaAuStatus + notabi
           status: "ok",
           data: {
             articleExists: true,
-            articleUrl: "https://en.wikipedia.org/wiki/Bondi_Plumbing",
-            query: "Bondi Plumbing Australia",
+            articleUrl: "https://en.wikipedia.org/wiki/Galah_Plumbing",
+            query: "Galah Plumbing Australia",
           },
         },
       }),

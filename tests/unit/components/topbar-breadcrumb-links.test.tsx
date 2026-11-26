@@ -112,14 +112,14 @@ describe("the breadcrumb's links", () => {
     render(
       <BreadcrumbProvider>
         <AppTopbar />
-        <SetBreadcrumbBrand brand={{ id: BRAND, name: "Hero Home Services" }} />
+        <SetBreadcrumbBrand brand={{ id: BRAND, name: "Wren Home Services" }} />
       </BreadcrumbProvider>,
     );
     const [desktop] = screen.getAllByRole("navigation", { name: "Breadcrumb" });
     expect(linksOf(desktop)).toEqual([
       ["Workspace", "/dashboard"],
       ["Brands", "/brands"],
-      ["Hero Home Services", `/brands/${BRAND}`],
+      ["Wren Home Services", `/brands/${BRAND}`],
     ]);
     expect(desktop.querySelector('[aria-current="page"]')).toHaveTextContent("Reports");
     expect(within(desktop).queryByText("Brand")).toBeNull();
@@ -130,13 +130,13 @@ describe("the breadcrumb's links", () => {
     const { desktop } = await renderTopbar([
       CRUMB.workspace,
       CRUMB.brands,
-      brandCrumb({ id: BRAND, name: "Bondi Plumbing" }),
+      brandCrumb({ id: BRAND, name: "Galah Plumbing" }),
       { label: "AI Discovery" },
     ]);
     expect(linksOf(desktop)).toEqual([
       ["Workspace", "/dashboard"],
       ["Brands", "/brands"],
-      ["Bondi Plumbing", `/brands/${BRAND}`],
+      ["Galah Plumbing", `/brands/${BRAND}`],
     ]);
     expect(desktop.querySelector('[aria-current="page"]')).toHaveTextContent("AI Discovery");
   });

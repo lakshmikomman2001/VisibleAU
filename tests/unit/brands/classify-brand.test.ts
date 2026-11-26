@@ -32,7 +32,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
   });
 
   it("resolves a malformed category through the closed enum", async () => {
-    crawlSiteMock.mockResolvedValue({ pages: [{ title: "Omega Services", html: "<h1>Omega</h1>", excerpt: "" }] });
+    crawlSiteMock.mockResolvedValue({ pages: [{ title: "Yabby Services", html: "<h1>Omega</h1>", excerpt: "" }] });
     mockLlmResponse({
       category: "trades_general_services", // Omega's real bad value
       buyerType: "smb",
@@ -43,7 +43,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.62,
     });
 
-    const result = await classifyBrand("Omega Services", "omega-services.com.au");
+    const result = await classifyBrand("Yabby Services", "yabby-services.com.au");
     expect(result.category).toBe("trades_general");
   });
 
@@ -59,7 +59,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.9,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.audience).toBe("households");
   });
 
@@ -75,7 +75,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.9,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.audience).toBe("households");
   });
 
@@ -91,7 +91,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.9,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.intentSignals).not.toContain("plumber near me");
     expect(result.intentSignals.some((s) => s.toLowerCase().includes("near me"))).toBe(false);
   });
@@ -108,13 +108,13 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.95,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.confidence).toBeLessThanOrEqual(0.5);
   });
 
   it("does not cap confidence when the homepage crawl succeeds", async () => {
     crawlSiteMock.mockResolvedValue({
-      pages: [{ title: "Bondi Plumbing", html: "<h1>Bondi Plumbing</h1>", excerpt: "24/7 plumbers" }],
+      pages: [{ title: "Galah Plumbing", html: "<h1>Galah Plumbing</h1>", excerpt: "24/7 plumbers" }],
     });
     mockLlmResponse({
       category: "trades_plumbing",
@@ -126,7 +126,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.95,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.confidence).toBe(0.95);
   });
 
@@ -134,7 +134,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
     crawlSiteMock.mockRejectedValue(new Error("network error"));
     completeMock.mockResolvedValue({ response: "not json at all" });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au", "tradies");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au", "tradies");
     expect(result.category).toBe("general");
     expect(result.confidence).toBe(0.3);
     expect(result.audience).toBe("both");
@@ -152,7 +152,7 @@ describe("classifyBrand (Vunnara Build 1, Part C)", () => {
       confidence: 0.9,
     });
 
-    const result = await classifyBrand("Bondi Plumbing", "bondiplumbing.com.au");
+    const result = await classifyBrand("Galah Plumbing", "galahplumbing.com.au");
     expect(result.category).toBe("trades_plumbing");
     expect(result.confidence).toBeLessThanOrEqual(0.5);
   });

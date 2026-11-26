@@ -45,7 +45,7 @@ function view(overrides: Partial<GoogleSurfaceAdminView> = {}): GoogleSurfaceAdm
       brands: [
         {
           id: BRAND,
-          name: "Omega Services",
+          name: "Yabby Services",
           suburb: "Norwest",
           state: "NSW",
           postcode: "2153",
@@ -177,7 +177,7 @@ describe("every Save says what happened (part 5)", () => {
   it("a postcode: disabled while unchanged and while not four digits; 'Saving…', then 'Saved', and the page reloads", async () => {
     const held = heldFetch(ok());
     render(createElement(Admin, { view: view(), health: HEALTH }));
-    const row = screen.getByLabelText("Postcode for Omega Services");
+    const row = screen.getByLabelText("Postcode for Yabby Services");
     const save = () =>
       screen
         .getAllByRole("button")
@@ -210,7 +210,7 @@ describe("every Save says what happened (part 5)", () => {
       Response.json({ error: "That brand doesn't exist." }, { status: 400 }),
     );
     render(createElement(Admin, { view: view(), health: HEALTH }));
-    const row = screen.getByLabelText("Postcode for Omega Services");
+    const row = screen.getByLabelText("Postcode for Yabby Services");
     fireEvent.change(row, { target: { value: "2000" } });
     fireEvent.click(
       screen
@@ -226,7 +226,7 @@ describe("every Save says what happened (part 5)", () => {
   it("the server had that value already: 'No change'", async () => {
     const held = heldFetch(ok("unchanged"));
     render(createElement(Admin, { view: view(), health: HEALTH }));
-    fireEvent.change(screen.getByLabelText("Postcode for Omega Services"), {
+    fireEvent.change(screen.getByLabelText("Postcode for Yabby Services"), {
       target: { value: "2000" },
     });
     fireEvent.click(

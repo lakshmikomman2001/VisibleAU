@@ -59,7 +59,7 @@ async function seedRealCitations(auditId: string) {
     await client`
       INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, cited_sources)
       VALUES (${auditId}, 'perplexity', 'Perplexity prompt', ${run}, false, false, ${JSON.stringify(
-        [{ domain: "g.page", url: "https://g.page/bondi-plumbing", origin: "retrieved" }],
+        [{ domain: "g.page", url: "https://g.page/galah-plumbing", origin: "retrieved" }],
       )})
     `;
   }
@@ -83,8 +83,8 @@ beforeAll(async () => {
   client = postgres(TEST_DB_URL, { max: 1 });
 
   await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${TEST_ORG_ID}, 'csi-sentinel-leak-clerk', 'CSI Sentinel Leak Org', 'csi-sentinel-leak') ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_A_ID}, ${TEST_ORG_ID}, 'Sentinel Leak Brand A', 'sentinel-a.bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_B_ID}, ${TEST_ORG_ID}, 'Sentinel Leak Brand B', 'sentinel-b.bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_A_ID}, ${TEST_ORG_ID}, 'Sentinel Leak Brand A', 'sentinel-a.galahplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${BRAND_B_ID}, ${TEST_ORG_ID}, 'Sentinel Leak Brand B', 'sentinel-b.galahplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_A_ID}, ${BRAND_A_ID}, ${TEST_ORG_ID}, 601, 'complete', ARRAY['gemini','claude','perplexity'], NOW()) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_B_ID}, ${BRAND_B_ID}, ${TEST_ORG_ID}, 602, 'complete', ARRAY['claude','perplexity'], NOW()) ON CONFLICT (id) DO NOTHING`;
 

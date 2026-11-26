@@ -1,7 +1,7 @@
 /**
  * Vunnara (19 Oct, post-aa83b3a) -- "the headline is the mention rate".
  *
- * Production audit #30 (Omega Services): 6 of 37 successful organic
+ * Production audit #30 (Yabby Services): 6 of 37 successful organic
  * answers mentioned the brand (Frequency 16.2), with Position 71.0 and
  * Source citation 100.0 measured only over those 6 mentions. The old
  * weighted blend produced a headline of 56.6 -- and was NOT monotonic:

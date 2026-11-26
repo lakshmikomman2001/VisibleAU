@@ -5,7 +5,7 @@
  * hotfix asked for (evidence-driven-rules.test.ts already covers most of
  * it from before commit 5fe41c0) -- these are the hotfix's OWN explicit
  * regression tests, traceable to this fix, using production audit #30's
- * (Omega Services) real shape where it names specific numbers.
+ * (Yabby Services) real shape where it names specific numbers.
  */
 import { describe, expect, it } from "vitest";
 import type { DbClient } from "@/db/client";
@@ -25,7 +25,7 @@ async function build(c: TriggerContext, e: RecommendationEvidence) {
   return buildRecommendations(c, noResearchDb, e);
 }
 
-// Production audit #30 (Omega Services, plumbing/trades): 6 of 37 organic
+// Production audit #30 (Yabby Services, plumbing/trades): 6 of 37 organic
 // answers mentioned the brand (Frequency 16.2 -- scoreFrequency below is
 // that same mention rate, the headline). Claude failed 4 of 13 calls
 // (unrelated to this item; Part A of the audit-reliability work covers
@@ -135,7 +135,7 @@ describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording
       ...NO_EVIDENCE,
       wikipedia: {
         status: "ok",
-        data: { articleExists: false, articleUrl: null, query: "Omega Services Australia" },
+        data: { articleExists: false, articleUrl: null, query: "Yabby Services Australia" },
       },
     });
     const rec = find(recs, "entity-profiles");
@@ -143,7 +143,7 @@ describe("item 2, test 2 -- Omega's audit #30 shape gives evidence-based wording
     expect(rec?.action).toContain("there's no Wikipedia article for your business");
     expect(rec?.action).toMatch(/that's normal for a local business/i);
     expect(rec?.action).toMatch(/we don't recommend writing one yet/i);
-    expect(rec?.evidenceRefs[0]?.summary).toContain('"Omega Services Australia": no article found');
+    expect(rec?.evidenceRefs[0]?.summary).toContain('"Yabby Services Australia": no article found');
   });
 });
 
@@ -162,7 +162,7 @@ describe("item 2, test 3 -- the 'beyond Wikipedia' trigger's premise", () => {
       ...NO_EVIDENCE,
       wikipedia: {
         status: "ok",
-        data: { articleExists: false, articleUrl: null, query: "Omega Services Australia" },
+        data: { articleExists: false, articleUrl: null, query: "Yabby Services Australia" },
       },
       // notability: "not_run" (NO_EVIDENCE's default) -- no real
       // press/notability checker exists yet (triggers.ts's own
@@ -179,8 +179,8 @@ describe("item 2, test 3 -- the 'beyond Wikipedia' trigger's premise", () => {
         status: "ok",
         data: {
           articleExists: true,
-          articleUrl: "https://en.wikipedia.org/wiki/Omega_Services",
-          query: "Omega Services Australia",
+          articleUrl: "https://en.wikipedia.org/wiki/Yabby_Services",
+          query: "Yabby Services Australia",
         },
       },
     });

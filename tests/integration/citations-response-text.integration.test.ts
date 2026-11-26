@@ -103,7 +103,7 @@ beforeAll(async () => {
   // reach the response_text behaviour this test actually exercises.
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors, prompt_pack, classification_status, classification, category_confirmed_at, location_mode)
-    VALUES (${RUNNER_BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'runner-text.example.com.au', 'tradies', 'au',
+    VALUES (${RUNNER_BRAND_ID}, ${ORG_ID}, 'Galah Plumbing', 'runner-text.example.com.au', 'tradies', 'au',
       ARRAY[]::text[], ARRAY[]::text[],
       ${client.json(Array.from({ length: 10 }, (_, i) => `Response text runner prompt ${i + 1}`))},
       'complete',

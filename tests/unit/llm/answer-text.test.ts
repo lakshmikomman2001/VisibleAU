@@ -25,19 +25,19 @@ const toolResult = {
 
 describe("answerText", () => {
   it("one text part comes back byte for byte", () => {
-    const only = "Line one.\n\n**Omega Services** is great.  ";
+    const only = "Line one.\n\n**Yabby Services** is great.  ";
     expect(answerText([text(only)], only)).toBe(only);
   });
 
   it("a run split at citations joins with nothing between the pieces", () => {
     const content = [
       text("Based on the search results, "),
-      text("Omega Services is rated 4.9"),
+      text("Yabby Services is rated 4.9"),
       source,
       text("."),
     ];
     expect(answerText(content, "")).toBe(
-      "Based on the search results, Omega Services is rated 4.9.",
+      "Based on the search results, Yabby Services is rated 4.9.",
     );
   });
 
@@ -47,10 +47,10 @@ describe("answerText", () => {
       toolCall,
       toolResult,
       source,
-      text("Omega Services is near."),
+      text("Yabby Services is near."),
     ];
     expect(answerText(content, "")).toBe(
-      "I'll search for plumbers near Norwest\nOmega Services is near.",
+      "I'll search for plumbers near Norwest\nYabby Services is near.",
     );
   });
 

@@ -1,7 +1,7 @@
 [
   {
     "prompt_pattern": "plumber",
-    "response": "Bondi Plumbing is highly regarded for emergency plumbing in Sydney's eastern suburbs.",
+    "response": "Galah Plumbing of Bondi is highly regarded for emergency plumbing in Sydney's eastern suburbs.",
     "tokens_used": 45,
     "cost_estimate_usd": 0.003,
     "error_status": 500

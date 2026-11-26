@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 
 const BRAND = {
   id: "b1",
-  name: "Omega Services",
+  name: "Yabby Services",
   domain: "omega.com.au",
   vertical: "tradies",
   region: "au",
@@ -40,7 +40,7 @@ async function openDelete() {
   const trigger = screen.getByRole("button", { name: "Delete" });
   trigger.focus();
   fireEvent.click(trigger);
-  return { trigger, dialog: screen.getByRole("alertdialog", { name: "Delete Omega Services?" }) };
+  return { trigger, dialog: screen.getByRole("alertdialog", { name: "Delete Yabby Services?" }) };
 }
 
 beforeAll(async () => {

@@ -9,11 +9,10 @@ import { readSourcesBeforeAll, sourcePaths, sourceText } from "@/tests/helpers/s
  * - The first list (one client's ABR record, its domains and a competitor's domain) was replaced everywhere under
  *   tests/, so it is checked everywhere.
  * - The second (three client businesses and the agency's workspace name) was replaced in every e2e spec, helper,
- *   fixture and seed script, and in every test that uses the report helpers; the other tests that still name them
- *   inline are listed in the S02 report as a follow-up, and this scope widens when they are done.
- * - Not yet replaced: the recorded Google answers (RECORDED_GOOGLE below). They are a client's real Google AI answers,
- *   reviews and press about it, so a rename would pin real text on an invented name; they need invented recordings
- *   (S02 report, open items).
+ *   fixture and seed script, and in every test that uses the report helpers, in S02 part 0; S03 part 0 (LLD
+ *   amendment 77) replaced the rest under tests/ with the same mapping, so it is checked everywhere too.
+ * - S03 part 0 also replaced the recorded Google answers that named a client (tests/fixtures/google-surfaces/
+ *   dataforseo/, their golden and spec 09) with invented recordings of the same shape, so they have no exception.
  */
 /** Words joined as a name may be written: together, or by a space, "%20", "+", "-" or "_". */
 const joined = (...words: string[]) => new RegExp(words.join("(?:\\s|%20|\\+|-|_)?"), "i");
@@ -32,26 +31,20 @@ const REPLACED_IN_FIXTURES: readonly RegExp[] = [
   joined("splice", "marketing"),
 ];
 
-const THIS_FILE = "tests/unit/copy/no-client-data-in-tests.test.ts";
-
-const RECORDED_GOOGLE = [
-  /^tests\/fixtures\/google-surfaces\/dataforseo\//,
-  /^tests\/unit\/google-surfaces\/__golden__\/stored-answer-aio-q11\.json$/,
-  /^tests\/e2e\/09-google-surfaces\.spec\.ts$/,
+/** The real recordings' other details: a name-alike business's sites, the client's street and a TV programme's piece. */
+const RECORDED_DETAILS: readonly RegExp[] = [
+  /omega-plumbing/i,
+  /omegatechserv/i,
+  /brookhollow/i,
+  /current.affair/i,
 ];
 
+const THIS_FILE = "tests/unit/copy/no-client-data-in-tests.test.ts";
+
 const ANY_TEXT_FILE = /\.(ts|tsx|js|mjs|cjs|json|snap|txt|sql|md|csv|html)$/;
-readSourcesBeforeAll(["tests", "db/seed"], ANY_TEXT_FILE);
-
-const REPORT_HELPERS =
-  /helpers\/(report-seeds|report-fixture|report-data-fixture|seeded-report-render)/;
-const FIXTURE_DIRS = /^(tests\/(e2e|helpers|fixtures)\/|db\/seed\/)/;
-
-function inFixtureScope(path: string): boolean {
-  if (RECORDED_GOOGLE.some((re) => re.test(path))) return false;
-  if (FIXTURE_DIRS.test(path)) return true;
-  return /\.test\.tsx?$/.test(path) && REPORT_HELPERS.test(sourceText(path));
-}
+/** The mock model's canned answers are recorded responses too (amendment 57): S03 part 0 renamed them. */
+const MOCK_ANSWERS = "lib/llm/mock-responses";
+readSourcesBeforeAll(["tests", "db/seed", MOCK_ANSWERS], ANY_TEXT_FILE);
 
 function hits(paths: readonly string[], patterns: readonly RegExp[]): string[] {
   const found: string[] = [];
@@ -66,26 +59,30 @@ function hits(paths: readonly string[], patterns: readonly RegExp[]): string[] {
   return found;
 }
 
-describe("no real client data in tests (LLD amendments 57, 66)", () => {
+describe("no real client data in tests (LLD amendments 57, 66, 77)", () => {
   it("one client's ABR record and domains, and a competitor's domain, appear nowhere under tests/ or db/seed", () => {
     expect(hits(sourcePaths(["tests", "db/seed"], ANY_TEXT_FILE), REPLACED_EVERYWHERE)).toEqual([]);
   });
 
-  it("the real businesses' and the agency's names appear in no spec, helper, fixture, seed or report-helper test", () => {
+  it("the real businesses' and the agency's names appear nowhere under tests/ or db/seed, in the demo seed or in the mock model's answers", () => {
     const scope = [
-      ...sourcePaths(["tests", "db/seed"], ANY_TEXT_FILE).filter(inFixtureScope),
+      ...sourcePaths(["tests", "db/seed", MOCK_ANSWERS], ANY_TEXT_FILE),
       "scripts/seed-demo-data.ts",
     ];
-    expect(scope.length).toBeGreaterThan(50);
+    expect(scope.length).toBeGreaterThan(1000);
+    expect(scope.filter((p) => p.startsWith(MOCK_ANSWERS)).length).toBeGreaterThanOrEqual(16);
     expect(hits(scope, REPLACED_IN_FIXTURES)).toEqual([]);
   });
 
-  it("the recorded Google answers are the only exception, and it is the files named", () => {
+  it("the recorded Google answers name no client: they are invented recordings, with no exception", () => {
     const recorded = sourcePaths(["tests"], ANY_TEXT_FILE).filter((p) =>
-      RECORDED_GOOGLE.some((re) => re.test(p)),
+      /^tests\/fixtures\/google-surfaces\/dataforseo\/|stored-answer-aio-q11|09-google-surfaces/.test(
+        p,
+      ),
     );
-    expect(recorded.length).toBeGreaterThan(0);
-    for (const p of recorded)
-      expect(p).toMatch(/dataforseo|stored-answer-aio-q11|09-google-surfaces/);
+    expect(recorded.length).toBeGreaterThanOrEqual(16);
+    expect(
+      hits(recorded, [...REPLACED_EVERYWHERE, ...REPLACED_IN_FIXTURES, ...RECORDED_DETAILS]),
+    ).toEqual([]);
   });
 });

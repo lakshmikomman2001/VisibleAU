@@ -159,7 +159,7 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
     explainability: null,
     draft: null,
     brandId: "bondi-brand-id",
-    brandName: "Bondi Plumbing",
+    brandName: "Galah Plumbing",
   };
 
   // Metropolitan: no task → honestly stalls at step 2
@@ -421,7 +421,7 @@ describe("4.2 — AutopilotLoop: declared states (canon §6U.2)", () => {
   describe("real fixtures with Bondi data", () => {
     it("renders brand name in header", () => {
       const { container } = render(<AutopilotLoop data={BONDI_DATA} />);
-      expect(container.textContent).toContain("Bondi Plumbing");
+      expect(container.textContent).toContain("Galah Plumbing");
     });
 
     it("renders the audit's Visibility as the audit page shows it (24%, 71 of 300)", () => {

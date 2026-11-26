@@ -58,8 +58,8 @@ describe("every signed-in page's breadcrumb", () => {
 
   it("the shared parts and a brand's own link", () => {
     expect(CRUMB.workspace).toEqual({ label: "Workspace", href: "/dashboard" });
-    expect(brandCrumb({ id: ID, name: "Bondi Plumbing" })).toEqual({
-      label: "Bondi Plumbing",
+    expect(brandCrumb({ id: ID, name: "Galah Plumbing" })).toEqual({
+      label: "Galah Plumbing",
       href: `/brands/${ID}`,
     });
   });
@@ -92,7 +92,7 @@ describe("breadcrumbsForPath", () => {
    * page's breadcrumb says the brand's name, never "Brand" or "Detail" for the brand itself.
    */
   const BRAND_ROUTES = ROUTES.filter((route) => route.startsWith("/brands/[brandId]"));
-  const HERO = { id: ID, name: "Hero Home Services" };
+  const HERO = { id: ID, name: "Wren Home Services" };
 
   it("there are brand pages to check", () => {
     expect(BRAND_ROUTES.length).toBeGreaterThan(30);
@@ -101,15 +101,15 @@ describe("breadcrumbsForPath", () => {
   it.each(BRAND_ROUTES)("%s: names the brand", (route) => {
     const crumbs = breadcrumbsForPath(sample(route), { brand: HERO });
     const labels = crumbs.map((c) => c.label);
-    expect(labels).toContain("Hero Home Services");
+    expect(labels).toContain("Wren Home Services");
     expect(labels).not.toContain("Brand");
-    expect(labels.slice(0, 3)).toEqual(["Workspace", "Brands", "Hero Home Services"]);
+    expect(labels.slice(0, 3)).toEqual(["Workspace", "Brands", "Wren Home Services"]);
   });
 
-  it("the reports page: Workspace / Brands / Hero Home Services / Reports; another brand's name is never used", () => {
+  it("the reports page: Workspace / Brands / Wren Home Services / Reports; another brand's name is never used", () => {
     expect(
       breadcrumbsForPath(`/brands/${ID}/reports`, { brand: HERO }).map((c) => c.label),
-    ).toEqual(["Workspace", "Brands", "Hero Home Services", "Reports"]);
+    ).toEqual(["Workspace", "Brands", "Wren Home Services", "Reports"]);
     const other = { id: "22222222-2222-4222-8222-222222222222", name: "Other Brand" };
     expect(
       breadcrumbsForPath(`/brands/${ID}/reports`, { brand: other }).map((c) => c.label),

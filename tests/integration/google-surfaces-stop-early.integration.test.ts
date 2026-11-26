@@ -77,7 +77,7 @@ async function googleAudit(): Promise<{ auditId: string; number: number; log: St
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack,
       prompt_pack_generator_version, classification_status, classification, categories, audience,
       category_confirmed_at, suburb, state, country, location_mode, location_confirmed_at)
-    VALUES (${brandId}, ${ORG}, 'Omega Services', 'omegaservices.com.au', 'tradies', 'au',
+    VALUES (${brandId}, ${ORG}, 'Yabby Services', 'yabbyservices.com.au', 'tradies', 'au',
       ARRAY['NSW:Norwest']::text[], ${client.json(QUESTIONS)}, ${PROMPT_GENERATOR_VERSION}, 'complete',
       ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
       ARRAY['trades_plumbing']::text[], 'households', now(), 'Norwest', 'NSW', 'Australia', 'fixed', now())
@@ -257,7 +257,7 @@ describe("a refused login stops the audit's Google run", () => {
     expect(health.lastRun?.problem).toMatchObject({ code: 40100, label: "login rejected" });
     expect(health.lastRun?.line).toMatch(
       new RegExp(
-        `^Last Google run: login rejected at .+ \\(audit #${auditNumber}, Omega Services\\)$`,
+        `^Last Google run: login rejected at .+ \\(audit #${auditNumber}, Yabby Services\\)$`,
       ),
     );
   }, 300_000);

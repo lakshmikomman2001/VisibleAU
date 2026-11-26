@@ -10,23 +10,23 @@ import { detectionText, detectionTextSql } from "@/lib/audit/detection-text";
 
 describe("detectionText", () => {
   it.each([
-    ["full-width letters fold (NFKC)", "Ｏｍｅｇａ Services", "Omega Services"],
-    ["zero-width characters and soft hyphens go", "Om​ega‌ ‍Ser⁠vi﻿ces­", "Omega Services"],
+    ["full-width letters fold (NFKC)", "Ｙａｂｂｙ Services", "Yabby Services"],
+    ["zero-width characters and soft hyphens go", "Ya​bby‌ ‍Ser⁠vi﻿ces­", "Yabby Services"],
     [
       "hyphen variants become -",
-      "Omega‐Services Omega‑Services Omega‒Services",
-      "Omega-Services Omega-Services Omega-Services",
+      "Yabby‐Services Yabby‑Services Yabby‒Services",
+      "Yabby-Services Yabby-Services Yabby-Services",
     ],
-    ["_ becomes a space", "Omega_Services _here_", "Omega Services  here "],
+    ["_ becomes a space", "Yabby_Services _here_", "Yabby Services  here "],
     [
       "emphasis around a word goes",
-      "**Omega** Services and *Norwest*",
-      "Omega Services and Norwest",
+      "**Yabby** Services and *Norwest*",
+      "Yabby Services and Norwest",
     ],
-    ["code and link brackets around a word go", "`Omega` [Services]", "Omega Services"],
-    ["a marker between two letters stays", "Omega**Services", "Omega**Services"],
-    ["a list bullet stays", "*   **Omega Services** - Norwest", "*   Omega Services - Norwest"],
-    ["plain text is unchanged", "Omega Services, Norwest NSW.", "Omega Services, Norwest NSW."],
+    ["code and link brackets around a word go", "`Yabby` [Services]", "Yabby Services"],
+    ["a marker between two letters stays", "Yabby**Services", "Yabby**Services"],
+    ["a list bullet stays", "*   **Yabby Services** - Norwest", "*   Yabby Services - Norwest"],
+    ["plain text is unchanged", "Yabby Services, Norwest NSW.", "Yabby Services, Norwest NSW."],
   ])("%s", (_name, input, expected) => {
     expect(detectionText(input)).toBe(expected);
   });

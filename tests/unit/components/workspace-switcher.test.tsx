@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const BRANDS = [
-  { id: "brand-1", name: "Bondi Plumbing", domain: "bondiplumbing.com.au" },
+  { id: "brand-1", name: "Galah Plumbing", domain: "galahplumbing.com.au" },
   { id: "brand-2", name: "Another Brand", domain: "another.example.com.au" },
 ];
 
@@ -65,13 +65,13 @@ describe("WorkspaceSwitcher — brand-scoped pages outside /brands/*", () => {
 
   it("on /audits/[id] with SetCurrentBrand declaring the audit's real brand, shows that brand's name, not 'Select brand'", async () => {
     await renderSwitcher("/audits/a0682646-4fa2-48f8-8d66-3452a39e9502", "brand-1");
-    expect(screen.getByText("Bondi Plumbing")).toBeInTheDocument();
+    expect(screen.getByText("Galah Plumbing")).toBeInTheDocument();
     expect(screen.queryByText("Select brand")).not.toBeInTheDocument();
   });
 
   it("never shows a brand not in the fetched (org-scoped) brands list, even if an unknown id is declared", async () => {
     await renderSwitcher("/audits/a0682646-4fa2-48f8-8d66-3452a39e9502", "not-in-this-org");
-    expect(screen.queryByText("Bondi Plumbing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Galah Plumbing")).not.toBeInTheDocument();
     expect(screen.queryByText("Another Brand")).not.toBeInTheDocument();
     // No matching brand found for the declared id -- falls back to the
     // generic label, same as "no brand known at all". Never fabricates
@@ -87,7 +87,7 @@ describe("WorkspaceSwitcher — brand-scoped pages outside /brands/*", () => {
 
   it("a declared brand on a /brands/[id] page takes priority over the URL match if they ever disagree", async () => {
     await renderSwitcher("/brands/brand-2", "brand-1");
-    expect(screen.getByText("Bondi Plumbing")).toBeInTheDocument();
+    expect(screen.getByText("Galah Plumbing")).toBeInTheDocument();
     expect(screen.queryByText("Another Brand")).not.toBeInTheDocument();
   });
 });
@@ -117,11 +117,11 @@ describe("WorkspaceSwitcher -- after a brand is deleted or added", () => {
       );
 
     const { rerender } = render(tree(1));
-    expect(await screen.findByText("Bondi Plumbing")).toBeInTheDocument();
+    expect(await screen.findByText("Galah Plumbing")).toBeInTheDocument();
 
     rerender(tree(0));
     expect(await screen.findByText("No brands")).toBeInTheDocument();
-    expect(screen.queryByText("Bondi Plumbing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Galah Plumbing")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -112,12 +112,12 @@ const perplexityBody = (model: string) => ({
   choices: [
     {
       index: 0,
-      message: { role: "assistant", content: "Omega Services is a plumber in Norwest." },
+      message: { role: "assistant", content: "Yabby Services is a plumber in Norwest." },
       finish_reason: "stop",
     },
   ],
   usage: { prompt_tokens: 20, completion_tokens: 30, total_tokens: 50 },
-  citations: ["https://omegaservices.com.au/"],
+  citations: ["https://yabbyservices.com.au/"],
 });
 
 const openaiResponsesBody = (model: string) => ({
@@ -133,7 +133,7 @@ const openaiResponsesBody = (model: string) => ({
       status: "completed",
       role: "assistant",
       content: [
-        { type: "output_text", text: "Omega Services is a plumber in Norwest.", annotations: [] },
+        { type: "output_text", text: "Yabby Services is a plumber in Norwest.", annotations: [] },
       ],
     },
   ],
@@ -162,7 +162,7 @@ async function perplexity(namedModel: string) {
 async function gemini(modelVersion: string) {
   vi.stubGlobal(
     "fetch",
-    cannedFetch([{ ...geminiResponse([{ text: "Omega Services is a plumber." }]), modelVersion }])
+    cannedFetch([{ ...geminiResponse([{ text: "Yabby Services is a plumber." }]), modelVersion }])
       .fetchStub,
   );
   const { GoogleImpl } = await import("@/lib/llm/google-impl");
@@ -179,7 +179,7 @@ async function claude(namedModel: string) {
   vi.stubGlobal(
     "fetch",
     cannedFetch([
-      { ...anthropicMessage([anthropicText("Omega Services is a plumber.")]), model: namedModel },
+      { ...anthropicMessage([anthropicText("Yabby Services is a plumber.")]), model: namedModel },
     ]).fetchStub,
   );
   const { AnthropicImpl } = await import("@/lib/llm/anthropic-impl");

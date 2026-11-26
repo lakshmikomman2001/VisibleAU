@@ -123,7 +123,7 @@ describe("POST /api/webhooks/clerk", () => {
       const clerkOrgId = mkId("org");
       const payload = orgCreatedPayload({
         clerkOrgId,
-        name: "Bondi Plumbing Co",
+        name: "Galah Plumbing Co",
         region: "au",
         tier: "starter",
       });
@@ -133,7 +133,7 @@ describe("POST /api/webhooks/clerk", () => {
 
       const org = await getOrgByClerkId(clerkOrgId);
       expect(org).not.toBeNull();
-      expect(org!.name).toBe("Bondi Plumbing Co");
+      expect(org!.name).toBe("Galah Plumbing Co");
       expect(org!.region).toBe("au");
       expect(org!.tier).toBe("starter");
       expect(org!.deletedAt).toBeNull();

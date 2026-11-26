@@ -83,7 +83,7 @@ describe("ClassificationConfirmCard — audience selection", () => {
     expect(payload.audience).toBe("households");
   });
 
-  // The live Omega Services shape: a real confirmed audience already
+  // The live Yabby Services shape: a real confirmed audience already
   // exists (this card is back on screen for some other reason, e.g.
   // re-opening after confirming) -- shows that real value, never
   // re-derives a guess from buyerType.

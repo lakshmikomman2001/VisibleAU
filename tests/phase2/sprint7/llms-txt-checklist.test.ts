@@ -8,7 +8,7 @@
  * which reconstructed h1Blockquote/sections/links/depth from `score >=
  * 6/9/12/15` thresholds -- an assumption that the 6 components are awarded
  * in a fixed cumulative order, which is false (they're independent
- * booleans). For Bondi Plumbing's real file (score 9 from
+ * booleans). For Galah Plumbing's real file (score 9 from
  * present+links+depth), that produced the exact inverse display:
  * blockquote/sections shown passing, links/depth shown failing.
  */

@@ -21,7 +21,7 @@ import ReportsListPage from "@/app/(auth)/brands/[brandId]/reports/page";
 const HINT = "Add your agency name and logo in Account → Report branding";
 const REPORT = {
   id: "report-1",
-  headline: "AI mentions Omega Services",
+  headline: "AI mentions Yabby Services",
   narrativeText: "",
   periodLabel: "2026-W44",
   reportType: "weekly",
@@ -75,7 +75,7 @@ describe("the reports list", () => {
   });
 
   it("with an agency name: no hint, the link stays", async () => {
-    serve("Splice Marketing");
+    serve("Possum Marketing");
     render(<ReportsListPage />);
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("link", { name: "Customise report branding" })).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("a report's own page", () => {
   });
 
   it("with an agency name: no hint", async () => {
-    serve("Splice Marketing");
+    serve("Possum Marketing");
     render(<ReportDetailPage />);
     await screen.findByRole("heading", { name: REPORT.headline });
     await waitFor(() =>

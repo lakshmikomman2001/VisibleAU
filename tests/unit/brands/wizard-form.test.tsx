@@ -45,10 +45,10 @@ async function goToStep3() {
   render(<WizardForm auditConfig={AUDIT_CONFIG} />);
 
   fireEvent.change(screen.getByLabelText("Brand name"), {
-    target: { value: "Bondi Plumbing" },
+    target: { value: "Galah Plumbing" },
   });
   fireEvent.change(screen.getByLabelText("Domain"), {
-    target: { value: "bondiplumbing.com.au" },
+    target: { value: "galahplumbing.com.au" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -137,7 +137,7 @@ describe("WizardForm — Part D required location (step 3)", () => {
     expect(payload.primaryRegions).toEqual(["NSW:Bondi"]);
   });
 
-  // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega Services bug
+  // Vunnara hotfix (18 Oct, post-df27ef8): the live Yabby Services bug
   // -- "Norwest" isn't in the curated lib/locations list, so this used
   // to fall back to the suburb name itself as the city. city must be
   // null (unknown), never the suburb.

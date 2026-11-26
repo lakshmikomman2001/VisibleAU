@@ -60,7 +60,7 @@ describe("4.6 — PersonaDashboard: persona derivation", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="b1"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         categories={["trades_plumbing"]}
         tier="growth"
@@ -119,7 +119,7 @@ describe("4.6 — local business persona: shipped elements (Bondi)", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         tier="growth"
       />,
@@ -131,7 +131,7 @@ describe("4.6 — local business persona: shipped elements (Bondi)", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         tier="growth"
       />,
@@ -143,7 +143,7 @@ describe("4.6 — local business persona: shipped elements (Bondi)", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         tier="growth"
       />,
@@ -155,7 +155,7 @@ describe("4.6 — local business persona: shipped elements (Bondi)", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         tier="growth"
       />,
@@ -167,7 +167,7 @@ describe("4.6 — local business persona: shipped elements (Bondi)", () => {
     const { container } = render(
       <PersonaDashboard
         brandId="bondi-id"
-        brandName="Bondi Plumbing"
+        brandName="Galah Plumbing"
         vertical="tradies"
         tier="growth"
       />,

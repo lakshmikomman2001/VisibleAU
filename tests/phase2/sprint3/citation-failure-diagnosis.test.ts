@@ -105,7 +105,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
         citationRow("perplexity", [
@@ -141,7 +141,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
       const mockTx = makeMockTx({
         latestAudit: { id: "audit-1", auditNumber: 50 },
-        brandDomain: "bondiplumbing.com.au",
+        brandDomain: "galahplumbing.com.au",
         citationRows: [
           citationRow("perplexity", [
             { domain: "oneflare.com.au", url: "https://oneflare.com.au/b", origin: "retrieved" },
@@ -161,7 +161,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
       const mockTx = makeMockTx({
         latestAudit: { id: "audit-1", auditNumber: 50 },
-        brandDomain: "bondiplumbing.com.au",
+        brandDomain: "galahplumbing.com.au",
         citationRows: [
           citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
         ],
@@ -185,7 +185,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [
         citationRow("chatgpt", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
       ],
@@ -203,11 +203,11 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
         citationRow("perplexity", [
-          { domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" },
+          { domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" },
         ]),
       ],
     });
@@ -221,11 +221,11 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [
         citationRow("claude", [{ domain: "hipages.com.au", url: "https://hipages.com.au/a" }]),
         citationRow("chatgpt", [
-          { domain: "www.bondiplumbing.com.au", url: "https://www.bondiplumbing.com.au/contact" },
+          { domain: "www.galahplumbing.com.au", url: "https://www.galahplumbing.com.au/contact" },
         ]),
       ],
     });
@@ -254,7 +254,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [citationRow("gemini", []), citationRow("claude", [])],
     });
 
@@ -267,7 +267,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
 
     const mockTx = makeMockTx({
       latestAudit: { id: "audit-1", auditNumber: 50 },
-      brandDomain: "bondiplumbing.com.au",
+      brandDomain: "galahplumbing.com.au",
       citationRows: [
         citationRow("gemini", [{ domain: "192.168.1.1", url: "https://192.168.1.1/x" }]),
       ],
@@ -280,7 +280,7 @@ describe("checkBrandDomainNotCited (via diagnose) -- the new honest 'your websit
   it("never fires when there's no completed audit at all", async () => {
     const { diagnose } = await import("@/lib/visibility/citation-failure-diagnosis");
 
-    const mockTx = makeMockTx({ brandDomain: "bondiplumbing.com.au" }); // no latestAudit
+    const mockTx = makeMockTx({ brandDomain: "galahplumbing.com.au" }); // no latestAudit
     const result = await diagnose(mockTx as never, { brandId: "brand-1" });
     expect(result.find((r) => r.patternKey === "brand_domain_not_cited")).toBeUndefined();
   });

@@ -41,7 +41,7 @@ beforeAll(async () => {
   client = postgres(TEST_DB_URL, { max: 1 });
 
   await client`INSERT INTO organizations (id, clerk_org_id, name, slug) VALUES (${TEST_ORG_ID}, 'csi-topdomains-clerk', 'CSI Top Domains Org', 'csi-topdomains') ON CONFLICT (id) DO NOTHING`;
-  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Top Domains Brand', 'bondiplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
+  await client`INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions) VALUES (${TEST_BRAND_ID}, ${TEST_ORG_ID}, 'CSI Top Domains Brand', 'galahplumbing.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_1_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 301, 'complete', ARRAY['chatgpt'], NOW()) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_2_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 302, 'complete', ARRAY['perplexity'], NOW()) ON CONFLICT (id) DO NOTHING`;
   await client`INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, completed_at) VALUES (${AUDIT_3_ID}, ${TEST_BRAND_ID}, ${TEST_ORG_ID}, 303, 'complete', ARRAY['gemini'], NOW()) ON CONFLICT (id) DO NOTHING`;
@@ -82,7 +82,7 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
       },
       {
         text: "Prompt 3",
-        citedSources: [{ domain: "bondiplumbing.com.au", url: "https://bondiplumbing.com.au/" }], // the brand's own domain
+        citedSources: [{ domain: "galahplumbing.com.au", url: "https://galahplumbing.com.au/" }], // the brand's own domain
       },
     ]);
 
@@ -117,7 +117,7 @@ describe("top_domains: counts, order, www/subdomain normalisation, brand flag, r
 
     const brandOwned = result.find((r) => r.sourceType === "brand_owned");
     expect(brandOwned?.citationCount).toBe(1);
-    const brandEntry = brandOwned?.topDomains.find((d) => d.domain === "bondiplumbing.com.au");
+    const brandEntry = brandOwned?.topDomains.find((d) => d.domain === "galahplumbing.com.au");
     expect(brandEntry?.isBrand).toBe(true);
   });
 

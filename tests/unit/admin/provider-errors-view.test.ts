@@ -18,7 +18,7 @@ const CLEAN: CleanGoogleRun = {
   startedAt: "2026-11-19T08:55:00.000Z",
   at: "2026-11-19T09:10:00.000Z",
   auditNumber: 61,
-  brand: "Omega Services",
+  brand: "Yabby Services",
   questions: 26,
   checked: 26,
 };
@@ -28,7 +28,7 @@ describe("Provider errors say when the last one was, from the data", () => {
     const view = splitProviderErrors([LOGIN_REJECTED, OLDER], CLEAN);
     expect(sydneyShort(LOGIN_REJECTED.at)).toBe("12 Nov 19:31");
     expect(view.summary).toBe(
-      "No provider errors since 12 Nov 19:31 Sydney time (last Google run: 26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Omega Services)",
+      "No provider errors since 12 Nov 19:31 Sydney time (last Google run: 26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Yabby Services)",
     );
     expect(view.recent).toEqual([]);
     expect(view.older).toEqual([LOGIN_REJECTED, OLDER]);

@@ -1,5 +1,5 @@
 /**
- * 19 Nov (Sri's review of /admin/settings): Omega Services' 13 rows "2153 → 2153", repeated clicks of Save on 11 Nov,
+ * 19 Nov (Sri's review of /admin/settings): Yabby Services' 13 rows "2153 → 2153", repeated clicks of Save on 11 Nov,
  * show as one line "13 saves, no change"; a real change, or a no-change save of something else, stays its own row.
  * The rows themselves aren't deleted (lib/admin/settings-history-view.ts only folds what the page shows).
  */
@@ -14,7 +14,7 @@ import {
 const row = (over: Partial<SettingsHistoryEntry>): SettingsHistoryEntry => ({
   at: "2026-11-11T09:00:00.000Z",
   setting: "google_location_postcode",
-  target: "Omega Services",
+  target: "Yabby Services",
   from: "2153",
   to: "2153",
   by: "operator@example.test",
@@ -55,7 +55,7 @@ describe("the Changes log folds repeated saves that changed nothing", () => {
   it("no-change saves of another setting, brand, value or person aren't folded together", () => {
     const rows = collapseNoChangeSaves([
       row({}),
-      row({ target: "Hero Home Services" }),
+      row({ target: "Wren Home Services" }),
       row({ setting: "google_surfaces_device", from: "desktop", to: "desktop" }),
       row({ by: "someone-else@example.test" }),
       row({ from: "2161", to: "2161" }),

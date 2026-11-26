@@ -83,7 +83,7 @@ beforeAll(async () => {
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
     VALUES
-      (${OMEGA_BRAND}, ${ORG_ID}, 'Omega Services', 'omega-labels.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']),
+      (${OMEGA_BRAND}, ${ORG_ID}, 'Yabby Services', 'omega-labels.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney']),
       (${OWNER_BRAND}, ${ORG_ID}, 'Harbour Plumbing', 'harbour-labels.example.com.au', 'tradies', 'au', ARRAY['NSW:Sydney'])
   `;
   await client`
@@ -105,7 +105,7 @@ beforeAll(async () => {
         ${client.json(citationRefs(27))}, 'open', '2026-10-20T00:10:00Z'),
       (${OMEGA_ENTITY_ITEM}, ${ORG_ID}, ${OMEGA_BRAND}, ${OMEGA_AUDIT}, 'entity-profiles', 'frequency',
         ${OLD_ENTITY_TITLE}, 'We checked: there''s no Wikipedia article for your business.', 'confirmed', 'verified', 'high',
-        ${client.json([{ source: "Wikipedia", url: "", summary: 'Searched Wikipedia for "Omega Services Australia": no article found.', sourceType: "checker" }])},
+        ${client.json([{ source: "Wikipedia", url: "", summary: 'Searched Wikipedia for "Yabby Services Australia": no article found.', sourceType: "checker" }])},
         'open', '2026-10-20T00:10:00Z'),
       (${OWNER_DIRECTORY_ITEM}, ${ORG_ID}, ${OWNER_BRAND}, ${OWNER_AUDIT}, 'directory-visibility', 'frequency',
         ${OWNER_DIRECTORY_TITLE}, 'You told us you''re not listed on hipages.', 'confirmed', 'verified', 'high',

@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 const PROMPT = "Good plumber in Norwest?";
-const ANSWER = "Omega Services is a plumber in Norwest.";
+const ANSWER = "Yabby Services is a plumber in Norwest.";
 
 function openaiResponse(): Record<string, unknown> {
   return {
@@ -69,7 +69,7 @@ function perplexityResponse(usage: Record<string, unknown> | undefined): Record<
     model: "sonar-pro",
     choices: [{ index: 0, message: { role: "assistant", content: ANSWER }, finish_reason: "stop" }],
     ...(usage ? { usage } : {}),
-    citations: ["https://omegaservices.com.au/"],
+    citations: ["https://yabbyservices.com.au/"],
   };
 }
 
@@ -109,7 +109,7 @@ describe("each adapter records the provider's own input and output tokens", () =
 
   it("Claude: a paused turn carried on is the sum of its requests", async () => {
     const output = await run("claude", [
-      anthropicMessage([anthropicText("Omega Services is")], "pause_turn"),
+      anthropicMessage([anthropicText("Yabby Services is")], "pause_turn"),
       anthropicMessage([anthropicText(" a plumber in Norwest.")]),
     ]);
     expect(output).toMatchObject({ inputTokens: 2000, outputTokens: 160 });

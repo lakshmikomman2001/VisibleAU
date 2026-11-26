@@ -75,7 +75,7 @@ import { BrandDetailClient } from "@/components/domain/brand/brand-detail-client
 
 const BRAND_READY = {
   id: "test-brand-id",
-  name: "Omega Services",
+  name: "Yabby Services",
   domain: "omega.com.au",
   vertical: "tradies",
   region: "au",
@@ -182,7 +182,7 @@ describe("BrandDetailClient -- Brand settings fields are named by their labels",
         brand={{ ...BRAND_READY, primaryRegions: ["NSW:Norwest"] }}
       />,
     );
-    expect(screen.getByLabelText("Brand name")).toHaveValue("Omega Services");
+    expect(screen.getByLabelText("Brand name")).toHaveValue("Yabby Services");
     expect(screen.getByLabelText("Domain")).toHaveValue("omega.com.au");
     expect(screen.getByLabelText("Kind of business")).toHaveValue("tradies");
   });

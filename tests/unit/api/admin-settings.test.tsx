@@ -62,13 +62,13 @@ const HEALTH = {
   lastRun: {
     auditId: "55555555-5555-4555-8555-555555555555",
     auditNumber: 44,
-    brand: "Omega Services",
+    brand: "Yabby Services",
     workspace: "Splice",
     at: "2026-11-12T03:04:00.000Z",
     questions: 26,
     checked: 0,
     problem: { code: 40100, label: "login rejected", at: "2026-11-12T03:03:00.000Z" },
-    line: "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)",
+    line: "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Yabby Services)",
   },
   // 13 Nov, part 13: audit #44's 26 identical failures are one line, the questions behind it.
   providerErrorGroups: {
@@ -78,7 +78,7 @@ const HEALTH = {
         at: "2026-11-12T03:03:00.000Z",
         auditNumber: 44,
         workspace: "Splice",
-        brand: "Omega Services",
+        brand: "Yabby Services",
         code: 40100,
         category: "login rejected",
         message: RAW_40100,
@@ -263,7 +263,7 @@ describe("/admin/settings (the page)", () => {
     expect(html).toContain("You are not authorized to access this resource");
     expect(html).toContain('data-admin-last-run="problem"');
     expect(html).toContain(
-      "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)",
+      "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Yabby Services)",
     );
   });
 
@@ -274,7 +274,7 @@ describe("/admin/settings (the page)", () => {
     ).replace(/<!-- -->/g, "");
     const text = html.replace(/<[^>]+>/g, "");
     expect(text).toContain(
-      `12 Nov 14:03 · Audit #44 · Omega Services (Splice) · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · ${RAW_40100}`,
+      `12 Nov 14:03 · Audit #44 · Yabby Services (Splice) · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · ${RAW_40100}`,
     );
     // One line, not 26: the questions are behind it, not 26 copies of the message.
     expect(html.match(/data-admin-provider-error=/g)).toHaveLength(1);

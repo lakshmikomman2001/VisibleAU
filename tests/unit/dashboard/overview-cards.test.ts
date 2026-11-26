@@ -55,13 +55,13 @@ describe("Latest audit", () => {
     // 13 Nov 23:30 UTC is 14 Nov in Sydney.
     const card = latestAuditCard(
       {
-        brandName: "Hero Home Services",
+        brandName: "Wren Home Services",
         status: "failed",
         createdAt: new Date("2026-11-13T23:30:00Z"),
       },
       "org-1",
     );
-    expect(card).toEqual({ value: "14 Nov", sub: "Hero Home Services · Failed" });
+    expect(card).toEqual({ value: "14 Nov", sub: "Wren Home Services · Failed" });
     expect(
       latestAuditCard(
         { brandName: "Omega", status: "running", createdAt: new Date("2026-11-13T01:00:00Z") },

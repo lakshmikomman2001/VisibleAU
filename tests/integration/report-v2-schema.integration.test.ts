@@ -73,8 +73,8 @@ beforeAll(async () => {
     VALUES (${USER_A}, ${`report-v2-${USER_A}`}, ${ORG_A}, ${`owner-${ORG_A.slice(0, 8)}@report-v2.example.com.au`}, 'Owner', 'owner')
   `;
   for (const [id, org, name] of [
-    [BRAND_A, ORG_A, "Hero Home Services"],
-    [BRAND_B, ORG_B, "Omega Services"],
+    [BRAND_A, ORG_A, "Wren Home Services"],
+    [BRAND_B, ORG_B, "Yabby Services"],
     [BRAND_HARD, ORG_A, "Hard Delete Plumbing"],
   ] as const) {
     await sql`

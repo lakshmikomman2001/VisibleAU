@@ -17,7 +17,7 @@
         "function": "task_get",
         "se": "google",
         "se_type": "organic",
-        "keyword": "Is Omega Services popular in Norwest, NSW?",
+        "keyword": "Is Yabby Services popular in Norwest, NSW?",
         "location_code": 9071744,
         "language_code": "en",
         "device": "desktop",
@@ -30,12 +30,12 @@
       },
       "result": [
         {
-          "keyword": "Is Omega Services popular in Norwest, NSW?",
+          "keyword": "Is Yabby Services popular in Norwest, NSW?",
           "type": "organic",
           "se_domain": "google.com.au",
           "location_code": 9071744,
           "language_code": "en",
-          "check_url": "https://www.google.com.au/search?q=Is%20Omega%20Services%20popular%20in%20Norwest%2C%20NSW%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
+          "check_url": "https://www.google.com.au/search?q=Is%20Yabby%20Services%20popular%20in%20Norwest%2C%20NSW%3F&hl=en&gl=AU&ie=UTF-8&uule=w+CAIQIFISCcngzpWXohJrEcCUuj9rfQEc",
           "datetime": "2026-11-11 04:58:07 +00:00",
           "item_types": [
             "ai_overview",
@@ -53,34 +53,34 @@
               "page": 1,
               "position": "left",
               "asynchronous_ai_overview": true,
-              "markdown": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://omegaservices.com.au/commercial/electrician)While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)If you're looking for trade work in the area, I can help you:\n\n- **Compare local electricians or plumbers** in Norwest\n- Check **services and rates** for specific repairs",
+              "markdown": "Yabby Services lists an address in Norwest (Suite 101, 9 Quoll Court, Norwest NSW 2153) and works across the Hills District for plumbing, hot water and drain jobs.[[1]](https://yabbyservices.com.au/residential/hot-water)[[2]](https://yabbyservices.com.au/commercial/plumbing)\n\nIt's an established local trade business with an office in the Norwest business park; most of its public reviews mention jobs across the Hills District rather than Norwest alone.[[1]](https://yabbyservices.com.au/residential/hot-water)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xcXVvbGwyMDI2MhgK)\n\nIf you're looking for trade work in the area, I can help you:Compare local plumbers in Norwest\nCheck typical prices for specific repairs",
               "items": [
                 {
                   "type": "ai_overview_element",
                   "position": "left",
                   "title": null,
-                  "text": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.",
-                  "markdown": "Omega Services has a local address in Norwest (Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153) and actively services the Hills District and broader Western Sydney region for plumbing and electrical work.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://omegaservices.com.au/commercial/electrician)",
+                  "text": "Yabby Services lists an address in Norwest (Suite 101, 9 Quoll Court, Norwest NSW 2153) and works across the Hills District for plumbing, hot water and drain jobs.",
+                  "markdown": "Yabby Services lists an address in Norwest (Suite 101, 9 Quoll Court, Norwest NSW 2153) and works across the Hills District for plumbing, hot water and drain jobs.[[1]](https://yabbyservices.com.au/residential/hot-water)[[2]](https://yabbyservices.com.au/commercial/plumbing)",
                   "links": null,
                   "images": null,
                   "references": [
                     {
                       "type": "ai_overview_reference",
                       "position": "left",
-                      "source": "omegaservices.com.au",
-                      "domain": "omegaservices.com.au",
-                      "url": "https://omegaservices.com.au/residential/electrical/switches",
-                      "title": "Switches - Omega Services",
-                      "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australi..."
+                      "source": "yabbyservices.com.au",
+                      "domain": "yabbyservices.com.au",
+                      "url": "https://yabbyservices.com.au/residential/hot-water",
+                      "title": "Hot Water - Yabby Services",
+                      "text": "Yabby Services Address: Suite 101, 9 Quoll Court, Norwest NSW 2153, Australia Phone: 1300 975 707. Services. Hot water repairs and installs across the Hills District..."
                     },
                     {
                       "type": "ai_overview_reference",
                       "position": "left",
-                      "source": "omegaservices.com.au",
-                      "domain": "omegaservices.com.au",
-                      "url": "https://omegaservices.com.au/commercial/electrician",
-                      "title": "Commercial Electrical Contractors Sydney",
-                      "text": "Areas We Service Across Sydney Where do we cover in Sydney? Where can you benefit from our high-quality commercial electrician ser..."
+                      "source": "yabbyservices.com.au",
+                      "domain": "yabbyservices.com.au",
+                      "url": "https://yabbyservices.com.au/commercial/plumbing",
+                      "title": "Commercial Plumbing Norwest",
+                      "text": "Areas we service across the Hills District. Where do we work? Our commercial plumbers cover Norwest, Bella Vista, Castle Hill and nearby suburbs..."
                     }
                   ]
                 },
@@ -88,28 +88,28 @@
                   "type": "ai_overview_element",
                   "position": "left",
                   "title": null,
-                  "text": "While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.",
-                  "markdown": "While it is an established trade provider across Sydney with a general office presence in the business park area, public review data and popularity metrics are primarily tied to its main base in Thornleigh rather than standing out as a uniquely localized household brand specifically exclusive to Norwest.[[1]](https://omegaservices.com.au/residential/electrical/switches)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK)",
+                  "text": "It's an established local trade business with an office in the Norwest business park; most of its public reviews mention jobs across the Hills District rather than Norwest alone.",
+                  "markdown": "It's an established local trade business with an office in the Norwest business park; most of its public reviews mention jobs across the Hills District rather than Norwest alone.[[1]](https://yabbyservices.com.au/residential/hot-water)[[2]](https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xcXVvbGwyMDI2MhgK)",
                   "links": null,
                   "images": null,
                   "references": [
                     {
                       "type": "ai_overview_reference",
                       "position": "left",
-                      "source": "omegaservices.com.au",
-                      "domain": "omegaservices.com.au",
-                      "url": "https://omegaservices.com.au/residential/electrical/switches",
-                      "title": "Switches - Omega Services",
-                      "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australia Phone: 1300 806 683. Services. ..."
+                      "source": "yabbyservices.com.au",
+                      "domain": "yabbyservices.com.au",
+                      "url": "https://yabbyservices.com.au/residential/hot-water",
+                      "title": "Hot Water - Yabby Services",
+                      "text": "Yabby Services Address: Suite 101, 9 Quoll Court, Norwest NSW 2153, Australia Phone: 1300 975 707. Services. Hot water repairs and installs across the Hills District..."
                     },
                     {
                       "type": "ai_overview_reference",
                       "position": "left",
                       "source": "Google",
                       "domain": "www.google.com",
-                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xdGRfNWI1MhgK",
-                      "title": "Omega Services",
-                      "text": "Professional Sydney-based plumbing and electrical service provider specializing in efficient trade repairs and installations."
+                      "url": "https://www.google.com/searchviewer/10?svid=CCYSDyoNCgsvZy8xcXVvbGwyMDI2MhgK",
+                      "title": "Yabby Services",
+                      "text": "9 Quoll Court, Norwest NSW 2153 · Local plumbing, hot water and drain service for the Hills District."
                     }
                   ]
                 },
@@ -117,8 +117,8 @@
                   "type": "ai_overview_element",
                   "position": "left",
                   "title": null,
-                  "text": "If you're looking for trade work in the area, I can help you:Compare local electricians or plumbers in Norwest\nCheck services and rates for specific repairs",
-                  "markdown": "If you're looking for trade work in the area, I can help you:\n\n- **Compare local electricians or plumbers** in Norwest\n- Check **services and rates** for specific repairs",
+                  "text": "If you're looking for trade work in the area, I can help you:Compare local plumbers in Norwest\nCheck typical prices for specific repairs",
+                  "markdown": "If you're looking for trade work in the area, I can help you:Compare local plumbers in Norwest\nCheck typical prices for specific repairs",
                   "links": null,
                   "images": null,
                   "references": null
@@ -128,20 +128,20 @@
                 {
                   "type": "ai_overview_reference",
                   "position": "right",
-                  "source": "omegaservices.com.au",
-                  "domain": "omegaservices.com.au",
-                  "url": "https://omegaservices.com.au/residential/electrical/switches",
-                  "title": "Switches - Omega Services",
-                  "text": "License Number: 361573C ABN: 26 645 181 040. Omega Services Address: Suite 6964, 26 Brookhollow Avenue, Norwest NSW 2153, Australia Phone: 1300 806 683. Services. ..."
+                  "source": "yabbyservices.com.au",
+                  "domain": "yabbyservices.com.au",
+                  "url": "https://yabbyservices.com.au/residential/hot-water",
+                  "title": "Hot Water - Yabby Services",
+                  "text": "Yabby Services Address: Suite 101, 9 Quoll Court, Norwest NSW 2153, Australia Phone: 1300 975 707. Services. Hot water repairs and installs across the Hills District..."
                 },
                 {
                   "type": "ai_overview_reference",
                   "position": "right",
-                  "source": "omegaservices.com.au",
-                  "domain": "omegaservices.com.au",
-                  "url": "https://omegaservices.com.au/commercial/electrician",
-                  "title": "Commercial Electrical Contractors Sydney",
-                  "text": "Areas We Service Across Sydney Where do we cover in Sydney? Where can you benefit from our high-quality commercial electrician services in the area? Well, if you a..."
+                  "source": "yabbyservices.com.au",
+                  "domain": "yabbyservices.com.au",
+                  "url": "https://yabbyservices.com.au/commercial/plumbing",
+                  "title": "Commercial Plumbing Norwest",
+                  "text": "Areas we service across the Hills District. Where do we work? Our commercial plumbers cover Norwest, Bella Vista, Castle Hill and nearby suburbs..."
                 }
               ]
             },

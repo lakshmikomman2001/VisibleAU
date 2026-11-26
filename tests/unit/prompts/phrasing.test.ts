@@ -195,8 +195,8 @@ function everyRenderedTemplate(): string[] {
         );
   }
   const ctx = {
-    brand: { name: "Omega Services", domain: "omega-services.com.au" },
-    competitors: ["Hero Home Services", "Norwest Plumbing Co"],
+    brand: { name: "Yabby Services", domain: "yabby-services.com.au" },
+    competitors: ["Wren Home Services", "Norwest Plumbing Co"],
     locations: ["NSW:Norwest", "NSW:Bondi"],
   };
   for (const pack of [AU_TRADIES_PROMPTS, AU_ALLIED_HEALTH_PROMPTS, AU_SAAS_PROMPTS])
@@ -215,7 +215,7 @@ function everyRenderedTemplate(): string[] {
       );
     }
   for (const phrase of Object.values(CATEGORY_SERVICE_PHRASE))
-    out.push(`Is Omega Services a good choice for ${phrase} in Norwest, NSW?`);
+    out.push(`Is Yabby Services a good choice for ${phrase} in Norwest, NSW?`);
   return out;
 }
 
@@ -226,7 +226,7 @@ describe("no question the existing templates write is refused by the new checks 
     // As validateGeneratedQuestion does: the names in a question (brand, competitors, place) are data, not words.
     const refused = texts
       .map((t) =>
-        t.replace(/Omega Services|Hero Home Services|Norwest Plumbing Co|Norwest|Bondi/g, "Name"),
+        t.replace(/Yabby Services|Wren Home Services|Norwest Plumbing Co|Norwest|Bondi/g, "Name"),
       )
       .map((t) => ({
         t,
@@ -245,8 +245,8 @@ describe("no question the existing templates write is refused by the new checks 
   });
 
   it("the vertical packs (asked live for brands without their own pack): no question is dropped for a new reason", () => {
-    const brand = { name: "Omega Services", domain: "omega-services.com.au" };
-    const competitors = ["Hero Home Services", "Norwest Plumbing Co"];
+    const brand = { name: "Yabby Services", domain: "yabby-services.com.au" };
+    const competitors = ["Wren Home Services", "Norwest Plumbing Co"];
     const newReason = /^(acronym in lower case|"a"\/"an" before a plural)/;
     const droppedForNewReason: string[] = [];
     let checked = 0;

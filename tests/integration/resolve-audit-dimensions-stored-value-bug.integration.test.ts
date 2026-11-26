@@ -8,7 +8,7 @@
  * `Number(audit.scoreFrequency ?? 0)` every reader used to pass as the
  * value while computing CI fresh.
  *
- * Fixture mirrors the real, live bug exactly: Bondi Plumbing Audit #8
+ * Fixture mirrors the real, live bug exactly: Galah Plumbing Audit #8
  * (prod, 17 Oct) -- stored score_frequency = 44.4 / score_composite =
  * 44.4, but after prod-fix 0066 retroactively flagged its 16 brand-named
  * answers as is_branded_prompt = true, the TRUE organic sample is 20
@@ -49,7 +49,7 @@ beforeAll(async () => {
   // snippets below, not just carry a human label.
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, competitors)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Bondi Plumbing', 'bondiplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Galah Plumbing', 'galahplumbing.example.com.au', 'tradies', 'au', ARRAY['NSW:Bondi'], ARRAY[]::text[])
   `;
   // The exact live contradiction: a STALE stored 44.4, computed before
   // prod-fix 0066 retroactively reclassified the brand-named answers as
@@ -94,7 +94,7 @@ beforeAll(async () => {
     await client`
       INSERT INTO citations (audit_id, engine, prompt, run_number, brand_mentioned, is_branded_prompt, position, cited_sources, response_snippet)
       VALUES (${MENTIONED_AUDIT_ID}, ${ENGINES[i % ENGINES.length]}, ${`mentioned prompt ${i}`}, 1, true, false, ${rank},
-        ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])}, ${`${rank}. Bondi Plumbing is well regarded locally.`})
+        ${client.json(hasSource ? [{ url: "https://example.com/src" }] : [])}, ${`${rank}. Galah Plumbing is well regarded locally.`})
     `;
   }
   for (let i = 0; i < 4; i++) {

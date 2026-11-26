@@ -58,8 +58,8 @@ afterEach(() => {
 async function brandBasics() {
   const user = userEvent.setup();
   const view = render(<WizardForm auditConfig={CONFIG} />);
-  await user.type(screen.getByLabelText("Brand name"), "Splice Marketing");
-  await user.type(screen.getByLabelText("Domain"), "splicemarketing.com.au");
+  await user.type(screen.getByLabelText("Brand name"), "Possum Marketing");
+  await user.type(screen.getByLabelText("Domain"), "possummarketing.com.au");
   return { user, ...view };
 }
 
@@ -69,7 +69,7 @@ describe("Brand basics' logo row says what's true", () => {
     expect(container.querySelector("[data-logo-status]")?.textContent).toBe(
       "No logo yet · Upload a logo for the brand",
     );
-    expect(container.querySelector("[data-logo-tile]")?.textContent).toBe("SP");
+    expect(container.querySelector("[data-logo-tile]")?.textContent).toBe("PO");
     expect(container.textContent).not.toMatch(/auto-detect|favicon|Upload instead/i);
   });
 
@@ -114,8 +114,8 @@ describe("an uploaded logo is saved with the brand", () => {
       RequestInit,
     ];
     expect(JSON.parse(String(create[1].body))).toMatchObject({
-      name: "Splice Marketing",
-      domain: "splicemarketing.com.au",
+      name: "Possum Marketing",
+      domain: "possummarketing.com.au",
       logoUrl: STORED,
     });
   });

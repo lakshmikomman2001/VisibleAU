@@ -64,13 +64,13 @@ describe("buildYoutubePresenceAuditRow -- an unconfirmed candidate is never scor
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         searchResponse([
-          { channelId: "UC_wrong", title: "Bondi Plumbing", description: "Plumbing videos." },
+          { channelId: "UC_wrong", title: "Galah Plumbing", description: "Plumbing videos." },
         ]),
       )
       .mockResolvedValueOnce(
         channelsResponse({
           channelId: "UC_wrong",
-          title: "Bondi Plumbing",
+          title: "Galah Plumbing",
           description: "Your local plumbing experts.",
           subscriberCount: 12,
           videoCount: 8,
@@ -86,12 +86,12 @@ describe("buildYoutubePresenceAuditRow -- an unconfirmed candidate is never scor
         ]),
       );
 
-    const row = await buildYoutubePresenceAuditRow("Bondi Plumbing", "bondiplumbing.com.au");
+    const row = await buildYoutubePresenceAuditRow("Galah Plumbing", "galahplumbing.com.au");
 
     expect(row.checkStatus).toBe("unconfirmed");
     expect(row.presenceScore).toBeNull();
     expect(row.channelExists).toBeNull(); // "we don't know" -- not a measured false
-    expect(row.channelTitle).toBe("Bondi Plumbing");
+    expect(row.channelTitle).toBe("Galah Plumbing");
     expect(row.channelId).toBe("UC_wrong");
     // Task #37: the reason + conflicting domain must be persisted (via
     // the unconstrained `gaps` jsonb column, no new column) so the UI
@@ -105,13 +105,13 @@ describe("buildYoutubePresenceAuditRow -- an unconfirmed candidate is never scor
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         searchResponse([
-          { channelId: "UC_maybe", title: "Bondi Plumbing", description: "Plumbing videos." },
+          { channelId: "UC_maybe", title: "Galah Plumbing", description: "Plumbing videos." },
         ]),
       )
       .mockResolvedValueOnce(
         channelsResponse({
           channelId: "UC_maybe",
-          title: "Bondi Plumbing",
+          title: "Galah Plumbing",
           description: "Thanks for watching!",
           subscriberCount: 5,
           videoCount: 2,
@@ -124,7 +124,7 @@ describe("buildYoutubePresenceAuditRow -- an unconfirmed candidate is never scor
         ]),
       );
 
-    const row = await buildYoutubePresenceAuditRow("Bondi Plumbing", "bondiplumbing.com.au");
+    const row = await buildYoutubePresenceAuditRow("Galah Plumbing", "galahplumbing.com.au");
 
     expect(row.checkStatus).toBe("unconfirmed");
     expect(row.presenceScore).toBeNull();

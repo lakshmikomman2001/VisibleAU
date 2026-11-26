@@ -70,7 +70,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omega.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'omega.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
   await client`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, status, engines, prompts_count, runs_per_prompt, total_calls)
@@ -129,7 +129,7 @@ describe("Provider errors: one line per audit and answer", () => {
     const [first, second] = groups;
     expect(first).toMatchObject({
       auditNumber: 44,
-      brand: "Omega Services",
+      brand: "Yabby Services",
       workspace: ORG_NAME,
       code: 40100,
       category: "login rejected",
@@ -158,7 +158,7 @@ describe("Provider errors: one line per audit and answer", () => {
     const run = await loadLastCleanGoogleRun();
     expect(run).toMatchObject({
       auditNumber: 45,
-      brand: "Omega Services",
+      brand: "Yabby Services",
       questions: 2,
       checked: 2,
     });

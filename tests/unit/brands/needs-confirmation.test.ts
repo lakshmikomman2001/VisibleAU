@@ -181,7 +181,7 @@ describe("brandReadyForAudit (Build 1 addendum, item 9)", () => {
   });
 
   // Vunnara hotfix (18 Oct, post-df27ef8): this is the exact live state
-  // of Omega Services on prod after both confirmations succeeded
+  // of Yabby Services on prod after both confirmations succeeded
   // (category_confirmed_at and location_confirmed_at both set,
   // location_mode "fixed") -- must read ready, not blocked.
   it("the Omega-shaped row IS ready once both classification (categories+audience) and location are actually confirmed", () => {

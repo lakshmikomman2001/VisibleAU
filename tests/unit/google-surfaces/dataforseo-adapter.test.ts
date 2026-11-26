@@ -62,10 +62,10 @@ describe("parseDataForSeoResult: recorded answers", () => {
 
   it("a branded AI Overview: names Omega and cites its site, and a different business's", () => {
     const a = parseDataForSeoResult(resultOf("aio-task-get-q11.json"));
-    expect(a.answerText).toMatch(/Omega Services/);
+    expect(a.answerText).toMatch(/Yabby Services/);
     const domains = a.citedLinks.map((l) => l.domain);
-    expect(domains).toContain("omegaservices.com.au");
-    expect(domains).toContain("omega-plumbing.com.au");
+    expect(domains).toContain("yabbyservices.com.au");
+    expect(domains).toContain("yabby-plumbing.com.au");
     expect(a.citedLinks.some((l) => l.googleLink)).toBe(false);
   });
 
@@ -75,7 +75,7 @@ describe("parseDataForSeoResult: recorded answers", () => {
     expect(a.seDomain).toBe("google.com");
     expect(a.reportedLocationCode).toBe(9071744);
     expect(a.citedLinks.map((l) => [l.domain, l.googleLink])).toEqual([
-      ["omegaservices.com.au", false],
+      ["yabbyservices.com.au", false],
       ["google.com", true],
     ]);
     const all = parseDataForSeoResult(resultOf("aim-task-get-q01.json"));
@@ -86,7 +86,7 @@ describe("parseDataForSeoResult: recorded answers", () => {
     expect(isGoogleLink("www.google.com")).toBe(true);
     expect(isGoogleLink("google.com.au")).toBe(true);
     expect(isGoogleLink("maps.google.com")).toBe(true);
-    expect(isGoogleLink("omegaservices.com.au")).toBe(false);
+    expect(isGoogleLink("yabbyservices.com.au")).toBe(false);
     expect(isGoogleLink("googleplumbing.com.au")).toBe(false);
   });
 });

@@ -27,7 +27,7 @@ const zeroHits: Omit<DirectoryCitationResult, "directory"> = {
 const NOW = new Date("2026-10-16T00:00:00.000Z");
 const input = {
   brandId: "b-1",
-  brandName: "Bondi Plumbing",
+  brandName: "Galah Plumbing",
   auditId: "audit-1",
   region: "au",
   categories: ["trades_plumbing"],
@@ -37,7 +37,7 @@ function checkers(overrides: Partial<EvidenceCheckers> = {}): EvidenceCheckers {
   return {
     checkWikipediaAuStatus: async () => ({
       status: "not_found",
-      query: "Bondi Plumbing Australia",
+      query: "Galah Plumbing Australia",
     }),
     loadCrawledPages: async () => [
       { pageUrl: "https://bondi.test/pricing", lastModified: "2025-06-01T00:00:00.000Z" },
@@ -64,7 +64,7 @@ describe("gatherRecommendationEvidence", () => {
     });
     expect(e.wikipedia).toEqual({
       status: "ok",
-      data: { articleExists: false, articleUrl: null, query: "Bondi Plumbing Australia" },
+      data: { articleExists: false, articleUrl: null, query: "Galah Plumbing Australia" },
     });
     expect(e.pageFreshness.status).toBe("ok");
     if (e.pageFreshness.status === "ok") {
@@ -112,7 +112,7 @@ describe("gatherRecommendationEvidence", () => {
         checkWikipediaAuStatus: async () => ({
           status: "unavailable",
           reason: "HTTP 503",
-          query: "Bondi Plumbing Australia",
+          query: "Galah Plumbing Australia",
         }),
       }),
       { now: NOW },
@@ -277,30 +277,30 @@ describe("checkWikipediaAuStatus (fetch mocked)", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(body), { status }));
 
   it("found when the top result's title contains the brand", async () => {
-    respond({ query: { search: [{ title: "Bondi Plumbing", snippet: "" }] } });
-    const r = await checkWikipediaAuStatus("Bondi Plumbing");
+    respond({ query: { search: [{ title: "Galah Plumbing", snippet: "" }] } });
+    const r = await checkWikipediaAuStatus("Galah Plumbing");
     expect(r).toMatchObject({
       status: "found",
-      url: "https://en.wikipedia.org/wiki/Bondi_Plumbing",
+      url: "https://en.wikipedia.org/wiki/Galah_Plumbing",
     });
   });
 
   it("not_found when the search returns nothing about the brand", async () => {
     respond({ query: { search: [{ title: "Bondi Beach", snippet: "A beach in Sydney" }] } });
-    expect((await checkWikipediaAuStatus("Bondi Plumbing")).status).toBe("not_found");
+    expect((await checkWikipediaAuStatus("Galah Plumbing")).status).toBe("not_found");
   });
 
   it("not_found on zero results", async () => {
     respond({ query: { search: [] } });
-    expect((await checkWikipediaAuStatus("Bondi Plumbing")).status).toBe("not_found");
+    expect((await checkWikipediaAuStatus("Galah Plumbing")).status).toBe("not_found");
   });
 
   it("unavailable on HTTP error, network error, or malformed JSON", async () => {
     respond({}, 503);
-    expect((await checkWikipediaAuStatus("Bondi Plumbing")).status).toBe("unavailable");
+    expect((await checkWikipediaAuStatus("Galah Plumbing")).status).toBe("unavailable");
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network"));
-    expect((await checkWikipediaAuStatus("Bondi Plumbing")).status).toBe("unavailable");
+    expect((await checkWikipediaAuStatus("Galah Plumbing")).status).toBe("unavailable");
     respond({ unexpected: true });
-    expect((await checkWikipediaAuStatus("Bondi Plumbing")).status).toBe("unavailable");
+    expect((await checkWikipediaAuStatus("Galah Plumbing")).status).toBe("unavailable");
   });
 });

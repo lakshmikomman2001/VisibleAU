@@ -341,7 +341,7 @@ beforeAll(async () => {
       INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack,
         prompt_pack_generator_version, classification_status, classification, categories, audience,
         category_confirmed_at, suburb, state, country, location_mode, location_confirmed_at)
-      VALUES (${brandId}, ${ORG_ID}, 'Bondi Plumbing', 'bondiplumbing.com.au', 'tradies', 'au',
+      VALUES (${brandId}, ${ORG_ID}, 'Galah Plumbing', 'galahplumbing.com.au', 'tradies', 'au',
         ARRAY['NSW:Bondi']::text[], ${client.json(QUESTIONS)}, ${PROMPT_GENERATOR_VERSION}, 'complete',
         ${client.json({ category: "trades_plumbing", buyerType: "smb", confidence: 0.95, intentSignals: [], competitors: [], auRelevance: "au_present" })},
         ARRAY['trades_plumbing']::text[], 'households', now(), 'Bondi', 'NSW', 'Australia', 'fixed', now())

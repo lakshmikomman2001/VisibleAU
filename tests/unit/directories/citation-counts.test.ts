@@ -242,7 +242,7 @@ describe("getDirectoryCitationsForAudit", () => {
 
   // ---------------------------------------------------------------------
   // Omega fixture -- audit #30's real cited URLs (prod audit_id
-  // 2cab2f88-304b-45c8-b195-1b02b4aa6dca, brand "Omega Services",
+  // 2cab2f88-304b-45c8-b195-1b02b4aa6dca, brand "Yabby Services",
   // db/prod-fixes/diag-0082-audit30-mentions-and-sources.sql): Perplexity
   // cited hipages.com.au/connect/norwestelectricalgroup -- a DIFFERENT
   // electrician's real hipages listing, not Omega's -- for a "most
@@ -294,7 +294,7 @@ describe("getDirectoryCitationsForAudit", () => {
         {
           directoryKey: "hipages",
           status: "listed",
-          profileUrl: "https://hipages.com.au/connect/omega-services-sydney",
+          profileUrl: "https://hipages.com.au/connect/yabby-services-sydney",
           confirmedAt: new Date("2026-10-15T00:00:00Z"),
         },
       ]);

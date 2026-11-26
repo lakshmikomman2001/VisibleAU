@@ -1,5 +1,5 @@
 /**
- * ⚠️ KK — the critical regression: replaying Bondi Plumbing's REAL inputs
+ * ⚠️ KK — the critical regression: replaying Galah Plumbing's REAL inputs
  * (confirmed live in tasks FF/JJ) through all three fixed scorers must
  * produce byte-identical dimension totals to before this task. None of
  * the three fixes (capsule zero-questions, robots missing-file gating,
@@ -23,19 +23,19 @@ import { brandEntityScore } from "@/lib/brand-entity/score";
 import type { CrawlResult } from "@/lib/crawler/types";
 import { analyzeRobots } from "@/lib/robots-txt/analyze";
 
-describe("⚠️ KK — Bondi Plumbing regression: unchanged across all three fixes", () => {
+describe("⚠️ KK — Galah Plumbing regression: unchanged across all three fixes", () => {
   it("robots.txt: Bondi's real, present, permissive file still scores 18/18", () => {
-    const bondiRobots = `Sitemap: https://www.bondiplumbing.com.au/sitemap.xml
+    const bondiRobots = `Sitemap: https://www.galahplumbing.com.au/sitemap.xml
 User-agent: *
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 `;
     const crawl: CrawlResult = {
-      domain: "bondiplumbing.com.au",
+      domain: "galahplumbing.com.au",
       pages: [
         {
-          url: "https://www.bondiplumbing.com.au/",
+          url: "https://www.galahplumbing.com.au/",
           statusCode: 200,
-          title: "Bondi Plumbing | Plumber Bondi | Blocked Drains",
+          title: "Galah Plumbing | Plumber Bondi | Blocked Drains",
           textContent: "",
           wordCount: 1200,
           excerpt: "",
@@ -87,7 +87,7 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes
     const score = brandEntityScore({
       abnVerified: false, // no ABN on this test brand (task JJ)
       wikipediaAuPresent: false, // confirmed via live Wikipedia search (task JJ)
-      auTldPresent: true, // bondiplumbing.com.au -- confirmed real
+      auTldPresent: true, // galahplumbing.com.au -- confirmed real
     });
 
     expect(score).toBe(2);

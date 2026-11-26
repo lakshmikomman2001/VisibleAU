@@ -111,7 +111,7 @@ beforeAll(async () => {
 
   await su`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions)
-    VALUES (${BRAND_ID}, ${ORG.agency}, 'Omega Services', 'omega-etfr.example.com.au', 'tradies', 'au', ARRAY[]::text[])
+    VALUES (${BRAND_ID}, ${ORG.agency}, 'Yabby Services', 'omega-etfr.example.com.au', 'tradies', 'au', ARRAY[]::text[])
   `;
   await su`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count, prompts_count, runs_per_prompt, total_calls, started_at, completed_at, metadata)
@@ -181,7 +181,7 @@ describe("the whole-engine-failure alert reaches owners and admins (1 Nov, item 
 
     const admin = delivered.find((d) => d.to === ADMIN);
     expect(admin?.subject).toBe(
-      "[Omega Services] Claude returned an error for every question in Audit #37",
+      "[Yabby Services] Claude returned an error for every question in Audit #37",
     );
     expect(admin?.text).toContain("You're an owner or admin of this organisation");
     // Item 1: #37's real cause, by its plain reason -- never the provider's sentence. S01C part 1, LLD amendment

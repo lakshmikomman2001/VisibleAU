@@ -37,16 +37,16 @@ const EVERYDAY = Array.from(
   (_, i) => `Who is a reliable plumber near Bondi? (${i})`,
 );
 const BRANDED = [
-  "Is Omega Services a good choice for plumbing in Bondi?",
-  "Omega Services vs Delta Plumbing — which is better in Bondi?",
-  "What are the best alternatives to Omega Services in Bondi?",
+  "Is Yabby Services a good choice for plumbing in Bondi?",
+  "Yabby Services vs Delta Plumbing — which is better in Bondi?",
+  "What are the best alternatives to Yabby Services in Bondi?",
 ];
 
-// Omega Services sits at #4 of a numbered list, with a hipages source.
+// Yabby Services sits at #4 of a numbered list, with a hipages source.
 const RANKED_MENTION =
-  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Omega Services, a Bondi plumber with fast call-outs.\n5. Delta Plumbing";
+  "Good local options:\n1. Alpha Plumbing\n2. Beta Plumbing\n3. Gamma Plumbing\n4. Yabby Services, a Bondi plumber with fast call-outs.\n5. Delta Plumbing";
 const NO_MENTION = "Good local options: Alpha Plumbing, Beta Plumbing and Gamma Plumbing.";
-const HIPAGES = [{ url: "https://hipages.com.au/connect/omegaservices", domain: "hipages.com.au" }];
+const HIPAGES = [{ url: "https://hipages.com.au/connect/yabbyservices", domain: "hipages.com.au" }];
 
 let client: ReturnType<typeof postgres>;
 
@@ -100,7 +100,7 @@ beforeAll(async () => {
   `;
   await client`
     INSERT INTO brands (id, organization_id, name, domain, vertical, region, primary_regions, prompt_pack, prompt_pack_generator_version, classification_status, classification, category_confirmed_at, location_mode)
-    VALUES (${BRAND_ID}, ${ORG_ID}, 'Omega Services', 'omegaservices.example.com.au', 'tradies', 'au',
+    VALUES (${BRAND_ID}, ${ORG_ID}, 'Yabby Services', 'yabbyservices.example.com.au', 'tradies', 'au',
       ARRAY[]::text[],
       ${client.json([...EVERYDAY, ...BRANDED])},
       ${PROMPT_GENERATOR_VERSION},

@@ -1,7 +1,7 @@
 import { detectionText } from "@/lib/audit/detection-text";
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import { brandNamePattern } from "@/lib/brands/normalize";
-import { questionTextKey } from "@/lib/questions/hash";
+import { questionTextKey } from "@/lib/questions/text-key";
 
 /**
  * S03 part 2 (LLD 8.3.2, appendix C2; contract P03.checks): the checks on a question someone writes, in one place for

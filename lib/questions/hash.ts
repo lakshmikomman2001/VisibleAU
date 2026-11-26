@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { questionTextKey } from "./text-key";
+
+export { questionTextKey };
 
 /**
  * S02 part 1 (LLD 7.1, N2): the question set hash in TypeScript, the same as SQL's -- audits.question_set_hash
@@ -10,32 +13,6 @@ import { createHash } from "node:crypto";
  * tests/unit/questions/hash.test.ts checks it against the 0150/0152 fixtures and tests/integration/question-hash-
  * parity.integration.test.ts against Postgres's own hashes of real audits.
  */
-
-/**
- * Migration 0152's question_text_key(), character for character: lower case; every ASCII punctuation mark, the en
- * and em dashes, curly quotes, ellipsis, minus, hyphen, non-breaking hyphen and no-break space turned into a space;
- * runs of white space made one space; trimmed.
- */
-const PUNCTUATION = new Set([
-  ..."!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
-  "–",
-  "—",
-  "‘",
-  "’",
-  "“",
-  "”",
-  "…",
-  "−",
-  "‐",
-  "‑",
-  " ",
-]);
-
-export function questionTextKey(question: string): string {
-  let out = "";
-  for (const ch of question.toLowerCase()) out += PUNCTUATION.has(ch) ? " " : ch;
-  return out.replace(/\s+/g, " ").replace(/^ +| +$/g, "");
-}
 
 /** Bytewise, as COLLATE "C" sorts UTF-8 text (UTF-16 code-unit order differs above U+FFFF). */
 function compareBytes(a: string, b: string): number {

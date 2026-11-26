@@ -7,6 +7,8 @@ import { assertBrandAccess, brandAccessErrorResponse } from "@/lib/governance";
 import { canPerformAction, isOrgRole } from "@/lib/governance/permissions";
 import { enginesForTier } from "@/lib/llm/tier-engines";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { questionAgencyName } from "@/lib/questions/agency-name";
+import { getQuestionLimits } from "@/lib/questions/limits";
 import { ensureTemplateSuggestions, loadQuestionsView } from "@/lib/questions/questions-view";
 import { isUuid } from "@/lib/validation/uuid";
 
@@ -40,17 +42,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const input = { brandId, organizationId: currentUser.organizationId };
     if (suggestionsShown) await ensureTemplateSuggestions(tx, input);
     const view = await loadQuestionsView(tx, input);
+    const canEdit =
+      isOrgRole(currentUser.role) && canPerformAction(currentUser.role, "edit_brand_data");
+    // S03 part 4 (LLD 8.3.1): editing is behind agency_questions; the counts and what the plan allows come from the
+    // same limits the apply route enforces (lib/questions/limits.ts).
+    const limits = await getQuestionLimits(tx, currentUser.organizationId, brandId);
+    const agencyQuestions = await isEnabled("agency_questions", currentUser.organizationId);
     return NextResponse.json({
       ...view,
       suggestions: suggestionsShown ? view.suggestions : [],
+      brandName: brand.name,
+      agencyName: await questionAgencyName(tx, currentUser.organizationId, brandId),
       limits: {
         plan,
         engines: [...enginesForTier(plan)],
         suggestionsShown,
-        // S03 makes questions editable; until then nobody edits here, and the page says who will be able to.
-        canEdit:
-          isOrgRole(currentUser.role) && canPerformAction(currentUser.role, "edit_brand_data"),
-        editable: false,
+        canEdit,
+        editable: agencyQuestions && canEdit && plan !== "free",
+        everydayAllowed: limits.everydayAllowed,
+        everydayMin: limits.everydayMin,
+        maxBranded: limits.maxBrandedQuestions,
+        canWriteQuestions: limits.canWriteQuestions,
       },
     });
   });

@@ -73,6 +73,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   journeys: "Journeys",
   "health-check": "Health check",
   "llms-txt-generator": "llms.txt generator",
+  // S02 part 4 (contract P02): "Workspace › Brands › {brand} › Questions".
+  questions: "Questions",
   "meta-tags": "Meta Tags",
   reports: "Reports",
   retrieval: "Retrieval",

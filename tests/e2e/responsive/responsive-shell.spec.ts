@@ -31,6 +31,7 @@ import {
   TRUST_CHECK_IMPLEMENTED,
   type TrustCheckKey,
 } from "@/lib/trust/stub-implementation-status";
+import { backfillQuestionSets } from "@/tests/helpers/question-backfill";
 import { e2eDatabaseUrl } from "../helpers/e2e-database";
 import { SIGNED_IN_PAGES } from "./signed-in-pages";
 
@@ -200,6 +201,13 @@ test.beforeAll(async () => {
   `;
   await seedBrand(ORG_ID, BRAND_ID);
   await seedFinishedAudit(ORG_ID, BRAND_ID, FINISHED_AUDIT, 36);
+  // S02 part 4 (contract P02): the Questions tab is behind question_library; on here, with the brand's set version 1
+  // made by prod-fix 0155's own backfill, so the page shows its rows and their last results at every width.
+  await sql`
+    INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled)
+    VALUES (${ORG_ID}, 'question_library', true)
+  `;
+  await backfillQuestionSets(sql, ORG_ID);
   await sql`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count, prompts_count, runs_per_prompt, total_calls, started_at)
     VALUES (${RUNNING_AUDIT}, ${BRAND_ID}, ${ORG_ID}, 37, 'manual', 'running', ${[...ENGINES]}, 4, 13, 1, 52, now() - interval '1 minute')

@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Eye,
   FileText,
+  ListChecks,
   GitBranch,
   Hash,
   type LucideIcon,
@@ -226,6 +227,8 @@ interface BrandDetailClientProps {
   }>;
   /** S01 part 11 (flag abn_suggestion): offer an ABN found on the ABR by the business's name. */
   abnSuggestionEnabled?: boolean;
+  /** S02 part 4 (flag question_library; contract P02): the Questions tab's tile. Off: no tile, the page as before. */
+  questionLibraryEnabled?: boolean;
 }
 
 /** One KPI tile; detail and color only where a tile has them (Visibility). */
@@ -259,6 +262,7 @@ export function BrandDetailClient({
   totalMentions,
   engineStats,
   abnSuggestionEnabled = false,
+  questionLibraryEnabled = false,
 }: BrandDetailClientProps) {
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -1018,6 +1022,17 @@ export function BrandDetailClient({
       >
         {(
           [
+            // S02 part 4 (LLD 8.2.2): "brand page tab 'Questions' (and a tile on the brand overview)", flag on only.
+            ...(questionLibraryEnabled
+              ? [
+                  {
+                    href: `/brands/${brand.id}/questions`,
+                    label: "Questions",
+                    icon: ListChecks,
+                    desc: "What every audit asks",
+                  },
+                ]
+              : []),
             {
               href: `/brands/${brand.id}/health-check`,
               label: "Health Check",

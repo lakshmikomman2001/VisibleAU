@@ -40,6 +40,8 @@ const BRAND_PAGES: [name: string, path: string][] = [
   ["Health check", "health-check"],
   ["llms.txt generator", "llms-txt-generator"],
   ["Meta tags", "meta-tags"],
+  // S02 part 4 (contract P02): question_library on for the spec's workspace, with set version 1.
+  ["Questions", "questions"],
   ["Reports", "reports"],
   ["Retrieval", "retrieval"],
   ["Agent analytics", "retrieval/agent-analytics"],

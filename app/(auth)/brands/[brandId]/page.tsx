@@ -326,6 +326,7 @@ export default async function BrandDetailPage({
           noAnswerReason: e.noAnswerReason,
         }))}
         abnSuggestionEnabled={await isEnabled("abn_suggestion", currentUser.organizationId)}
+        questionLibraryEnabled={await isEnabled("question_library", currentUser.organizationId)}
       />
       <div style={{ padding: "0 24px 24px" }}>
         <DirectoryListingsCard brandId={brand.id} />

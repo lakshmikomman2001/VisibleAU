@@ -115,7 +115,8 @@ export default async function MethodologyPage() {
           gathered -- question selection, web search, run count, the
           cache-sharing caveat, and the location caveat. None of this was
           disclosed anywhere before this section. */}
-      <section className="rounded-xl border p-5 mb-10 bg-muted/30">
+      {/* S02 part 4: the Questions tab's "How questions are chosen" links here (contract P02.intro). */}
+      <section id="how-we-gather-answers" className="rounded-xl border p-5 mb-10 bg-muted/30">
         <h2 className="font-semibold mb-2">How we gather answers</h2>
         <p className="text-sm text-muted-foreground mb-2">
           Each brand gets a fixed set of questions, generated once from its confirmed categories

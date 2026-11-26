@@ -433,6 +433,9 @@ const OTHER_API_GATES = [
   "app/api/audit-schedules/route.ts",
   "app/api/auth/me/route.ts",
   "app/api/brands/[brandId]/competitive-benchmark/route.ts",
+  // S02 part 4: never refuses; a cancelled workspace reads as Free and gets no suggestions --
+  // tests/integration/questions-route.integration.test.ts ("Free gets no suggestions").
+  "app/api/brands/[brandId]/questions/route.ts",
   "app/api/brands/[brandId]/visibility/route.ts",
   "app/api/brands/route.ts",
   "app/api/citability-methods/route.ts",

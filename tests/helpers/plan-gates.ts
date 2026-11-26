@@ -34,6 +34,8 @@ export const DIRECT_GATES = [
   "app/api/brands/[brandId]/competitive-benchmark/route.ts",
   "app/api/brands/[brandId]/prompts/[promptId]/trend/route.ts",
   "app/api/brands/[brandId]/prompts/route.ts",
+  // S02 part 4: Free gets no suggestions (no refusal).
+  "app/api/brands/[brandId]/questions/route.ts",
   "app/api/brands/[brandId]/visibility/route.ts",
   "app/api/brands/route.ts",
   "app/api/citability-methods/route.ts",

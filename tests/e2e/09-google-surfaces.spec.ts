@@ -216,6 +216,31 @@ test("the operator's Save: Saving…, Saved, kept after a reload; No change when
   await sql`DELETE FROM brand_google_locations WHERE brand_id = ${BRAND_ID}`;
 });
 
+// S03 part 0 (LLD amendment 81): ticking a flag's Everyone box asks first; Cancel leaves it unticked and saves nothing.
+// Only Cancel here: a confirmed tick would switch the flag on for every workspace in the shared e2e database.
+test("a flag's Everyone box asks before turning it on for every workspace; Cancel saves nothing", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto("/admin/settings");
+  const box = page.getByTestId("admin-flag-global-agency_questions");
+  await expect(box).not.toBeChecked();
+  let posted = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/admin/feature-flags")) posted++;
+  });
+  await box.click();
+  const dialog = page.getByRole("alertdialog", {
+    name: "Turn agency_questions on for every workspace?",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(box).not.toBeChecked();
+  expect(posted).toBe(0);
+});
+
 for (const width of [375, 1280] as const) {
   test.describe(`at ${width}px`, () => {
     test.use({ viewport: { width, height: width === 375 ? 812 : 900 } });

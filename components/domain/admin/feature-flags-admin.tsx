@@ -1,6 +1,7 @@
 "use client";
 
-import { type CSSProperties, useCallback } from "react";
+import { type CSSProperties, useCallback, useState } from "react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
 import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import type { FeatureFlagAdminRow, FeatureFlagAdminView } from "@/lib/flags/admin";
@@ -32,8 +33,14 @@ const field: CSSProperties = {
 
 const FLAGS_ROUTE = "/api/admin/feature-flags";
 
+/**
+ * A flag's Everyone box. S03 part 0 (LLD amendment 81): ticking it asks first, with the app's confirm dialog -- "Turn
+ * {flag} on for every workspace?" (Cancel / Turn on for everyone) -- and saves only on confirm; Cancel leaves it unticked
+ * and saves nothing. Unticking saves at once. (question_library was switched on for everyone by mistake on 27 Nov.)
+ */
 function GlobalSwitch({ flag, onSaved }: { flag: FeatureFlagAdminRow; onSaved: () => void }) {
   const s = useSave(FLAGS_ROUTE, { onSaved });
+  const [asking, setAsking] = useState(false);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-2 text-[13px]" style={label}>
@@ -41,15 +48,29 @@ function GlobalSwitch({ flag, onSaved }: { flag: FeatureFlagAdminRow; onSaved: (
           type="checkbox"
           checked={flag.global}
           disabled={s.saving}
-          onChange={(e) =>
-            void s.save({ scope: "global", flag: flag.name, enabled: e.target.checked })
-          }
+          onChange={(e) => {
+            if (e.target.checked) setAsking(true);
+            else void s.save({ scope: "global", flag: flag.name, enabled: false });
+          }}
           data-testid={`admin-flag-global-${flag.name}`}
         />
         {flag.global ? "On" : "Off"}
         <span className="sr-only">{` for every workspace: ${flag.name}`}</span>
       </label>
       <SaveFeedback status={s.status} error={s.error} />
+      {asking ? (
+        <ConfirmDialog
+          title={`Turn ${flag.name} on for every workspace?`}
+          confirmLabel="Turn on for everyone"
+          onCancel={() => setAsking(false)}
+          onConfirm={() => {
+            setAsking(false);
+            void s.save({ scope: "global", flag: flag.name, enabled: true });
+          }}
+        >
+          {`${flag.gates}. A workspace with its own setting keeps it.`}
+        </ConfirmDialog>
+      ) : null}
     </div>
   );
 }

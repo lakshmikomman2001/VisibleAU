@@ -166,11 +166,19 @@ describe("the Feature flags card", () => {
     expect(await screen.findByTestId("admin-flag-global-report_v2")).toBeInTheDocument();
   });
 
-  it("ticking a flag's Everyone box saves the global value, then the card loads again", async () => {
+  // S03 part 0, LLD amendment 81: "Ticking a flag's Everyone box asks first, with the existing confirm dialog" -- it
+  // saved on the tick until then (S00 part 2).
+  it("ticking a flag's Everyone box and confirming saves the global value, then the card loads again", async () => {
     const fetchImpl = stubApi([flagsView(), flagsView({ reportV2Global: true })]);
     render(createElement(Card, { workspaceId: null }));
     fireEvent.click(await screen.findByTestId("admin-flag-global-report_v2"));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Turn report_v2 on for every workspace?",
+    });
+    expect(posts(fetchImpl)).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Turn on for everyone" }));
     await waitFor(() => expect(posts(fetchImpl)).toHaveLength(1));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     const [url, init] = posts(fetchImpl)[0];
     expect(url).toBe("/api/admin/feature-flags");
     expect(JSON.parse(String(init?.body))).toEqual({
@@ -202,7 +210,72 @@ describe("the Feature flags card", () => {
     stubApi([flagsView()], "unchanged");
     render(createElement(Card, { workspaceId: null }));
     fireEvent.click(await screen.findByTestId("admin-flag-global-qi_learning"));
+    fireEvent.click(await screen.findByRole("button", { name: "Turn on for everyone" }));
     expect(await screen.findByText(/no change/i)).toBeInTheDocument();
+  });
+});
+
+/** S03 part 0 (LLD amendment 81): switching a flag on for every workspace asks first; switching it off doesn't. */
+describe("the Everyone box asks before turning a flag on for every workspace (amendment 81)", () => {
+  it("the dialog: its title, what the flag turns on, and focus on Cancel", async () => {
+    stubApi([flagsView()]);
+    render(createElement(Card, { workspaceId: null }));
+    fireEvent.click(await screen.findByTestId("admin-flag-global-question_library"));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Turn question_library on for every workspace?",
+    });
+    expect(dialog).toHaveTextContent(
+      "The brand's Questions tab. A workspace with its own setting keeps it.",
+    );
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(within(dialog).getByRole("button", { name: "Turn on for everyone" })).toBeEnabled();
+  });
+
+  it("Cancel leaves the box unticked and saves nothing", async () => {
+    const fetchImpl = stubApi([flagsView()]);
+    render(createElement(Card, { workspaceId: null }));
+    const box = await screen.findByTestId("admin-flag-global-question_library");
+    fireEvent.click(box);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(box).not.toBeChecked();
+    expect(posts(fetchImpl)).toHaveLength(0);
+  });
+
+  it("Escape is Cancel: nothing saved", async () => {
+    const fetchImpl = stubApi([flagsView()]);
+    render(createElement(Card, { workspaceId: null }));
+    fireEvent.click(await screen.findByTestId("admin-flag-global-agency_questions"));
+    await screen.findByRole("alertdialog");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByTestId("admin-flag-global-agency_questions")).not.toBeChecked();
+    expect(posts(fetchImpl)).toHaveLength(0);
+  });
+
+  it("unticking needs no confirmation: it saves at once", async () => {
+    const fetchImpl = stubApi([flagsView({ reportV2Global: true }), flagsView()]);
+    render(createElement(Card, { workspaceId: null }));
+    const box = await screen.findByTestId("admin-flag-global-report_v2");
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() => expect(posts(fetchImpl)).toHaveLength(1));
+    expect(JSON.parse(String(posts(fetchImpl)[0][1]?.body))).toEqual({
+      scope: "global",
+      flag: "report_v2",
+      enabled: false,
+    });
+  });
+
+  it("the workspace dropdown is unchanged: choosing On saves at once, with no dialog", async () => {
+    const fetchImpl = stubApi([flagsView({ workspace: true })]);
+    render(createElement(Card, { workspaceId: ORG }));
+    fireEvent.change(await screen.findByTestId("admin-flag-override-question_library"), {
+      target: { value: "on" },
+    });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() => expect(posts(fetchImpl)).toHaveLength(1));
   });
 });
 

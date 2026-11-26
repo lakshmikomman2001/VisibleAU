@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S02-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S01C pushed; the real reports regenerated for Splice and checked); say which hash. Read LLD **section 0** (v1.10 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
+Start with `git fetch origin` and build on `origin/main` (S01C pushed: `00fad405`, 26 Nov 2026; the real reports regenerated for Splice and checked); say which hash. Read LLD **section 0** (v1.11 decisions and amendments) first, then sections 4 (N1–N3 especially), 6, 7.1, 7A (0155 and the backfill steps), 8.2, 10, 13, 15 and `docs/lld/as-is-verification.md`; contract screens P02 (view mode only).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -18,7 +18,21 @@ Start with `git fetch origin` and build on `origin/main` (S01C pushed; the real 
 - **No client data in tests** (LLD amendment 57): replace TechCore's ABR record in the ABN tests (S01 Part 11) and `ASTORIO GROUP PTY LTD` / its ABN in `tests/unit/reports/beyond-ai.test.ts` with invented records; move the remaining users of the hand-composed `tests/helpers/report-data-fixture.ts` (the design, Google section, cover-tier and running-checks render tests) to the seeded fixtures in `tests/helpers/report-seeds.ts`. List what you changed; a source-scan test fails on the real names and ABNs found (list them in the test as forbidden strings, no other client data in it). Also `tests/e2e/12-s01-report-contents-panel.spec.ts`, which seeds a brand named "TechCore IT", and any other spec or fixture that seeds a real client's name, ABN or domain (list them): invented names (amendment 66).
 - **Serve manifest:** fix or retire `scripts/qa/inngest-serve-manifest.txt` and `sprint9-invariants.sh` A3 (out of date; `tests/unit/inngest/function-ids.test.ts` covers N13). Say which and why.
 - **No-database guard:** close the same `path: null` gap S01B fixed in the network guard (an `http`-style connect to a Postgres port).
+- **Unused code** (S01C's report): `namedCitedInAnswersList` (`lib/directories/cited-in-answers.ts`) is used only by tests: remove it and those uses. The directories parameter of `entityProfilesAction` and `displayRecommendationAction` is no longer read: remove it, and the directory lookups its callers still make (the Action Center detail page, the audit export, the latest-audit route).
 - One commit; tests as the runbook says. Playwright: not needed.
+
+## 0B. Small fixes from S01C's review (live for everyone on push; not flagged; LLD amendments 68, 69, 71–73)
+- **Other actions order** (68): when the agency saved an order for OTHER ACTIONS FROM THIS AUDIT in the report contents panel, the PDF keeps it; otherwise High, Medium, Low, then newest first (contract v1.7 P09.next). Test both on the seeds (Standard and Enhanced).
+- **Report file names** (69): a plain hyphen, "{Brand} - AI Visibility Report ({Tier name}) - Week {w} {yyyy}.pdf" (`lib/communication/report-file-name.ts`), everywhere S01C Part 5a listed. Tests: the name, and that its ASCII fallback equals it.
+- **Plain reasons, the rest** (71). For each, file:line and the old and new words:
+  - the report-PDF-failed alert's org copy: "We couldn't create this report because of a problem on our side. Try again in a few minutes.";
+  - Google's daily-cap customer reason (`lib/audit/google-surfaces/reasons.ts:62`): "Google wasn't checked in this audit because of a problem on our side.";
+  - whole-audit errors through `customerAuditError` that aren't about the customer's own setup (e.g. "Budget exceeded", an unexpected exception's message): "This audit couldn't finish because of a problem on our side." The customer-caused reasons (an unconfirmed business type, the workspace's daily audit limit) keep their words; list every reason and which group it is in;
+  - the audit page banner: platform admins (the existing platform-admin check) also see the provider detail under the plain line; everyone else sees only the plain line.
+  - Extend S01C's banned-words test to these surfaces; the operator email keeps its detail.
+- **Renaming a brand** (72): the PATCH in `app/api/brands/[brandId]/route.ts` clears a dismissed `abn_suggestion` too (with its ABR data), not only the dateless marker. Test in `tests/integration/abr-retention.integration.test.ts`.
+- **Reports page** (73, contract P17): dates "25 Nov 2026" with the app's date formatter; period "Week 47, 2026" (a monthly report: "November 2026"). The pink "Communication" label beside the page title: find its source (file:line) and what it means; remove it unless it tells the reader something they need, and report which.
+- One commit. N14 and N15 hold (no PDF wording changes in 0B). Playwright: the specs `scripts/qa/e2e-specs-for.ts` maps to the changed files (the Reports page and the audit page among them), one at a time, with the runbook's memory rules.
 
 ## 1. Schema (migration 0155) and hash parity
 - Tables and columns exactly as LLD 7.1 (`brand_questions`, `brand_question_sets`, `brand_question_set_items`, `audits.question_set_id`, `citations.question_id`, `engine_call_failures.question_id`), FORCE RLS, policies, grants, indexes.
@@ -53,7 +67,7 @@ Follow LLD 7A steps 1–5 exactly:
 - EXPLAIN output for the Questions tab query.
 - UI: for each screen touched, the guide's per-screen block (nodes built of specified, states, acceptance pass/fail, screenshots in `.qa/screens/S02/` at 1240 and 390, deviations with the contract change you propose).
 - Commit hashes and `git log origin/main..main --oneline`.
-- Push notes: migration 0155 **run1 → run2 → run3 before the push** (the new code reads the new tables and writes `citations.question_id`, so those must exist first; with no set a brand falls back to today's logic); Inngest resync (yes: audit runners); safe while an audit runs (an audit in progress keeps its prompts); flag `question_library` off.
+- Push notes: migration 0155 **run1 → run2 → run3 before the push** (the new code reads the new tables and writes `citations.question_id`, so those must exist first; with no set a brand falls back to today's logic); Inngest resync (yes: audit runners); safe while an audit runs (an audit in progress keeps its prompts); flag `question_library` off. Part 0B is live for everyone on push (not flagged): list what a customer will see change.
 
 Commit messages end with these two lines exactly:
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

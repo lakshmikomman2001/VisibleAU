@@ -224,8 +224,11 @@ describe("lockstep: both runners call the shared isBrandedPrompt helper, never t
       // getAuditPrompts in the same braces; the actual intent here
       // (per the comment above) is "imports the shared helper, never
       // reinvents its own copy", not "imports it alone".
-      expect(src, `${label} must import the shared getAuditPrompts`).toMatch(
-        /import\s*\{[^}]*\bgetAuditPrompts\b[^}]*\}\s*from\s*"@\/lib\/audit\/get-audit-prompts"/,
+      // S02 part 3, LLD 8.2.1: "read the current set's items in position order ... Both runners call the same
+      // function" -- that function is now getAuditQuestions (the set's id with the prompts), in the same module;
+      // getAuditPrompts returns its prompts.
+      expect(src, `${label} must import the shared getAuditQuestions`).toMatch(
+        /import\s*\{[^}]*\bgetAuditQuestions\b[^}]*\}\s*from\s*"@\/lib\/audit\/get-audit-prompts"/,
       );
       expect(src, `${label} must not reference the deleted isBrandedPackPrompt`).not.toMatch(
         /isBrandedPackPrompt/,

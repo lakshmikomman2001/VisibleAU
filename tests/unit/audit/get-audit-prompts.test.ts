@@ -5,6 +5,11 @@ vi.mock("@/db/schema", () => ({ brands: {}, verticalPackPrompts: {}, verticalPac
 vi.mock("@/lib/brands/region-label", () => ({ resolveRegionLabel: vi.fn(() => "Australia") }));
 vi.mock("@/lib/prompts/build-prompt-pack", () => ({ buildPromptPack: vi.fn(() => []) }));
 vi.mock("@/lib/prompts/regenerate-prompt-pack", () => ({ regeneratePromptPack: vi.fn() }));
+// S02 part 3 (LLD 8.2.1: "If none, run today's logic unchanged"): these brands have no question set, so the stored
+// pack is used as before; the set path is tests/integration/audit-prompts-from-set.integration.test.ts.
+vi.mock("@/lib/questions/question-set-store", () => ({
+  loadCurrentQuestionSet: vi.fn(async () => null),
+}));
 vi.mock("@/lib/communication/alert-composer", () => ({
   sendPromptPackGenerationFailedAlert: vi.fn(() => Promise.resolve(null)),
 }));

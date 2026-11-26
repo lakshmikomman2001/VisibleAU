@@ -8,15 +8,28 @@ import { sendPromptPackGenerationFailedAlert } from "@/lib/communication/alert-c
 import { appUrl } from "@/lib/email/links";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { classificationFloor } from "@/lib/prompts/classification-floor";
+import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { regeneratePromptPack } from "@/lib/prompts/regenerate-prompt-pack";
+import { loadCurrentQuestionSet } from "@/lib/questions/question-set-store";
 import type { BrandClassification } from "@/lib/types/brand";
 import { expandPrompt } from "@/lib/verticals/expand-prompt";
 import { isBrandedPrompt } from "./flag-branded-prompts";
 
 export interface AuditPrompt {
   text: string;
+  /** Whether the text names the business, by the run-time rule (isBrandedPrompt) -- what scoring reads, as before. */
   isBranded: boolean;
+  /** S02 part 3: from the brand's current question set (absent with no set): its library question, kind and reach. */
+  questionId?: string;
+  kind?: "everyday" | "branded";
+  reach?: "local" | "state" | "country" | "global";
+}
+
+/** S02 part 3: an audit's questions and the set they came from (null: no set, today's logic). */
+export interface AuditQuestions {
+  setId: string | null;
+  prompts: AuditPrompt[];
 }
 
 /** Build 1 addendum, item 9: thrown instead of silently falling back to
@@ -103,9 +116,22 @@ async function notifyPromptPackGenerationFailed(brand: Brand): Promise<void> {
  */
 export async function getAuditPrompts(
   brand: Brand,
-  promptCount: number,
+  promptCount: number = PROMPTS_PER_AUDIT,
   opts?: { allowUnconfirmed?: boolean },
 ): Promise<AuditPrompt[]> {
+  return (await getAuditQuestions(brand, { ...opts, promptCount })).prompts;
+}
+
+/**
+ * S02 part 3 (LLD 8.2.1): what both audit runners call -- the questions and the set they come from (recorded as
+ * audits.question_set_id; each prompt's questionId goes on its answers and failures). `promptCount` is only the size of
+ * a pack built from templates when the brand has neither a set nor a stored pack (PROMPTS_PER_AUDIT unless given:
+ * the free sample asks 6); a set or a stored pack is always used in full.
+ */
+export async function getAuditQuestions(
+  brand: Brand,
+  opts: { allowUnconfirmed?: boolean; promptCount?: number } = {},
+): Promise<AuditQuestions> {
   const classification = brand.classification as BrandClassification | null;
 
   const ready = brandReadyForAudit({
@@ -172,6 +198,43 @@ export async function getAuditPrompts(
     currentBrand = refreshed;
   }
 
+  // S02 part 3 (LLD 8.2.1): the brand's current question set, in position order. It equals the stored pack (the 0155
+  // backfill made version 1 from it, and every regenerated pack becomes the next version), so this asks exactly what
+  // the code below would have asked (N1). isBranded stays the run-time rule on the text, as scoring reads it.
+  const set = await loadCurrentQuestionSet(serviceDb, currentBrand.id);
+  if (set) {
+    return {
+      setId: set.setId,
+      prompts: set.items.map((item) => ({
+        text: item.text,
+        isBranded: isBrandedPrompt(item.text, currentBrand),
+        questionId: item.questionId,
+        kind: item.kind,
+        reach: item.reach,
+      })),
+    };
+  }
+  // No set (should be none after the backfill; a brand without a stored pack, or the free sample's): today's logic,
+  // unchanged, and the operator metric LLD 14 asks for.
+  console.warn(JSON.stringify({ event: "question_set_fallback", brandId: currentBrand.id }));
+  return {
+    setId: null,
+    prompts: await todaysPrompts(
+      currentBrand,
+      classification,
+      ready,
+      opts.promptCount ?? PROMPTS_PER_AUDIT,
+    ),
+  };
+}
+
+/** Today's question logic before S02: the stored pack, else a live build, else the vertical pack (the fallback). */
+async function todaysPrompts(
+  currentBrand: Brand,
+  classification: BrandClassification | null,
+  ready: boolean,
+  promptCount: number,
+): Promise<AuditPrompt[]> {
   // Vunnara Build 1, Part E.1: a frozen pack (written by
   // regeneratePromptPack once classification+location are both ready)
   // is used in full, exactly as stored -- never re-sliced to

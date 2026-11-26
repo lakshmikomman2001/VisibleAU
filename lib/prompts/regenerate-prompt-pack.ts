@@ -3,6 +3,7 @@ import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
+import { writeSetFromPack } from "@/lib/questions/question-set-store";
 import type { BrandClassification } from "@/lib/types/brand";
 import { buildPromptPack } from "./build-prompt-pack";
 import { classificationFloor } from "./classification-floor";
@@ -123,12 +124,18 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
     ? (brand.promptPackVersion ?? 1) + 1
     : (brand.promptPackVersion ?? 1);
 
-  await tx
-    .update(brands)
-    .set({
-      promptPack: pack,
-      promptPackVersion: newVersion,
-      promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION,
-    })
-    .where(eq(brands.id, brandId));
+  // S02 part 3 (LLD 8.2.1): audits ask the brand's current question set, so a new pack becomes the next set version
+  // in the same transaction (a savepoint when the caller's is already open): the set always equals the stored pack,
+  // and an audit asks exactly what it asked before S02 (N1). Only a changed pack gets here, as before.
+  await tx.transaction(async (t) => {
+    await t
+      .update(brands)
+      .set({
+        promptPack: pack,
+        promptPackVersion: newVersion,
+        promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION,
+      })
+      .where(eq(brands.id, brandId));
+    await writeSetFromPack(t, { brandId, pack, note: "The regenerated question pack" });
+  });
 }

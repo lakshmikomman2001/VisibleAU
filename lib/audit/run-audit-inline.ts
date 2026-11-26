@@ -10,7 +10,7 @@ import { ENGINE_CALL_CONCURRENCY, pLimit } from "@/lib/audit/concurrency-limit";
 import { describeEngineFailure, statusCodeFromMessage } from "@/lib/audit/engine-failure";
 import { sendEngineTotalFailureAlert } from "@/lib/audit/engine-total-failure-alert";
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
-import { getAuditPrompts } from "@/lib/audit/get-audit-prompts";
+import { getAuditQuestions } from "@/lib/audit/get-audit-prompts";
 import {
   dispatchGoogleSurfacesInline,
   startGoogleSurfaces,
@@ -30,7 +30,7 @@ import { detectDrift } from "@/lib/drift/detect";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario, ModelTask } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
-import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
+import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import { callWithRetry } from "@/lib/llm/with-retry";
 import {
   BudgetPolicyService,
@@ -129,8 +129,12 @@ export async function runAuditInline(
     // the one caller allowed past the needs-confirmation gate -- its
     // brand is a synthetic, throwaway row with no classification/
     // location by design, never a tracked customer brand.
-    const prompts = await getAuditPrompts(b, opts?.promptsCount ?? PROMPTS_PER_AUDIT, {
+    // S02 part 3 (LLD 8.2.1): the brand's current question set, read by the same function as the Inngest runner. The
+    // sample's prompt count is only the size of a pack built from templates (it has no set or stored pack); every
+    // other caller gives none, and the function's template default is PROMPTS_PER_AUDIT.
+    const { setId: questionSetId, prompts } = await getAuditQuestions(b, {
       allowUnconfirmed: a.triggeredBy === "sample",
+      ...(opts?.promptsCount === undefined ? {} : { promptCount: opts.promptsCount }),
     });
 
     if (prompts.length === 0) {
@@ -151,6 +155,8 @@ export async function runAuditInline(
         promptsCount: prompts.length,
         runsPerPrompt,
         totalCalls: engines.length * prompts.length * runsPerPrompt,
+        // S02 part 3: the set this audit asks (NULL with no set: today's logic).
+        questionSetId,
       })
       .where(eq(audits.id, auditId));
 
@@ -249,6 +255,7 @@ export async function runAuditInline(
           prompt: prompts[promptIdx].text,
           promptIndex: promptIdx,
           isBrandedPrompt: prompts[promptIdx].isBranded,
+          questionId: prompts[promptIdx].questionId ?? null,
           runNumber: run,
           brandMentioned: mention.found,
           position: mention.position,
@@ -347,6 +354,7 @@ export async function runAuditInline(
               prompt: prompts[r.promptIdx].text,
               promptIndex: r.promptIdx,
               isBrandedPrompt: prompts[r.promptIdx].isBranded,
+              questionId: prompts[r.promptIdx].questionId ?? null,
               errorClass: r.errorClass,
               errorMessage: r.errorMessage,
               attempts: r.attempts,

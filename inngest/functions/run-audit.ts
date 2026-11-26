@@ -8,7 +8,7 @@ import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-lim
 import { extractCitations, mergeCitedSources } from "@/lib/audit/extract-citations";
 import {
   BrandNeedsConfirmationError,
-  getAuditPrompts,
+  getAuditQuestions,
   PromptPackGenerationError,
 } from "@/lib/audit/get-audit-prompts";
 import {
@@ -27,7 +27,7 @@ import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
 import { selectModel } from "@/lib/llm/model-selector";
 import { INNGEST_STEP_BUDGET_MS } from "@/lib/llm/step-budget";
-import { enginesForTier, PROMPTS_PER_AUDIT, runsForTier } from "@/lib/llm/tier-engines";
+import { enginesForTier, runsForTier } from "@/lib/llm/tier-engines";
 import { callWithRetry } from "@/lib/llm/with-retry";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
@@ -126,12 +126,16 @@ export const runAudit = inngest.createFunction(
       // its own inline copy with its own hardcoded promptCount=10 and
       // its own re-slice of a frozen pack (silently dropping Part
       // E.4's branded extras, appended after the organic budget).
+      // S02 part 3 (LLD 8.2.1): the brand's current question set, read by the same function as the inline runner
+      // (no promptCount here: a set or a stored pack is always used in full). The step keeps its id; a run memoized
+      // before S02 has no setId and records none.
       const pack = await step.run("load-pack", async () => {
-        const prompts = await getAuditPrompts(loaded.brand, PROMPTS_PER_AUDIT);
-        return { prompts };
+        const { setId, prompts } = await getAuditQuestions(loaded.brand);
+        return { prompts, setId };
       });
 
       const { prompts } = pack;
+      const questionSetId = pack.setId ?? null;
       if (prompts.length === 0) {
         await step.run("fail-empty", async () => {
           await serviceDb
@@ -167,6 +171,8 @@ export const runAudit = inngest.createFunction(
             promptsCount: prompts.length,
             runsPerPrompt,
             totalCalls: engines.length * prompts.length * runsPerPrompt,
+            // S02 part 3: the set this audit asks (NULL with no set: today's logic).
+            questionSetId,
           })
           .where(eq(audits.id, auditId));
       });
@@ -275,6 +281,7 @@ export const runAudit = inngest.createFunction(
                 prompt: prompts[i].text,
                 promptIndex: i,
                 isBrandedPrompt: prompts[i].isBranded,
+                questionId: prompts[i].questionId ?? null,
                 errorClass: callResult.errorClass,
                 errorMessage: callResult.errorMessage,
                 attempts: callResult.attempts,
@@ -331,6 +338,7 @@ export const runAudit = inngest.createFunction(
               prompt: prompts[i].text,
               promptIndex: i,
               isBrandedPrompt: prompts[i].isBranded,
+              questionId: prompts[i].questionId ?? null,
               runNumber: 1,
               brandMentioned: mention.found,
               position: mention.position,

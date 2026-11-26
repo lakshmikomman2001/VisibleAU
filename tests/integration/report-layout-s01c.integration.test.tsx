@@ -131,7 +131,8 @@ describe.each(REPORT_SEEDS.map((s) => [s.brandName, s] as const))("%s", (_name, 
       const r = get(spec, v);
       const runs = printedRuns(r.doc as ReactNode, { fontFamily: "Inter", fontWeight: 400 });
       const tags = runs.filter((run) => /^ · audit #\d+$/.test(run.text));
-      for (const tag of tags) expect(tag.fontFamily, `${v}: ${tag.text}`).toBe("JetBrains Mono");
+      // S03 part 0 (LLD amendment 76): the code font is JetBrains Mono NL, the build without ligatures.
+      for (const tag of tags) expect(tag.fontFamily, `${v}: ${tag.text}`).toBe("JetBrains Mono NL");
       const next = r.data.v2?.whatToDoNext;
       const label = "OTHER ACTIONS FROM THIS AUDIT";
       const start = r.text.indexOf(label);

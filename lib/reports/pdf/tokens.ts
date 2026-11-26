@@ -98,7 +98,7 @@ export const ENGINE_DOT: Record<string, string> = {
 export const FONT = {
   body: "Inter",
   display: "Fraunces",
-  mono: "JetBrains Mono",
+  mono: "JetBrains Mono NL",
 } as const;
 
 /** A4 in points, and the prototype's page padding (56 px sides, 72 px bottom). */

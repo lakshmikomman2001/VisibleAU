@@ -119,10 +119,10 @@ beforeAll(async () => {
   r.bluegumToday = r.bluegum;
   await setTierNames(bluegum, { basic: "Growth Plan" });
   r.named = await renderSeededReport(sql, bluegum, "basic");
-  // Collected as text, not laid out: react-pdf throws laying out any JetBrains Mono ligature ("</", "--", "...", "::",
-  // "//"), and the cover's name is printed in it (found in S02 part 0; reported for Sri, not fixed here).
+  // Laid out since S03 part 0: the code font is JetBrains Mono NL, so the cover's "</" no longer crashes react-pdf
+  // (LLD amendment 76; S02 collected this one as text only).
   await setTierNames(bluegum, { basic: "<b>Gold</b>" });
-  r.namedXss = await renderSeededReport(sql, bluegum, "basic", { pdf: false });
+  r.namedXss = await renderSeededReport(sql, bluegum, "basic");
 
   const ironstone = await seed(IRONSTONE);
   r.ironstone = await renderSeededReport(sql, ironstone, "today");
@@ -199,7 +199,7 @@ const pageWith = (x: RenderedReport, line: string | RegExp) =>
 const header = (x: RenderedReport) => `AI Visibility Report · ${x.data.brand.name} · Week 47, 2026`;
 
 describe("seven pages, as the prototype (Bluegum, report_v2 off)", () => {
-  it("the PDF has seven A4 pages and embeds Fraunces, Inter and JetBrains Mono", () => {
+  it("the PDF has seven A4 pages and embeds Fraunces, Inter and JetBrains Mono NL", () => {
     expect(r.bluegum.pageCount).toBe(7);
     const pdf = r.bluegum.pdf.toString("latin1");
     for (const font of [
@@ -209,7 +209,7 @@ describe("seven pages, as the prototype (Bluegum, report_v2 off)", () => {
       "Fraunces-Bold",
       "Fraunces-SemiBold",
       "Fraunces-Regular",
-      "JetBrainsMono-Regular",
+      "JetBrainsMonoNL-Regular",
     ]) {
       expect(pdf, font).toMatch(new RegExp(`/BaseFont /[A-Z]{6}\\+${font}\\b`));
     }
@@ -604,5 +604,6 @@ describe("the cover's report name (P09.cover)", () => {
 
   it("an agency's name is printed as text (an XSS payload stays text)", () => {
     expect(r.namedXss.pages[0]).toContain("<B>GOLD</B>");
+    expect(r.namedXss.pageCount).toBe(7);
   });
 });

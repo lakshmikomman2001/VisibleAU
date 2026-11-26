@@ -10,7 +10,9 @@ import { Font } from "@react-pdf/renderer";
  *
  * - Fraunces 400/600/700: titles, the h2s, hero and KPI numbers, narrative
  * - Inter 400/500/600/700: body, tables, labels
- * - JetBrains Mono 400/500: evidence blocks only
+ * - JetBrains Mono NL 400/500: evidence blocks only. S03 part 0 (LLD amendment 76): the official build without
+ *   ligatures (v2.304, same metrics), since react-pdf's fontkit threw "Offset is outside the bounds of the DataView"
+ *   laying out JetBrains Mono's ligature sequences ("--", "...", "::", "//", "->", "==", "++", "</").
  */
 export const REPORT_FONT_DIR = path.join(process.cwd(), "lib", "reports", "pdf", "fonts");
 
@@ -38,10 +40,10 @@ export function registerReportFonts(): void {
     ],
   });
   Font.register({
-    family: "JetBrains Mono",
+    family: "JetBrains Mono NL",
     fonts: [
-      { src: file("jetbrains-mono", "JetBrainsMono-Regular.ttf"), fontWeight: 400 },
-      { src: file("jetbrains-mono", "JetBrainsMono-Medium.ttf"), fontWeight: 500 },
+      { src: file("jetbrains-mono-nl", "JetBrainsMonoNL-Regular.ttf"), fontWeight: 400 },
+      { src: file("jetbrains-mono-nl", "JetBrainsMonoNL-Medium.ttf"), fontWeight: 500 },
     ],
   });
   // Never split a word across lines with a hyphen (a question, a name).

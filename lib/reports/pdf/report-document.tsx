@@ -594,7 +594,7 @@ function Cover({ ctx, logo }: { ctx: Ctx; logo: AgencyLogo | null }) {
       <View style={{ position: "absolute", left: PAGE.padX, right: PAGE.padX, top: px(250) }}>
         {data.v2?.coverTierName ? (
           // S01 part 10 (P09.cover, D-RT3): the report type's name, Agency and up only, from the report's own contents
-          // (its snapshot), so a later rename never changes it. JetBrains Mono at the weight the PDF has (500).
+          // (its snapshot), so a later rename never changes it. JetBrains Mono NL at the weight the PDF has (500).
           <Text
             style={{
               fontFamily: FONT.mono,

@@ -4,7 +4,7 @@
  * competitors) and one on a #39-shaped audit (every engine answered),
  * gathered by buildReportData (the audit page's resolvers) and drawn by the
  * real renderer. Each PDF has seven A4 pages and embeds Fraunces, Inter and
- * JetBrains Mono. With REPORT_PDF_OUT_DIR set, the PDFs are written there
+ * JetBrains Mono NL (S03 part 0, LLD amendment 76: the build without ligatures). With REPORT_PDF_OUT_DIR set, the PDFs are written there
  * for `pdftoppm -r 70` and a side-by-side look against the prototype.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
@@ -62,7 +62,7 @@ describe("the report PDF, rendered from the database", () => {
       const raw = pdf.toString("latin1");
       expect(raw.match(/\/Type \/Page\b(?!s)/g)?.length).toBe(7);
       expect(raw.match(/\/MediaBox \[0 0 595\.28\d* 841\.89\d*\]/g)?.length).toBe(7);
-      for (const font of ["Inter-Regular", "Fraunces-Bold", "JetBrainsMono-Regular"]) {
+      for (const font of ["Inter-Regular", "Fraunces-Bold", "JetBrainsMonoNL-Regular"]) {
         expect(raw).toMatch(new RegExp(`/BaseFont /[A-Z]{6}\\+${font}\\b`));
       }
     }, 120_000);

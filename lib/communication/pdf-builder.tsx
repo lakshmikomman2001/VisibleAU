@@ -12,7 +12,7 @@ import type { ReportDataV2 } from "@/lib/reports/report-snapshot";
  * DEMO-BLOCKER (1 Nov), part 4 -- the report PDF: the approved seven-page
  * design (lib/reports/pdf/report-document.tsx), built only from ReportData
  * (lib/reports/report-data.ts: the audit page's own numbers for one named
- * audit), in Fraunces, Inter and JetBrains Mono from the bundled TTFs. The
+ * audit), in Fraunces, Inter and JetBrains Mono NL from the bundled TTFs. The
  * agency's logo is read once, at render time -- an uploaded one from
  * storage, a web address within 5 s (lib/reports/agency-logo-loader.ts);
  * without it the cover draws the agency's initials.

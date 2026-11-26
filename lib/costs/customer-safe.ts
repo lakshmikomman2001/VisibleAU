@@ -45,6 +45,14 @@ export const DAILY_LIMIT_CUSTOMER_MESSAGE =
  */
 export const AUDIT_PROBLEM_ON_OUR_SIDE = `This audit couldn't finish because of ${PROBLEM_ON_OUR_SIDE}.`;
 
+/**
+ * S03 part 0 (LLD amendment 78): the question generator's failure (lib/audit/get-audit-prompts.ts
+ * PromptPackGenerationError) keeps S01C's plain, more specific sentence, without the stored detail in its brackets.
+ */
+export const QUESTIONS_NOT_REFRESHED = `Could not refresh this brand's questions before running the audit (${PROBLEM_ON_OUR_SIDE}).`;
+const QUESTIONS_NOT_REFRESHED_STORED =
+  /^Could not refresh this brand's questions before running the audit\b/;
+
 /** The unconfirmed-business reason (lib/audit/get-audit-prompts.ts BrandNeedsConfirmationError), the customer's own. */
 const CONFIRM_BUSINESS_REASON =
   "Confirm your business type and location on the brand's page before running an audit.";
@@ -53,15 +61,18 @@ const CONFIRM_BUSINESS_REASON =
  * A failed audit's stored error, as a customer may read it. S02 part 0B (LLD amendment 71): only the reasons about
  * the customer's own setup keep their words -- an unconfirmed business type, and the workspace's daily limit (an
  * audit stopped by it stored the limit's amounts, before 13 Nov in the message itself, so it reads the customer
- * wording); every other stored error, whatever it says ("Budget exceeded", "Timed out", an exception's message),
- * reads "This audit couldn't finish because of a problem on our side." Null when nothing is stored.
+ * wording); the question generator's failure reads QUESTIONS_NOT_REFRESHED (amendment 78); every other stored error,
+ * whatever it says ("Budget exceeded", "Timed out", an exception's message), reads "This audit couldn't finish
+ * because of a problem on our side." Null when nothing is stored.
  */
 export function customerAuditError(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const { error, errorCode } = metadata as { error?: unknown; errorCode?: unknown };
   if (errorCode === "DailySpendCapExceededError") return DAILY_LIMIT_CUSTOMER_MESSAGE;
   if (errorCode === "BrandNeedsConfirmationError") return CONFIRM_BUSINESS_REASON;
+  if (errorCode === "PromptPackGenerationError") return QUESTIONS_NOT_REFRESHED;
   if (typeof error !== "string") return errorCode ? AUDIT_PROBLEM_ON_OUR_SIDE : null;
+  if (QUESTIONS_NOT_REFRESHED_STORED.test(error)) return QUESTIONS_NOT_REFRESHED;
   if (/^Daily spending limit reached/.test(error)) return DAILY_LIMIT_CUSTOMER_MESSAGE;
   if (error === CONFIRM_BUSINESS_REASON) return CONFIRM_BUSINESS_REASON;
   return AUDIT_PROBLEM_ON_OUR_SIDE;

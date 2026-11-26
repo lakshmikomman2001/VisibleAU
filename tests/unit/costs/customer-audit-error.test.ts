@@ -2,8 +2,9 @@
  * S02 part 0B (LLD amendment 71): a failed audit's stored error, as a customer reads it (the audit page, the JSON
  * export, /api/audits/:id and /full, through customerAuditError). Two groups:
  * - the customer's own setup keeps its words: an unconfirmed business type, the workspace's daily limit;
- * - everything else -- "Budget exceeded", "Timed out", the question generator, a runner that found no questions or no
- *   engines, an unexpected exception's message -- reads "This audit couldn't finish because of a problem on our side."
+ * - everything else -- "Budget exceeded", "Timed out", a runner that found no questions or no engines, an unexpected
+ *   exception's message -- reads "This audit couldn't finish because of a problem on our side."
+ * S03 part 0 (LLD amendment 78): the question generator's failure keeps S01C's own plain sentence.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -11,6 +12,7 @@ import {
   customerAuditError,
   customerAuditMetadata,
   DAILY_LIMIT_CUSTOMER_MESSAGE,
+  QUESTIONS_NOT_REFRESHED,
 } from "@/lib/costs/customer-safe";
 
 const CONFIRM =
@@ -44,14 +46,6 @@ describe("every other stored error is a problem on our side", () => {
     ["the inline runner with no questions", { error: "No prompts available." }],
     ["the Inngest runner with no questions", { error: "0 prompts." }],
     [
-      "the question generator (S01C's sentence, now this one)",
-      {
-        error:
-          "Could not refresh this brand's questions before running the audit (HTTP 400 invalid_request_error)",
-        errorCode: "PromptPackGenerationError",
-      },
-    ],
-    [
       "no engines for the plan",
       { error: 'Audit a1: resolved 0 engines for tier "free"', errorCode: "Error" },
     ],
@@ -62,6 +56,30 @@ describe("every other stored error is a problem on our side", () => {
     ["a code with no message", { errorCode: "Error" }],
   ])("%s", (_name, metadata) => {
     expect(customerAuditError(metadata)).toBe(AUDIT_PROBLEM_ON_OUR_SIDE);
+  });
+
+  // S03 part 0, LLD amendment 78: "A question-pack generation failure keeps S01C's plain, more specific sentence:
+  // 'Could not refresh this brand's questions before running the audit (a problem on our side).'" -- S02 part 0B had
+  // listed it with the errors above.
+  it.each([
+    [
+      "its code and S01C's stored sentence with the model call's detail",
+      {
+        error:
+          "Could not refresh this brand's questions before running the audit (HTTP 400 invalid_request_error)",
+        errorCode: "PromptPackGenerationError",
+      },
+    ],
+    ["its code alone", { errorCode: "PromptPackGenerationError" }],
+    [
+      "its stored sentence alone (no code stored with it)",
+      { error: "Could not refresh this brand's questions before running the audit (timeout)" },
+    ],
+  ])("the question generator, %s: S01C's sentence, without the detail", (_name, metadata) => {
+    expect(customerAuditError(metadata)).toBe(QUESTIONS_NOT_REFRESHED);
+    expect(QUESTIONS_NOT_REFRESHED).toBe(
+      "Could not refresh this brand's questions before running the audit (a problem on our side).",
+    );
   });
 
   it('reads "This audit couldn\'t finish because of a problem on our side."', () => {

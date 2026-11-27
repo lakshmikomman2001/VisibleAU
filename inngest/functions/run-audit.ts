@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
 import { audits, brands, citations, engineCallFailures } from "@/db/schema";
 import { answerMention } from "@/lib/audit/answer-mention";
+import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 import { resolveCacheMode } from "@/lib/audit/cache-mode";
 import { addCost, EMPTY_COST_TALLY, unpricedReserve } from "@/lib/audit/compute-cost";
 import { deriveEngineCallConcurrency, pLimit } from "@/lib/audit/concurrency-limit";
@@ -21,7 +22,6 @@ import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organ
 import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
-import { buildEngineLocation } from "@/lib/brands/region-label";
 import { inngest } from "@/lib/inngest/client";
 import { getLLMService } from "@/lib/llm";
 import type { Engine, MockScenario } from "@/lib/llm/interface";
@@ -32,11 +32,11 @@ import { callWithRetry } from "@/lib/llm/with-retry";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { engineCallReach } from "@/lib/reach/engine-location";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
 import { sentimentDimensionScore } from "@/lib/scoring/sentiment";
-import { auditCompleteEvent } from "@/lib/audit/audit-complete";
 
 // "Inngest: fit within the 5 concurrent steps of the free plan", item
 // 1 -- the largest tier's own engine count today (lib/llm/tier-
@@ -245,7 +245,9 @@ export const runAudit = inngest.createFunction(
                 prompt: prompts[i].text,
                 task: "brand_mention",
                 model,
-                location: buildEngineLocation(loaded.brand),
+                // S04 part 4 (LLD 8.4.4): the location for this question's reach (Local: today's), and the cache scope
+                // that keeps a reach's answers apart (none for Local).
+                ...engineCallReach(prompts[i].reach, engine, loaded.brand),
                 cacheMode: loaded.cacheMode,
                 metadata: {
                   mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)

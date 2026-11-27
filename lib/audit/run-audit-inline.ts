@@ -23,7 +23,6 @@ import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
 import { includedInTrends } from "@/lib/audit/trend-exclusion-sql";
-import { buildEngineLocation } from "@/lib/brands/region-label";
 import { driftBaseline } from "@/lib/drift/baseline";
 import { buildDriftInput } from "@/lib/drift/build-input";
 import { detectDrift } from "@/lib/drift/detect";
@@ -38,6 +37,7 @@ import {
 } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { engineCallReach } from "@/lib/reach/engine-location";
 import {
   buildRecommendations,
   gatherRecommendationEvidence,
@@ -213,7 +213,9 @@ export async function runAuditInline(
             prompt: prompts[promptIdx].text,
             task: "brand_mention",
             model,
-            location: buildEngineLocation(b),
+            // S04 part 4 (LLD 8.4.4): the location for this question's reach (Local: today's), and the cache scope that
+            // keeps a reach's answers apart (none for Local).
+            ...engineCallReach(prompts[promptIdx].reach, engine, b),
             cacheMode,
             metadata: { mockScenario },
             // Audit reliability, Part C, item 1: lets a slow call still

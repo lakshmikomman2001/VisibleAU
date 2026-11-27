@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { callCost, feeUnknownCost } from "@/lib/audit/compute-cost";
 import { answerText } from "./answer-text";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
+import { cacheScopeArg } from "./cache-scope";
 import { EmptyResponseError, IncompleteAnswerError, SearchToolError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf, modelNamedIn } from "./model-drift";
@@ -39,6 +40,7 @@ export class GoogleImpl implements LLMService {
         const maxAgeMs = input.cacheMode === "retry" ? AUDIT_RETRY_CACHE_WINDOW_MS : undefined;
         const hit = await getCached(input.prompt, modelId, input.engine, groundingMode, {
           maxAgeMs,
+          ...(input.cacheScope ? { scope: input.cacheScope } : {}),
         });
         if (hit) return hit;
       } catch (cacheErr) {
@@ -161,7 +163,13 @@ export class GoogleImpl implements LLMService {
       // writes, even in "fresh" mode.
       // Part 2: a truncated answer is never cached (a later hit couldn't carry the flag).
       if (!output.truncated) {
-        await setCached(input.prompt, modelId, output, groundingMode).catch(() => {});
+        await setCached(
+          input.prompt,
+          modelId,
+          output,
+          groundingMode,
+          ...cacheScopeArg(input),
+        ).catch(() => {});
       }
 
       return output;

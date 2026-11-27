@@ -76,9 +76,19 @@ export const AUDIT_RETRY_CACHE_WINDOW_MS = 60 * 60 * 1000;
 // recompute the same key a cached citation would have been served
 // under, and look up that exact llm_response_cache row's real
 // created_at -- never an estimate.
-export function makeKey(prompt: string, model: string, groundingMode: GroundingMode): string {
+// S04 part 4 (LLD 8.4.4): `scope` keeps a question beyond Local apart -- its reach and the location the engine was told
+// (lib/reach/engine-location.ts answerCacheScope), so an answer is never replayed across reaches. Absent for Local, so a
+// Local key is exactly what it was before.
+export function makeKey(
+  prompt: string,
+  model: string,
+  groundingMode: GroundingMode,
+  scope?: string,
+): string {
   return createHash("sha256")
-    .update(`${prompt}\n${model}\n${groundingMode}\n${METHODOLOGY_VERSION}`)
+    .update(
+      `${prompt}\n${model}\n${groundingMode}\n${METHODOLOGY_VERSION}${scope ? `\n${scope}` : ""}`,
+    )
     .digest("hex");
 }
 
@@ -163,10 +173,10 @@ export async function getCached(
   model: string,
   engine: Engine,
   groundingMode: GroundingMode,
-  options?: { maxAgeMs?: number },
+  options?: { maxAgeMs?: number; scope?: string },
 ): Promise<CachedHit | null> {
   try {
-    const key = makeKey(prompt, model, groundingMode);
+    const key = makeKey(prompt, model, groundingMode, options?.scope);
     const [hit] = await db
       .select()
       .from(llmResponseCache)
@@ -247,12 +257,13 @@ export async function setCached(
     citedUrls?: Array<string | AnswerSource>;
   },
   groundingMode: GroundingMode,
+  scope?: string,
 ) {
   try {
     // NOT NULL column that nothing reads back as a cost (a hit costs 0); an unpriced call's
     // unknown cost is recorded on its citation row instead.
     const costEstimateUsd = (output.costEstimateUsd ?? 0).toString();
-    const key = makeKey(prompt, model, groundingMode);
+    const key = makeKey(prompt, model, groundingMode, scope);
     const ttlHours = groundingMode === "grounded" ? GROUNDED_TTL_HOURS : MEMORY_ONLY_TTL_HOURS;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlHours * 3600 * 1000);

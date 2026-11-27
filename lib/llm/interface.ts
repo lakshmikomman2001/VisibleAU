@@ -93,6 +93,12 @@ export interface CompleteInput {
     region?: string;
     country?: string;
   };
+  /**
+   * S04 part 4 (LLD 8.4.4): the answer cache's scope for a question beyond Local -- its reach and the location sent
+   * (lib/reach/engine-location.ts answerCacheScope) -- so an answer is never replayed across reaches. Absent for Local:
+   * its cache key is unchanged.
+   */
+  cacheScope?: string;
   metadata?: {
     mockScenario?: MockScenario;
     runNumber?: number;

@@ -1,5 +1,6 @@
 import { type CallCost, callCost, providerReportedCost } from "@/lib/audit/compute-cost";
 import { AUDIT_RETRY_CACHE_WINDOW_MS, getCached, setCached } from "./cache";
+import { cacheScopeArg } from "./cache-scope";
 import { EmptyResponseError } from "./errors";
 import type { CompleteInput, CompleteOutput, LLMService } from "./interface";
 import { answeredModelOf } from "./model-drift";
@@ -162,7 +163,10 @@ export class PerplexityImpl implements LLMService {
     // anthropic-impl.ts's matching comment.
     if (input.cacheMode !== "fresh") {
       const maxAgeMs = input.cacheMode === "retry" ? AUDIT_RETRY_CACHE_WINDOW_MS : undefined;
-      const hit = await getCached(input.prompt, modelId, input.engine, "grounded", { maxAgeMs });
+      const hit = await getCached(input.prompt, modelId, input.engine, "grounded", {
+        maxAgeMs,
+        ...(input.cacheScope ? { scope: input.cacheScope } : {}),
+      });
       if (hit) return hit;
     }
 
@@ -205,7 +209,9 @@ export class PerplexityImpl implements LLMService {
     // writes, even in "fresh" mode.
     // Part 2: a truncated answer is never cached (a later hit couldn't carry the flag).
     if (!output.truncated) {
-      await setCached(input.prompt, modelId, output, "grounded").catch(() => {});
+      await setCached(input.prompt, modelId, output, "grounded", ...cacheScopeArg(input)).catch(
+        () => {},
+      );
     }
 
     return output;

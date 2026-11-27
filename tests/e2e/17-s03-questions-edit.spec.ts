@@ -145,6 +145,16 @@ test.describe("S03 part 4: edit, apply, and the next audit asks the new set", ()
     await expect(bar).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: /^Reorder:/ }).first()).toBeHidden();
     await shoot(page, "P02-edit-390");
+    // S04 part 0c (LLD amendment 96): "At the plan's limit ... the suggestions' Add and '+ Add question' are disabled
+    // ... Swap and Remove still work". Version 2 is 10 of 10, so one comes out first to make room.
+    await expect(bar).toContainText("10 of 10 everyday");
+    await expect(page.getByTestId("p02-add-question")).toBeDisabled();
+    await expect(page.getByTestId("p02-limit-help")).toHaveText(
+      "Your plan includes 10 everyday questions per brand. Remove one, or add a question pack.",
+    );
+    await page.getByRole("button", { name: `More actions for ${BLUEGUM.everyday[8]}` }).click();
+    await page.getByRole("menuitem", { name: "Remove from set" }).click();
+    await expect(bar).toContainText("9 of 10 everyday");
     await page.getByTestId("p02-add-question").click();
     const drawer = page.getByRole("dialog", { name: "Add a question" });
     await expect(drawer).toBeVisible();

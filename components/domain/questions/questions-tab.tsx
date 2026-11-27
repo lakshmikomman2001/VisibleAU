@@ -11,7 +11,13 @@ import { formatCheckDate } from "@/lib/format/date";
 import { useJson } from "@/lib/hooks/use-load";
 import { ENGINE_DISPLAY_NAMES } from "@/lib/llm/interface";
 import type { QuestionsView, QuestionView } from "@/lib/questions/questions-view";
-import { type Draft, QuestionEditor, readStoredDraft } from "./question-editor";
+import {
+  type Draft,
+  draftDiffers,
+  QuestionEditor,
+  readStoredDraft,
+  storeDraft,
+} from "./question-editor";
 
 /**
  * S02 part 4 (contract P02, view mode; LLD 8.2.2): the brand's Questions tab, read-only until S03. One request
@@ -519,15 +525,19 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
   const [notArchived, setNotArchived] = useState(0);
   const editable = loaded.status === "ready" && loaded.data.limits.editable;
   const baseVersion = loaded.status === "ready" ? (loaded.data.set?.version ?? 0) : 0;
+  const readyView = loaded.status === "ready" ? loaded.data : null;
   useEffect(() => {
-    if (!editable) return;
+    if (!editable || !readyView) return;
     const wanted = new URLSearchParams(window.location.search).get("edit") === "1";
-    const kept = readStoredDraft(brandId, baseVersion);
+    // S04 part 0c (LLD amendment 96): a kept draft that changes nothing is dropped silently, never asked about.
+    const stored = readStoredDraft(brandId, baseVersion);
+    const kept = stored && draftDiffers(readyView, stored) ? stored : null;
+    if (stored && !kept) storeDraft(brandId, null);
     if (wanted || kept) {
       setRestored(kept);
       setEditing(true);
     }
-  }, [editable, brandId, baseVersion]);
+  }, [editable, brandId, baseVersion, readyView]);
   const setEditUrl = (on: boolean) => {
     const url = new URL(window.location.href);
     if (on) url.searchParams.set("edit", "1");

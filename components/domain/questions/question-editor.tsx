@@ -74,7 +74,7 @@ export function readStoredDraft(brandId: string, baseVersion: number): Draft | n
   }
 }
 
-function storeDraft(brandId: string, draft: Draft | null) {
+export function storeDraft(brandId: string, draft: Draft | null) {
   try {
     if (draft) window.sessionStorage.setItem(storageKey(brandId), JSON.stringify(draft));
     else window.sessionStorage.removeItem(storageKey(brandId));
@@ -94,6 +94,19 @@ export function draftChanges(view: QuestionsResponse, draft: Draft) {
   const moved = keptAfter.filter((id, n) => keptBefore[n] !== id).length;
   return { added, removed, moved };
 }
+
+/**
+ * S04 part 0c (LLD amendment 96): whether a kept draft changes anything against the current set. One that doesn't is
+ * dropped silently when the page comes back (live, "Keep your draft?" asked with "No changes yet").
+ */
+export function draftDiffers(view: QuestionsResponse, draft: Draft): boolean {
+  const { added, removed, moved } = draftChanges(view, draft);
+  return added.length + removed.length + moved > 0 || draft.archive.length > 0;
+}
+
+/** S04 part 0c (LLD amendment 96; appendix E): the plan's limit, as the apply route's 402 says it. */
+export const limitSentence = (limit: number) =>
+  `Your plan includes ${limit} everyday questions per brand. Remove one, or add a question pack.`;
 
 const sourceLabel = (item: Pick<DraftItem, "source">, agencyName: string) =>
   item.source === "agency"
@@ -932,8 +945,22 @@ export function QuestionEditor({
   const changed = added.length + removed.length + moved > 0 || draft.archive.length > 0;
   const everydayItems = draft.items.filter((i) => i.kind === "everyday");
   const brandedItems = draft.items.filter((i) => i.kind === "branded");
+  // S04 part 0c (LLD amendment 96; contract P02.suggestions, P02.addQuestion): at the plan's limit nothing more comes
+  // in -- the suggestions' Add and "+ Add question" are off, with the plan's sentence as their tooltip and as a help
+  // line under the everyday list; Swap, Remove and Edit wording still work (they don't add one). A suggestion that
+  // names the business is off at the 5 that may (P03's sentence), so neither reaches the server's 402 or 422.
+  const atLimit = everydayItems.length >= limit;
+  const brandedFull = brandedItems.length >= maxBranded;
+  const limitHelpId = useId();
   const inDraft = new Set(draft.items.map((i) => i.questionId).filter(Boolean));
   const spare = view.suggestions.filter((s) => !inDraft.has(s.id));
+
+  const addOff = (s: { kind?: DraftItem["kind"] }) =>
+    s.kind === "branded" ? brandedFull : atLimit;
+  const addOffReason = (s: { kind?: DraftItem["kind"] }) =>
+    s.kind === "branded"
+      ? "Already 5 questions name your business. Remove one first."
+      : limitSentence(limit);
 
   const update = (items: DraftItem[], extra: Partial<Draft> = {}) =>
     setDraft((d) => ({ ...d, ...extra, items }));
@@ -1165,7 +1192,15 @@ export function QuestionEditor({
                 type="button"
                 data-testid="p02-add-question"
                 onClick={() => setDrawer({})}
-                style={{ ...button(false), height: 32, fontSize: 12.5 }}
+                disabled={atLimit}
+                title={atLimit ? limitSentence(limit) : undefined}
+                aria-describedby={atLimit ? limitHelpId : undefined}
+                style={{
+                  ...button(false),
+                  height: 32,
+                  fontSize: 12.5,
+                  ...(atLimit ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                }}
               >
                 + Add question
               </button>
@@ -1186,6 +1221,15 @@ export function QuestionEditor({
                 </Link>
               </p>
             )}
+            {atLimit ? (
+              <p
+                id={limitHelpId}
+                data-testid="p02-limit-help"
+                style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--text-tertiary)" }}
+              >
+                {limitSentence(limit)}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -1298,6 +1342,9 @@ export function QuestionEditor({
                 <button
                   type="button"
                   aria-label={`Add: ${s.text}`}
+                  disabled={addOff(s)}
+                  title={addOff(s) ? addOffReason(s) : undefined}
+                  aria-describedby={addOff(s) && s.kind !== "branded" ? limitHelpId : undefined}
                   onClick={() => {
                     addItem({
                       key: s.id,
@@ -1309,7 +1356,13 @@ export function QuestionEditor({
                     });
                     setLive("Question added to your draft");
                   }}
-                  style={{ ...button(false), height: 32, fontSize: 12.5, alignSelf: "flex-start" }}
+                  style={{
+                    ...button(false),
+                    height: 32,
+                    fontSize: 12.5,
+                    alignSelf: "flex-start",
+                    ...(addOff(s) ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                  }}
                 >
                   Add
                 </button>

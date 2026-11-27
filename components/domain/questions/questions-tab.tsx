@@ -28,6 +28,11 @@ import {
  */
 
 export interface QuestionsResponse extends QuestionsView {
+  /**
+   * S04 part 7 (P02.section, P03.area): each reach the brand can have, its label and whether it's on -- present only
+   * with visibility_reach on (one section per reach then; without it, one "Everyday questions" section).
+   */
+  reaches?: Array<{ reach: QuestionView["reach"]; label: string; enabled: boolean }>;
   /** S03 part 4: who writes the agency's questions, for "Written by {agencyName}". */
   agencyName?: string;
   /** S03 part 4: the apply modal's subtitle, "{brand} · version {from} → {to}". */
@@ -99,6 +104,14 @@ export function headerLine(view: QuestionsView): string {
  * "Last audit (#54): 6 of 40 answers named you" for a section's everyday questions (unconfirmed mentions not counted).
  * S03 part 0 (LLD amendment 79, contract v1.8 P02.section.local): the line names its audit.
  */
+/** The sections' order with visibility_reach on (contract reachLabels.order). */
+const REACH_SECTION_ORDER: readonly QuestionView["reach"][] = [
+  "local",
+  "state",
+  "country",
+  "global",
+];
+
 export function lastAuditLine(
   questions: readonly QuestionView[],
   auditNumber: number | null,
@@ -812,7 +825,7 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
         />
       )}
 
-      {!editing && everyday.length > 0 && (
+      {!editing && everyday.length > 0 && !view.reaches && (
         <Section
           id={`${brandId}-everyday`}
           testId="p02-section-local"
@@ -825,6 +838,33 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
           agencyName={view.agencyName ?? "your agency"}
         />
       )}
+
+      {/* S04 part 7 (P02.section): with visibility_reach on, one section per reach, in reach order, headed by its label
+          ("Local · Sydney", "NSW", "Australia", "Worldwide"); its last-audit line counts its own questions' answers. */}
+      {!editing &&
+        view.reaches &&
+        REACH_SECTION_ORDER.map((reach) => {
+          const group = everyday.filter((q) => q.reach === reach);
+          if (group.length === 0) return null;
+          const label =
+            view.reaches?.find((r) => r.reach === reach)?.label ??
+            (reach === "local" ? "Local" : reach);
+          const count = group.length;
+          return (
+            <Section
+              key={reach}
+              id={`${brandId}-everyday-${reach}`}
+              testId={`p02-section-${reach}`}
+              title={label}
+              count={`${count} ${count === 1 ? "question" : "questions"}${count < 5 ? " · small sample" : ""}`}
+              right={lastAuditLine(group, auditNumber)}
+              questions={group}
+              engines={engines}
+              auditId={auditId}
+              agencyName={view.agencyName ?? "your agency"}
+            />
+          );
+        })}
 
       {!editing && branded.length > 0 && (
         <Section

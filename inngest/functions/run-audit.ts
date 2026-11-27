@@ -33,6 +33,7 @@ import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { engineCallReach } from "@/lib/reach/engine-location";
+import { writeAuditReachResults } from "@/lib/reach/results";
 import { contextDimensionScore } from "@/lib/scoring/context";
 import { computeDimensionCIs } from "@/lib/scoring/dimension-ci";
 import { frequencyDimensionScore } from "@/lib/scoring/frequency";
@@ -548,6 +549,12 @@ export const runAudit = inngest.createFunction(
           } catch (recordErr) {
             console.error("[run-audit] cost snapshot record failed (non-fatal):", recordErr);
           }
+          // S04 part 7 (LLD 8.4.6): the audit's Visibility per reach, inside this memoized step (no new step id, so
+          // an in-flight run replays cleanly); a replay rewrites the same rows. Never throws.
+          await writeAuditReachResults(serviceDb, {
+            auditId,
+            organizationId: loaded.audit.organizationId,
+          });
           // "Make the daily spend cap real", item 3 -- QualityGateService.
           // evaluate() only writes audits.quality_status, a column
           // nothing in the codebase reads back (confirmed by

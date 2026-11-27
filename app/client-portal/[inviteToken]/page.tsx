@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { ReachRow } from "@/components/domain/audit/reach-row";
 import { PortalReports } from "@/components/domain/portal/portal-reports";
 import { serviceDb, withRlsContext } from "@/db/client";
 import { inOpenWorkspace } from "@/db/open-workspace";
@@ -17,6 +18,7 @@ import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { PRODUCT_NAME } from "@/lib/product";
 import { loadAuditQuestionMix, questionMixLine } from "@/lib/questions/mix";
+import { loadAuditReachView } from "@/lib/reach/display";
 import {
   displayRecommendationAction,
   displayRecommendationTitle,
@@ -136,6 +138,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     google,
     reports,
     questionMix,
+    reachView,
   } = await withRlsContext(invite.organizationId, async (tx) => {
     // Branding: the brand's own value first, then the workspace's, field
     // by field -- as the report PDF does. 2 Nov: the newest workspace row
@@ -244,6 +247,12 @@ export default async function ClientPortalViewPage({ params }: Props) {
           })
         : null;
 
+    // S04 part 7 (P07 access: the portal shows the same cards): the latest audit's reaches, while visibility_reach is on.
+    const reachView =
+      latestAudit && brand && (await isEnabled("visibility_reach", invite.organizationId))
+        ? await loadAuditReachView(tx, { auditId: latestAudit.id, brand })
+        : null;
+
     // The portal's brand's generated reports with a PDF, each link signed for a few minutes (never a public bucket).
     const reports =
       showReports && brand
@@ -270,6 +279,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
       google,
       reports,
       questionMix,
+      reachView,
     };
   });
 
@@ -385,6 +395,19 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   >
                     {questionMixLine(questionMix)}
                   </p>
+                )}
+                {reachView && headline?.status === "scored" && (
+                  <p
+                    data-testid="portal-score-reach"
+                    className="text-sm text-muted-foreground mt-2"
+                  >
+                    {reachView.headlineLabel}
+                  </p>
+                )}
+                {reachView && reachView.tiles.length > 0 && (
+                  <div className="mt-4">
+                    <ReachRow view={reachView} partial={false} />
+                  </div>
                 )}
                 {engineCoverage?.note && (
                   <p

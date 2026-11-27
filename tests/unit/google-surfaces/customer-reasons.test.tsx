@@ -278,6 +278,10 @@ describe("source scan: only the operator's code reads the stored reason, code or
     // S04 part 0e (LLD amendment 88): the split under the headline counts Google's answers as the headline does --
     // outcome, the branded flag and the mention columns only, never the stored reason, code or response (below).
     "lib/questions/mix.ts",
+    // S04 part 7 (LLD 8.4.6): each reach's figure counts Google's answers as the headline does (outcome, the branded
+    // flag and the mention columns, where the audit counts Google in the headline), and the Responses tab's reach per
+    // question reads only prompts -- never the stored reason, code or response (below).
+    "lib/reach/results.ts",
   ]);
   const RAW =
     /\b(outcomeReason|providerStatusCode|rawResponse|outcome_reason|provider_status_code|raw_response)\b/;
@@ -291,6 +295,10 @@ describe("source scan: only the operator's code reads the stored reason, code or
 
   it("the split reads outcomes and mentions, never the stored reason, code or response", () => {
     expect(readFileSync("lib/questions/mix.ts", "utf8")).not.toMatch(RAW);
+  });
+
+  it("the reach figures read outcomes and mentions, never the stored reason, code or response", () => {
+    expect(readFileSync("lib/reach/results.ts", "utf8")).not.toMatch(RAW);
   });
 
   it("the headline reads outcomes, never the stored reason, code or response", () => {

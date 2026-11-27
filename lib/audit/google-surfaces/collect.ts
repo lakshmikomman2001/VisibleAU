@@ -12,6 +12,7 @@ import {
   googleSurfacesEnvEnabled,
 } from "@/lib/governance/google-surfaces";
 import { BudgetPolicyService } from "@/lib/platform/budget-policy.service";
+import { writeAuditReachResults } from "@/lib/reach/results";
 import { hasGoogleSurfaceProviderCredentials } from "@/lib/serp/credentials";
 import { DataForSeoProvider } from "@/lib/serp/dataforseo";
 import {
@@ -583,6 +584,11 @@ export async function finishGoogleSurfaces(
     .update(auditGoogleSurfaces)
     .set({ status: "complete", costUsd: costUsd.toFixed(6), completedAt: new Date() })
     .where(eq(auditGoogleSurfaces.auditId, auditId));
+  // S04 part 7 (LLD 8.4.6): where Google's AI answers count in the headline, they count in each reach's figure too,
+  // so the audit's results per reach are stored again with them. Never throws.
+  if ((snap.settings as StoredGoogleSettings).countInHeadline) {
+    await writeAuditReachResults(serviceDb, { auditId, organizationId: snap.organizationId });
+  }
   // Part 3: a refused account tells the operators, at most once per category per 24 hours. Never fails
   // the step: the audit's Google part is already complete.
   try {

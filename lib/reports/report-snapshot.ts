@@ -1,4 +1,6 @@
+import type { QuestionReach } from "@/db/schema/questions";
 import { type QuestionMix, questionMixLine as sourcedMixLine } from "@/lib/questions/mix-line";
+import { reachHeadlineLabel } from "@/lib/reach/labels";
 import type { BeyondAiAnswers } from "./beyond-ai";
 import type { WhatToDoNext } from "./report-contents";
 import type { ReportData } from "./report-data";
@@ -37,6 +39,18 @@ export interface ReportV2 {
     /** S03 part 6 (LLD 8.3.3): who wrote each question, when agency_questions was on at generation. */
     detail?: Omit<QuestionMix, "split">;
   };
+  /**
+   * S04 part 7 (LLD 8.4.6, P09.reachRow): the basis audit's Visibility per reach, when it had more than one and
+   * visibility_reach was on at generation; the Summary page's reach row. Absent otherwise.
+   */
+  reaches?: ReportReach[];
+}
+
+export interface ReportReach {
+  reach: QuestionReach;
+  label: string;
+  mentioned: number;
+  answers: number;
 }
 
 export type ReportDataV2 = ReportData & { v2?: ReportV2 };
@@ -48,6 +62,8 @@ export interface ReportSnapshot {
   tierName: string;
   generatedAt: string;
   headline: { mentioned: number; answers: number; reaches: string[]; label: string };
+  /** S04 part 7: the reach row's figures (P09.reachRow), when the report has one. */
+  reaches?: ReportReach[];
   questionMix: ReportV2["questionMix"];
   findings: Array<{ rule: string; title: string; evidence: string }>;
   actions: Array<{
@@ -107,6 +123,8 @@ export function buildReportSnapshot(data: ReportDataV2): ReportSnapshot {
   const tier = v2?.tier ?? "basic";
   const next = v2?.whatToDoNext ?? null;
   const findings = reportFindings(data);
+  const localLabel = data.brand.locality ? `Local · ${data.brand.locality}` : "Local";
+  const reaches = v2?.reaches;
   return {
     schema: 1,
     basisAuditId: data.basis.auditId,
@@ -116,9 +134,11 @@ export function buildReportSnapshot(data: ReportDataV2): ReportSnapshot {
     headline: {
       mentioned: data.mentionedCount,
       answers: data.sampleCount,
-      reaches: ["local"],
-      label: data.brand.locality ? `Local · ${data.brand.locality}` : "Local",
+      // S04 part 7: the reaches the headline covers ("across Local, NSW and Australia"); Local alone as before.
+      reaches: reaches ? reaches.map((r) => r.reach) : ["local"],
+      label: reaches ? reachHeadlineLabel(reaches, localLabel) : localLabel,
     },
+    ...(reaches ? { reaches } : {}),
     questionMix: v2?.questionMix ?? {
       everyday: data.questions.everyday,
       branded: data.questions.branded,

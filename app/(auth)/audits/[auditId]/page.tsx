@@ -10,12 +10,20 @@ import {
   type FullyFailedEngine,
 } from "@/components/domain/audit/engine-failure-banner";
 import { GoogleSearchAiSection } from "@/components/domain/audit/google-search-ai-section";
+import { ReachRow } from "@/components/domain/audit/reach-row";
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
 import { SetCurrentBrand } from "@/components/domain/set-current-brand";
 import { displayUrl } from "@/components/shared/url-link";
 import { withRlsContext } from "@/db/client";
-import { actionItems, audits, brands, citations, engineCallFailures } from "@/db/schema";
+import {
+  actionItems,
+  audits,
+  brands,
+  citations,
+  engineCallFailures,
+  type QuestionReach,
+} from "@/db/schema";
 import { getAnsweredCount, REUSED_ANSWER_SQL } from "@/lib/audit/answered-count";
 import { dedupeResponses } from "@/lib/audit/dedupe-responses";
 import {
@@ -48,6 +56,9 @@ import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
 import { loadAuditQuestionMix, questionMixLine, questionSplitParts } from "@/lib/questions/mix";
+import { loadAuditReachView } from "@/lib/reach/display";
+import { REACH_ORDER } from "@/lib/reach/places";
+import { loadAuditQuestionReaches } from "@/lib/reach/results";
 import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   type DisplayBasis,
@@ -439,6 +450,8 @@ export default async function AuditPage({
         prompt: string;
         isBrandedPrompt: boolean;
         perEngine: Record<string, { id: string; mentioned: boolean; verification: string | null }>;
+        /** S04 part 7: the question's reach, with visibility_reach on (its item's in the audit's set). */
+        reach?: QuestionReach;
       }>;
     } | null = null;
 
@@ -707,7 +720,15 @@ export default async function AuditPage({
           });
         }
       }
-      const questions = [...questionMap.values()];
+      let questions = [...questionMap.values()];
+      // S04 part 7 (LLD 8.4.6: the Responses tab grouped by reach): with visibility_reach on, each question's reach,
+      // and the questions in reach order.
+      if (await isEnabled("visibility_reach", currentUser.organizationId)) {
+        const reachOf = await loadAuditQuestionReaches(tx, auditId);
+        questions = questions
+          .map((q) => ({ ...q, reach: reachOf.get(q.prompt) ?? ("local" as const) }))
+          .sort((a, b) => REACH_ORDER.indexOf(a.reach) - REACH_ORDER.indexOf(b.reach));
+      }
 
       responsesData = {
         rows: rowsWithRealPosition,
@@ -733,6 +754,11 @@ export default async function AuditPage({
     // on. Off: null, and the page is exactly as before.
     const questionMix = (await isEnabled("agency_questions", currentUser.organizationId))
       ? await loadAuditQuestionMix(tx, { organizationId: currentUser.organizationId, auditId })
+      : null;
+    // S04 part 7 (LLD 8.4.6, P07.score, P07.reachRow): the audit's reaches, while visibility_reach is on. Off: null,
+    // and the page is exactly as before.
+    const reachView = (await isEnabled("visibility_reach", currentUser.organizationId))
+      ? await loadAuditReachView(tx, { auditId, brand })
       : null;
     // Google AI surfaces (Phase 1, part 3): null for an audit that ran without Google -- the page is then
     // exactly as before.
@@ -786,6 +812,7 @@ export default async function AuditPage({
       directoryCitations,
       beyondAi,
       questionMix,
+      reachView,
       googleSurfaces,
       headlineIncludesGoogle: headlineIncludesGoogle === true,
       failureRows,
@@ -871,6 +898,7 @@ export default async function AuditPage({
     directoryCitations,
     beyondAi,
     questionMix,
+    reachView,
     googleSurfaces,
     headlineIncludesGoogle,
     failureRows,
@@ -1205,6 +1233,10 @@ export default async function AuditPage({
                 Mentioned in {distinctMentionedCount} of {distinctSampleCount} answer
                 {distinctSampleCount === 1 ? "" : "s"} · 95% CI {headlineResult.ci.lower.toFixed(0)}
                 –{headlineResult.ci.upper.toFixed(0)}%
+                {/* S04 part 7 (P07.score): the reaches the number covers, with visibility_reach on. */}
+                {reachView ? (
+                  <span data-testid="p07-score-reach">{` · ${reachView.headlineLabel}`}</span>
+                ) : null}
               </div>
               {/* Health Check (7 Nov): the band's name, from the one map the Health Check's AI
                   presence card also reads. */}
@@ -1269,6 +1301,9 @@ export default async function AuditPage({
           }
         </div>
       </div>
+
+      {/* S04 part 7 (P07.reachRow): each reach's Visibility, for an audit with more than one reach. */}
+      {reachView ? <ReachRow view={reachView} partial={audit.status === "partial"} /> : null}
 
       {/* TAB BAR */}
       <div
@@ -2052,6 +2087,28 @@ export default async function AuditPage({
                         }}
                       >
                         <span style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)" }}>
+                          {/* S04 part 7: the question's reach, for an audit with more than one. */}
+                          {reachView &&
+                          reachView.tiles.length > 1 &&
+                          q.reach &&
+                          !q.isBrandedPrompt ? (
+                            <span
+                              data-testid="responses-reach"
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "1px 8px",
+                                marginRight: 8,
+                                borderRadius: 999,
+                                background: "var(--bg-subtle)",
+                                border: "1px solid var(--border-default)",
+                                color: "var(--text-primary)",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {reachView.tiles.find((t) => t.reach === q.reach)?.label ?? q.reach}
+                            </span>
+                          ) : null}
                           &ldquo;{q.prompt}&rdquo;
                         </span>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>

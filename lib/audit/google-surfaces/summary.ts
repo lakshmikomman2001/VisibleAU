@@ -1,11 +1,12 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbClient } from "@/db/client";
-import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema";
+import { auditGoogleSurfaces, auditReachResults, googleSurfaceResults } from "@/db/schema";
 import { findDirectoryForSource } from "@/lib/directories/registry";
 import { loadDirectoryRegistry } from "@/lib/directories/registry-store";
 import type { GoogleLocation } from "@/lib/google-surfaces/location";
 import { GOOGLE_SURFACE_NAMES, type GoogleSurface } from "@/lib/governance/google-surfaces";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { checkedFromText, WORLDWIDE_GOOGLE_NOTE } from "@/lib/reach/google-location";
 import type { CitedLink } from "@/lib/serp/provider";
 import type { StoredGoogleSettings } from "./dispatch";
 import { googleCustomerReason, googleCustomerStatusReason } from "./reasons";
@@ -48,6 +49,11 @@ export interface GoogleQuestionResult {
   verified: boolean;
   links: number;
   googleLinks: number;
+  /**
+   * S04 part 7 (LLD 8.4.5): where Google was checked for this question, when it isn't the audit's own location (a
+   * State or Country question's: "NSW", "Australia", "Sydney, as NSW"). Absent for a Local question.
+   */
+  checkedFrom?: string;
 }
 
 export interface GoogleSurfaceRow {
@@ -90,6 +96,10 @@ export interface GoogleSurfaceSummary {
   provider: string;
   ranAt: string;
   rows: GoogleSurfaceRow[];
+  /** S04 part 7: "Checked from NSW" for each other place questions were checked from; absent when there's none. */
+  otherLocations?: string[];
+  /** S04 part 7 (D-QI7): when the audit asked Worldwide questions, which Google isn't asked. */
+  worldwideNote?: string;
 }
 
 export const GOOGLE_DOMAIN_LABELS: Record<GoogleSurface, string> = {
@@ -200,6 +210,7 @@ export async function loadGoogleSurfaceSummary(
       verification: googleSurfaceResults.mentionVerification,
       citedLinks: googleSurfaceResults.citedLinks,
       googleLinks: googleSurfaceResults.googleLinkCount,
+      locationLabel: googleSurfaceResults.locationLabel,
     })
     .from(googleSurfaceResults)
     .where(eq(googleSurfaceResults.auditId, auditId))
@@ -229,6 +240,9 @@ export async function loadGoogleSurfaceSummary(
         verified,
         links: links.length,
         googleLinks: r.googleLinks ?? 0,
+        ...(r.locationLabel && location && r.locationLabel !== location.label
+          ? { checkedFrom: r.locationLabel }
+          : {}),
       };
     });
     const directories = new Set<string>();
@@ -243,6 +257,18 @@ export async function loadGoogleSurfaceSummary(
     return summarizeGoogleSurface({ surface, results, directories: [...directories], status });
   });
 
+  // S04 part 7: the other places questions were checked from (their reaches'), and whether any were Worldwide.
+  const otherLocations = [
+    ...new Set(
+      surfaceRows
+        .flatMap((r) => r.results.map((q) => q.checkedFrom))
+        .filter((l): l is string => !!l),
+    ),
+  ];
+  const [worldwide] = await db
+    .select({ reach: auditReachResults.reach })
+    .from(auditReachResults)
+    .where(and(eq(auditReachResults.auditId, auditId), eq(auditReachResults.reach, "global")));
   const ranAt = snap.completedAt ?? snap.createdAt;
   const labelParts = [
     location?.label,
@@ -260,6 +286,8 @@ export async function loadGoogleSurfaceSummary(
     provider: settings.provider,
     ranAt: new Date(ranAt).toISOString(),
     rows: surfaceRows,
+    ...(otherLocations.length > 0 ? { otherLocations: otherLocations.map(checkedFromText) } : {}),
+    ...(worldwide ? { worldwideNote: WORLDWIDE_GOOGLE_NOTE } : {}),
   };
 }
 

@@ -4,6 +4,7 @@ import { brands } from "@/db/schema";
 import { isEnabled } from "@/lib/flags/flags";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { loadAuditQuestionMix, type QuestionMix } from "@/lib/questions/mix";
+import { loadAuditReachView } from "@/lib/reach/display";
 import { getBeyondAiAnswers } from "./beyond-ai";
 import { applyRefreshOutcomes, type RefreshOutcome } from "./enhanced-checks";
 import type { ReportData } from "./report-data";
@@ -55,6 +56,7 @@ export async function buildReportV2(
         abn: brands.abn,
         youtubeChannelUrl: brands.youtubeChannelUrl,
         suburb: brands.suburb,
+        city: brands.city,
         state: brands.state,
         postcode: brands.postcode,
       })
@@ -69,6 +71,20 @@ export async function buildReportV2(
   const questionMix = (await isEnabled("agency_questions", organizationId))
     ? await loadAuditQuestionMix(db, { organizationId, auditId: data.basis.auditId })
     : null;
+  // S04 part 7 (P09.reachRow): the basis audit's reaches, while visibility_reach is on and it had more than one.
+  const reachView =
+    brand && (await isEnabled("visibility_reach", organizationId))
+      ? await loadAuditReachView(db, { auditId: data.basis.auditId, brand })
+      : null;
+  const reaches =
+    reachView && reachView.tiles.length > 1
+      ? reachView.tiles.map((t) => ({
+          reach: t.reach,
+          label: t.label,
+          mentioned: t.mentioned,
+          answers: t.everydayAnswers,
+        }))
+      : null;
   const [whatToDoNext, beyondAi] = await Promise.all([
     withActions
       ? loadWhatToDoNext(db, {
@@ -106,6 +122,7 @@ export async function buildReportV2(
       bySource: { original: data.questions.everyday },
       ...(questionMix ? { detail: questionMixDetail(questionMix) } : {}),
     },
+    ...(reaches ? { reaches } : {}),
   };
 }
 

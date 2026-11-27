@@ -1029,6 +1029,44 @@ function SummaryPage({ ctx }: { ctx: Ctx }) {
         </View>
       </View>
 
+      {/* S04 part 7 (contract P09.reachRow): each reach's Visibility, only when the basis audit had more than one
+          (visibility_reach on at generation; every tier). */}
+      {data.v2?.reaches && data.v2.reaches.length > 1 ? (
+        <View wrap={false} style={{ flexDirection: "row", gap: px(10), marginTop: px(18) }}>
+          {data.v2.reaches.map((r) => (
+            <View
+              key={r.reach}
+              style={{
+                flex: 1,
+                borderWidth: 0.75,
+                borderStyle: "solid",
+                borderColor: C.line,
+                borderRadius: px(10),
+                paddingVertical: px(10),
+                paddingHorizontal: px(12),
+                backgroundColor: C.surface,
+              }}
+            >
+              <Text style={{ fontSize: px(9.5), fontWeight: 600, color: C.ink2 }}>{r.label}</Text>
+              <Text
+                style={{
+                  fontFamily: FONT.display,
+                  fontSize: px(20),
+                  fontWeight: 700,
+                  color: C.ink,
+                  marginTop: px(2),
+                }}
+              >
+                {r.answers > 0 ? formatVisibilityPercent((r.mentioned / r.answers) * 100) : "—"}
+              </Text>
+              <Text style={{ fontSize: px(9), color: C.ink3 }}>
+                {r.mentioned} of {r.answers}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {failed.length > 0 && (
         <View
           wrap={false}

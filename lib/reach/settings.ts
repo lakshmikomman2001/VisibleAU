@@ -440,6 +440,33 @@ export async function saveReachSettings(
   return { ok: true, view, draft };
 }
 
+/**
+ * S04 part 7 (contract P02.section, P03.area): each reach the market can place for the brand, with its label and
+ * whether it's on -- the Questions tab's sections and the add drawer's areas (the enabled ones).
+ */
+export async function questionReachOptions(
+  db: DbClient,
+  input: { organizationId: string; brandId: string },
+): Promise<Array<{ reach: QuestionReach; label: string; enabled: boolean }>> {
+  const brand = await loadBrand(db, input.organizationId, input.brandId);
+  if (!brand) return [];
+  const market = marketFor(brand.region);
+  const on = new Set(
+    (await loadScopes(db, input.brandId)).filter((s) => s.enabled).map((s) => s.reach),
+  );
+  return REACH_ORDER.flatMap((reach) => {
+    const place = placeForReach(reach, brand, market);
+    if (!place) return [];
+    return [
+      {
+        reach,
+        label: reachLabel(reach, place, market),
+        enabled: reach === "local" || on.has(reach),
+      },
+    ];
+  });
+}
+
 /** The reaches a set may hold for a brand: Local, and with visibility_reach on, its enabled reaches. */
 export async function reachesForSet(
   db: DbClient,

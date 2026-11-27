@@ -53,6 +53,17 @@ export function GoogleSearchAiSection({
           {summary.locationNote}
         </p>
       ) : null}
+      {/* S04 part 7 (LLD 8.4.5): the other places a State or Country question was checked from; Worldwide's line. */}
+      {summary.otherLocations ? (
+        <p className="text-[12px] mt-1" style={muted} data-google-other-locations="">
+          Questions beyond Local: {summary.otherLocations.join(" · ")}
+        </p>
+      ) : null}
+      {summary.worldwideNote ? (
+        <p className="text-[12px] mt-1" style={muted} data-google-worldwide="">
+          {summary.worldwideNote}
+        </p>
+      ) : null}
 
       {summary.rows.length === 0 ||
       (summary.status === "complete" && summary.statusReason && questions.length === 0) ? (
@@ -117,6 +128,7 @@ export function GoogleSearchAiSection({
                     <td className="pr-3 py-1">
                       {q.prompt}
                       {q.isBranded ? " (names you)" : ""}
+                      {q.checkedFrom ? ` (checked from ${q.checkedFrom})` : ""}
                     </td>
                     {summary.rows.map((row) => {
                       const r = row.results.find((x) => x.promptIndex === q.promptIndex);

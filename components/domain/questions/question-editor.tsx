@@ -234,6 +234,8 @@ export function AddQuestionDrawer({
   initialText = "",
   replaces,
   addLabel = "Add to draft",
+  areas,
+  initialReach,
   onAdd,
   onClose,
 }: {
@@ -245,9 +247,17 @@ export function AddQuestionDrawer({
   replaces?: DraftItem;
   /** S04 part 0b (amendment 93; contract P03.footer): the confirm screen's drawer reads "Add question". */
   addLabel?: string;
-  onAdd: (item: { text: string; kind: "everyday" | "branded" }) => void;
+  /** S04 part 7 (P03.area): the brand's enabled reaches and their labels; Local alone when absent. */
+  areas?: ReadonlyArray<{ reach: QuestionReach; label: string }>;
+  /** The area chosen when the drawer opens (the reworded question's); Local when absent. */
+  initialReach?: QuestionReach;
+  onAdd: (item: { text: string; kind: "everyday" | "branded"; reach: QuestionReach }) => void;
   onClose: () => void;
 }) {
+  const choices = areas && areas.length > 0 ? areas : [{ reach: "local" as const, label: "Local" }];
+  const [reach, setReach] = useState<QuestionReach>(
+    choices.some((c) => c.reach === initialReach) && initialReach ? initialReach : "local",
+  );
   const [text, setText] = useState(initialText);
   const [state, setState] = useState<CheckState>({ status: "idle" });
   const [asking, setAsking] = useState(false);
@@ -270,7 +280,7 @@ export function AddQuestionDrawer({
         const res = await fetch(`/api/brands/${brandId}/questions/validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: value, reach: "local" }),
+          body: JSON.stringify({ text: value, reach }),
         });
         if (id !== latest.current) return;
         if (!res.ok) throw new Error(String(res.status));
@@ -284,7 +294,7 @@ export function AddQuestionDrawer({
         if (id === latest.current) setState({ status: "error" });
       }
     },
-    [brandId],
+    [brandId, reach],
   );
 
   // Checks run 250 ms after typing stops.
@@ -434,34 +444,42 @@ export function AddQuestionDrawer({
           >
             Area
           </legend>
-          {/* Only Local until visibility reach (S04): one segment, chosen. */}
+          {/* S04 part 7 (P03.area): the brand's enabled reaches, the chosen one checked against; Local alone without
+              visibility_reach (one segment, chosen). Changing it re-runs the checks. */}
           <div
-            className="inline-flex"
+            className="inline-flex flex-wrap"
             style={{ border: "1px solid var(--border-default)", borderRadius: 8, padding: 2 }}
           >
-            <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 14px",
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: 500,
-                background: "var(--accent-blue-soft)",
-                color: "var(--text-primary)",
-              }}
-            >
-              <input
-                type="radio"
-                name="p03-area"
-                value="local"
-                checked
-                readOnly
-                className="sr-only"
-              />
-              Local
-            </label>
+            {choices.map((c) => {
+              const on = c.reach === reach;
+              return (
+                <label
+                  key={c.reach}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    cursor: choices.length > 1 ? "pointer" : "default",
+                    background: on ? "var(--accent-blue-soft)" : "transparent",
+                    color: on ? "var(--text-primary)" : "var(--text-secondary)",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="p03-area"
+                    value={c.reach}
+                    checked={on}
+                    onChange={() => setReach(c.reach)}
+                    className="sr-only"
+                  />
+                  {c.label}
+                </label>
+              );
+            })}
           </div>
         </fieldset>
 
@@ -535,7 +553,7 @@ export function AddQuestionDrawer({
           <button
             type="button"
             disabled={blocked}
-            onClick={() => onAdd({ text: text.replace(/[^\S\r\n]+/g, " ").trim(), kind })}
+            onClick={() => onAdd({ text: text.replace(/[^\S\r\n]+/g, " ").trim(), kind, reach })}
             className="w-full min-[641px]:w-auto"
             style={{
               ...button(true),
@@ -1074,6 +1092,12 @@ export function QuestionEditor({
             ) : (
               <Pill tone={sourceTone(item)}>{sourceLabel(item, agencyName)}</Pill>
             )}
+            {/* S04 part 7: a question beyond Local says its reach in edit mode (the sections are view mode's). */}
+            {!branded && item.reach !== "local" ? (
+              <Pill tone="neutral" testId="p02-row-reach">
+                {view.reaches?.find((r) => r.reach === item.reach)?.label ?? item.reach}
+              </Pill>
+            ) : null}
           </div>
           {swapping === item.key ? (
             <div style={{ marginTop: 10 }}>
@@ -1469,14 +1493,16 @@ export function QuestionEditor({
             setDrawer(null);
             addButton.current?.focus();
           }}
-          onAdd={({ text, kind }) => {
+          areas={view.reaches?.filter((r) => r.enabled)}
+          initialReach={drawer.replaces?.reach}
+          onAdd={({ text, kind, reach }) => {
             const replaced = drawer.replaces;
             const typed: DraftItem = {
               key: `new:${Date.now()}`,
               text,
               kind,
               source: "agency",
-              reach: "local",
+              reach,
               replaces: replaced?.questionId ?? replaced?.replaces,
             };
             if (replaced) update(draft.items.map((i) => (i.key === replaced.key ? typed : i)));

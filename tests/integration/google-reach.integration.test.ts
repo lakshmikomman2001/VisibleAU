@@ -7,6 +7,8 @@
  *   surface, at its location.
  * - The per-audit ceiling scales with the questions checked: the stored ceiling covers the Local questions, the others
  *   add their share; a Local-only audit keeps the stored ceiling (its last questions still skipped past it).
+ * - S04 part 7: the summary the audit page shows says where a question beyond Local was checked ("Checked from NSW"),
+ *   and "Worldwide questions are measured on the four AI engines only." when the audit asked Worldwide questions.
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -234,5 +236,40 @@ describe("Google AI per reach", () => {
     const skipped = (await rows(localOnly.auditId)).filter((r) => r.outcome === "skipped");
     expect(skipped.map((r) => r.prompt_index)).toEqual([2, 2]);
     expect(skipped[0].outcome_reason).toContain("0.0048");
+  });
+
+  // S04 part 7 (LLD 8.4.5, D-QI7): the audit page's Google section says where each question was checked.
+  it("the summary: each question beyond Local says where it was checked; Worldwide's sentence; Local-only as before", async () => {
+    const { loadGoogleSurfaceSummary } = await import("@/lib/audit/google-surfaces/summary");
+    const { serviceDb } = await import("@/db/client");
+    const a = await audit(1);
+    const { queueGoogleQuestions } = await import("@/lib/audit/google-surfaces/dispatch");
+    await queueGoogleQuestions(a.auditId, PROMPTS);
+    await run(a);
+    await client`INSERT INTO audit_reach_results (audit_id, organization_id, reach, everyday_answers, mentioned,
+                                                  reach_hash)
+      VALUES (${a.auditId}, ${ORG}, 'global', 4, 0, 'hash-global')`;
+    const summary = await loadGoogleSurfaceSummary(serviceDb, a.auditId);
+    expect(summary?.rows[0].results.map((r) => [r.promptIndex, r.checkedFrom])).toEqual([
+      [0, undefined],
+      [1, undefined],
+      [2, "NSW"],
+      [3, "Australia"],
+    ]);
+    expect(summary?.otherLocations).toEqual(["Checked from NSW", "Checked from Australia"]);
+    expect(summary?.worldwideNote).toBe(
+      "Worldwide questions are measured on the four AI engines only.",
+    );
+
+    const localOnly = await audit(1);
+    await queueGoogleQuestions(
+      localOnly.auditId,
+      PROMPTS.slice(0, 2).map(({ reach: _r, ...p }) => p),
+    );
+    await run(localOnly);
+    const plain = await loadGoogleSurfaceSummary(serviceDb, localOnly.auditId);
+    expect(plain).not.toHaveProperty("otherLocations");
+    expect(plain).not.toHaveProperty("worldwideNote");
+    expect(plain?.rows[0].results.every((r) => !("checkedFrom" in r))).toBe(true);
   });
 });

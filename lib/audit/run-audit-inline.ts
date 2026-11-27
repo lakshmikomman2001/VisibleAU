@@ -38,6 +38,7 @@ import {
 import { QualityGateService } from "@/lib/platform/quality-gate.service";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { engineCallReach } from "@/lib/reach/engine-location";
+import { writeAuditReachResults } from "@/lib/reach/results";
 import {
   buildRecommendations,
   gatherRecommendationEvidence,
@@ -500,6 +501,9 @@ export async function runAuditInline(
       );
       return;
     }
+
+    // S04 part 7 (LLD 8.4.6): the audit's Visibility per reach. Never throws.
+    await writeAuditReachResults(serviceDb, { auditId, organizationId: a.organizationId });
 
     // Phase 2: post-scoring — record cost snapshot and evaluate quality gates
     const capReserve = unpricedReserve(costTally);

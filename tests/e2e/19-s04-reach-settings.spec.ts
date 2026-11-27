@@ -3,7 +3,8 @@
  * settings, saves, and applies the draft in the Questions tab's edit mode; the new set holds 4 Local, 3 NSW and 3
  * Australia everyday questions. Local can't be switched off by mouse or keyboard. Nothing changes for audits until the
  * draft is applied (the set is still version 1 after Save).
- * Screenshots (P01 at 1240 light and dark, and 390) to .qa/screens/S04/.
+ * S04 part 7: the next audit stores and shows each reach's figure (P07), and the Questions tab has a section per reach.
+ * Screenshots (P01 at 1240 light and dark, and 390; P07's reach row; P02's sections) to .qa/screens/S04/.
  */
 import postgres from "postgres";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
@@ -152,6 +153,74 @@ test.describe("S04 part 6: reach settings through to apply", () => {
       "true",
       { timeout: 60_000 },
     );
+  });
+
+  // S04 part 7 (P07.score, P07.reachRow, P02.section): the next audit asks the applied set; its page shows each
+  // reach's figure, and the Questions tab a section per reach.
+  test("the next audit: results per reach on the audit page; the Questions tab by reach", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1240, height: 900 });
+    const sql = postgres(e2eDatabaseUrl(), { max: 1 });
+    let auditId = "";
+    try {
+      const res = await page.request.post("/api/audits", { data: { brandId } });
+      expect([200, 201, 202]).toContain(res.status());
+      await expect
+        .poll(
+          async () =>
+            (
+              await sql<{ status: string }[]>`
+                SELECT status FROM audits WHERE brand_id = ${brandId} ORDER BY audit_number DESC LIMIT 1`
+            )[0]?.status,
+          { timeout: 180_000, intervals: [2_000] },
+        )
+        .toMatch(/^(complete|partial)$/);
+      const [audit] = await sql<{ id: string }[]>`
+        SELECT id FROM audits WHERE brand_id = ${brandId} ORDER BY audit_number DESC LIMIT 1`;
+      auditId = audit.id;
+      const rows = await sql<{ reach: string }[]>`
+        SELECT reach FROM audit_reach_results WHERE audit_id = ${auditId}
+        ORDER BY array_position(ARRAY['local','state','country','global'], reach)`;
+      expect(rows.map((r) => r.reach)).toEqual(["local", "state", "country"]);
+    } finally {
+      await sql.end();
+    }
+
+    await page.goto(`/audits/${auditId}`);
+    await expect(page.getByTestId("p07-score-reach")).toHaveText(
+      " · across Local, NSW and Australia",
+      {
+        timeout: 60_000,
+      },
+    );
+    const row = page.getByTestId("p07-reach-row");
+    await expect(row.getByRole("heading", { name: "Where AI recommends you" })).toBeVisible();
+    for (const reach of ["local", "state", "country"])
+      await expect(row.getByTestId(`p07-reach-tile-${reach}`)).toBeVisible();
+    const decline = page.getByRole("button", { name: "Decline" });
+    if (await decline.isVisible().catch(() => false)) await decline.click();
+    for (const theme of ["light", "dark"] as const) {
+      await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+      await page.waitForTimeout(800);
+      await row.screenshot({ path: `${DIR}/P07-reach-row-1240-${theme}.png` });
+    }
+    await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(500);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    await row.screenshot({ path: `${DIR}/P07-reach-row-390-light.png` });
+
+    await page.setViewportSize({ width: 1240, height: 900 });
+    await page.goto(`/brands/${brandId}/questions`);
+    await expect(page.getByTestId("p02-section-state")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("p02-section-local")).toContainText("Local · Chatswood");
+    await expect(page.getByTestId("p02-section-state")).toContainText("3 questions · small sample");
+    await expect(page.getByTestId("p02-section-country")).toContainText("Australia");
+    await page.screenshot({ path: `${DIR}/P02-reach-sections-1240-light.png`, fullPage: true });
   });
 
   test("at 390: the stepper under the chips, Save and Cancel full width", async ({ page }) => {

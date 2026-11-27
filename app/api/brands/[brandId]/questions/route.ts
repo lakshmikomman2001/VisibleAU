@@ -10,6 +10,7 @@ import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { questionAgencyName } from "@/lib/questions/agency-name";
 import { getQuestionLimits } from "@/lib/questions/limits";
 import { ensureTemplateSuggestions, loadQuestionsView } from "@/lib/questions/questions-view";
+import { questionReachOptions } from "@/lib/reach/settings";
 import { isUuid } from "@/lib/validation/uuid";
 
 /**
@@ -48,8 +49,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     // same limits the apply route enforces (lib/questions/limits.ts).
     const limits = await getQuestionLimits(tx, currentUser.organizationId, brandId);
     const agencyQuestions = await isEnabled("agency_questions", currentUser.organizationId);
+    // S04 part 7 (P02.section, P03.area): the brand's reaches, while visibility_reach is on. Off: absent, and the tab
+    // is one "Everyday questions" section as before.
+    const reaches = (await isEnabled("visibility_reach", currentUser.organizationId))
+      ? await questionReachOptions(tx, input)
+      : null;
     return NextResponse.json({
       ...view,
+      ...(reaches ? { reaches } : {}),
       suggestions: suggestionsShown ? view.suggestions : [],
       brandName: brand.name,
       agencyName: await questionAgencyName(tx, currentUser.organizationId, brandId),

@@ -81,6 +81,8 @@ export * from "./users";
 export * from "./validation-corpus-results";
 export * from "./vertical-pack-prompts";
 export * from "./vertical-packs";
+// S04 part 2 (migration 0157): visibility reach.
+export * from "./visibility-reach";
 export * from "./visibility-trends";
 export * from "./webhook-deliveries";
 export * from "./webhook-endpoints";

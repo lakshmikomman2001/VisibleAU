@@ -6,7 +6,12 @@ import { questionAgencyName } from "@/lib/questions/agency-name";
 
 import type { QuestionMix } from "@/lib/questions/mix-line";
 
-export { type QuestionMix, questionMixLine, questionSplitLine } from "@/lib/questions/mix-line";
+export {
+  type QuestionMix,
+  questionMixLine,
+  questionSplitLine,
+  questionSplitParts,
+} from "@/lib/questions/mix-line";
 
 /**
  * S03 part 6 (LLD 8.3.3, decision D2; contract P07.mix, P07.split, P09.method): what an audit asked, by who wrote it --
@@ -27,6 +32,7 @@ type AnswerRow = {
   mention_verification: string | null;
 };
 type PromptRow = { prompt: string; branded: boolean };
+type GoogleRow = { prompt: string; counted: boolean };
 
 /** The audit's question mix, or null for an audit that isn't the workspace's. */
 export async function loadAuditQuestionMix(
@@ -108,6 +114,25 @@ export async function loadAuditQuestionMix(
       })
     )
       bucket.m++;
+  }
+
+  // S04 part 0e (LLD amendment 88): when the headline includes Google's AI answers, they're split too, so the two parts
+  // always add up to the headline. Counted exactly as lib/scoring/resolve-audit-dimensions.ts counts them: only an
+  // audit that stored "count in headline", each everyday question where Google showed an AI answer, a mention only when
+  // verified (by domain or location). Google's rows carry no question id, so a question is matched by its text.
+  const google = await db.execute<GoogleRow>(sql`
+    SELECT r.prompt,
+           (r.brand_mentioned IS TRUE AND r.mention_verification IN ('verified_domain', 'verified_location')) AS counted
+    FROM google_surface_results r
+    JOIN audit_google_surfaces g ON g.audit_id = r.audit_id
+    WHERE r.audit_id = ${input.auditId} AND r.outcome = 'shown' AND r.is_branded_prompt = false
+      AND (g.settings->>'countInHeadline')::boolean IS TRUE`);
+  for (const g of google) {
+    const source = sourceByText.get(g.prompt);
+    if (!source) continue;
+    const bucket = source === "agency" ? split.agency : split.ai;
+    bucket.n++;
+    if (g.counted) bucket.m++;
   }
   return { ...mix, split };
 }

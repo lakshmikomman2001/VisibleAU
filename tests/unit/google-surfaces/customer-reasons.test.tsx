@@ -275,6 +275,9 @@ describe("source scan: only the operator's code reads the stored reason, code or
     // Google's checks are out (stopsTheRun); it passes on the provider's name and a time, never the code
     // or the stored reason (tests/unit/platform/provider-status.test.ts).
     "lib/platform/provider-status.ts",
+    // S04 part 0e (LLD amendment 88): the split under the headline counts Google's answers as the headline does --
+    // outcome, the branded flag and the mention columns only, never the stored reason, code or response (below).
+    "lib/questions/mix.ts",
   ]);
   const RAW =
     /\b(outcomeReason|providerStatusCode|rawResponse|outcome_reason|provider_status_code|raw_response)\b/;
@@ -284,6 +287,10 @@ describe("source scan: only the operator's code reads the stored reason, code or
       /\bgoogleSurfaceResults\b|\bgoogle_surface_results\b/.test(readFileSync(f, "utf8")),
     );
     expect(readers.filter((f) => !READERS.has(f))).toEqual([]);
+  });
+
+  it("the split reads outcomes and mentions, never the stored reason, code or response", () => {
+    expect(readFileSync("lib/questions/mix.ts", "utf8")).not.toMatch(RAW);
   });
 
   it("the headline reads outcomes, never the stored reason, code or response", () => {

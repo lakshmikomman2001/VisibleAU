@@ -47,7 +47,7 @@ import { methodologyLabel } from "@/lib/llm/methodology";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
-import { loadAuditQuestionMix, questionMixLine, questionSplitLine } from "@/lib/questions/mix";
+import { loadAuditQuestionMix, questionMixLine, questionSplitParts } from "@/lib/questions/mix";
 import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   type DisplayBasis,
@@ -1220,21 +1220,34 @@ export default async function AuditPage({
                 {HEADLINE_BAND_LABELS[shownHeadlineBand(headlineResult.value)]}
               </div>
               {/* S03 part 6 (P07.split, D2): each kind's Visibility, only when the audit asked both; the headline
-                  above still counts every everyday question. */}
-              {questionMix && questionSplitLine(questionMix) && (
-                <div
-                  data-testid="p07-split"
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-secondary)",
-                    marginTop: 6,
-                    maxWidth: 360,
-                    marginLeft: "auto",
-                  }}
-                >
-                  {questionSplitLine(questionMix)}
-                </div>
-              )}
+                  above still counts every everyday question. S04 part 0e (amendment 94): each source on its own
+                  line, right-aligned with the headline, so a long agency name never wraps inside a part (it may wrap
+                  only where the screen is narrower than the line). */}
+              {questionMix &&
+                (() => {
+                  const parts = questionSplitParts(questionMix);
+                  if (!parts) return null;
+                  return (
+                    <div
+                      data-testid="p07-split"
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-secondary)",
+                        marginTop: 6,
+                        textAlign: "right",
+                        display: "grid",
+                        gap: 2,
+                      }}
+                    >
+                      <div data-testid="p07-split-ai" className="min-[641px]:whitespace-nowrap">
+                        {parts[0]}
+                      </div>
+                      <div data-testid="p07-split-agency" className="min-[641px]:whitespace-nowrap">
+                        {parts[1]}
+                      </div>
+                    </div>
+                  );
+                })()}
             </>
           )}
           {

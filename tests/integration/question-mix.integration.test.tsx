@@ -181,9 +181,9 @@ describe("the audit page (P07.mix, P07.split)", () => {
     );
     // AI-suggested: 7 questions x 4 engines = 28 answers, mentioned in 4 (Gemini's unverified one isn't counted);
     // the agency's: 12 answers, mentioned in 2. Together the headline's 6 of 40.
-    expect(testId(html, "p07-split")).toBe(
-      "AI-suggested questions: 14% (4 of 28) · Written by Possum Marketing: 17% (2 of 12)",
-    );
+    // S04 part 0e (LLD amendment 94): "The split prints each source on its own line under the headline".
+    expect(testId(html, "p07-split-ai")).toBe("AI-suggested questions: 14% (4 of 28)");
+    expect(testId(html, "p07-split-agency")).toBe("Written by Possum Marketing: 17% (2 of 12)");
     expect(html).toContain("Mentioned in 6 of 40 answers");
   }, 120_000);
 

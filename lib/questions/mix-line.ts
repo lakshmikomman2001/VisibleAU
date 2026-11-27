@@ -44,9 +44,21 @@ export function questionMixLine(mix: Omit<QuestionMix, "split">): string {
   return `${mix.total} ${mix.total === 1 ? "question" : "questions"}: ${parts}.`;
 }
 
-/** "AI-suggested questions: {pct}% ({m} of {n}) · Written by {agencyName}: {pct}% ({m} of {n})", or null. */
-export function questionSplitLine(mix: QuestionMix): string | null {
+/**
+ * S04 part 0e (LLD amendment 94; contract v1.9 P07.split): the split's two parts, each printed on its own line under
+ * the headline -- "AI-suggested questions: {pct}% ({m} of {n})" and "Written by {agencyName}: {pct}% ({m} of {n})" --
+ * so a long agency name never wraps inside a part. Null without a split.
+ */
+export function questionSplitParts(mix: QuestionMix): [string, string] | null {
   if (!mix.split) return null;
   const { ai, agency } = mix.split;
-  return `AI-suggested questions: ${pct(ai.m, ai.n)}% (${ai.m} of ${ai.n}) · Written by ${mix.agencyName}: ${pct(agency.m, agency.n)}% (${agency.m} of ${agency.n})`;
+  return [
+    `AI-suggested questions: ${pct(ai.m, ai.n)}% (${ai.m} of ${ai.n})`,
+    `Written by ${mix.agencyName}: ${pct(agency.m, agency.n)}% (${agency.m} of ${agency.n})`,
+  ];
+}
+
+/** "AI-suggested questions: {pct}% ({m} of {n}) · Written by {agencyName}: {pct}% ({m} of {n})", or null. */
+export function questionSplitLine(mix: QuestionMix): string | null {
+  return questionSplitParts(mix)?.join(" · ") ?? null;
 }

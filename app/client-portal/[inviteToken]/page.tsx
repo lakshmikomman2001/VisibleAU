@@ -16,6 +16,7 @@ import { isEnabled } from "@/lib/flags/flags";
 import { assetToTheme, type PdfTheme } from "@/lib/pdf/theme";
 import { getOrgTimezone } from "@/lib/platform/org-timezone";
 import { PRODUCT_NAME } from "@/lib/product";
+import { loadAuditQuestionMix, questionMixLine } from "@/lib/questions/mix";
 import {
   displayRecommendationAction,
   displayRecommendationTitle,
@@ -134,6 +135,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
     engineCoverage,
     google,
     reports,
+    questionMix,
   } = await withRlsContext(invite.organizationId, async (tx) => {
     // Branding: the brand's own value first, then the workspace's, field
     // by field -- as the report PDF does. 2 Nov: the newest workspace row
@@ -233,6 +235,15 @@ export default async function ClientPortalViewPage({ params }: Props) {
       };
     }
 
+    // S03 part 6 (LLD 8.3.3, P07.mix): what the latest audit asked, by who wrote it, while agency_questions is on.
+    const questionMix =
+      latestAudit && (await isEnabled("agency_questions", invite.organizationId))
+        ? await loadAuditQuestionMix(tx, {
+            organizationId: invite.organizationId,
+            auditId: latestAudit.id,
+          })
+        : null;
+
     // The portal's brand's generated reports with a PDF, each link signed for a few minutes (never a public bucket).
     const reports =
       showReports && brand
@@ -258,6 +269,7 @@ export default async function ClientPortalViewPage({ params }: Props) {
       engineCoverage,
       google,
       reports,
+      questionMix,
     };
   });
 
@@ -364,6 +376,14 @@ export default async function ClientPortalViewPage({ params }: Props) {
                   <p className="text-sm text-muted-foreground mt-2">
                     Mentioned in {mentionDetail.mentionedCount} of {distinctSampleCount} AI answers
                     to everyday customer questions.
+                  </p>
+                )}
+                {questionMix && (
+                  <p
+                    data-testid="portal-question-mix"
+                    className="text-sm text-muted-foreground mt-2"
+                  >
+                    {questionMixLine(questionMix)}
                   </p>
                 )}
                 {engineCoverage?.note && (

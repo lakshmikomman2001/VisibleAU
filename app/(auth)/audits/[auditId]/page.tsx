@@ -47,6 +47,7 @@ import { methodologyLabel } from "@/lib/llm/methodology";
 import { modelDriftNote } from "@/lib/llm/model-drift";
 import { CRUMB } from "@/lib/navigation/breadcrumbs";
 import { formatInOrgTimezone } from "@/lib/platform/org-timezone";
+import { loadAuditQuestionMix, questionMixLine, questionSplitLine } from "@/lib/questions/mix";
 import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   type DisplayBasis,
@@ -728,6 +729,11 @@ export default async function AuditPage({
     const beyondAi = (await isEnabled("report_v2", currentUser.organizationId))
       ? await getBeyondAiAnswers(tx, { brand, asOf: new Date() })
       : null;
+    // S03 part 6 (LLD 8.3.3, P07.mix, P07.split): what this audit asked, by who wrote it, while agency_questions is
+    // on. Off: null, and the page is exactly as before.
+    const questionMix = (await isEnabled("agency_questions", currentUser.organizationId))
+      ? await loadAuditQuestionMix(tx, { organizationId: currentUser.organizationId, auditId })
+      : null;
     // Google AI surfaces (Phase 1, part 3): null for an audit that ran without Google -- the page is then
     // exactly as before.
     const googleSurfaces = await loadGoogleSurfaceSummary(tx, auditId);
@@ -779,6 +785,7 @@ export default async function AuditPage({
       brand,
       directoryCitations,
       beyondAi,
+      questionMix,
       googleSurfaces,
       headlineIncludesGoogle: headlineIncludesGoogle === true,
       failureRows,
@@ -863,6 +870,7 @@ export default async function AuditPage({
     brand,
     directoryCitations,
     beyondAi,
+    questionMix,
     googleSurfaces,
     headlineIncludesGoogle,
     failureRows,
@@ -1115,6 +1123,15 @@ export default async function AuditPage({
               {modelDrift.map(modelDriftNote).join(" · ")}
             </p>
           )}
+          {/* S03 part 6 (P07.mix): what the audit asked, by who wrote it; zero parts left out. */}
+          {questionMix && (
+            <p
+              data-testid="p07-mix"
+              style={{ fontSize: 12, color: "var(--text-secondary)", margin: "12px 0 0" }}
+            >
+              {questionMixLine(questionMix)}
+            </p>
+          )}
         </div>
         <div style={{ textAlign: "right", flex: "0 1 auto", minWidth: 0, marginLeft: "auto" }}>
           {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
@@ -1202,6 +1219,22 @@ export default async function AuditPage({
               >
                 {HEADLINE_BAND_LABELS[shownHeadlineBand(headlineResult.value)]}
               </div>
+              {/* S03 part 6 (P07.split, D2): each kind's Visibility, only when the audit asked both; the headline
+                  above still counts every everyday question. */}
+              {questionMix && questionSplitLine(questionMix) && (
+                <div
+                  data-testid="p07-split"
+                  style={{
+                    fontSize: 11,
+                    color: "var(--text-secondary)",
+                    marginTop: 6,
+                    maxWidth: 360,
+                    marginLeft: "auto",
+                  }}
+                >
+                  {questionSplitLine(questionMix)}
+                </div>
+              )}
             </>
           )}
           {

@@ -3,6 +3,7 @@ import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { isEnabled } from "@/lib/flags/flags";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
+import { loadAuditQuestionMix, type QuestionMix } from "@/lib/questions/mix";
 import { getBeyondAiAnswers } from "./beyond-ai";
 import { applyRefreshOutcomes, type RefreshOutcome } from "./enhanced-checks";
 import type { ReportData } from "./report-data";
@@ -63,6 +64,11 @@ export async function buildReportV2(
     loadTierNames(db, organizationId, plan),
   ]);
   const withActions = tier !== "basic";
+  // S03 part 6 (LLD 8.3.3, P09.method): who wrote the basis audit's questions, while agency_questions is on; stored
+  // with the snapshot, so the line never changes after the report is sent.
+  const questionMix = (await isEnabled("agency_questions", organizationId))
+    ? await loadAuditQuestionMix(db, { organizationId, auditId: data.basis.auditId })
+    : null;
   const [whatToDoNext, beyondAi] = await Promise.all([
     withActions
       ? loadWhatToDoNext(db, {
@@ -98,8 +104,14 @@ export async function buildReportV2(
       everyday: data.questions.everyday,
       branded: data.questions.branded,
       bySource: { original: data.questions.everyday },
+      ...(questionMix ? { detail: questionMixDetail(questionMix) } : {}),
     },
   };
+}
+
+/** The snapshot keeps only what the PDF prints (amendment 41): the mix, not the split (the audit page's). */
+function questionMixDetail({ split: _split, ...mix }: QuestionMix): Omit<QuestionMix, "split"> {
+  return mix;
 }
 
 /**

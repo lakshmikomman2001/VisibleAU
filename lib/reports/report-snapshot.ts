@@ -1,3 +1,4 @@
+import { type QuestionMix, questionMixLine as sourcedMixLine } from "@/lib/questions/mix-line";
 import type { BeyondAiAnswers } from "./beyond-ai";
 import type { WhatToDoNext } from "./report-contents";
 import type { ReportData } from "./report-data";
@@ -29,7 +30,13 @@ export interface ReportV2 {
   /** The agency's name for "Recommended by" and "Note from" (null without one). */
   agencyName: string | null;
   /** The questions the basis audit asked (method page: appendix E's mix line). */
-  questionMix: { everyday: number; branded: number; bySource: { original: number } };
+  questionMix: {
+    everyday: number;
+    branded: number;
+    bySource: { original: number };
+    /** S03 part 6 (LLD 8.3.3): who wrote each question, when agency_questions was on at generation. */
+    detail?: Omit<QuestionMix, "split">;
+  };
 }
 
 export type ReportDataV2 = ReportData & { v2?: ReportV2 };
@@ -86,6 +93,8 @@ export function storedReportData(data: ReportDataV2): StoredReportData {
 
 /** The mix line (appendix E; zero parts omitted). Before S03 every everyday question is AI-suggested. */
 export function questionMixLine(mix: ReportV2["questionMix"]): string {
+  // S03 part 6 (LLD 8.3.3, P09.method): a report generated while agency_questions was on says who wrote them.
+  if (mix.detail) return sourcedMixLine(mix.detail);
   const total = mix.everyday + mix.branded;
   const everyday =
     mix.everyday > 0 ? `${mix.everyday} everyday (${mix.bySource.original} AI-suggested)` : null;

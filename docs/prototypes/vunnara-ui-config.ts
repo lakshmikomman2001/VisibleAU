@@ -1,7 +1,12 @@
 /* =============================================================================
  * Vunnara UI contract: client enhancements (canonical)
  * Repo path : docs/prototypes/vunnara-ui-config.ts
- * Version   : 1.8 · 27 Nov 2026 (1.8: S02 as built and LLD amendment 79: P02 intro names the plan's engines, singular
+ * Version   : 1.9 · 27 Nov 2026 (1.9: S03 as built and LLD amendments 84–96: P02 regeneration banner, Free view
+ *             only, the draft prompt on return and only for a changed draft, Add disabled at the limit, as-built
+ *             messages; P03 HTML line and the confirm screen's button; overlays at z-50; P05 page wrapper, one error
+ *             banner, two-block skeleton, "Last change" words; P07.mix example, P07.split one source per line and
+ *             audit page only; P10 two steps until S06, Remove, no-spare line; C-36–C-38).
+ *             1.8 · 27 Nov 2026 (1.8: S02 as built and LLD amendment 79: P02 intro names the plan's engines, singular
  *             forms, template pill, the audit on the section line, a squares legend, the Questions tile).
  *             1.7 · 26 Nov 2026 (1.7: LLD amendment 68: the agency's saved order for other actions wins in P09).
  *             1.6 · 25 Nov 2026 (1.6: the real reports' review, LLD amendments 61–63: P09 Over time before
@@ -258,7 +263,8 @@ export const motion = {
   reduced: 'prefers-reduced-motion: no transforms or pulses; opacity changes only, 0–120ms',
 } as const;
 
-export const zIndex = { stickyBar: 10, dropdown: 30, overlay: 40, toast: 50 } as const;
+// overlay 50 as built (S03, amendment 93): drawers and modals cover the cookie banner (also z-50, earlier in the page), like ConfirmDialog
+export const zIndex = { stickyBar: 10, dropdown: 30, overlay: 50, toast: 50 } as const;
 
 export const breakpoints = {
   mobile: '< 640px (Tailwind sm starts at 640): one column; existing mobile navigation drawer; targets ≥ 44px tall; new side drawers become full-screen sheets; modals full width with 16px margin',
@@ -788,11 +794,11 @@ const P02: ScreenSpec = {
   id: 'P02', title: 'Brand → Questions tab (view and edit)', route: '/brands/:id/questions (edit mode ?edit=1)', sprints: ['S02', 'S03', 'S04', 'S09'],
   flags: ['question_library', 'agency_questions', 'visibility_reach', 'qi_learning'],
   frame: { kind: 'app', width: 1240, mobile: true },
-  access: { roles: 'All members view; owners, admins and analysts edit (edit_brand_data); other roles and the client portal view only', plans: 'View all plans. Edit: Starter swaps/removes/reorders among suggestions only (D4); Growth and up write their own. Free: suggestions hidden.' },
+  access: { roles: 'All members view; owners, admins and analysts edit (edit_brand_data); other roles and the client portal view only', plans: 'View all plans. Edit: Free is view only (LLD 8.3.5 "as today, fixed"; amendment 93); Starter swaps/removes/reorders among suggestions only (D4); Growth and up write their own. Free: suggestions hidden.' },
   layout: [
     'AppShell; breadcrumbs "Workspace › Brands › {brand} › Questions"',
     'PageHeader: title (pageTitle) + subtitle; actions History (secondary) and Edit questions (primary)',
-    'Info banner (neutral)',
+    'Info banner (neutral); the legend; the regeneration banner when shown (amendment 84)',
     'One List per enabled reach in reach order, then the "Names your business" list; gap 20 between lists',
     'Suggestions card (tight)',
     'DraftBar sticky at the bottom in edit mode',
@@ -804,21 +810,22 @@ const P02: ScreenSpec = {
     { id: 'P02.header.edit', component: 'Button', variant: 'primary', copy: 'Edit questions', showWhen: 'role can edit and flag agency_questions on (S03)', behaviour: ['Enters edit mode (URL ?edit=1); button hidden while editing'] },
     { id: 'P02.intro', component: 'Banner', variant: 'neutral', copy: 'Every audit asks these questions on {engines}. Only everyday questions count toward your score.|How questions are chosen', behaviour: ['Link opens the methodology page anchor (/methodology#how-we-gather-answers)', '{engines}: the engines the workspace\'s plan asks, in EngineDots order: "ChatGPT, Claude, Gemini and Perplexity" on Starter and up, "ChatGPT and Perplexity" on Free (amendment 79)'] },
     { id: 'P02.legend', component: 'Text', variant: 'help', copy: 'Squares, left to right: {engineList} · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.', behaviour: ['Once, under the intro, only when a row shows EngineDots', '{engineList}: the plan\'s engines joined with " · ", in EngineDots order (amendment 79)'] },
+    { id: 'P02.regenBanner', component: 'Banner', variant: 'neutral', copy: 'Your business details changed after these questions were set. Review the suggestions.|Review suggestions', showWhen: 'a regeneration (rename, location change, newer generator) added suggestions after a person applied the current set (amendment 84)', behaviour: ['Under the legend, above the lists', '"Review suggestions" scrolls to the Suggestions card and moves focus to its heading', 'Goes when a new version is applied'] },
     { id: 'P02.section.local', component: 'List', copy: '{reachLabel}|{n} questions|Last audit (#{auditNumber}): {m} of {a} answers named you', bind: 'set.items grouped by reach', behaviour: ['Header uses ReachHeader; "· small sample" after the count when n < 5', 'Right text omitted when the version has no audit yet', 'Without flag visibility_reach there is one section titled "Everyday questions"'] },
     { id: 'P02.row', component: 'QuestionRow', variant: 'view / edit', copy: '{text}|Named you:', bind: 'item.text, item.source, item.service_label, item.intent, lastResult[engine]', behaviour: ['Source pill: Original set (neutral) / From your business type (neutral; template) / AI-suggested (ai) / Written by {agencyName} (agency; "Written by your agency" until S03 binds the name)', 'Chips: service label, intent label (intents map)', 'EngineDots from the last audit that used this question; omitted if none'] },
     { id: 'P02.row.more', component: 'IconButton', variant: 'Menu', copy: 'More actions for {text}', behaviour: ['View mode: Copy text, See answers in the last audit', 'Edit mode: Edit wording (archives old, adds new), Swap for a suggestion, Move to another area (S04), Move up, Move down, Remove from set, Archive'] },
     { id: 'P02.row.weak', component: 'QuestionRow', variant: 'weak', copy: 'AI doesn\'t name any business here (last 2 audits)|Swap', showWhen: 'flag qi_learning on and the question is flagged (S09)', behaviour: ['"Swap" opens P16 inline under the row'] },
     { id: 'P02.section.branded', component: 'List', copy: 'Names your business|{n} questions · not scored|Shown in results, never counted', behaviour: ['Rows use variant branded with pill "Names your business · not scored"; never draggable into reach sections'] },
-    { id: 'P02.suggestions', component: 'Card', variant: 'tight', copy: 'Suggestions|{sourceLine}|Add', bind: 'GET /questions → suggestions', showWhen: 'plan is not Free', behaviour: ['{sourceLine}: before S06 "From your business type"; with website analysis "From your website"; adds ", listings" (S07) and " and local search demand" (S08) as those layers are on', 'Each suggestion row: question text, reason chips (Service: {service} · {sourcePath}, Demand: {level}, Pre-test: named {n} businesses)', 'Add (secondary sm) disabled in view mode with tooltip "Edit questions to add"; in edit mode adds to the draft in the suggestion\'s reach'] },
-    { id: 'P02.addQuestion', component: 'Button', variant: 'secondary sm', copy: '+ Add question', showWhen: 'edit mode, at the foot of each reach section', behaviour: ['Opens P03 with the reach preselected', 'Starter: LockMarker "Growth" instead of the button'] },
-    { id: 'P02.draftBar', component: 'DraftBar', copy: 'Draft|+{added} added|−{removed} removed|{moved} moved|{everyday} of {limit} everyday · {branded} of 5 naming you|No changes yet|Discard|Apply from the next audit', showWhen: 'edit mode', behaviour: ['Chips only for non-zero counts; "No changes yet" when empty and Apply disabled', 'Discard: existing confirm dialog "Discard your changes?" (Keep editing / Discard) → back to view mode', 'Apply opens P04'] },
+    { id: 'P02.suggestions', component: 'Card', variant: 'tight', copy: 'Suggestions|{sourceLine}|Add', bind: 'GET /questions → suggestions', showWhen: 'plan is not Free', behaviour: ['{sourceLine}: before S06 "From your business type"; with website analysis "From your website"; adds ", listings" (S07) and " and local search demand" (S08) as those layers are on', 'Each suggestion row: question text, reason chips (Service: {service} · {sourcePath}, Demand: {level}, Pre-test: named {n} businesses)', 'Add (secondary sm) disabled in view mode with tooltip "Edit questions to add"; in edit mode adds to the draft in the suggestion\'s reach', 'In edit mode at the plan\'s limit, Add is disabled with the tooltip "Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack."; Swap (row menu) and Remove still work (amendment 96)', 'A suggestion copied from another brand carries its source pill ("Written by {agencyName}")'] },
+    { id: 'P02.addQuestion', component: 'Button', variant: 'secondary sm', copy: '+ Add question', showWhen: 'edit mode, at the foot of each reach section', behaviour: ['Opens P03 with the reach preselected', 'Starter: LockMarker "Growth" instead of the button', 'At the plan\'s limit: disabled, with the limit sentence as its tooltip and as a help line under the everyday list (amendment 96)'] },
+    { id: 'P02.draftBar', component: 'DraftBar', copy: 'Draft|+{added} added|−{removed} removed|{moved} moved|{everyday} of {limit} everyday · {branded} of 5 naming you|No changes yet|Discard|Apply from the next audit', showWhen: 'edit mode', behaviour: ['Chips only for non-zero counts; "No changes yet" when empty and Apply disabled', 'Discard: existing confirm dialog "Discard your changes?" (Keep editing / Discard) → back to view mode', 'Apply opens P04', 'Inline errors above the bar, as built (amendment 93): "Keep at least 5 everyday questions." (422); "Only Local questions for now." (422, until S04); the archive refusal for a question in the current set (409 in_current_set; S04 quotes S03\'s sentence in its report)'] },
   ],
   states: {
     loading: { show: 'Skeleton: header lines, banner block, two sections with header + 3 rows each (row height 72)' },
     empty: { show: 'Card with one sentence and one action', copy: 'No questions yet. Confirm your business details to create them.', action: 'Confirm details' },
     error: { show: 'Banner warn replacing the lists', copy: 'We couldn\'t load the questions. Try again.', action: 'Retry' },
     noPermission: { show: 'View mode only; no Edit button; banner neutral under the header', copy: 'View only. Owners, admins and analysts can change questions.' },
-    planLock: { show: 'Starter in edit mode: "+ Add question" replaced by LockMarker "Growth" + Upgrade; Free: no suggestions card', copy: 'Writing your own questions is available on Growth and up.' },
+    planLock: { show: 'Starter in edit mode: "+ Add question" replaced by LockMarker "Growth" + Upgrade; Free: view only (no Edit button) and no suggestions card', copy: 'Writing your own questions is available on Growth and up.' },
     conflict: { show: '409 from apply: banner warn above the draft bar; draft kept', copy: 'Someone else changed these questions. Reload to see their version.', action: 'Reload' },
     overLimit: { show: '402 from apply: inline error above the draft bar', copy: 'Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack.' },
     flagOff: { show: 'question_library off: no Questions tab; /brands/:id/questions redirects to the brand page. agency_questions off: view mode only.' },
@@ -826,9 +833,9 @@ const P02: ScreenSpec = {
   interactions: [
     { on: 'Edit questions', then: 'Edit mode: handles, + Add question per section, suggestions Add enabled, DraftBar shown' },
     { on: 'Drag a row, or focus its handle and press Alt+↑/↓', then: 'Row moves within its section; live region "Moved to position {n} of {m}"; draft counts "{n} moved"' },
-    { on: 'Leave the page with a non-empty draft', then: 'Prompt "Keep your draft?" Keep / Discard; draft kept in sessionStorage for this tab (convenience only; the server validates on apply)' },
+    { on: 'Come back to the page with a saved draft that differs from the current set', then: 'Banner "Keep your draft?" Keep / Discard above the lists (asked on return: a custom prompt on leaving isn\'t possible; amendment 93); an unchanged draft is dropped silently (amendment 96); the draft lives in sessionStorage for this tab (convenience only; the server validates on apply)' },
     { on: 'Apply from the next audit', then: 'P04 modal' },
-    { on: 'Apply succeeds', then: 'Inline status "Questions applied. The next audit will use version {v}."; view mode; header shows the new version' },
+    { on: 'Apply succeeds', then: 'Inline status "Questions applied. The next audit will use version {v}."; view mode; header shows the new version; if a removed question couldn\'t be archived, the status adds "{n} removed question(s) couldn\'t be archived; they stay in the library."' },
   ],
   api: [
     { call: 'GET /api/brands/:id/questions', use: 'One request for the whole tab: { set, library, suggestions, limits }' },
@@ -864,7 +871,7 @@ const P03: ScreenSpec = {
   flags: ['agency_questions'],
   frame: { kind: 'drawer', width: 1240, mobile: true },
   access: { roles: 'Owners, admins and analysts (edit_brand_data)', plans: 'Growth and up' },
-  layout: ['Drawer 480 on the right; column gap 16; title row; textarea field; area segmented; check list (gap 8); info banner; footer pinned to the bottom'],
+  layout: ['Drawer 480 on the right at z-50, over the cookie banner (amendment 93); column gap 16; title row; textarea field; area segmented; check list (gap 8); info banner; footer pinned to the bottom'],
   nodes: [
     { id: 'P03.title', component: 'Text', copy: 'Add a question', style: 'dialogTitle' },
     { id: 'P03.close', component: 'IconButton', copy: 'Close' },
@@ -878,10 +885,10 @@ const P03: ScreenSpec = {
     ].join('|'), behaviour: [
       'Always-shown lines (pass ✓ / fail ✕). Fail lines turn --bad and block Add',
       'Naming the business switches line 3 to warn: "Names your business, so it\'s shown but not scored" and the label preview to the branded pill',
-      'Conditional lines: warn "No place in the question. AI answers differ by place, and Gemini can\'t be told your location." + accent sm button "Add “in {place}”" (not for Worldwide); fail "Already 5 questions name your business. Remove one first."; fail "This reads like an instruction to the AI, not a customer\'s question."; warn "Names {competitor}. That\'s fine: it\'s counted as a comparison question."',
+      'Conditional line: fail "Plain text only: remove the HTML." for any HTML tag (amendment 89)', 'Conditional lines: warn "No place in the question. AI answers differ by place, and Gemini can\'t be told your location." + accent sm button "Add “in {place}”" (not for Worldwide); fail "Already 5 questions name your business. Remove one first."; fail "This reads like an instruction to the AI, not a customer\'s question."; warn "Names {competitor}. That\'s fine: it\'s counted as a comparison question."',
     ] },
     { id: 'P03.label', component: 'Banner', variant: 'neutral', copy: 'It will be labelled {pill} on the audit page and in reports.', behaviour: ['{pill} = Written by {agencyName} (agency) or Names your business · not scored (branded)'] },
-    { id: 'P03.footer', component: 'Layout', copy: 'Added to your draft. Nothing changes until you apply.|Add to draft', behaviour: ['Add to draft (primary) disabled while a blocking check fails or checks are pending', 'On add: drawer closes, the new row appears at the end of its section with focus, live region "Question added to your draft"'] },
+    { id: 'P03.footer', component: 'Layout', copy: 'Added to your draft. Nothing changes until you apply.|Add to draft', behaviour: ['Add to draft (primary) disabled while a blocking check fails or checks are pending', 'On add: drawer closes, the new row appears at the end of its section with focus, live region "Question added to your draft"', 'On the confirm screen (P10.step3) the button reads "Add question" (amendment 93)'] },
   ],
   states: {
     loading: { show: 'Checks pending: each line shows the pending disc and "Checking…"; Add disabled' },
@@ -911,7 +918,7 @@ const P04: ScreenSpec = {
   id: 'P04', title: 'Apply changes modal', route: 'Modal over P02', sprints: ['S03'], flags: ['agency_questions'],
   frame: { kind: 'modal', width: 1240, mobile: true },
   access: { roles: 'Owners, admins and analysts (edit_brand_data)', plans: 'All plans with edit rights' },
-  layout: ['Modal 560; title; subtitle; change list (gap 8, margin 16 0); warn banner; footer (margin-top 20)'],
+  layout: ['Modal 560 at z-50, over the cookie banner (amendment 93); title; subtitle; change list (gap 8, margin 16 0); warn banner; footer (margin-top 20)'],
   nodes: [
     { id: 'P04.title', component: 'Text', copy: 'Apply new questions from the next audit?', style: 'dialogTitle' },
     { id: 'P04.subtitle', component: 'Text', copy: '{brand} · version {from} → {to}', style: 'sub' },
@@ -942,7 +949,7 @@ const P05: ScreenSpec = {
   id: 'P05', title: 'Workspace → Questions settings', route: '/settings/questions', sprints: ['S03', 'S04', 'S10'], flags: ['agency_questions'],
   frame: { kind: 'app', width: 1240, mobile: true },
   access: { roles: 'Owners and admins (existing settings rule)', plans: 'Growth and up edit; Starter sees counts and suggestions only' },
-  layout: ['AppShell; breadcrumbs "Workspace › Settings › Questions"; PageHeader; Defaults card (grid 3 columns gap 16); Brands card (flush) with header row and Table'],
+  layout: ['AppShell; breadcrumbs "Account › Questions" (as built: the Account group); the same page wrapper (side padding, max width) as the other Account pages (amendment 95); PageHeader; Defaults card (grid 3 columns gap 16); Brands card (flush) with header row and Table'],
   nodes: [
     { id: 'P05.header', component: 'PageHeader', copy: 'Questions|Choose how many questions each brand is audited on, and write your own. Questions always belong to one brand.' },
     { id: 'P05.defaults', component: 'Card', copy: 'Defaults for new brands' },
@@ -950,12 +957,12 @@ const P05: ScreenSpec = {
     { id: 'P05.defaults.fill', component: 'Field', variant: 'Toggle', copy: 'Fill empty slots with AI suggestions' },
     { id: 'P05.defaults.reach', component: 'Field', variant: 'Chip', copy: 'Default areas|Local · always on|Add more areas per brand', behaviour: ['S04 makes this a multi-select within the reach limit; Local always included'] },
     { id: 'P05.brands', component: 'Card', variant: 'flush', copy: 'Brands|Copy questions from another brand' },
-    { id: 'P05.brands.table', component: 'Table', copy: 'Brand|Areas|Everyday|Written by you|Version|Last change|Edit questions', bind: 'one query for all brands in the workspace', behaviour: ['Everyday "{active} / {allowed}" + neutral pill "+{packs} pack(s)" when packs are assigned (S10)', 'Last change "{date} · {userName}" or "backfill" for version 1', 'Sorted by last change, newest first; search box above the table past 10 brands; pagination past 50'] },
+    { id: 'P05.brands.table', component: 'Table', copy: 'Brand|Areas|Everyday|Written by you|Version|Last change|Edit questions', bind: 'one query for all brands in the workspace', behaviour: ['Everyday "{active} / {allowed}" + neutral pill "+{packs} pack(s)" when packs are assigned (S10)', 'Last change: "Original questions · {date}" for 0155\'s version 1; "Confirmed · {date} · {userName}" for a version saved by the confirm screen; "{date} · {userName}" for one applied in P04 (amendment 95; it printed "backfill")', 'Sorted by last change, newest first; search box above the table past 10 brands; pagination past 50'] },
   ],
   states: {
-    loading: { show: 'Skeleton: defaults card with 3 fields; table with 5 rows' },
+    loading: { show: 'Skeleton: two blocks, the defaults card and the table (as built; amendment 93)' },
     empty: { show: 'In the Brands card', copy: 'No brands yet. Add a brand to set its questions.', action: 'Add brand' },
-    error: { show: 'Banner warn per card', copy: 'We couldn\'t load question settings. Try again.', action: 'Retry' },
+    error: { show: 'One banner warn for the page: it loads from one request, so both cards fail together (amendment 93)', copy: 'We couldn\'t load question settings. Try again.', action: 'Retry' },
     noPermission: { show: 'Existing settings permission handling (viewer can\'t open settings)' },
     planLock: { show: 'Starter: steppers, toggle and Copy disabled with LockMarker "Growth"; table read-only' },
     flagOff: { show: 'agency_questions off: page not in the settings navigation; route returns the existing 404' },
@@ -969,7 +976,7 @@ const P05: ScreenSpec = {
     { call: 'POST /api/brands/:id/questions/copy-from', use: '{ sourceBrandId } → { added }' },
   ],
   a11y: ['Table semantics; "Edit questions" links include the brand name in their accessible name'],
-  responsive: ['≤ 640: defaults grid one column; table scrolls horizontally with the brand column sticky'],
+  responsive: ['≤ 640: defaults grid one column; table scrolls horizontally with the brand column sticky', 'Never wider than the viewport: checked at 390, 768, 1240 and 1920 (amendment 95)'],
   acceptance: [
     'One query for the table (no per-brand requests)',
     'Changing defaults never changes an existing brand\'s set',
@@ -1024,8 +1031,8 @@ const P07: ScreenSpec = {
     { id: 'P07.score', component: 'ScoreFigure', copy: 'VISIBILITY|{pct}%|Mentioned in {m} of {n} answers · {reachLabel}', behaviour: ['{reachLabel}: "Local · {city}" for Local-only brands; "across Local, NSW and Australia" otherwise (D-QI9)'] },
     { id: 'P07.reachRow', component: 'Card', copy: 'Where AI recommends you|Each area has its own questions', showWhen: 'flag visibility_reach on and more than one enabled reach' },
     { id: 'P07.reachRow.tile', component: 'StatTile', variant: 'score', copy: '{reachLabel}|{pct}%|{m} of {n} answers · 95% CI {lo}–{hi}%|Small sample', bind: 'audit_reach_results', behaviour: ['One tile per reach in reach order; grid 3 (4 when Worldwide is on)', 'Small sample pill when the reach has < 5 questions (tooltip sentence)'] },
-    { id: 'P07.mix', component: 'Text', copy: '{total} questions: {everyday} everyday ({ai} AI-suggested, {agency} written by {agencyName}) and {branded} that name the business.', style: 'help, margin-top 12', showWhen: 'always (S03)', behaviour: ['Omit parts that are zero ("13 questions: 13 everyday." for an untouched brand)'] },
-    { id: 'P07.split', component: 'Text', copy: 'AI-suggested questions: {pct}% ({m} of {n}) · Written by {agencyName}: {pct}% ({m} of {n})', style: 'help', showWhen: 'both sources exist in this audit (D2)' },
+    { id: 'P07.mix', component: 'Text', copy: '{total} questions: {everyday} everyday ({ai} AI-suggested, {agency} written by {agencyName}) and {branded} that name the business.', style: 'help, margin-top 12', showWhen: 'flag agency_questions on (S03)', behaviour: ['Omit parts that are zero; singular forms', 'A brand whose questions were never changed: "13 questions: 10 everyday (all from the original set) and 3 that name the business." (amendment 93)', 'Also in the client portal (under "Mentioned in …") and on the PDF Method page (from the report snapshot)'] },
+    { id: 'P07.split', component: 'Text', copy: 'AI-suggested questions: {pct}% ({m} of {n})|Written by {agencyName}: {pct}% ({m} of {n})', style: 'help', showWhen: 'both sources exist in this audit (D2)', behaviour: ['Each source on its own line under the headline, right-aligned with it; a long agency name never wraps inside a part (amendment 94)', 'Audit page only: not the client portal, not the PDF (amendment 93)', 'Counted exactly as the headline: when the headline includes Google\'s AI answers, they are split too, so the parts add up to the headline (amendment 88)'] },
     { id: 'P07.findings', component: 'Card', copy: 'Why, and what to do next', behaviour: ['Existing rules a–f plus g–j (LLD 8.1.5); also listed in Recommended actions'] },
     { id: 'P07.finding', component: 'StatTile', variant: 'finding', copy: '{title}|{priority}|{explanation}|{evidence}', behaviour: ['Priority pill: High (bad), Medium (warn), Strength (good)', 'Rule h quotes the matched sentence (≤ 200 chars) with engine and question', 'Never shows "No finding rule matched"'] },
     { id: 'P07.beyond', component: 'Card', copy: 'Beyond AI answers|Separate from the Visibility score', showWhen: 'flag report_v2 on' },
@@ -1141,7 +1148,7 @@ const P10: ScreenSpec = {
   layout: ['Highlight Card with header (title + sub left, StepIndicator right); step body; footer row (help left, primary right)', 'Step 1 Services list; Step 2 Where you work; Step 3 Questions (P02 rows)'],
   nodes: [
     { id: 'P10.card', component: 'Card', variant: 'highlight', copy: 'Confirm what {brand} does|We read {pages} pages of {domain} and {listings} listing(s). Untick anything that\'s wrong; nothing is used until you confirm.', behaviour: ['Sub line names only the sources actually used'] },
-    { id: 'P10.steps', component: 'StepIndicator', copy: 'Services|Where you work|Questions' },
+    { id: 'P10.steps', component: 'StepIndicator', copy: 'Services|Where you work|Questions', behaviour: ['S03–S05: two steps on today\'s card, "Business details" and "Questions"; S06 makes them the three above (amendment 93)'] },
     { id: 'P10.types', component: 'Layout', copy: 'Detected business types|{type} · {confidence}', showWhen: 'flag business_taxonomy on (S05)', behaviour: ['Above the services: detected types grouped by sector with High/Medium/Low pills and the P06 search to change them; every confirmation writes classification_feedback'] },
     { id: 'P10.service', component: 'QuestionRow', variant: 'confirm (24 | 1fr | auto)', copy: '{service}|Website · {path}|“{quote}”|Own section|Demand: {level}', behaviour: ['Pre-ticked when prominence is high or medium; low unticked with help "Low prominence · unticked by default"', 'Evidence chips per source (website path, listing, competitor count); quote ≤ 300 chars on expand', 'Demand chip only with qi_demand (S08); "Own section" neutral pill when the service has its own page or section'] },
     { id: 'P10.competitorAsk', component: 'QuestionRow', variant: 'confirm, fill --surface-2', copy: 'Do you also offer {service}?|{n} of your {m} competitors list it|Yes|No', showWhen: 'flag qi_competitors on (S08)', behaviour: ['Yes adds the service ticked; No records the answer; never added without Yes'] },
@@ -1149,7 +1156,7 @@ const P10: ScreenSpec = {
     { id: 'P10.listing', component: 'Banner', variant: 'info', copy: 'Is this your {directory} profile?|{name} · {suburb} {state} · matched by {matchReasons}|Yes, link it|No', showWhen: 'flag qi_listings on and a strong match exists (S07)', behaviour: ['Yes writes the existing directory-links store; No stores the dismissal'] },
     { id: 'P10.footer', component: 'Layout', copy: 'Step 2 confirms suburbs and areas (Local always on); step 3 shows the questions with why each was chosen.|Next: where you work' },
     { id: 'P10.step2', component: 'Card', variant: 'tight', copy: 'Where you work|Base: {suburb} {state} {postcode}|Served: {areas}|Local · {city}|Always on|{reach} (suggested)', behaviour: ['Evidence line with the website quote that suggests a wider reach', 'Suggested reaches start off; turning on follows P01 rules'] },
-    { id: 'P10.step3', component: 'Card', variant: 'tight', copy: 'Questions|Service: {service} · {path}|Demand: {level}|Pre-test: named {n} businesses|{everyday} of {limit} everyday|Confirm and start the first audit', behaviour: ['Uses P02 rows with reason chips; swap for a spare; Growth and up "Add your own question" (P03)', 'Confirm saves the profile, applies set v1 (new brand) or v n+1 with the P04 notice (existing brand), starts the first audit for new brands'] },
+    { id: 'P10.step3', component: 'Card', variant: 'tight', copy: 'Questions|Service: {service} · {path}|Demand: {level}|Pre-test: named {n} businesses|{everyday} of {limit} everyday|Confirm and start the first audit', behaviour: ['Uses P02 rows with reason chips; swap for a spare; Growth and up "Add your own question" (P03, whose button reads "Add question" here)', 'Remove on everyday rows, down to 5; a removed generated question goes back to the spares (amendment 93)', 'No spare to swap in: no Swap buttons, and the help line "No other questions to swap in for this business type yet." under the everyday list (amendment 85)', 'Confirm saves the profile, applies set v1 (new brand) or v n+1 with the P04 notice (existing brand), starts the first audit for new brands'] },
   ],
   states: {
     loading: { show: 'P12 while analysis runs; then this screen' },
@@ -1418,6 +1425,9 @@ export const conflicts: ConflictResolution[] = [
   { id: 'C-33', where: 'LockMarker Upgrade link', conflict: 'Billing vs /pricing (23 existing uses)', resolution: '/pricing (D-UI5)' },
   { id: 'C-35', where: 'P09 Enhanced page order', conflict: 'Beyond AI answers before Over time left the real Enhanced report with a page holding only the chart', resolution: 'Over time first (06 in Standard and Enhanced); Beyond tiles kept by row; page-fill goal (amendment 62)' },
   { id: 'C-34', where: 'EngineDots', conflict: 'The audit page has a "Maybe" result the contract lacked', resolution: 'Fourth state "unverified" (D-UI6)' },
+  { id: 'C-36', where: 'P07.mix vs LLD 8.3.3 and S03', conflict: 'The contract\'s untouched-brand example "13 questions: 13 everyday." counted the branded questions as everyday', resolution: '"13 questions: 10 everyday (all from the original set) and 3 that name the business." (amendment 93)' },
+  { id: 'C-37', where: 'P02 "Keep your draft?"', conflict: 'Asked on leaving the page, which only the browser\'s own beforeunload prompt can do', resolution: 'Asked on return, and only for a draft that differs from the current set (amendments 93, 96)' },
+  { id: 'C-38', where: 'zIndex.overlay 40 vs the cookie banner (z-50)', conflict: 'The drawer and modal sat under the cookie banner (spec 17\'s first run)', resolution: 'Overlays at 50, as ConfirmDialog (amendment 93)' },
 ];
 
 /** Decisions this file adds (defaults apply unless Sri says otherwise). */
@@ -1431,7 +1441,7 @@ export const uiDecisions = [
 ] as const;
 
 export const uiConfig = {
-  version: '1.8',
+  version: '1.9',
   date: '2026-11-27',
   precedence, color, contrast, fontFamily, typography, typeRule, space, spaceRule, radius, shadow, motion, zIndex,
   breakpoints, layout, icons, scoreBands, reachLabels, engines, intents, components, screens, conflicts, uiDecisions,

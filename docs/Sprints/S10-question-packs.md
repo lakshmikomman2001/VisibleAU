@@ -2,7 +2,7 @@
 
 > **Before Part 1:** follow `docs/lld/CLAUDE-CODE-RUNBOOK.md` (read order, pre-flight, rules, stop points). At the end, save your report-back to `docs/Sprints/reports/S10-report.md` and commit it as the last commit.
 
-Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD **section 0** (v1.12 decisions and amendments) first, then sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
+Start with `git fetch origin` and build on `origin/main` (S09 pushed); say which hash. Read LLD **section 0** (v1.13 decisions and amendments) first, then sections 2.2–2.3 (market pricing), 7.6, 8.3.5, 8.7, 11, 20 (D8) and `docs/lld/design/Vunnara-client-improvements-design.pdf` section 5 (pack pricing; reasoning only); contract screens P14, P01 (packs link), P05 (packs shown per brand).
 
 **UI contract:** build every screen named above from `docs/prototypes/vunnara-ui-config.ts` (its `screens` entries; canonical for layout, tokens, exact copy, states, accessibility, responsive rules and acceptance), following `docs/prototypes/PROTOTYPE-GUIDE.md` and mapping every token and component through `docs/prototypes/token-map.md`. `client-enhancements-v2.html` and `docs/prototypes/screens/*.png` are the visual reference. Interactive and tested nodes get `data-testid` from `testIdOf(node id)`. A screen part isn't done until all of its listed states exist.
 
@@ -22,6 +22,8 @@ Add-on price ids per plan from env; subscription item quantity = packs; prorated
 
 ## 3. Assignment and enforcement (LLD 7.6, 8.7)
 `brand_question_packs` assignment API with `select … for update` on the organization and the sum check; limits = included + 10 × packs per brand in `getQuestionLimits`; enforced at apply and audit start; Google per-audit cost ceiling scales with questions. Removing packs from a brand opens the P02 draft to choose; otherwise lowest-ranked everyday questions are removed from the next audit through the apply flow with notice. Tests: concurrency, over-assignment refusal, removal flow, audit-start enforcement.
+- **Another workspace's brand** (amendment 97): the assignment write loads the brand under RLS first, so another workspace's brand is 404; a test proves it (the foreign key alone would accept it, and `brand_id` is the primary key). Add the composite key (`brand_id`, `organization_id`) → `brands(id, organization_id)` only if you also add the unique index it needs; it then comes as a run set and the report says so.
+- **Scheduled audits** (amendment 86): a scheduled audit checks its set against the limit at its start, as `POST /api/audits` does; an over-limit set doesn't run and the schedule records the plan's sentence as the reason. Test it.
 
 ## 4. Billing UI and public claims (P14)
 Billing card per P14 (owned, assigned, available, per-brand steppers, "Buy packs"); P05 and P01 show packs; public pricing page and comparison table add "Extra questions: 10 per pack" via `tiers.ts` only for plans that offer it and only while the flag is on (setting-aware pattern). Price shown is read from Stripe. Tests: component, e2e in Stripe test mode, plan-claim guard.
@@ -31,7 +33,7 @@ Billing card per P14 (owned, assigned, available, per-brand steppers, "Buy packs
 - Later parts: file:line, changes, tests (RED/GREEN, by name), guards, Playwright run, "not run: memory" (with the specs) or "not needed (no UI change)".
 - UI: for each screen touched, the guide's per-screen block (nodes built of specified, states, acceptance pass/fail, screenshots in `.qa/screens/S10/` at 1240 and 390, deviations with the contract change you propose).
 - Commit hashes and `git log origin/main..main --oneline`.
-- Push notes: migration (none expected beyond 0156); Stripe env vars to set in Vercel before the push; Inngest resync (yes if the webhook function changed); safe while an audit runs; flag `question_packs` off.
+- Push notes: migration (none expected beyond 0156, unless Part 3 adds amendment 97's composite key as a run set); Stripe env vars to set in Vercel before the push; Inngest resync (yes if the webhook function changed); safe while an audit runs; flag `question_packs` off.
 
 Commit messages end with these two lines exactly:
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

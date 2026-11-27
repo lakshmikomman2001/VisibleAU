@@ -77,7 +77,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       });
     }
 
-    // Tightened matching (live false-match: "Bondi Plumbing" matched a
+    // Tightened matching (live false-match: "Galah Plumbing" matched a
     // channel actually belonging to "Get Plumbing"): a name-only
     // candidate is never scored and never fed into the Overall Trust
     // Score. Returned as its own distinct shape -- the candidate's

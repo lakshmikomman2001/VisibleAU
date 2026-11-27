@@ -1,5 +1,5 @@
 /**
- * Mock-gate and retention follow-ups (9 Nov), part 9 -- "Never show 0 for something that wasn't measured". Omega
+ * Mock-gate and retention follow-ups (9 Nov), part 9 -- "Never show 0 for something that wasn't measured". Yabby
  * Services' Trust page showed "Overall Trust Score 0/100" with an empty bar while its own text said no trust data
  * was available; a score nobody measured rendered as a measured zero.
  *

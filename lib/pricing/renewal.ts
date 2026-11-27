@@ -2,7 +2,7 @@ import { PRODUCT_NAME } from "@/lib/product";
 
 /**
  * Live invite test follow-ups (8 Nov), part 3 -- the one rule for what the app says about when a plan renews.
- * On 8 Nov Splice's billing page said "Next renewal 24 Sep 2026": the page showed the subscription row's
+ * On 8 Nov Possum's billing page said "Next renewal 24 Sep 2026": the page showed the subscription row's
  * stored period end as the next renewal, whatever it was. The row's period end only moves when Stripe's
  * webhook says so, so it can be stale, and a plan nobody set up in Stripe never renews at all.
  *
@@ -23,7 +23,7 @@ export interface RenewalSource {
   cancelAtPeriodEnd: boolean;
   /**
    * Stripe's scheduled cancellation date (cancel_at, migration 0144), when one is set. 9 Nov (mock-gate
-   * follow-ups, part 8): Splice's sandbox subscription was set to cancel on 23 Dec, and this line said "Next
+   * follow-ups, part 8): Possum's sandbox subscription was set to cancel on 23 Dec, and this line said "Next
    * renewal 24 Nov 2026" -- only cancel_at_period_end was read. A set date wins: "Plan ends 23 Dec 2026".
    */
   cancelAt?: Date | null;

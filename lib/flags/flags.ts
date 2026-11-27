@@ -6,7 +6,7 @@ import { readFeatureFlagSettings } from "@/lib/governance/google-surfaces";
 
 /**
  * S00 part 2 (22 Nov; LLD section 17): the client-enhancements feature flags. Every new behaviour from S01 on ships
- * behind one of these, and each is OFF until Sri turns it on: for the Splice workspace first (a workspace override),
+ * behind one of these, and each is OFF until Sri turns it on: for one workspace first (a workspace override),
  * then per plan. Off means the app is exactly as it was.
  *
  * Stored where /admin/settings already keeps Google AI's switches (docs/lld/as-is-verification.md, 1.4):

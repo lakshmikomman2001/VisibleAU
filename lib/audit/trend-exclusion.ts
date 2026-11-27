@@ -1,5 +1,5 @@
 /**
- * 14 Nov, part 5 (Sri's review of audit #48): Hero's PDF drew "0% (#46) -> 27% -> 25%", but #46's 0% came from
+ * 14 Nov, part 5 (Sri's review of audit #48): Wren's PDF drew "0% (#46) -> 27% -> 25%", but #46's 0% came from
  * the name-matching bug fixed in a6f75e2: a rise that never happened. An operator can now exclude an audit from
  * trends, with a reason (/admin/audits; migration 0148's audits.excluded_from_trends_reason). Such an audit stays
  * in history (the audit page, the audit lists) with its label, and is left out of every trend, average and

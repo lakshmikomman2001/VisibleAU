@@ -7,7 +7,7 @@
  *    sentence. Those pieces are consecutive characters of one text, and join with nothing between them.
  *  - around a tool call: Claude's text before a web search and its text after it are separate runs.
  *    Joined with nothing, "...was born." + "Based on..." became "born.Based" (Anthropic's own documented
- *    response), and "...near Norwest" + "Omega Services..." would become "NorwestOmega Services", which the
+ *    response), and "...near Norwest" + "Yabby Services..." would become "NorwestYabby Services", which the
  *    brand-name match (lib/brands/normalize.ts) rightly rejects as one word.
  * So parts with no tool call, tool result or reasoning between them form one run, joined as written, and
  * runs are joined with a newline. Sources don't break a run (a citation's source follows its cited text).

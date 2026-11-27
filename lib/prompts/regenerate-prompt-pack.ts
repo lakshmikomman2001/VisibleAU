@@ -116,7 +116,7 @@ export async function regeneratePromptPack(
   // existed, even when nothing that actually changes the questions
   // did (confirming categories, then separately confirming location,
   // then a typo fix to the suburb -- each its own PATCH/confirm call --
-  // bumped it 3 separate times for one real confirmation flow; Omega
+  // bumped it 3 separate times for one real confirmation flow; Yabby
   // reached version 12 this way). Compare the freshly-built pack
   // against what's already stored: identical content means nothing
   // that matters changed, so this call is a true no-op -- no bump, no

@@ -30,7 +30,7 @@
  * NOT_MEASURED_DIMENSION.
  *
  * Vunnara (19 Oct, post-aa83b3a), "the headline is the mention rate":
- * production audit #30 (Omega Services) showed how badly the OLD
+ * production audit #30 (Yabby Services) showed how badly the OLD
  * weighted five-dimension composite (lib/scoring/dimension-result.ts's
  * former resolveComposite, removed here) could mislead -- 6 of 37
  * organic answers mentioning the brand (Frequency 16.2) blended with

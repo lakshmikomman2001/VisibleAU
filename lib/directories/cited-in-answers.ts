@@ -1,5 +1,5 @@
 /**
- * Mock-gate and retention follow-ups (9 Nov), part 6 -- audit #42 (Omega Services) listed each directory as
+ * Mock-gate and retention follow-ups (9 Nov), part 6 -- audit #42 (Yabby Services) listed each directory as
  * "cited in k of 40 answers", then its High action said "They're cited in 32 of 48 directory citations": 48 was
  * answer-directory pairs, not answers, so it read like a different denominator. Every directory count is now in
  * the one unit, answers (lib/directories/citation-counts.ts counts a directory once per answer that cites it), and

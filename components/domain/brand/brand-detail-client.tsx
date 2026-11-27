@@ -351,7 +351,7 @@ export function BrandDetailClient({
   // the addendum: block, with a clear call to action, rather than
   // silently falling back. needsConfirmation itself is now also
   // re-derived at read time against TODAY's confirmation bar (item 10
-  // -- see lib/brands/needs-confirmation.ts), so an Omega-shaped brand
+  // -- see lib/brands/needs-confirmation.ts), so an Yabby-shaped brand
   // (category not a real enum key, or confidence < 0.7, classified
   // "complete" by the OLD classifier) is blocked here too, not just a
   // brand explicitly marked needs_confirmation.
@@ -547,7 +547,7 @@ export function BrandDetailClient({
   // indistinguishable filled 0-height bar next to a genuinely
   // low-but-measured score. An audit with zero successful answers has a
   // null scoreComposite (headline insufficient_data) and is omitted.
-  // 14 Nov, part 5: an audit an operator excluded from trends isn't drawn (Hero's #46 drew a rise that never
+  // 14 Nov, part 5: an audit an operator excluded from trends isn't drawn (Wren's #46 drew a rise that never
   // happened); the note under the chart names it.
   const excludedFromChart = recentAudits.filter((a) => isExcludedFromTrends(a));
   // The points the page worked out the question-change notes over (lib/brands/history-chart.ts).

@@ -132,7 +132,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
       scoreConfidenceLow: headline ? headline.ci.lower.toFixed(2) : null,
       scoreConfidenceHigh: headline ? headline.ci.upper.toFixed(2) : null,
     };
-    // 15 Nov, part 2 (Sri, Hero's #48 and #50): a prior audit that asked other everyday questions isn't compared:
+    // 15 Nov, part 2 (Sri, Wren's #48 and #50): a prior audit that asked other everyday questions isn't compared:
     // no score to diff, and the PDF builder says why (lib/audit/question-set.ts).
     const questionsChanged =
       rawPriorAudit && !sameQuestionSet(rawAudit, rawPriorAudit)

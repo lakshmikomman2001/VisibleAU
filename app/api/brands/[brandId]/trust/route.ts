@@ -63,7 +63,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
             // .au domain, Wikipedia AU) and YouTube; LinkedIn, consensus and hallucination checks aren't built
             // (stub-implementation-status.ts). Audits alone don't produce it.
             // Follow-ups from af8de42..d1eb5a1, part 4: it began "Not measured yet.", under the card's own "Not
-            // measured yet"; and "Omega Services's" (lib/copy/possessive.ts).
+            // measured yet"; and "Yabby Services's" (lib/copy/possessive.ts).
             // 17 Nov, part 3: it ended "run them from the Entity Score and YouTube Presence pages below" -- the
             // Entity Score page has no run control (the check runs with each audit started from the app). When
             // and how each check runs is in `notes` (lib/trust/trust-notes.ts), shown under this.

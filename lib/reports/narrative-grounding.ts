@@ -125,7 +125,7 @@ export function sentenceProblem(text: string, facts: AllowedFacts): DropReason |
   return null;
 }
 
-/** "Omega comes up in 5 of 30. When it does..." -> two sentences. */
+/** "Yabby comes up in 5 of 30. When it does..." -> two sentences. */
 export function splitSentences(paragraph: string): string[] {
   return paragraph
     .split(/(?<=[.!?])\s+(?=[A-Z(*])/)

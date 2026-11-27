@@ -34,7 +34,7 @@ export type DriftBaseline<T> =
  * The reason says which rule left nothing to compare with. Shared by inngest/functions/detect-drift.ts and
  * lib/audit/run-audit-inline.ts.
  *
- * 15 Nov, part 2 (Sri, Hero's #48 and #50): and that asked the same everyday questions (lib/audit/question-set.ts)
+ * 15 Nov, part 2 (Sri, Wren's #48 and #50): and that asked the same everyday questions (lib/audit/question-set.ts)
  * -- a change of questions would report itself as drift ("questions_changed").
  */
 export function driftBaseline<T extends Candidate>(

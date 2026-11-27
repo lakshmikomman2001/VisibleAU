@@ -8,7 +8,7 @@ import type Stripe from "stripe";
  * subscription, where this code used to read it: the checkout handler fell back to the checkout's own time
  * for both ends, and a webhook left the end unchanged.
  *
- * 8 Nov (brand-feature locks and pricing claims, part 6) -- Splice's row still held 24 Sep as both ends after
+ * 8 Nov (brand-feature locks and pricing claims, part 6) -- Possum's row still held 24 Sep as both ends after
  * its 24 Oct renewal: what the code before 3 Nov left, with no subscription event since to replace it. So:
  * - Where the period is. API calls use this SDK's own version, 2026-05-27.dahlia (stripe 22.2.0;
  *   lib/stripe/client.ts sets no apiVersion), which keeps it on the items. A webhook endpoint renders its

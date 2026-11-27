@@ -20,7 +20,7 @@ const AU_STATE_CODES = AU_STATES.map((s) => s.code) as [string, ...string[]];
 
 const createBrandSchema = z.object({
   // Vunnara Build 1, Part A: trim + collapse internal whitespace at
-  // write time, so a stored name is never " Omega Services" with a
+  // write time, so a stored name is never " Yabby Services" with a
   // leading space (app/api/brands/route.ts's own pre-fix bug) that
   // detection then has to work around. min/max validate the NORMALIZED
   // result (via .pipe), not the raw input -- an all-whitespace "name"

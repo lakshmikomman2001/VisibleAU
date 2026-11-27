@@ -66,7 +66,7 @@ export interface GoogleLastRun {
   checked: number;
   /** The refused account that stopped it, if one did. */
   problem: GoogleAccountProblem | null;
-  /** "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Omega Services)". */
+  /** "Last Google run: login rejected at 12 Nov 14:03 Sydney time (audit #44, Yabby Services)". */
   line: string;
 }
 
@@ -174,7 +174,7 @@ export interface GoogleProviderErrorGroups {
 /**
  * 13 Nov (Sri's walk-through, part 13): the Provider errors table listed audit #44's failures one identical
  * row per question ("AI Mode · 40100 · login rejected" thirteen times), and only 10 of its 26 -- the latest
- * 10 rows, silently. Now one line per audit and (code, message) -- "Audit #44 · Omega Services · AI Mode
+ * 10 rows, silently. Now one line per audit and (code, message) -- "Audit #44 · Yabby Services · AI Mode
  * ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with the questions behind an expand, the
  * latest `limit` groups, and the total so the page can say "showing the latest N of M".
  */

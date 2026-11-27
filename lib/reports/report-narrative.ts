@@ -109,7 +109,7 @@ export function allowedFacts(data: ReportData, extraNumbers: readonly string[] =
   };
 }
 
-/** "AI mentions Omega Services in about 1 in 6 everyday answers". */
+/** "AI mentions Yabby Services in about 1 in 6 everyday answers". */
 function headlineText(data: ReportData): string {
   const brand = data.brand.name;
   if (data.headline.status !== "scored") {
@@ -207,7 +207,7 @@ function gapParagraph(data: ReportData, diagnosisSection: string | null): string
     const total = cited.reduce((s, r) => s + r.citedCount, 0);
     const lead = `AI leans heavily on directories, citing ${countWord(cited.length)} of them ${total} times`;
     // Part 5 point 3: "your profile wasn't cited" only where it's linked.
-    // 14 Nov, part 2: said from every cited directory's linked state, never from the gaps alone (Hero had
+    // 14 Nov, part 2: said from every cited directory's linked state, never from the gaps alone (Wren had
     // Localsearch linked, and this said "the profile links haven't been added").
     if (cited.every((r) => !r.ownerProfileLinked)) {
       return `${lead}, and **we can't yet see whether any of those citations were ${possessive(brand)} own listings**: the profile links haven't been added. Adding them is the first step in this report${see}.`;

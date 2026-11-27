@@ -16,8 +16,8 @@ interface RunTurnInput {
 
 /**
  * A journey turn's prompt with its placeholders filled. Follow-ups from af8de42..d1eb5a1, part 4: the templates'
- * "{brandName}'s" (db/seed/prebuilt-journeys.ts) went out as "Omega Services's"; it's lib/copy/possessive.ts's
- * possessive now ("Omega Services'").
+ * "{brandName}'s" (db/seed/prebuilt-journeys.ts) went out as "Yabby Services's"; it's lib/copy/possessive.ts's
+ * possessive now ("Yabby Services'").
  */
 export function fillJourneyPrompt(
   template: string,

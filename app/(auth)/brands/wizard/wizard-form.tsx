@@ -52,7 +52,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
   const runTogether = isRunTogetherDomainName(name, domain) && !keepRunTogether;
   // S01 part 0: the site's own name, offered whenever the name in the field differs from it -- one the owner typed
   // is never replaced without their click ("Use ..."). Before S01 the answer was kept only when the field was
-  // empty or still the wizard's suggestion, so a typed "herohomeservices" hid "Hero Home Services" for good.
+  // empty or still the wizard's suggestion, so a typed "wrenhomeservices" hid "Wren Home Services" for good.
   const siteNameOffer =
     siteSuggestion && name.trim() !== "" && normalizeBrandName(name) !== siteSuggestion
       ? siteSuggestion
@@ -66,7 +66,7 @@ export function WizardForm({ auditConfig }: { auditConfig: AuditConfig }) {
     setDomain(value);
     setSiteSuggestion(null);
     setSiteNameAsk({ status: "idle" });
-    // Suggest a readable name where the domain shows the words ("hero-home-services" -> "Hero Home
+    // Suggest a readable name where the domain shows the words ("wren-home-services" -> "Wren Home
     // Services"), only while the name is empty or still the wizard's own suggestion.
     if (name === "" || name === suggestedName) {
       const readable = readableNameFromDomain(value);

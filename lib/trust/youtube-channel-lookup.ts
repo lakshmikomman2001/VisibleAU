@@ -2,8 +2,8 @@
  * Real YouTube Data API v3 check. Integrity crux: never claim a channel
  * is the brand's without a confident match -- name is NOT identity.
  *
- * Found in live testing: a name-only match (brand "Bondi Plumbing"
- * against a channel literally titled "Bondi Plumbing" whose actual
+ * Found in live testing: a name-only match (brand "Galah Plumbing"
+ * against a channel literally titled "Galah Plumbing" whose actual
  * content -- video descriptions linking getplumbing.com.au -- belongs to
  * a different company) was scored and fed into the Overall Trust Score.
  * A name match alone is now NEVER "confirmed" -- confirmation requires

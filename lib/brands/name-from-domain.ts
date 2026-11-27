@@ -1,12 +1,12 @@
 /**
- * 13 Nov (Sri's walk-through, part 2): a brand was stored as "herohomeservices" -- its domain label -- and its
- * audit's questions and pages read that way ("Is herohomeservices any good?"). The wizard suggests a
+ * 13 Nov (Sri's walk-through, part 2): a brand was stored as "wrenhomeservices" -- its domain label -- and its
+ * audit's questions and pages read that way ("Is wrenhomeservices any good?"). The wizard suggests a
  * readable name where the domain itself shows the words, and asks before a run-together label is used as
- * it is. It never guesses where the words split: "herohomeservices" could be "Hero Home Services" or
+ * it is. It never guesses where the words split: "wrenhomeservices" could be "Wren Home Services" or
  * "Heroho Me Services", so it asks instead.
  */
 
-/** The domain's own name: "https://www.hero-home-services.com.au/x" -> "hero-home-services". */
+/** The domain's own name: "https://www.wren-home-services.com.au/x" -> "wren-home-services". */
 export function domainLabel(domain: string): string {
   return (
     domain
@@ -27,8 +27,8 @@ function titleWord(word: string): string {
 
 /**
  * A readable name when the domain shows where its words split -- hyphens or underscores:
- * "hero-home-services.com.au" -> "Hero Home Services"; null when it doesn't ("herohomeservices"), or has
- * one word only (the owner writes that word their own way: "Omega", "OMEGA").
+ * "wren-home-services.com.au" -> "Wren Home Services"; null when it doesn't ("wrenhomeservices"), or has
+ * one word only (the owner writes that word their own way: "Yabby", "YABBY").
  */
 export function readableNameFromDomain(domain: string): string | null {
   const words = domainLabel(domain).split(/[-_]+/).filter(Boolean);
@@ -39,9 +39,9 @@ export function readableNameFromDomain(domain: string): string | null {
 }
 
 /**
- * The name is the domain's label as it is, run together ("herohomeservices" for herohomeservices.com.au):
+ * The name is the domain's label as it is, run together ("wrenhomeservices" for wrenhomeservices.com.au):
  * long enough to be several words (12 letters or more), no spaces. A one-word name that happens to be the
- * domain ("Omega" for omega.com.au) is a real name, not this.
+ * domain ("Yabby" for yabby.com.au) is a real name, not this.
  */
 export function isRunTogetherDomainName(name: string, domain: string): boolean {
   const n = name.trim();

@@ -45,7 +45,7 @@ export interface TaggedOrganicPrompt {
  * did this: build-prompt-pack.ts's per-category interleave was
  * immediately undone by the single whole-pool seededShuffle that ran
  * right after it, so the actual category mix a brand got was whatever
- * that shuffle happened to land on -- Omega's real pack: 3 plumbing /
+ * that shuffle happened to land on -- Yabby's real pack: 3 plumbing /
  * 1 electrical / 6 general, not the intended 4/3/3.
  */
 function computeCategoryQuotas(categories: string[], total: number): number[] {

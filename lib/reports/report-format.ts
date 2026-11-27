@@ -164,7 +164,7 @@ export function trendPointHollow(p: ReportTrendPoint): boolean {
 }
 
 /**
- * 15 Nov, part 2 (Sri, Hero's #48 and #50): "Questions changed between #48 and #50 (one question removed), so
+ * 15 Nov, part 2 (Sri, Wren's #48 and #50): "Questions changed between #48 and #50 (one question removed), so
  * these aren't compared." -- one line at each change of everyday questions along the chart.
  */
 export function questionChangeTrendLines(points: ReportTrendPoint[]): string[] {
@@ -233,7 +233,7 @@ export function excludedTrendLines(data: ReportData): string[] {
  * What the chart's caption says about its points, before the comparison: each partial audit, each change of
  * methodology or everyday questions, other models, model drift, earlier audits left out, and audits excluded from
  * trends. 15 Nov, part 3: one list for the PDF's caption and for trendLines -- the PDF built its own and never
- * named an excluded audit (Hero's #46), though trendLines did.
+ * named an excluded audit (Wren's #46), though trendLines did.
  */
 export function trendNoteLines(data: ReportData): string[] {
   const points = data.trend.points;

@@ -1,5 +1,5 @@
 /**
- * 19 Nov (Sri's review of /admin/settings): the Changes log showed Omega Services' 13 identical rows "2153 → 2153",
+ * 19 Nov (Sri's review of /admin/settings): the Changes log showed Yabby Services' 13 identical rows "2153 → 2153",
  * each a click of Save on 11 Nov, before saving the value in force stopped writing a row (12 Nov:
  * lib/governance/google-surfaces.ts returns "unchanged" and writes nothing). Those rows stay -- the log is a history --
  * but consecutive identical saves that changed nothing are shown as one line: "13 saves, no change".

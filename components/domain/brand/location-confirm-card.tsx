@@ -111,7 +111,7 @@ export function LocationConfirmCard({
         body: JSON.stringify({
           locationMode: "fixed",
           suburb,
-          // Vunnara hotfix (18 Oct, post-df27ef8): the live Omega
+          // Vunnara hotfix (18 Oct, post-df27ef8): the live Yabby
           // Services bug -- "Norwest" isn't in the curated list, so
           // this used to fall back to the SUBURB name as the city
           // ("Norwest, NSW" would have stored city="Norwest"), an

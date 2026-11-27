@@ -212,7 +212,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       parsed.data.city !== undefined ||
       parsed.data.state !== undefined ||
       parsed.data.competitors !== undefined ||
-      // 13 Nov (part 2): the pack's questions name the brand ("Is herohomeservices a good choice for ...?"),
+      // 13 Nov (part 2): the pack's questions name the brand ("Is wrenhomeservices a good choice for ...?"),
       // so a rename regenerates them too.
       (parsed.data.name !== undefined && parsed.data.name !== existing.name)
     ) {

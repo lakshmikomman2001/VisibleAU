@@ -277,8 +277,8 @@ export function toDisplayDomain(hostname: string): string | null {
  * own" check. Registrable-domain-to-registrable-domain equality, built
  * on toRegistrableDomain -- so a www./subdomain variant of the brand's
  * domain still matches, and a domain that merely CONTAINS the brand's
- * domain as a substring (a competitor like bondiplumbingservices.com.au,
- * or a hallucinated bondiplumbing.com.au.evil.example) never does. A
+ * domain as a substring (a competitor like galahplumbingservices.com.au,
+ * or a hallucinated galahplumbing.com.au.evil.example) never does. A
  * missing or unparseable brand domain never matches anything. Replaces
  * classifySourceTypeWithBrand's substring-of-URL check and
  * citation-intelligence.ts's previously-inline equivalent of this same

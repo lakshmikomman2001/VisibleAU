@@ -50,7 +50,7 @@ export interface OrganicCitationAggregates {
  * Position, Sentiment, Context or Source Accuracy once it's confirmed
  * as THIS business (lib/audit/verify-mention.ts) -- an 'unverified'
  * match (a common name hitting a different business, audit #30's
- * Omega Services) is real detected text, kept on the row and shown in
+ * Yabby Services) is real detected text, kept on the row and shown in
  * the audit's responses, but not counted. `null` (not mentioned, or a
  * legacy row from before this column existed) is counted exactly as
  * before -- only the literal 'unverified' excludes.

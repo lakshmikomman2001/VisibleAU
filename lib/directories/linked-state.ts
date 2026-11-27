@@ -1,7 +1,7 @@
 /**
- * 14 Nov, part 2 (Sri's review of audit #48): Hero Home Services had Localsearch linked (the PDF's card said "2
+ * 14 Nov, part 2 (Sri's review of audit #48): Wren Home Services had Localsearch linked (the PDF's card said "2
  * of 50 ... 8 of the directories aren't linked yet"), while the summary said "we can't yet see whether any of those
- * citations were Hero Home Services' own listings: the profile links haven't been added" and finding 1 said "your
+ * citations were Wren Home Services' own listings: the profile links haven't been added" and finding 1 said "your
  * profile links aren't added yet". Both judged from the directories with a gap only, which leave out a linked one
  * whose own profile was cited. Every such sentence now comes from here, from every cited directory's linked state.
  */

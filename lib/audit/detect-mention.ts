@@ -31,8 +31,8 @@ export interface MentionResult {
 /**
  * 13 Nov (audit #46): what an answer may put between any two letters of a name and still be writing that
  * name -- spaces and tabs (never a line break), hyphens and dashes, "&", apostrophes and full stops. The
- * brand stored as "herohomeservices" (the wizard took the domain label) scored 0 of 41 while ChatGPT listed
- * "**Hero Home Services** (Yennora-based)" first: the name was only ever matched with gaps where the STORED
+ * brand stored as "wrenhomeservices" (the wizard took the domain label) scored 0 of 41 while ChatGPT listed
+ * "**Wren Home Services** (Yennora-based)" first: the name was only ever matched with gaps where the STORED
  * name had spaces, and it had none.
  */
 const GAP = "[ \\t\\-\\u2013\\u2014&'\\u2019.]*";
@@ -58,10 +58,10 @@ function units(word: string): string[] {
 
 /**
  * One name, written with any spacing: case, spaces, hyphens, "&" for "and" (and back) and full stops don't
- * matter, so "herohomeservices", "Hero Home Services", "Hero-Home-Services" and "HERO HOME SERVICES" are all
+ * matter, so "wrenhomeservices", "Wren Home Services", "Wren-Home-Services" and "WREN HOME SERVICES" are all
  * the same name, whichever of them is stored. Still a whole name: a letter or digit right before or after it
- * ("SuperOmega Services", "Omega Serviceswhich") is another word, and a different word in the middle
- * ("Omega Plumbing Services") is a different name. `null` when the name has under four letters and digits.
+ * ("SuperYabby Services", "Yabby Serviceswhich") is another word, and a different word in the middle
+ * ("Yabby Plumbing Services") is a different name. `null` when the name has under four letters and digits.
  */
 export function spacingFreeNamePattern(name: string): RegExp | null {
   const words =
@@ -106,10 +106,10 @@ function foundAt(
  * 1. its name: brandNamePattern (lib/brands/normalize.ts: the stored words with any of space, hyphen, dash,
  *    "&", apostrophe or full stop between them, "and" or "&", a possessive) or spacingFreeNamePattern (the
  *    same name with the spacing ignored); the earlier of the two in the answer;
- * 2. else its domain's name part ("herohomeservices" from herohomeservices.com.au, four or more letters),
+ * 2. else its domain's name part ("wrenhomeservices" from wrenhomeservices.com.au, four or more letters),
  *    with the spacing ignored the same way, which also finds the domain written out.
- * Both read detectionText(response) ("**Hero** Home Services" reads as "Hero Home Services"); the stored
- * answer is never changed. A name match is only a NAME match: a short or shared name ("Omega") still has to
+ * Both read detectionText(response) ("**Wren** Home Services" reads as "Wren Home Services"); the stored
+ * answer is never changed. A name match is only a NAME match: a short or shared name ("Yabby") still has to
  * be verified as this business (lib/audit/verify-mention.ts) before it counts.
  */
 export async function detectBrandMention(

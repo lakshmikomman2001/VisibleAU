@@ -2591,9 +2591,9 @@ function BeyondSection({ ctx }: { ctx: Ctx }) {
  * The runs of plotted points the chart joins with a line.
  *
  * 15 Nov, part 2: split where the everyday questions changed (a point with questionsChange starts a new run), so
- * the chart never draws a line between two question sets (Hero's #48 at 25% and #50 at 33% read as a rise).
+ * the chart never draws a line between two question sets (Wren's #48 at 25% and #50 at 33% read as a rise).
  *
- * 15 Nov (rebrand), part 2: and an audit that isn't compared is never joined, on either side -- Hero's #47,
+ * 15 Nov (rebrand), part 2: and an audit that isn't compared is never joined, on either side -- Wren's #47,
  * captioned "used 3 of 4 engines ... shown but not compared", was joined to #48. A point joins the run before it
  * only when it and the point before it are both comparable with the basis audit (every engine answered, the same
  * questions, methodology, models and Google basis, no model drift, a measured headline); anything else starts its

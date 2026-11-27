@@ -159,7 +159,7 @@ export function resolveGoogleLocation(brand: {
 }
 
 /**
- * 13 Nov (Sri's walk-through, part 8): Hero Home Services is in Yennora (2161), but with no operator postcode
+ * 13 Nov (Sri's walk-through, part 8): Wren Home Services is in Yennora (2161), but with no operator postcode
  * its Google block was for "Sydney NSW, not your suburb" (Yennora isn't one of the provider's places, and the
  * app's suburb list has no postcodes). The brand's own postcode is used now; the operator's is an override.
  */

@@ -5,9 +5,9 @@ import { normalizeBrandName } from "./normalize";
  * 2-60 characters after trimming, never the brand's own name. The API checks them on every write (POST /api/brands,
  * PATCH /api/brands/:id); brand settings checks the same rules as the owner types, with the same words.
  *
- * S01 part 0 (contract C-27, LLD section 0.2 #5): unique ignoring case -- "TECHCOREIT" next to "techcoreit" is the
+ * S01 part 0 (contract C-27, LLD section 0.2 #5): unique ignoring case -- "NUMBATEKIT" next to "numbatekit" is the
  * same name to mention detection (lib/audit/detect-mention.ts ignores case and spacing). Aliases saved before S01
- * (S00 kept "techcoreit" and "TechCoreIT" both) are left as they are: a save that keeps them passes the stored list
+ * (S00 kept "numbatekit" and "NumbaTekIT" both) are left as they are: a save that keeps them passes the stored list
  * as `saved`, and only a name being added is compared ignoring case.
  */
 export const MAX_ALIASES = 10;
@@ -59,6 +59,6 @@ export function checkAliases(
   return { ok: true, aliases: kept };
 }
 
-// S01 part 0 (C-27): no aliases are suggested any more. The two S00 suggested -- the domain label ("techcoreit")
-// and the name without its spaces ("TechCoreIT") -- are forms detection already matches (it checks the domain stem
+// S01 part 0 (C-27): no aliases are suggested any more. The two S00 suggested -- the domain label ("numbatekit")
+// and the name without its spaces ("NumbaTekIT") -- are forms detection already matches (it checks the domain stem
 // and ignores spacing), so suggesting them added nothing. Owners add genuinely different names in brand settings.

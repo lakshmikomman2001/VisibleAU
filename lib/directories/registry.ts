@@ -10,7 +10,7 @@ import { type CategoryKey, LOCAL_CATEGORY_KEYS } from "@/lib/prompts/templates";
  * (server code, cached per process). This module is what every caller reads, server or browser, with the same
  * functions and output shape as before: the rows the table was seeded with are DIRECTORY_REGISTRY_SEED below, used
  * until the table has been read in this process (and in the browser, which never reads it), and a test holds the
- * seed and the migration's rows identical. TechCore IT's audit #52 cited Local Business Guide, Directso, Whereis,
+ * seed and the migration's rows identical. NumbaTek IT's audit #52 cited Local Business Guide, Directso, Whereis,
  * LinkedIn, Nextdoor, Birdeye and Cylex, which the list didn't know; appendix B adds them.
  *
  * Each directory has a `kind` (trades, general, health, professional, reviews, social, maps) and a `relevance`:
@@ -347,7 +347,7 @@ export function findDirectoryByDomain(domain: string): DirectoryEntry | null {
 
 /**
  * The directory a cited source belongs to: its host, and, for a directory that is only some paths of its site,
- * the page's path ("linkedin.com/company/techcore-it" is LinkedIn; "linkedin.com/in/someone" isn't). Without a
+ * the page's path ("linkedin.com/company/numbatek-it" is LinkedIn; "linkedin.com/in/someone" isn't). Without a
  * usable URL, the host alone, as findDirectoryByDomain.
  */
 export function findDirectoryForSource(domain: string, url: string | null): DirectoryEntry | null {

@@ -26,7 +26,7 @@ const HOUR_MS = 60 * 60 * 1000;
  * the result page is the only thing that reads it, and it's read straight away; nothing else needs a visitor's domain.
  *
  * It used to find a sample brand only through an audit older than the cutoff, and deleted the brand only when no audit
- * was left. Two ways a brand stayed for ever (production's "bondiplumbing.com.au" from 1 Oct is one):
+ * was left. Two ways a brand stayed for ever (production's "galahplumbing.com.au" from 1 Oct is one):
  * - a brand-walking cron wrote a row that references it with a NO ACTION foreign key -- the monthly YouTube check
  *   (youtube_presence_audits), and the web-mentions, LinkedIn and consensus checks when they're switched on -- so the
  *   brand's delete threw and its whole transaction rolled back, every night. Those rows are deleted first now, and the

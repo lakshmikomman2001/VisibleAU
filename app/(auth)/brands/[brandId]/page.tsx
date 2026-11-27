@@ -83,7 +83,7 @@ export default async function BrandDetailPage({
           // prompt-pack generation, instead of implying a smooth trend.
           promptPackVersion: audits.promptPackVersion,
           // 15 Nov, part 2: the everyday questions it asked (migration 0150) -- the pack version alone missed
-          // Hero's #48 -> #50 change (lib/audit/question-set.ts).
+          // Wren's #48 -> #50 change (lib/audit/question-set.ts).
           questionSetHash: audits.questionSetHash,
           // Vunnara Build 1, Part G.7: same marker, for a methodology
           // change (memory-only vs web-grounded) between two audits.
@@ -277,7 +277,7 @@ export default async function BrandDetailPage({
 
   // Build 1 addendum, item 10: re-derive classification_status at read
   // time against today's confirmation bar -- a stored "complete" from
-  // the OLD classifier (Omega-shaped: category not a real enum key,
+  // the OLD classifier (Yabby-shaped: category not a real enum key,
   // or confidence < 0.7) is upgraded to "needs_confirmation" here,
   // never trusted as-is. No data edit; the stored column is untouched.
   const effectiveClassificationStatus = brandNeedsClassificationConfirmation({

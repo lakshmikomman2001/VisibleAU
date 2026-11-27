@@ -119,7 +119,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ brandId
     const annotation =
       displayScore === null
         ? {
-            // Part 4: the page shows "Not measured yet" above this; it said it again, and "Omega Services's".
+            // Part 4: the page shows "Not measured yet" above this; it said it again, and "Yabby Services's".
             // 17 Nov, part 3: it ended "Refresh the entity check to measure them" -- the page has no refresh
             // control; the check runs with each audit started from the app (lib/audit/run-technical-audit-
             // inline.ts, from app/api/audits/route.ts), as the page says beside the check's date.

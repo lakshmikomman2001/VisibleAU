@@ -10,7 +10,7 @@ export type PromptTemplateMap = Partial<Record<BuyerType, string[]>>;
  * kept in sync by tests/unit/prompts/category.test.ts (which asserts
  * this list exactly matches Object.keys(CATEGORY_TEMPLATES)). The
  * classifier LLM was previously free to invent any underscore_case
- * string ("trades_general_services" for Omega) -- resolveCategory maps
+ * string ("trades_general_services" for Yabby) -- resolveCategory maps
  * whatever it returns onto one of these, closing the gap that silently
  * fell through to the generic business-tool "general" templates.
  */
@@ -49,7 +49,7 @@ export const CATEGORY_KEYS = [
 export type CategoryKey = (typeof CATEGORY_KEYS)[number];
 
 /** Human label for prompt text and UI -- never the raw underscore_case
- * slug ("trades general services services", Omega's actual {category}
+ * slug ("trades general services services", Yabby's actual {category}
  * substitution before this fix). */
 export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   saas_design_tools: "Design software",
@@ -130,7 +130,7 @@ export const CATEGORY_SERVICE_PHRASE: Record<CategoryKey, string> = {
  * below only ever picks WHICH BUCKET to use wholesale (and every
  * trades/allied-health category defines only `smb`, no dedicated
  * `consumer` bucket), so a household-audience brand got that bucket's
- * entire mix, business-flavoured outliers included -- Omega's real
+ * entire mix, business-flavoured outliers included -- Yabby's real
  * bug: "Best plumbing companies for commercial fitouts in {region}?"
  * reaching a households brand.
  *

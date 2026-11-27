@@ -45,7 +45,7 @@ export interface ProviderErrorsSplit<G extends { at: string }> {
   older: G[];
 }
 
-/** "26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Omega Services". */
+/** "26 of 26 questions checked at 19 Nov 20:10 Sydney time, audit #61, Yabby Services". */
 export function cleanRunText(run: CleanGoogleRun): string {
   return [
     `${run.checked} of ${run.questions} questions checked at ${sydneyShort(run.at)} Sydney time`,

@@ -1,8 +1,8 @@
 /**
  * A brand's avatar colour, from the brand itself (17 Nov, part 4: a hash of its id, never its place in a list).
  *
- * Leftovers task, part 4 (17 Nov): five gradients meant two of a handful of brands often shared one (Hero Home
- * Services and Omega Services were both orange). The hash now picks a hue anywhere on the colour wheel and one of
+ * Leftovers task, part 4 (17 Nov): five gradients meant two of a handful of brands often shared one (Wren Home
+ * Services and Yabby Services were both orange). The hash now picks a hue anywhere on the colour wheel and one of
  * three lightness tones, so two brands share a colour only when their hashes land within a few degrees in the same
  * tone. Each stop is an OKLCH colour dark enough that the white initials (--avatar-fg, the same in both themes) are
  * at least 4.5:1 on it whatever the hue (tests/unit/brands/avatar-color.test.tsx checks every hue and tone, after

@@ -1136,7 +1136,7 @@ export default async function AuditPage({
         <div style={{ textAlign: "right", flex: "0 1 auto", minWidth: 0, marginLeft: "auto" }}>
           {/* Vunnara (19 Oct, post-aa83b3a), "the headline is the
               mention rate": no more weighted 5-dimension blend --
-              production audit #30 (Omega Services) showed how badly
+              production audit #30 (Yabby Services) showed how badly
               that misled (6 of 37 mentions blended to 56.6, while 1 of
               37 -- ranked first, cited -- would have scored ~62, HIGHER
               than the more-visible brand). This IS the Frequency
@@ -2226,7 +2226,7 @@ export default async function AuditPage({
                             : "var(--success)",
                       }}
                     >
-                      {/* Audit reliability, Part B: a name match ("Omega
+                      {/* Audit reliability, Part B: a name match ("Yabby
                           Services") isn't necessarily THIS business --
                           mentionVerification null (not mentioned, or a
                           legacy row) and every verified_* value keep the

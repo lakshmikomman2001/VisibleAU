@@ -12,7 +12,7 @@ import { formatCheckDate, plural } from "./report-format";
 
 /**
  * S01 part 3 (LLD 8.1.5, T5): the finding rules g-j, for an audit where AI rarely or never names the business.
- * TechCore IT's audit #52 (0%) had no finding at all, so the PDF said "No finding rule matched this audit" and the
+ * NumbaTek IT's audit #52 (0%) had no finding at all, so the PDF said "No finding rule matched this audit" and the
  * audit page had no recommended action. Each rule reads only what the audit (or a dated check) measured, and every
  * card shows that evidence:
  *   (g) others are named instead: mentioned in at most 10% of everyday answers, and at least half of them cite

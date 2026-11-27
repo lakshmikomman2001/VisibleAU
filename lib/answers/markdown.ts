@@ -1,7 +1,7 @@
 import { linkHref } from "@/lib/urls/strip-tracking";
 
 /**
- * 13 Nov (Sri's walk-through, part 10): AI answers are markdown -- `**Hero** Home Services`, links like
+ * 13 Nov (Sri's walk-through, part 10): AI answers are markdown -- `**Wren** Home Services`, links like
  * `([localsearch.com.au](https://…?utm_source=openai))`, tables as `| Provider | … |` / `|------|` -- and the
  * Responses tab printed it raw. This reads the part of markdown the engines write (headings, paragraphs,
  * bullet and numbered lists, one level nested, tables, bold, italic, inline code, links, bare links, code

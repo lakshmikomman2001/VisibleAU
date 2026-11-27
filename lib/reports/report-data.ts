@@ -176,7 +176,7 @@ export interface ReportTrendPoint {
    * (customerEngineReason, S01C part 1); empty unless partial. */
   failedEngines: Array<{ name: string; reason: string }>;
   /**
-   * 15 Nov, part 2 (Sri, Hero's #48 and #50): asked other everyday questions than the basis audit
+   * 15 Nov, part 2 (Sri, Wren's #48 and #50): asked other everyday questions than the basis audit
    * (lib/audit/question-set.ts) -- drawn hollow, apart from the basis audit's line, never compared.
    */
   otherQuestions: boolean;
@@ -820,7 +820,7 @@ export async function buildReportData(
 
   const isFull = (a: Candidate) => fullyFailedEngines(a).length === 0;
   // 15 Nov, part 2: the same everyday questions, from each audit's stored question set -- not the pack version,
-  // which is stamped before a stale pack is regenerated (Hero's #50 ran v4's questions under #48's version).
+  // which is stamped before a stale pack is regenerated (Wren's #50 ran v4's questions under #48's version).
   const sameQuestions = (a: Candidate) => sameQuestionSet(a, basis);
   const sameMethodology = (a: Candidate) =>
     (a.methodologyVersion ?? 1) === (basis.methodologyVersion ?? 1);
@@ -834,7 +834,7 @@ export async function buildReportData(
   // 6: an earlier methodology is treated the same way -- shown, hollow,
   // labelled where it changes, never compared. The most recent
   // TREND_MAX_POINTS of them; `complete` is newest first.
-  // 14 Nov, part 5: an audit an operator excluded from trends is never on the chart or compared (Hero's #46: 0%
+  // 14 Nov, part 5: an audit an operator excluded from trends is never on the chart or compared (Wren's #46: 0%
   // from the name-matching bug), the basis included; the caption names it.
   const wouldChart = (a: Candidate) =>
     a.id === basis.id || inPeriod(a) || a.completedAt < basis.completedAt;

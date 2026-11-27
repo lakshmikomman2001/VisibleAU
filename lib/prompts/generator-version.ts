@@ -21,7 +21,7 @@
  *     rewritten.
  * 4 = 14 Nov, part 1 (Sri's review of audit #48): no "What Australian tech
  *     companies are leading in their space in 2025?" for an Australian-
- *     founded brand of any vertical (it reached Hero Home Services, a
+ *     founded brand of any vertical (it reached Wren Home Services, a
  *     handyman, and counted as an everyday question). Version 3 rebuilt
  *     packs with the same generator, so it kept it; 4 rebuilds them without.
  *   - 5 (16 Nov, part 1): the general type is local -- its questions name the business's own service and its

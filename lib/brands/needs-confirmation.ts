@@ -28,7 +28,7 @@ export interface ClassificationConfirmationInput {
 /**
  * Build 1 addendum, item 10: existing rows kept whatever
  * classification_status the OLD classifier wrote, and got `audience`
- * derived from buyerType rather than confirmed -- Omega-shaped bug:
+ * derived from buyerType rather than confirmed -- Yabby-shaped bug:
  * buyerType "smb", confidence 0.62, category "trades_general_services"
  * (not a real CATEGORY_KEYS entry) got classification_status =
  * 'complete' and would never be asked to confirm, even though today's
@@ -48,7 +48,7 @@ export interface ClassificationConfirmationInput {
  * checks below) only ever apply to a brand that HASN'T been confirmed
  * this way yet; they must never re-impose themselves on a brand the
  * owner already confirmed, no matter what the old classifier originally
- * guessed (this was the live bug: Omega Services confirmed through the
+ * guessed (this was the live bug: Yabby Services confirmed through the
  * UI and stayed permanently blocked because its stored
  * classification.category/confidence, from the OLD classifier, never
  * changes and kept failing these checks on every read).

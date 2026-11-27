@@ -1,6 +1,6 @@
 /**
  * Vunnara hotfix 2 (19 Oct, post-609e323): render-time validation over
- * every generated audit question. The bug this exists for: Omega
+ * every generated audit question. The bug this exists for: Yabby
  * Services' pack had "Best emergency plumber Norwest in Norwest, NSW?"
  * -- classification.intentSignals entries ("emergency plumber Norwest")
  * already carry a place name, and buildEnrichedPrompts appended the

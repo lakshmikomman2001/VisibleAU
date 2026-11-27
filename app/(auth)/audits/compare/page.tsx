@@ -97,7 +97,7 @@ export default async function ComparePage({
       const googleBasisDiffers =
         (resolvedByAuditId.get(auditA.id)?.googleIncluded === true) !==
         (resolvedByAuditId.get(auditB.id)?.googleIncluded === true);
-      // 15 Nov, part 2 (Sri, Hero's #48 and #50): two audits that asked different everyday questions aren't
+      // 15 Nov, part 2 (Sri, Wren's #48 and #50): two audits that asked different everyday questions aren't
       // compared -- "Questions changed between #48 and #50 (one question removed), so these aren't compared."
       const [earlier, later] =
         auditA.auditNumber <= auditB.auditNumber ? [auditA, auditB] : [auditB, auditA];

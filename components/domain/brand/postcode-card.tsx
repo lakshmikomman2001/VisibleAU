@@ -7,7 +7,7 @@ const POSTCODE = /^\d{4}$/;
 
 /**
  * 13 Nov, part 2 (Sri's live check): a confirmed location that only lacks the postcode (lib/brands/location-
- * need.ts "postcode") asks for that and nothing else -- one field, one Save. Omega and Hero showed the whole
+ * need.ts "postcode") asks for that and nothing else -- one field, one Save. Yabby and Wren showed the whole
  * "Confirm your business location" picker and a "Keep this location" link for it, which looked like two ways
  * to do one thing. Saves { postcode } alone (PATCH /api/brands/[id]): the suburb, its confirmation and the
  * questions stay as they are.

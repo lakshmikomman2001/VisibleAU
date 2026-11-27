@@ -7,9 +7,9 @@
  *   2. Zero-width characters (U+200B-U+200D, U+2060, U+FEFF) and soft hyphens (U+00AD) are removed.
  *   3. Hyphen variants (U+2010-U+2012; NFKC already folds the non-breaking hyphen U+2011 to U+2010) become
  *      "-", which the name pattern already allows between words.
- *   4. "_" becomes a space: "Omega_Services", and _italic_ markers.
+ *   4. "_" becomes a space: "Yabby_Services", and _italic_ markers.
  *   5. Markdown emphasis, code and link markers (* ` [ ]) are removed where they sit between a letter or
- *      digit and a space or either end of the text: "**Omega** Services" becomes "Omega Services". A
+ *      digit and a space or either end of the text: "**Yabby** Services" becomes "Yabby Services". A
  *      marker between two letters stays, and so does a list bullet (followed by a space, not a letter).
  * "Letter or digit" and "space" are ASCII here ([A-Za-z0-9] and space, tab, LF, VT, FF, CR): the same
  * letters the name pattern's own boundaries use, and classes PostgreSQL reads the same way in diag-0122's

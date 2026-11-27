@@ -114,11 +114,11 @@ function urlSources(
  * `vertexaisearch.cloud.google.com/grounding-api-redirect/...` link (@ai-sdk/google's extractSources maps
  * every groundingChunks[].web entry to `{url: chunk.web.uri, title: chunk.web.title}`). `title` is the one
  * place the real site shows up -- Google fills it with the source's bare domain -- but it's provider-
- * controlled text, so it's only used when it's shaped like a hostname. A prose title ("Omega Services -
+ * controlled text, so it's only used when it's shaped like a hostname. A prose title ("Yabby Services -
  * Official Site") is rejected, not guessed at. Never follows `url` itself: that would be a live fetch.
  *
  * Before part 5 these domains reached verifyMention() only, were never stored, and were lost on a cache
- * hit, so every Gemini answer's stored sources were one redirect link (diag-0122: all 40 of Omega's). Now
+ * hit, so every Gemini answer's stored sources were one redirect link (diag-0122: all 40 of Yabby's). Now
  * each link travels with its site, `{ url, domain }`, into citations.cited_sources and llm_response_cache,
  * so verification, the directory evidence and the source types all see the real domains. A link with no
  * usable title stays a plain URL: unresolvable, as before.

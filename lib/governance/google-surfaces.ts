@@ -570,7 +570,7 @@ export async function loadGoogleSurfaceAdminView(
 }
 
 /**
- * 12 Nov, part 5: what a save did. A save whose value is the one already in force (Sri saved Omega's
+ * 12 Nov, part 5: what a save did. A save whose value is the one already in force (Sri saved Yabby's
  * postcode 15 times; 14 log rows read 2153 -> 2153) is "unchanged": nothing is written, not even to the
  * change history. The rows already logged stay: the log is a history.
  */

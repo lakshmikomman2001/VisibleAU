@@ -1,7 +1,7 @@
 /**
  * Vunnara Build 1, Part A: the one shared brand-name normalisation and
  * free-text-matching contract. Used at WRITE time (brand create/update,
- * sample audits) so a stored name is never " Omega Services" with a
+ * sample audits) so a stored name is never " Yabby Services" with a
  * leading space or doubled internal whitespace, and at MATCH time
  * (mention detection, the branded-prompt rule) so the same name matches
  * however an LLM or a prod-fix happens to format it -- quoted, **bold**,
@@ -26,17 +26,17 @@ function escapeRegExp(s: string): string {
  *   LLM answer might insert in place of a plain space: whitespace,
  *   hyphen, en dash, em dash, ampersand, straight/curly apostrophe,
  *   period. Zero or more of these between each pair of words, so
- *   "Omega-Services", "Omega & Services" and "OmegaServices" all match
- *   the two-word name "Omega Services".
+ *   "Yabby-Services", "Yabby & Services" and "YabbyServices" all match
+ *   the two-word name "Yabby Services".
  * - Boundaries are "not a letter or digit" lookarounds, not `\b` --
  *   `\b` treats an adjacent quote/apostrophe inconsistently, where a
  *   lookaround on the actual character class doesn't. This is what
- *   makes `"Omega Services"`, `**Omega Services**` and
- *   `_Omega Services_` all match: the quote/asterisk/underscore is
+ *   makes `"Yabby Services"`, `**Yabby Services**` and
+ *   `_Yabby Services_` all match: the quote/asterisk/underscore is
  *   "not a letter or digit", so it satisfies the boundary.
  * - An optional trailing possessive is allowed: a straight or curly
- *   apostrophe, optionally followed by "s" -- covers "Omega's",
- *   "Omega’s", and (since the "s" is optional) "Services'" where the
+ *   apostrophe, optionally followed by "s" -- covers "Yabby's",
+ *   "Yabby’s", and (since the "s" is optional) "Services'" where the
  *   name's own last word already ends in "s".
  * - Every word is escaped before being joined, so a name containing
  *   regex metacharacters (e.g. "A+ Plumbing") matches literally.
@@ -61,7 +61,7 @@ export function brandNamePattern(name: string): RegExp {
 /**
  * The significant part of a domain for loose entity matching -- strips
  * a trailing public-suffix-style TLD and all non-letters/digits, e.g.
- * "omega-services.com.au" -> "omegaservices". Callers should ignore
+ * "yabby-services.com.au" -> "yabbyservices". Callers should ignore
  * stems under 4 characters (too likely to false-positive on common
  * words / short generic domains) -- that threshold is a call-site
  * decision, not encoded here.

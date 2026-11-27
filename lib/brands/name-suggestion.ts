@@ -5,7 +5,7 @@ import { normalizeBrandName } from "./normalize";
 
 /**
  * S00 part 4 (22 Nov; LLD 8.8.2, T2): the name a business goes by, from its own home page, for the add-brand wizard
- * to suggest. TechCore IT was stored as "techcoreit" (its domain label) and its questions and pages read that way.
+ * to suggest. NumbaTek IT was stored as "numbatekit" (its domain label) and its questions and pages read that way.
  *
  * In order: the page's og:site_name; the part of its <title> that is the business's name (the segment between
  * " | ", " - ", " – ", " — ", " · " or ": " separators that matches the domain); a JSON-LD Organization /
@@ -24,7 +24,7 @@ export interface NameSuggestion {
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 60;
 
-/** Letters and digits only, lower case: how a candidate is compared with the domain ("TechCore IT" -> "techcoreit"). */
+/** Letters and digits only, lower case: how a candidate is compared with the domain ("NumbaTek IT" -> "numbatekit"). */
 function compact(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
@@ -109,7 +109,7 @@ export function suggestBrandName(html: string | null, domain: string): NameSugge
 /** GET /api/brands/name-suggestion: per user. */
 export const NAME_SUGGESTION_LIMIT = { max: 30, windowMs: 10 * 60 * 1000 } as const;
 
-/** "TechCoreIT.com.au", "https://www.techcoreit.com.au/" -> "techcoreit.com.au"; null for anything else. */
+/** "NumbaTekIT.com.au", "https://www.numbatekit.com.au/" -> "numbatekit.com.au"; null for anything else. */
 export function suggestionHost(raw: string | null): string | null {
   if (!raw) return null;
   const host = raw

@@ -3,8 +3,8 @@
  * detectBrandMention's old position (lib/audit/detect-mention.ts) counted
  * capitalised word groups before the match -- a word-count heuristic that
  * has nothing to do with WHERE a brand sits in a numbered or bulleted
- * list. Production evidence (audit #30, Omega Services): ChatGPT listed
- * Omega 4th, stored as 33; 8th, stored as 53. Perplexity's first bullet
+ * list. Production evidence (audit #30, Yabby Services): ChatGPT listed
+ * Yabby 4th, stored as 33; 8th, stored as 53. Perplexity's first bullet
  * was stored as 4. This function replaces that heuristic with a real
  * read of the list structure around the match.
  *
@@ -17,7 +17,7 @@
  * prose, which is the exact failure this replaces.
  *
  * Vunnara (21 Oct, addendum) -- "4 of 6 listed" on live audit #30:
- * ChatGPT numbers its lists in markdown bold ("**4. Omega Services**"),
+ * ChatGPT numbers its lists in markdown bold ("**4. Yabby Services**"),
  * which none of the patterns above matched at all (no bold marker in
  * the character class) -- both ChatGPT ranks silently came back null,
  * understating the real median. stripLeadingMarkdownDecoration peels

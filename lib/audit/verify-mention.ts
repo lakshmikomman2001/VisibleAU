@@ -32,7 +32,7 @@ function escapeRegExp(s: string): string {
 /**
  * Audit reliability, Part B, item 1: a name match (lib/audit/detect-
  * mention.ts's detectBrandMention) only proves the brand's NAME showed
- * up -- audit #30 found a common name ("Omega Services") matching a
+ * up -- audit #30 found a common name ("Yabby Services") matching a
  * different, unrelated business. This is the one place that turns a
  * name match into a verified mention: either a cited source resolves
  * to the brand's own domain (isBrandDomain, which already handles
@@ -45,7 +45,7 @@ function escapeRegExp(s: string): string {
  *
  * Reliability follow-up, item 1 (honesty bug): `state` is deliberately
  * NEVER enough on its own to verify a LOCAL business -- in audit #30's
- * branded answers, Claude cited a Thornleigh NSW "Omega Services"
+ * branded answers, Claude cited a Thornleigh NSW "Yabby Services"
  * listing (a different business); checking state alone would have
  * verified it as this brand's real Norwest NSW listing, since both
  * sit in the same state. A state match is supporting evidence at

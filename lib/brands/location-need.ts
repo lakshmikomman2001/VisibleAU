@@ -4,7 +4,7 @@
  * - "confirm": the location was never confirmed (locationConfirmedAt is null -- every brand from before Part
  *   D.4). The "Confirm your business location" card; audits wait for it.
  * - "postcode": the location is confirmed and fixed, and the only thing missing is the postcode (migration
- *   0146, part 8 of 13 Nov): existing brands like Omega and Hero. One field and one Save: "Add your postcode so
+ *   0146, part 8 of 13 Nov): existing brands like Yabby and Wren. One field and one Save: "Add your postcode so
  *   Google checks from your suburb". Audits don't wait for it (Google falls back to the nearest place it lists).
  * - null: nothing to ask (online only, a postcode already given, or an old caller that passes no
  *   locationConfirmedAt at all -- treated as confirmed, as the page always has).

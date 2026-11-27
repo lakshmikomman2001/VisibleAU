@@ -5,7 +5,7 @@ import { auditFindingsData } from "./audit-findings";
 import { type Finding, reportFindings, withAction } from "./report-findings";
 
 /**
- * S01 part 3 (LLD 8.1.5, T5): finding rules g-j also create Action Center items, so a 0% audit (TechCore IT's #52)
+ * S01 part 3 (LLD 8.1.5, T5): finding rules g-j also create Action Center items, so a 0% audit (NumbaTek IT's #52)
  * has recommended actions instead of "0 from this audit". Each item says the finding's own recommendation (its
  * evidence included); the dimension is Frequency or Source citation (`accuracy`), never Context or Sentiment.
  * Built only while report_v2 is on for the workspace (auditFindingsData sets the evidence only then). Both audit

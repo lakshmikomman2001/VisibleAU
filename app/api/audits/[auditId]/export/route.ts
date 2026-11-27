@@ -187,7 +187,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ auditId:
         sourcedCount,
         perEngine,
       } = await resolveAuditDimensionsAndHeadline(tx, auditId);
-      // 15 Nov, part 2 (Sri, Hero's #48 and #50): the prior audit asked other everyday questions -- no "up 8
+      // 15 Nov, part 2 (Sri, Wren's #48 and #50): the prior audit asked other everyday questions -- no "up 8
       // points", the PDF says the questions changed instead (lib/audit/question-set.ts).
       const priorQuestionsChanged =
         priorAudit && !sameQuestionSet(audit, priorAudit)

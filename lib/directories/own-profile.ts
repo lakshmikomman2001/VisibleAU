@@ -1,7 +1,7 @@
 import { domainStem } from "@/lib/brands/normalize";
 
 /**
- * 13 Nov (Sri's walk-through, part 9): the AI cited localsearch.com.au/profile/hero-home-services/… -- Hero
+ * 13 Nov (Sri's walk-through, part 9): the AI cited localsearch.com.au/profile/wren-home-services/… -- Wren
  * Home Services' own Localsearch page -- while the audit said "Your profile: Not linked yet" and gave a
  * generic "Link your … profiles". When a cited page of a directory is very likely the brand's own profile,
  * the audit offers it ("This looks like your profile — link it?"). It is never linked automatically: the
@@ -9,9 +9,9 @@ import { domainStem } from "@/lib/brands/normalize";
  *
  * "Very likely": the page is the directory's own profile shape (its registry profileUrlPattern, the
  * tracking query dropped), and one of its path segments STARTS with the brand's name -- or its domain's
- * name part -- with any spacing ("hero-home-services", "herohomeservices", "hero_home_services"; part 7's
+ * name part -- with any spacing ("wren-home-services", "wrenhomeservices", "wren_home_services"; part 7's
  * variants), followed by nothing or only the brand's own place (its suburb, state or postcode) or a number.
- * So "omega-plumbing" is not Omega's, and "superhero-home-services" is not Hero Home Services'.
+ * So "yabby-plumbing" is not Yabby's, and "superwren-home-services" is not Wren Home Services'.
  */
 
 function compact(text: string): string {

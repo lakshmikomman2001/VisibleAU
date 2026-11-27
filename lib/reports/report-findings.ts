@@ -90,7 +90,7 @@ function nameList(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-/** "localsearch.com.au/profile/hero-home-services/yennora-nsw": host without www., path, no query. */
+/** "localsearch.com.au/profile/wren-home-services/yennora-nsw": host without www., path, no query. */
 function pageShown(url: string): string {
   try {
     const u = new URL(url);
@@ -129,7 +129,7 @@ function directoryFinding(data: FindingsData): Finding | null {
       ? "AI cites these directories, and we can't yet see your listings on them"
       : "Your directory listings aren't the ones AI links",
     // 14 Nov, part 2: what's linked, from every cited directory -- not "your profile links aren't added yet" when one
-    // is (Hero's Localsearch). S01C part 2a (LLD amendment 59): the scope is said, so it never seems to contradict the
+    // is (Wren's Localsearch). S01C part 2a (LLD amendment 59): the scope is said, so it never seems to contradict the
     // summary's total (the real report: "nine directories 58 times ... 8 directories aren't linked yet" here, 13
     // directories, 73 times and 12 not linked on page 2: both right, these are the usual ones for the business type).
     explanation: `AI engines answer local questions by citing directories. They cited ${cited.length} of the usual directories for your type of business ${total} ${plural(total, "time")}. ${linkedStateSentence(cited, { ofThem: true })}`,

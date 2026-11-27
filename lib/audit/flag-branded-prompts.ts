@@ -9,7 +9,7 @@ import { brandNamePattern, domainStem } from "@/lib/brands/normalize";
  *   checked the unexpanded TEMPLATE for a surviving `{brand}`
  *   placeholder. An already-expanded, intentSignal-derived prompt (no
  *   `{brand}` in its source template at all) that happens not to
- *   mention the brand was never checked here -- Omega's 2 intentSignal
+ *   mention the brand was never checked here -- Yabby's 2 intentSignal
  *   prompts were wrongly flagged branded via the OTHER rule below, not
  *   caught as organic by this one either, since this rule never saw
  *   them.
@@ -38,10 +38,10 @@ export function isBrandedPrompt(
 
   const stem = domainStem(brand.domain);
   if (stem.length < 4) return false;
-  // Strip the same way the stem itself was derived, so "omega-services.
+  // Strip the same way the stem itself was derived, so "yabby-services.
   // com.au" literally appearing in the prompt text (expandPrompt's
   // {domain} substitution keeps the raw domain, punctuation and all)
-  // still registers as containing the stem "omegaservices".
+  // still registers as containing the stem "yabbyservices".
   const strippedPromptText = promptText.toLowerCase().replace(/[^a-z0-9]/g, "");
   return strippedPromptText.includes(stem);
 }

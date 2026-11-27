@@ -5,7 +5,7 @@ import { brands, driftAlerts } from "@/db/schema";
 /**
  * Leftovers task, part 6 (17 Nov; Sri's production check of 16 Nov): drift alerts are counted for live brands only. The
  * agency dashboard's "Pending drift alerts" counted every unacknowledged alert in the workspace, so a deleted brand's
- * alerts stayed in it (production: 3 for the deleted Bondi Plumbing). The drift alerts page already skipped them.
+ * alerts stayed in it (production: 3 for the deleted Galah Plumbing). The drift alerts page already skipped them.
  */
 export const OF_LIVE_BRAND = isNull(brands.deletedAt);
 

@@ -27,7 +27,7 @@ export default async function BrandLayout({
     throw e;
   }
 
-  // 14 Nov, part 6: every page under the brand names it in the breadcrumb ("Hero Home Services", not
+  // 14 Nov, part 6: every page under the brand names it in the breadcrumb ("Wren Home Services", not
   // "Brand"). A brand that isn't there is left to the page, which says so.
   const [brand] = await withRlsContext(currentUser.organizationId, (tx) =>
     tx

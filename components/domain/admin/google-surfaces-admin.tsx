@@ -195,7 +195,7 @@ function SydneyTime({ iso, timeOnly = false }: { iso: string; timeOnly?: boolean
 /**
  * 12 Nov, part 2: the provider's own code and message, for the operator only (customers see a plain
  * sentence; lib/audit/google-surfaces/reasons.ts). 13 Nov, part 13: one line per audit and answer -- "Audit
- * #44 · Omega Services · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with each
+ * #44 · Yabby Services · AI Mode ×13, AI Overviews ×13 · 40100 login rejected · <message>" -- with each
  * question behind it, and how many are shown (it listed 10 identical rows, silently capped).
  */
 /** One audit's identical failures: a line, with each question behind it. */

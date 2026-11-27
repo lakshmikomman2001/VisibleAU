@@ -26,8 +26,8 @@ export function formatCompetitors(competitors: string[]): string {
 
 export function expandPrompt(template: string, ctx: ExpandContext): string[] {
   const formattedCompetitors = formatCompetitors(ctx.competitors);
-  // S00 part 3: the brand's name trimmed before it goes into a question (a stored " Omega Services" made
-  // "Is  Omega Services…"), and the names in a question are data to the wording checks, not words.
+  // S00 part 3: the brand's name trimmed before it goes into a question (a stored " Yabby Services" made
+  // "Is  Yabby Services…"), and the names in a question are data to the wording checks, not words.
   const brandName = normalizeBrandName(ctx.brand.name);
   const names = [brandName, ...ctx.competitors];
 

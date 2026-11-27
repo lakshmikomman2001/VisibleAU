@@ -1,6 +1,6 @@
 /**
- * S00 part 3 (22 Nov; LLD 8.8.1, T3): how a service is written inside a question. TechCore IT's audit #52 asked
- * "Best managed it services in …?" and "Is TechCore IT a good choice for a managed it services in …?": the
+ * S00 part 3 (22 Nov; LLD 8.8.1, T3): how a service is written inside a question. NumbaTek IT's audit #52 asked
+ * "Best managed it services in …?" and "Is NumbaTek IT a good choice for a managed it services in …?": the
  * classifier's words are stored lower-case (lib/brands/service-phrase.ts sanitizeServicePhrase), so the acronym lost
  * its capitals, and "a" was put before a plural.
  *

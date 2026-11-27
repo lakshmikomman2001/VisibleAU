@@ -10,7 +10,7 @@ import { NO_AUDIT_YET, visibilityDisplay } from "@/lib/scoring/visibility-displa
  * - linked a source: of those mentions, how many linked at least one source -- any site, not only the brand's
  *   ("13 of 13"), the audit page's "13 of 13 mentions linked a source".
  *
- * Sri saw, for Hero Home Services (audit #50: 33%, 13 of 40, 13 of 13): "Mention 81.8%, Citation 0.0%, Ratio 0.00 --
+ * Sri saw, for Wren Home Services (audit #50: 33%, 13 of 40, 13 of 13): "Mention 81.8%, Citation 0.0%, Ratio 0.00 --
  * Known but Untrusted". The card read the newest visibility_trends row (by calculated_at, so an older week
  * recomputed after an operator's trend exclusion became "the latest"), whose mention rate is the share of distinct
  * QUESTIONS any engine named the brand in, over every comparable audit of the week (#48's 11 questions with #50's

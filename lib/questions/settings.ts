@@ -199,17 +199,19 @@ export async function copyQuestions(
     city: brands.city,
     state: brands.state,
   };
-  const live = (id: string) =>
-    and(
-      eq(brands.id, id),
-      eq(brands.organizationId, input.organizationId),
-      isNull(brands.deletedAt),
-    );
-  const [source] = await db.select(pick).from(brands).where(live(input.sourceBrandId));
+  // Each read names its brand (tests/unit/governance/no-arbitrary-first-brand.test.ts); both are the workspace's own.
+  const sameWorkspace = and(
+    eq(brands.organizationId, input.organizationId),
+    isNull(brands.deletedAt),
+  );
+  const [source] = await db
+    .select(pick)
+    .from(brands)
+    .where(and(eq(brands.id, input.sourceBrandId), sameWorkspace));
   const [target] = await db
     .select(pick)
     .from(brands)
-    .where(live(input.targetBrandId))
+    .where(and(eq(brands.id, input.targetBrandId), sameWorkspace))
     .for("update");
   if (!source || !target) return null;
 

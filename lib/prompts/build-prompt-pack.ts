@@ -248,6 +248,26 @@ export function buildTaggedOrganicPrompts(
   return tagged;
 }
 
+/**
+ * The business's service as its questions name it, article included where one fits: "a plumber", "an IT consultant",
+ * "managed IT services" -- the confirmed first type (the classifier's guess only while unconfirmed). S04 part 3: the
+ * reach questions (lib/reach/generate.ts) use the same words; extracted from buildPromptPack unchanged.
+ */
+export function servicePhraseFor(
+  classification: Pick<BrandClassification, "category" | "service">,
+  categories: readonly string[],
+  region: string,
+): string {
+  const firstCategory = categories[0] ?? classification.category;
+  // 16 Nov, part 1: a type whose questions name the business's own service says it here too ("a good choice for a
+  // dog groomer in Parramatta?"), not the type's generic phrase.
+  const ownService = classification.service
+    ? serviceWordFor(firstCategory, classification, region)
+    : null;
+  // S00 part 3 (T3): no "a"/"an" before a plural or uncountable service ("a good choice for managed IT services"),
+  // and "an" by sound ("an IT consultant").
+  return ownService ? withArticle(ownService) : categoryServicePhrase(firstCategory);
+}
 export function buildPromptPack(
   classification: BrandClassification,
   brandName: string,
@@ -273,15 +293,7 @@ export function buildPromptPack(
   // templates use -- never built ad hoc here. Same "confirmed category
   // wins, classifier's guess only while unconfirmed" rule as the
   // organic budget below.
-  const firstCategory = confirmed.categories[0] ?? classification.category;
-  // 16 Nov, part 1: a type whose questions name the business's own service says it here too ("a good choice for a
-  // dog groomer in Parramatta?"), not the type's generic phrase.
-  const ownService = classification.service
-    ? serviceWordFor(firstCategory, classification, region)
-    : null;
-  // S00 part 3 (T3): no "a"/"an" before a plural or uncountable service ("a good choice for managed IT services"),
-  // and "an" by sound ("an IT consultant").
-  const servicePhrase = ownService ? withArticle(ownService) : categoryServicePhrase(firstCategory);
+  const servicePhrase = servicePhraseFor(classification, confirmed.categories, region);
 
   const taggedOrganic = buildTaggedOrganicPrompts(
     classification,

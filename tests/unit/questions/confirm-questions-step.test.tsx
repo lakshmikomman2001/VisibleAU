@@ -194,7 +194,8 @@ describe("the card with the Questions step", () => {
     fireEvent.change(within(drawer).getByLabelText("Question a customer would ask AI"), {
       target: { value: TYPED },
     });
-    const add = within(drawer).getByRole("button", { name: "Add to draft" });
+    // S04 part 0b (LLD amendment 93): "on the confirm screen the drawer's button reads 'Add question'".
+    const add = within(drawer).getByRole("button", { name: "Add question" });
     await waitFor(() => expect(add).toBeEnabled());
     fireEvent.click(add);
     const row = within(step).getByText(TYPED).closest("li") as HTMLElement;

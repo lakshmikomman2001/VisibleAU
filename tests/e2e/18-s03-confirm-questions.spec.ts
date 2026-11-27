@@ -116,7 +116,8 @@ test.describe("S03 part 7: the Questions step on a new brand's confirm screen", 
     await step.getByTestId("p10-add").click();
     const drawer = page.getByRole("dialog", { name: "Add a question" });
     await drawer.getByLabel("Question a customer would ask AI").fill(TYPED);
-    const add = drawer.getByRole("button", { name: "Add to draft" });
+    // S04 part 0b (LLD amendment 93): "on the confirm screen the drawer's button reads 'Add question'".
+    const add = drawer.getByRole("button", { name: "Add question" });
     await expect(add).toBeEnabled({ timeout: 15_000 });
     await add.click();
     const typedRow = step.getByTestId("p02-row").filter({ hasText: TYPED });

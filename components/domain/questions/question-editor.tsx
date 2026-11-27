@@ -218,6 +218,7 @@ export function AddQuestionDrawer({
   maxBranded,
   initialText = "",
   replaces,
+  addLabel = "Add to draft",
   onAdd,
   onClose,
 }: {
@@ -227,6 +228,8 @@ export function AddQuestionDrawer({
   maxBranded: number;
   initialText?: string;
   replaces?: DraftItem;
+  /** S04 part 0b (amendment 93; contract P03.footer): the confirm screen's drawer reads "Add question". */
+  addLabel?: string;
   onAdd: (item: { text: string; kind: "everyday" | "branded" }) => void;
   onClose: () => void;
 }) {
@@ -525,7 +528,7 @@ export function AddQuestionDrawer({
               cursor: blocked ? "not-allowed" : "pointer",
             }}
           >
-            Add to draft
+            {addLabel}
           </button>
         </div>
       </div>

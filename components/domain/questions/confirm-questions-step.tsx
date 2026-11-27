@@ -202,6 +202,9 @@ export function ConfirmQuestionsStep({
     if (item.source !== "agency") setSpares((list) => [...list, item]);
   };
   const canRemove = everyday > limits.everydayMin;
+  // S04 part 0b (LLD amendment 85; contract P10.step3): with nothing to swap in, no Swap buttons (RowActions) and one
+  // line under the everyday list, on a plan that swaps. A removed question the step offered becomes a spare again.
+  const noSpares = limits.canSwap && spares.length === 0;
   const draft: Draft = {
     baseVersion: 0,
     items: items.map((i) => ({
@@ -300,6 +303,19 @@ export function ConfirmQuestionsStep({
                   />
                 ))}
               </ul>
+              {kind === "everyday" && noSpares ? (
+                <p
+                  data-testid="p10-no-spares"
+                  style={{
+                    margin: 0,
+                    padding: "10px 16px",
+                    fontSize: 12.5,
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  No other questions to swap in for this business type yet.
+                </p>
+              ) : null}
             </div>
           );
         })}
@@ -360,6 +376,7 @@ export function ConfirmQuestionsStep({
           agencyName={preview.agencyName}
           draft={draft}
           maxBranded={limits.maxBranded}
+          addLabel="Add question"
           onAdd={({ text, kind }) => {
             typed.current += 1;
             setItems((list) => {

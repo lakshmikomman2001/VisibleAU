@@ -224,16 +224,20 @@ function RowMenu({ question, auditId }: { question: QuestionView; auditId: strin
   );
 }
 
-function QuestionRow({
+/** P02's row. S03 part 7: the confirm screen's Questions step uses it too, with its own action (Swap, Remove). */
+export function QuestionRow({
   question,
   engines,
   auditId,
   agencyName,
+  action,
 }: {
   question: QuestionView;
   engines: readonly string[];
   auditId: string | null;
   agencyName: string;
+  /** In place of the view mode's menu; `null` shows none. */
+  action?: React.ReactNode;
 }) {
   const branded = question.kind === "branded";
   return (
@@ -279,7 +283,7 @@ function QuestionRow({
           )}
         </div>
       </div>
-      <RowMenu question={question} auditId={auditId} />
+      {action === undefined ? <RowMenu question={question} auditId={auditId} /> : action}
     </li>
   );
 }

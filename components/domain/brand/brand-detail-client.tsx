@@ -229,6 +229,8 @@ interface BrandDetailClientProps {
   abnSuggestionEnabled?: boolean;
   /** S02 part 4 (flag question_library; contract P02): the Questions tab's tile. Off: no tile, the page as before. */
   questionLibraryEnabled?: boolean;
+  /** S03 part 7: the Questions step on a new brand's confirm card. */
+  agencyQuestionsEnabled?: boolean;
 }
 
 /** One KPI tile; detail and color only where a tile has them (Visibility). */
@@ -263,6 +265,7 @@ export function BrandDetailClient({
   engineStats,
   abnSuggestionEnabled = false,
   questionLibraryEnabled = false,
+  agencyQuestionsEnabled = false,
 }: BrandDetailClientProps) {
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -675,6 +678,9 @@ export function BrandDetailClient({
             // 16 Nov, part 5 follow-up: only when nothing else is pending -- with the location still to confirm
             // (its own card comes next), the audit would be refused and the owner shown an error.
             startFirstAudit={auditCount === 0 && !locationNeedsConfirmation}
+            // S03 part 7 (LLD 8.3.6): a new brand's first audit asks the questions this step shows; a brand with audits
+            // confirms as before.
+            questionsStep={agencyQuestionsEnabled && auditCount === 0 && !locationNeedsConfirmation}
             hasAudits={auditCount > 0}
             mode={classificationFailed ? "could_not_classify" : "low_confidence"}
             vertical={brand.vertical}

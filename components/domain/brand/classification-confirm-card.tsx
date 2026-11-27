@@ -1,13 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { categoryChoices } from "@/lib/brands/category-choices";
 import { markJustConfirmed } from "@/lib/brands/just-confirmed";
 import { actionFailureMessage } from "@/lib/load/fetch-json";
 import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/prompts/templates";
+import type { ConfirmPreview, ShownQuestion } from "@/lib/questions/confirm-questions";
 import type { Audience } from "@/lib/types/brand";
+
+// S03 part 7: the Questions step (the P02 rows, P03's drawer) loads when it opens, so a brand page without it loads
+// what it did before.
+const ConfirmQuestionsStep = lazy(() =>
+  import("@/components/domain/questions/confirm-questions-step").then((m) => ({
+    default: m.ConfirmQuestionsStep,
+  })),
+);
 
 /** The brand's location as the panel shows it, with what "Change" needs (13 Nov, part 1). */
 export interface ConfirmCardLocation {
@@ -48,6 +57,11 @@ interface ClassificationConfirmCardProps {
    * has no confirmed type, and the card says why in its terms ("so its questions stay accurate"), not a new brand's.
    */
   hasAudits?: boolean;
+  /**
+   * S03 part 7 (LLD 8.3.6, client request C4): with agency_questions on, a new brand's card has a Questions step after
+   * the details -- the questions its first audit will ask, to swap or add to -- and Confirm saves exactly those.
+   */
+  questionsStep?: boolean;
 }
 
 const AUDIENCE_OPTIONS: Array<{ value: Audience; label: string; hint: string }> = [
@@ -67,6 +81,7 @@ export function ClassificationConfirmCard({
   location,
   startFirstAudit = false,
   hasAudits = false,
+  questionsStep = false,
 }: ClassificationConfirmCardProps) {
   const router = useRouter();
   const [selectedCategories, setSelectedCategories] = useState<Set<CategoryKey>>(
@@ -92,6 +107,8 @@ export function ClassificationConfirmCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [step, setStep] = useState<"details" | "questions">("details");
+  const [preview, setPreview] = useState<ConfirmPreview | null>(null);
 
   // Build 1 addendum, item 10 (optional): a real re-run of the current
   // classifier (homepage crawl included, lib/brands/classify-brand.ts)
@@ -135,13 +152,55 @@ export function ClassificationConfirmCard({
     });
   }
 
-  async function handleConfirm() {
-    if (selectedCategories.size === 0) {
-      setError("Select at least one category.");
+  function detailsProblem(): string | null {
+    if (selectedCategories.size === 0) return "Select at least one category.";
+    if (audience == null) return "Select who pays this business.";
+    return null;
+  }
+  const facts = () => ({
+    categories: [...selectedCategories],
+    audience,
+    confirmedCompetitors: [...confirmedCompetitors],
+  });
+
+  // S03 part 7: the details, then the questions they make (nothing is saved until Confirm).
+  async function handleNext() {
+    const problem = detailsProblem();
+    if (problem) {
+      setError(problem);
       return;
     }
-    if (audience == null) {
-      setError("Select who pays this business.");
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/questions/confirm-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(facts()),
+      });
+      if (res.status === 404) {
+        // The step was switched off meanwhile: confirm as before.
+        setSaving(false);
+        await handleConfirm();
+        return;
+      }
+      if (!res.ok) {
+        setError("We couldn't load the questions. Try again.");
+        return;
+      }
+      setPreview((await res.json()) as ConfirmPreview);
+      setStep("questions");
+    } catch {
+      setError("We couldn't load the questions. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleConfirm(questions?: ShownQuestion[]) {
+    const problem = detailsProblem();
+    if (problem) {
+      setError(problem);
       return;
     }
     setSaving(true);
@@ -150,14 +209,16 @@ export function ClassificationConfirmCard({
       const res = await fetch(`/api/brands/${brandId}/confirm-classification`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          categories: [...selectedCategories],
-          audience,
-          confirmedCompetitors: [...confirmedCompetitors],
-        }),
+        body: JSON.stringify({ ...facts(), ...(questions ? { questions } : {}) }),
       });
       if (!res.ok) {
-        setError("Couldn't save — try again.");
+        if (questions) {
+          // P10's error state, or the server's own sentence (a check, a plan limit).
+          const body = (await res.json().catch(() => ({}))) as { message?: string };
+          setError(body.message ?? "We couldn't save your details. Try again.");
+        } else {
+          setError("Couldn't save — try again.");
+        }
         return;
       }
       markJustConfirmed(brandId);
@@ -201,68 +262,198 @@ export function ClassificationConfirmCard({
       >
         Confirm your business details
       </h2>
-      {hasAudits && (
-        <p
-          style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
-          data-existing-brand-intro=""
+      {questionsStep && (
+        <ol
+          aria-label="Steps"
+          data-testid="p10-steps"
+          className="flex flex-wrap"
+          style={{ listStyle: "none", margin: "0 0 8px", padding: 0, gap: 12, fontSize: 12 }}
         >
-          Confirm what this business does so its questions stay accurate. Its past audits stay as
-          they are.
-        </p>
+          {(
+            [
+              ["details", "1 · Business details"],
+              ["questions", "2 · Questions"],
+            ] as const
+          ).map(([key, label]) => (
+            <li
+              key={key}
+              aria-current={step === key ? "step" : undefined}
+              style={{
+                fontWeight: step === key ? 600 : 400,
+                color: step === key ? "var(--text-primary)" : "var(--text-tertiary)",
+              }}
+            >
+              {label}
+            </li>
+          ))}
+        </ol>
       )}
-      {startFirstAudit && (
-        <p
-          style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
-          data-first-audit-intro=""
+      {step === "questions" && preview ? (
+        <Suspense
+          fallback={
+            <p role="status" style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+              Loading the questions…
+            </p>
+          }
         >
-          Your brand&apos;s added. Confirm what it does, and its first audit starts.
-        </p>
-      )}
-      <p
-        style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}
-        data-confirm-mode={mode}
-      >
-        {mode === "could_not_classify" ? (
-          <>We couldn&apos;t work this out automatically — choose below.</>
-        ) : (
-          <>
-            We weren&apos;t fully confident in our automatic read of your business
-            {confidence !== null && confidence < 0.7
-              ? ` (${Math.round(confidence * 100)}% confidence)`
-              : ""}
-            . Confirming helps us ask the right AI visibility questions.
-          </>
-        )}
-      </p>
-
-      {location && (
-        <div style={{ marginBottom: 16 }} data-confirm-location="">
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              color: "var(--text-tertiary)",
-              marginBottom: 8,
+          <ConfirmQuestionsStep
+            brandId={brandId}
+            preview={preview}
+            saving={saving}
+            error={error}
+            onBack={() => {
+              setError(null);
+              setStep("details");
             }}
+            onConfirm={(shown) => handleConfirm(shown)}
+          />
+        </Suspense>
+      ) : (
+        <>
+          {hasAudits && (
+            <p
+              style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
+              data-existing-brand-intro=""
+            >
+              Confirm what this business does so its questions stay accurate. Its past audits stay
+              as they are.
+            </p>
+          )}
+          {startFirstAudit && (
+            <p
+              style={{ fontSize: 13, color: "var(--text-primary)", margin: "0 0 4px" }}
+              data-first-audit-intro=""
+            >
+              Your brand&apos;s added. Confirm what it does, and its first audit starts.
+            </p>
+          )}
+          <p
+            style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 16px" }}
+            data-confirm-mode={mode}
           >
-            Where is your business?
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
-              {location.onlineOnly
-                ? "Online only (no fixed location)"
-                : (location.label ?? "No location yet")}
-            </span>
-            {/* 13 Nov, part 2: one action. While the picker is open, its own Save and Cancel are the
+            {mode === "could_not_classify" ? (
+              <>We couldn&apos;t work this out automatically — choose below.</>
+            ) : (
+              <>
+                We weren&apos;t fully confident in our automatic read of your business
+                {confidence !== null && confidence < 0.7
+                  ? ` (${Math.round(confidence * 100)}% confidence)`
+                  : ""}
+                . Confirming helps us ask the right AI visibility questions.
+              </>
+            )}
+          </p>
+
+          {location && (
+            <div style={{ marginBottom: 16 }} data-confirm-location="">
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--text-tertiary)",
+                  marginBottom: 8,
+                }}
+              >
+                Where is your business?
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                  {location.onlineOnly
+                    ? "Online only (no fixed location)"
+                    : (location.label ?? "No location yet")}
+                </span>
+                {/* 13 Nov, part 2: one action. While the picker is open, its own Save and Cancel are the
                 only controls; this link no longer turns into "Keep this location". */}
-            {!changingLocation && (
+                {!changingLocation && (
+                  <button
+                    type="button"
+                    onClick={() => setChangingLocation(true)}
+                    aria-expanded={false}
+                    style={{
+                      fontSize: 12,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--accent-primary)",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Change
+                  </button>
+                )}
+              </div>
+              {changingLocation && (
+                <div style={{ marginTop: 12 }}>
+                  <LocationConfirmCard
+                    brandId={brandId}
+                    currentPrimaryRegion={location.primaryRegion}
+                    isLegacyDefaultRegion={location.isLegacyDefaultRegion}
+                    currentPostcode={location.postcode ?? null}
+                    onClose={() => setChangingLocation(false)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                color: "var(--text-tertiary)",
+                marginBottom: 8,
+              }}
+            >
+              What does your business do? (select all that apply)
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                maxHeight: 180,
+                overflowY: "auto",
+              }}
+              data-category-choices=""
+            >
+              {[...choices.first, ...(showOtherTypes ? choices.others : [])].map((key) => {
+                const selected = selectedCategories.has(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleCategory(key)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 9999,
+                      fontSize: 12,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      border: selected
+                        ? "1px solid var(--accent-primary)"
+                        : "1px solid var(--border-default)",
+                      background: selected ? "var(--accent-primary)" : "var(--bg-base)",
+                      color: selected ? "var(--accent-primary-fg)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {CATEGORY_LABELS[key]}
+                  </button>
+                );
+              })}
+            </div>
+            {choices.others.length > 0 && (
               <button
                 type="button"
-                onClick={() => setChangingLocation(true)}
-                aria-expanded={false}
+                onClick={() => setShowOtherTypes((open) => !open)}
+                aria-expanded={showOtherTypes}
                 style={{
+                  marginTop: 8,
                   fontSize: 12,
                   background: "none",
                   border: "none",
@@ -272,221 +463,153 @@ export function ClassificationConfirmCard({
                   textDecoration: "underline",
                 }}
               >
-                Change
+                {showOtherTypes ? "Fewer types" : `Other types (${choices.others.length})`}
               </button>
             )}
           </div>
-          {changingLocation && (
-            <div style={{ marginTop: 12 }}>
-              <LocationConfirmCard
-                brandId={brandId}
-                currentPrimaryRegion={location.primaryRegion}
-                isLegacyDefaultRegion={location.isLegacyDefaultRegion}
-                currentPostcode={location.postcode ?? null}
-                onClose={() => setChangingLocation(false)}
-              />
-            </div>
-          )}
-        </div>
-      )}
 
-      <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            color: "var(--text-tertiary)",
-            marginBottom: 8,
-          }}
-        >
-          What does your business do? (select all that apply)
-        </div>
-        <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 180, overflowY: "auto" }}
-          data-category-choices=""
-        >
-          {[...choices.first, ...(showOtherTypes ? choices.others : [])].map((key) => {
-            const selected = selectedCategories.has(key);
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => toggleCategory(key)}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 9999,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  border: selected
-                    ? "1px solid var(--accent-primary)"
-                    : "1px solid var(--border-default)",
-                  background: selected ? "var(--accent-primary)" : "var(--bg-base)",
-                  color: selected ? "var(--accent-primary-fg)" : "var(--text-secondary)",
-                }}
-              >
-                {CATEGORY_LABELS[key]}
-              </button>
-            );
-          })}
-        </div>
-        {choices.others.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowOtherTypes((open) => !open)}
-            aria-expanded={showOtherTypes}
-            style={{
-              marginTop: 8,
-              fontSize: 12,
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              color: "var(--accent-primary)",
-              textDecoration: "underline",
-            }}
-          >
-            {showOtherTypes ? "Fewer types" : `Other types (${choices.others.length})`}
-          </button>
-        )}
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            color: "var(--text-tertiary)",
-            marginBottom: 8,
-          }}
-        >
-          Who pays this business?
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {AUDIENCE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setAudience(opt.value)}
-              title={opt.hint}
+          <div style={{ marginBottom: 16 }}>
+            <div
               style={{
-                padding: "6px 12px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: "pointer",
-                border:
-                  audience === opt.value
-                    ? "1px solid var(--accent-primary)"
-                    : "1px solid var(--border-default)",
-                background: audience === opt.value ? "var(--accent-primary)" : "var(--bg-base)",
-                color:
-                  audience === opt.value ? "var(--accent-primary-fg)" : "var(--text-secondary)",
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                color: "var(--text-tertiary)",
+                marginBottom: 8,
               }}
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {suggestedCompetitors.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              color: "var(--text-tertiary)",
-              marginBottom: 8,
-            }}
-          >
-            Are these real competitors? (confirm or leave unchecked)
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {suggestedCompetitors.map((name) => {
-              const confirmed = confirmedCompetitors.has(name);
-              return (
+              Who pays this business?
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {AUDIENCE_OPTIONS.map((opt) => (
                 <button
-                  key={name}
+                  key={opt.value}
                   type="button"
-                  onClick={() => toggleCompetitor(name)}
+                  onClick={() => setAudience(opt.value)}
+                  title={opt.hint}
                   style={{
-                    padding: "4px 10px",
-                    borderRadius: 9999,
+                    padding: "6px 12px",
+                    borderRadius: 6,
                     fontSize: 12,
                     fontWeight: 500,
                     cursor: "pointer",
-                    border: confirmed
-                      ? "1px solid var(--success)"
-                      : "1px solid var(--border-default)",
-                    background: confirmed ? "var(--success-soft)" : "var(--bg-base)",
-                    color: confirmed ? "var(--success)" : "var(--text-secondary)",
+                    border:
+                      audience === opt.value
+                        ? "1px solid var(--accent-primary)"
+                        : "1px solid var(--border-default)",
+                    background: audience === opt.value ? "var(--accent-primary)" : "var(--bg-base)",
+                    color:
+                      audience === opt.value ? "var(--accent-primary-fg)" : "var(--text-secondary)",
                   }}
                 >
-                  {confirmed ? "✓ " : ""}
-                  {name}
+                  {opt.label}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+
+          {suggestedCompetitors.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--text-tertiary)",
+                  marginBottom: 8,
+                }}
+              >
+                Are these real competitors? (confirm or leave unchecked)
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {suggestedCompetitors.map((name) => {
+                  const confirmed = confirmedCompetitors.has(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggleCompetitor(name)}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 9999,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        border: confirmed
+                          ? "1px solid var(--success)"
+                          : "1px solid var(--border-default)",
+                        background: confirmed ? "var(--success-soft)" : "var(--bg-base)",
+                        color: confirmed ? "var(--success)" : "var(--text-secondary)",
+                      }}
+                    >
+                      {confirmed ? "✓ " : ""}
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</p>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => (questionsStep ? handleNext() : handleConfirm())}
+              disabled={saving}
+              style={{
+                height: 32,
+                padding: "0 16px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 500,
+                background: "var(--accent-primary)",
+                color: "var(--accent-primary-fg)",
+                border: "none",
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.5 : 1,
+              }}
+            >
+              {saving
+                ? questionsStep
+                  ? "Loading the questions…"
+                  : startFirstAudit
+                    ? "Starting your first audit…"
+                    : "Saving..."
+                : questionsStep
+                  ? "Next: questions"
+                  : startFirstAudit
+                    ? "Confirm and start the first audit"
+                    : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={handleReanalyze}
+              disabled={reanalyzing}
+              title="Has another automatic look at your business, including your homepage"
+              style={{
+                height: 32,
+                padding: "0 16px",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 500,
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-default)",
+                cursor: reanalyzing ? "not-allowed" : "pointer",
+                opacity: reanalyzing ? 0.5 : 1,
+              }}
+            >
+              {reanalyzing ? "Re-analysing..." : "Re-analyse my business"}
+            </button>
+          </div>
+        </>
       )}
-
-      {error && <p style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
-
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={saving}
-          style={{
-            height: 32,
-            padding: "0 16px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--accent-primary)",
-            color: "var(--accent-primary-fg)",
-            border: "none",
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.5 : 1,
-          }}
-        >
-          {saving
-            ? startFirstAudit
-              ? "Starting your first audit…"
-              : "Saving..."
-            : startFirstAudit
-              ? "Confirm and start the first audit"
-              : "Confirm"}
-        </button>
-        <button
-          type="button"
-          onClick={handleReanalyze}
-          disabled={reanalyzing}
-          title="Has another automatic look at your business, including your homepage"
-          style={{
-            height: 32,
-            padding: "0 16px",
-            borderRadius: 6,
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--bg-elevated)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border-default)",
-            cursor: reanalyzing ? "not-allowed" : "pointer",
-            opacity: reanalyzing ? 0.5 : 1,
-          }}
-        >
-          {reanalyzing ? "Re-analysing..." : "Re-analyse my business"}
-        </button>
-      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   tierRefusal,
 } from "@/lib/governance";
 import { applyQuestionSet } from "@/lib/questions/apply";
+import { reachesForSet } from "@/lib/reach/settings";
 import { isUuid } from "@/lib/validation/uuid";
 
 /**
@@ -69,10 +70,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ brandId
     );
   }
 
+  const visibilityReach = await isEnabled("visibility_reach", currentUser.organizationId);
   return withRlsContext(currentUser.organizationId, async (tx) => {
     const brand = await getBrandForOrg(brandId, currentUser.organizationId, tx);
     if (!brand) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const result = await applyQuestionSet(tx, {
+      // S04 part 6: Local, and with visibility_reach on, the brand's enabled reaches.
+      reaches: await reachesForSet(tx, brandId, visibilityReach),
       organizationId: currentUser.organizationId,
       brandId,
       userId: currentUser.id,

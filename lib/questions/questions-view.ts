@@ -64,6 +64,8 @@ export interface QuestionsView {
     source?: QuestionView["source"];
     /** S04 part 0a: a regenerated suggestion may name the business (its new name); absent means everyday. */
     kind?: QuestionView["kind"];
+    /** S04 part 6: a suggestion in a reach beyond Local (written when the reach was added); absent means Local. */
+    reach?: QuestionView["reach"];
   }>;
 }
 
@@ -185,6 +187,7 @@ export async function loadQuestionsView(
         source: brandQuestions.source,
         status: brandQuestions.status,
         serviceLabel: brandQuestions.serviceLabel,
+        reach: brandQuestions.reach,
         reasons: brandQuestions.reasons,
         createdAt: brandQuestions.createdAt,
       })
@@ -256,6 +259,7 @@ export async function loadQuestionsView(
         serviceLabel: q.serviceLabel,
         source: q.source,
         kind: q.kind,
+        ...(q.reach !== "local" ? { reach: q.reach } : {}),
       })),
     regeneratedSuggestions,
   };

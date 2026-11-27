@@ -22,6 +22,8 @@ const REACH_CODE = [
   ...files("lib/reach"),
   ...files("lib/markets").filter((f) => f !== "lib/markets/au.ts"),
   "lib/llm/reach-location-params.ts",
+  // S04 part 6: the reach card names places only from the API (contract P01.reach: they come from lib/markets).
+  "components/domain/brand/reach-card.tsx",
 ];
 
 const AU_WORDS =

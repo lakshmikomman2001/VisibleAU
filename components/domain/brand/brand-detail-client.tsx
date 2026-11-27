@@ -10,9 +10,9 @@ import {
   ExternalLink,
   Eye,
   FileText,
-  ListChecks,
   GitBranch,
   Hash,
+  ListChecks,
   type LucideIcon,
   MapPin,
   MessageCircle,
@@ -33,6 +33,7 @@ import { ClassificationConfirmCard } from "@/components/domain/brand/classificat
 import { CompetitorWebsitesForm } from "@/components/domain/brand/competitor-websites-form";
 import { LocationConfirmCard } from "@/components/domain/brand/location-confirm-card";
 import { PostcodeCard } from "@/components/domain/brand/postcode-card";
+import { ReachCard } from "@/components/domain/brand/reach-card";
 import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -41,7 +42,6 @@ import { QuestionsKeptStatus, SaveFeedback, useSave } from "@/components/shared/
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { formatAbn, normaliseAbnInput } from "@/lib/brands/abn";
 import { aliasProblem, MAX_ALIASES } from "@/lib/brands/aliases";
-import { AbnSuggestionBanner } from "./abn-suggestion-banner";
 import { brandAvatarBackground } from "@/lib/brands/avatar-color";
 import { BRANDS_CHANGED_EVENT } from "@/lib/brands/brands-changed";
 import { brandBusinessLabel } from "@/lib/brands/business-label";
@@ -79,6 +79,7 @@ import {
   visibilityDisplay,
 } from "@/lib/scoring/visibility-display";
 import { formatLocation } from "@/lib/verticals/expand-prompt";
+import { AbnSuggestionBanner } from "./abn-suggestion-banner";
 
 // engineStats' `engine` field is a plain string (not a typed Engine
 // union), so call sites below index this by a bare `string` -- a
@@ -231,6 +232,8 @@ interface BrandDetailClientProps {
   questionLibraryEnabled?: boolean;
   /** S03 part 7: the Questions step on a new brand's confirm card. */
   agencyQuestionsEnabled?: boolean;
+  /** S04 part 6 (flag visibility_reach; contract P01.reach): "Where do you want to be visible?". Off: no card. */
+  visibilityReachEnabled?: boolean;
 }
 
 /** One KPI tile; detail and color only where a tile has them (Visibility). */
@@ -266,6 +269,7 @@ export function BrandDetailClient({
   abnSuggestionEnabled = false,
   questionLibraryEnabled = false,
   agencyQuestionsEnabled = false,
+  visibilityReachEnabled = false,
 }: BrandDetailClientProps) {
   const router = useRouter();
   const [editMode, setEditMode] = useState(false);
@@ -2237,6 +2241,25 @@ export function BrandDetailClient({
           )}
         </div>
       </div>
+
+      {/* S04 part 6 (contract P01.reach): card 2, with visibility_reach on. "Change" on its Local row opens the
+          location editor above (the confirm card at the top while the location still needs confirming). */}
+      {visibilityReachEnabled && (
+        <ReachCard
+          brandId={brand.id}
+          canEdit={canEditBrand}
+          onChangeLocation={() => {
+            if (locationNeedsConfirmation) {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              return;
+            }
+            setChangingLocation(true);
+            document
+              .getElementById("brand-settings")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   brand_question_archived: "Archived a question",
   question_defaults_changed: "Changed question defaults for new brands",
   brand_questions_copied: "Copied questions from another brand",
+  brand_reaches_changed: "Changed where the brand is measured",
 };
 
 /**

@@ -48,7 +48,9 @@ export type AuditAction =
   /** S03 part 5 (LLD 8.3.4): the workspace's question defaults for new brands changed (metadata: the new values). */
   | "question_defaults_changed"
   /** S03 part 5 (LLD 8.3.4): questions copied from another brand into a brand's library as suggestions. */
-  | "brand_questions_copied";
+  | "brand_questions_copied"
+  /** S04 part 6 (LLD 8.4.7): a brand's reaches changed in brand settings (metadata: reaches with their targets). */
+  | "brand_reaches_changed";
 
 export type AuditResourceType =
   | "audit"

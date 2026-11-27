@@ -13,6 +13,7 @@ import {
 import { Banner } from "@/components/shared/banner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Pill } from "@/components/shared/pill";
+import type { QuestionReach } from "@/db/schema/questions";
 import { questionTextKey } from "@/lib/questions/text-key";
 import type { QuestionCheck } from "@/lib/questions/validate";
 import type { QuestionsResponse } from "./questions-tab";
@@ -34,7 +35,8 @@ export interface DraftItem {
   text: string;
   kind: "everyday" | "branded";
   source: "original" | "template" | "ai_suggested" | "agency";
-  reach: "local";
+  /** S04 part 6: the question's reach (Local until the brand adds others; a typed question is Local until P03's area). */
+  reach: QuestionReach;
   /** A typed question that rewords this library question (archived on apply). */
   replaces?: string;
 }
@@ -57,7 +59,7 @@ export function initialDraft(view: QuestionsResponse): Draft {
       text: q.text,
       kind: q.kind,
       source: q.source,
-      reach: "local",
+      reach: q.reach,
     })),
     archive: [],
   };
@@ -1093,7 +1095,7 @@ export function QuestionEditor({
                                   text: s.text,
                                   kind: item.kind,
                                   source: s.source ?? "template",
-                                  reach: "local",
+                                  reach: s.reach ?? item.reach,
                                 }
                               : i,
                           ),
@@ -1352,7 +1354,7 @@ export function QuestionEditor({
                       text: s.text,
                       kind: s.kind ?? "everyday",
                       source: s.source ?? "template",
-                      reach: "local",
+                      reach: s.reach ?? "local",
                     });
                     setLive("Question added to your draft");
                   }}

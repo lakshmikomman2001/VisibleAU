@@ -49,6 +49,11 @@ export interface ApplyInput {
   count?: number;
   /** S04 part 0d: stored as the set's note (the confirm screen's CONFIRMED_SET_NOTE); none for P04's apply. */
   note?: string;
+  /**
+   * S04 part 6 (LLD 8.4.1): the reaches the set may hold -- Local, and with visibility_reach on, the brand's enabled
+   * reaches (lib/reach/settings.ts reachesForSet). Absent: Local only, as before.
+   */
+  reaches?: readonly QuestionReach[];
 }
 
 /**
@@ -137,10 +142,17 @@ export async function applyQuestionSet(tx: DbClient, input: ApplyInput): Promise
   if (new Set(positions).size !== positions.length) {
     problems.push({ position: -1, message: "Two questions share a position." });
   }
+  const allowedReaches = new Set<QuestionReach>(input.reaches ?? ["local"]);
   for (const item of input.items) {
-    // Visibility reach arrives in S04: until then every question is Local.
-    if (item.reach !== "local")
-      problems.push({ position: item.position, message: "Only Local questions for now." });
+    // S04 part 6: a question in a reach the brand hasn't switched on (or any beyond Local with visibility_reach off).
+    if (!allowedReaches.has(item.reach))
+      problems.push({
+        position: item.position,
+        message:
+          allowedReaches.size === 1
+            ? "Only Local questions for now."
+            : "This question's area isn't switched on for the brand.",
+      });
     if ((item.questionId ? 1 : 0) + (typeof item.text === "string" ? 1 : 0) !== 1)
       problems.push({
         position: item.position,

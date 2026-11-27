@@ -83,11 +83,21 @@ describe("prod-fix 0156", () => {
       const text = sourceText(file);
       expect(selects(text).length, file).toBeLessThanOrEqual(25);
       const lines = text.split("\n");
-      lines.forEach((line, i) => {
-        if (!/^SELECT\b/.test(line)) return;
+      // S04 part 0j (LLD amendment 92): "run3 checks each privilege on its own and returns one row" -- the reviewed
+      // run3's grant check is one WITH ... SELECT statement, so the expectation sits above each statement's first line
+      // (a SELECT or a WITH), not above every line that starts with SELECT.
+      let from = 0;
+      for (const statement of statements(text)) {
+        if (!/^(SELECT|WITH)\b/i.test(statement)) continue;
+        const first = statement.split("\n")[0].trim();
+        const i = lines.findIndex(
+          (line, n) => n >= from && line.replace(/--.*$/, "").trim() === first,
+        );
+        expect(i, `${file}: "${first}"`).toBeGreaterThan(-1);
+        from = i + 1;
         const above = lines.slice(Math.max(0, i - 6), i).join("\n");
         expect(above, `${file}:${i + 1}`).toMatch(/Expected:/);
-      });
+      }
     }
   });
 

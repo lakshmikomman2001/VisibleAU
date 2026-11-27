@@ -1060,7 +1060,7 @@ export function QuestionEditor({
                                   questionId: s.id,
                                   text: s.text,
                                   kind: "everyday",
-                                  source: "template",
+                                  source: s.source ?? "template",
                                   reach: "local",
                                 }
                               : i,
@@ -1288,7 +1288,7 @@ export function QuestionEditor({
                       questionId: s.id,
                       text: s.text,
                       kind: "everyday",
-                      source: "template",
+                      source: s.source ?? "template",
                       reach: "local",
                     });
                     setLive("Question added to your draft");

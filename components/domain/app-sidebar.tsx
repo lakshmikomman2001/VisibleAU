@@ -13,6 +13,7 @@ import {
   LogOut,
   type LucideIcon,
   Mail,
+  MessageSquare,
   MoreHorizontal,
   Palette,
   Settings,
@@ -36,6 +37,8 @@ interface AppSidebarProps {
   orgName?: string;
   orgTier?: string;
   userName?: string;
+  /** S03 part 5: the Questions settings entry (agency_questions on, an owner or admin). */
+  questionsSettings?: boolean;
 }
 
 interface SidebarContentProps extends AppSidebarProps {
@@ -62,17 +65,27 @@ const WORKSPACE_ITEMS = [
 ];
 
 /** A paid feature's entry (`feature`) shows a lock and its plan on a plan without it.
- * The /settings page lists the same (components/domain/settings-index.tsx). */
+ * The /settings page lists the same (components/domain/settings-index.tsx).
+ * An entry with `flag` is listed only while that flag is on for an owner or admin (S03 part 5). */
 export const ACCOUNT_ITEMS: {
   href: string;
   label: string;
   icon: LucideIcon;
   feature?: PagedPlanFeature;
+  flag?: "agency_questions";
 }[] = [
   { href: "/settings/team", label: "Team", icon: Users },
   // Task 15: where the org switches each notification email on or off
   // (every notification email links here too).
   { href: "/settings/notifications", label: "Notifications", icon: Mail },
+  // S03 part 5 (LLD 8.3.4, contract P05): the workspace's question defaults and every brand's questions; behind
+  // agency_questions, for owners and admins (the layout says which).
+  {
+    href: "/settings/questions",
+    label: "Questions",
+    icon: MessageSquare,
+    flag: "agency_questions",
+  },
   // 2 Nov: the agency name, logo and footer on every report PDF.
   {
     href: PLAN_FEATURE_PAGE.white_label_reports,
@@ -85,6 +98,11 @@ export const ACCOUNT_ITEMS: {
   { href: PLAN_FEATURE_PAGE.webhooks, label: "Webhooks", icon: Settings, feature: "webhooks" },
   { href: "/settings/billing", label: "View plans", icon: Boxes },
 ];
+
+/** The Account entries shown: a flagged one only while it's on (S03 part 5: Questions). */
+export function accountItems(questionsSettings: boolean): typeof ACCOUNT_ITEMS {
+  return ACCOUNT_ITEMS.filter((item) => !item.flag || questionsSettings);
+}
 
 const AGENCY_TIERS = ["agency", "agency_pro", "enterprise"];
 
@@ -120,6 +138,7 @@ export function SidebarContent({
   orgName = PRODUCT_NAME,
   orgTier = "free",
   userName = "",
+  questionsSettings = false,
   onNavigate,
   headerAction,
   footerExtra,
@@ -314,6 +333,7 @@ export function SidebarContent({
           Account
         </div>
         {ACCOUNT_ITEMS.map((item) => {
+          if (item.flag && !questionsSettings) return null;
           const active = isActive(item.href);
           return (
             <Link

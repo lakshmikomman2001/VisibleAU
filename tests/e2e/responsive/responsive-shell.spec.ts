@@ -207,6 +207,12 @@ test.beforeAll(async () => {
     INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled)
     VALUES (${ORG_ID}, 'question_library', true)
   `;
+  // S03 part 5 (contract P05): /settings/questions and its Account entry are behind agency_questions; on here, so the
+  // page is checked at every width (the Questions tab then also shows Edit questions).
+  await sql`
+    INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled)
+    VALUES (${ORG_ID}, 'agency_questions', true)
+  `;
   await backfillQuestionSets(sql, ORG_ID);
   await sql`
     INSERT INTO audits (id, brand_id, organization_id, audit_number, triggered_by, status, engines, engine_count, prompts_count, runs_per_prompt, total_calls, started_at)

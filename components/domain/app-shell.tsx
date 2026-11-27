@@ -12,6 +12,8 @@ interface AppShellProps {
   userName: string;
   /** The workspace's brands against its plan: every "New brand" entry reads it. */
   brandUsage: BrandUsage;
+  /** S03 part 5: the Questions settings entry in the Account navigation. */
+  questionsSettings?: boolean;
   children: React.ReactNode;
 }
 
@@ -24,7 +26,14 @@ interface AppShellProps {
  * button. `data-app-shell` lets the cookie banner, outside this frame, start
  * where the sidebar ends (app/globals.css).
  */
-export function AppShell({ orgName, orgTier, userName, brandUsage, children }: AppShellProps) {
+export function AppShell({
+  orgName,
+  orgTier,
+  userName,
+  brandUsage,
+  questionsSettings = false,
+  children,
+}: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -44,7 +53,12 @@ export function AppShell({ orgName, orgTier, userName, brandUsage, children }: A
       className="flex h-dvh overflow-hidden"
       style={{ background: "var(--bg-base)" }}
     >
-      <AppSidebar orgName={orgName} orgTier={orgTier} userName={userName} />
+      <AppSidebar
+        orgName={orgName}
+        orgTier={orgTier}
+        userName={userName}
+        questionsSettings={questionsSettings}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         <AppTopbar
           orgTier={orgTier}
@@ -68,6 +82,7 @@ export function AppShell({ orgName, orgTier, userName, brandUsage, children }: A
         orgTier={orgTier}
         userName={userName}
         brandUsage={brandUsage}
+        questionsSettings={questionsSettings}
       />
     </div>
   );

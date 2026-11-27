@@ -33,6 +33,8 @@ const ACTION_LABELS: Record<string, string> = {
   trend_exclusion_changed: "Changed which audits count in trends",
   brand_questions_applied: "Applied new questions",
   brand_question_archived: "Archived a question",
+  question_defaults_changed: "Changed question defaults for new brands",
+  brand_questions_copied: "Copied questions from another brand",
 };
 
 /**

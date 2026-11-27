@@ -44,7 +44,11 @@ export type AuditAction =
   /** S03 part 3 (LLD 8.3.1): a brand's new question set applied (metadata: version, fromVersion, added, removed). */
   | "brand_questions_applied"
   /** S03 part 3 (LLD 8.3.7): a question archived from a brand's library (metadata: questionId). */
-  | "brand_question_archived";
+  | "brand_question_archived"
+  /** S03 part 5 (LLD 8.3.4): the workspace's question defaults for new brands changed (metadata: the new values). */
+  | "question_defaults_changed"
+  /** S03 part 5 (LLD 8.3.4): questions copied from another brand into a brand's library as suggestions. */
+  | "brand_questions_copied";
 
 export type AuditResourceType =
   | "audit"
@@ -62,7 +66,9 @@ export type AuditResourceType =
   | "org_member"
   | "data_residency"
   | "directory_listing"
-  | "report_branding";
+  | "report_branding"
+  /** S03 part 5: the workspace's question settings. */
+  | "question_settings";
 
 export interface RecordActionParams {
   organizationId: string;

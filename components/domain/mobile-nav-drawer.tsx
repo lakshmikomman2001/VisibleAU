@@ -20,6 +20,8 @@ interface MobileNavDrawerProps {
   orgTier: string;
   userName: string;
   brandUsage: BrandUsage;
+  /** S03 part 5: the Questions settings entry. */
+  questionsSettings?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function MobileNavDrawer({
   orgTier,
   userName,
   brandUsage,
+  questionsSettings = false,
 }: MobileNavDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -123,6 +126,7 @@ export function MobileNavDrawer({
           orgName={orgName}
           orgTier={orgTier}
           userName={userName}
+          questionsSettings={questionsSettings}
           onNavigate={onClose}
           workspaceLead={<NewBrandButton usage={brandUsage} variant="nav" onNavigate={onClose} />}
           headerAction={

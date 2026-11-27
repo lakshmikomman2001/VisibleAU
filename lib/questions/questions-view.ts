@@ -50,7 +50,13 @@ export interface QuestionsView {
   }>;
   /** The brand's live library (not archived): every question it asks or could ask. */
   library: Array<{ id: string; text: string; kind: string; source: string; status: string }>;
-  suggestions: Array<{ id: string; text: string; serviceLabel: string | null }>;
+  /** S03 part 5: `source` says where a suggestion came from (a template, or copied from another brand: agency). */
+  suggestions: Array<{
+    id: string;
+    text: string;
+    serviceLabel: string | null;
+    source?: QuestionView["source"];
+  }>;
 }
 
 const BACKFILL_NOTE = "0155 backfill: the stored question pack";
@@ -217,7 +223,7 @@ export async function loadQuestionsView(
     library: library.map(({ serviceLabel: _s, ...q }) => q),
     suggestions: library
       .filter((q) => q.status === "suggested")
-      .map((q) => ({ id: q.id, text: q.text, serviceLabel: q.serviceLabel })),
+      .map((q) => ({ id: q.id, text: q.text, serviceLabel: q.serviceLabel, source: q.source })),
   };
 }
 

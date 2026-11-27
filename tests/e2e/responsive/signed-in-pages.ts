@@ -138,6 +138,8 @@ export const SIGNED_IN_PAGES: SignedInPage[] = [
   },
   { name: "Settings", route: "/settings", url: () => "/settings" },
   { name: "Team", route: "/settings/team", url: () => "/settings/team" },
+  // S03 part 5 (contract P05), behind agency_questions (on in responsive-shell.spec.ts).
+  { name: "Questions settings", route: "/settings/questions", url: () => "/settings/questions" },
   {
     name: "Notifications",
     route: "/settings/notifications",

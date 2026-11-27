@@ -12,6 +12,7 @@ import { NO_WORKSPACE_PATH, SESSION_ENDED_PATH } from "@/lib/auth/paths";
 import { auth } from "@/lib/auth/server";
 import { countBrands } from "@/lib/brands";
 import { brandUsage } from "@/lib/brands/limits";
+import { isEnabled } from "@/lib/flags/flags";
 import { roleOf } from "@/lib/governance";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { workspaceNeedsPlan } from "@/lib/pricing/plan-required";
@@ -45,6 +46,12 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   // 20 Nov (part 6): a workspace made while the free plan was off goes to the plan picker until checkout.
   const needsPlan = await workspaceNeedsPlan(serviceDb, currentUser.organizationId);
 
+  // S03 part 5 (contract P05): Workspace -> Questions in the Account navigation, only with agency_questions on, for the
+  // roles that may open it (owners and admins, the existing settings rule).
+  const questionsSettings =
+    (role === "owner" || role === "admin") &&
+    (await isEnabled("agency_questions", currentUser.organizationId));
+
   return (
     <PlanTierProvider tier={orgTier}>
       <RoleProvider role={role}>
@@ -55,6 +62,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
               orgTier={orgTier}
               userName={currentUser.name ?? session.user?.name ?? ""}
               brandUsage={newBrandUsage}
+              questionsSettings={questionsSettings}
             >
               <PlanRequiredGate needsPlan={needsPlan}>{children}</PlanRequiredGate>
             </AppShell>

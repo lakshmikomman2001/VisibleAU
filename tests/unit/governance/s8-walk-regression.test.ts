@@ -55,6 +55,9 @@ describe("3.1 — NAV-ORPHAN: every settings sub-route reachable from sidebar AC
     expect(labels).toEqual([
       "Team",
       "Notifications",
+      // S03 sprint section 5: "Route `/settings/questions` in the settings group (sidebar item if the group exists)";
+      // behind agency_questions, so off it isn't shown.
+      "Questions",
       // 2 Nov: the agency name, logo and footer on every report PDF.
       "Report branding",
       "Audit Trail",

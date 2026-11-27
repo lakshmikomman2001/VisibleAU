@@ -73,6 +73,8 @@ export const DIRECT_GATES = [
   // S03 part 1: a brand's question limits (everyday questions included, packs, writing your own) -- read when an audit
   // starts, when questions are checked and when a set is applied.
   "lib/questions/limits.ts",
+  // S03 part 5: the workspace's Questions settings -- the plan's included count, and whether it writes (Growth and up).
+  "lib/questions/settings.ts",
   "lib/scheduling/quota-check.ts",
 ];
 

@@ -1,0 +1,126 @@
+{
+  "background": false,
+  "completed_at": 1795800005,
+  "created_at": 1795800000,
+  "error": null,
+  "frequency_penalty": 0,
+  "id": "resp_00000000-0000-4000-8000-000000000001",
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 8192,
+  "max_tool_calls": null,
+  "metadata": {},
+  "model": "perplexity/sonar",
+  "object": "response",
+  "output": [
+    {
+      "queries": [
+        "emergency plumber Kurrajong Heights reviews",
+        "Kurrajong Heights 24 hour plumber"
+      ],
+      "results": [
+        {
+          "date": "2026-10-01",
+          "id": 1,
+          "last_updated": "2026-11-11",
+          "snippet": "Wattle Creek Plumbing -- 24/7 emergency plumber in Kurrajong Heights. Invented snippet for the S04B fixture.",
+          "source": "web",
+          "title": "Wattle Creek Plumbing -- 24/7 emergency plumber in Kurrajong Heights",
+          "url": "https://wattlecreekplumbing.example.com.au/emergency"
+        },
+        {
+          "date": "2026-10-02",
+          "id": 2,
+          "last_updated": "2026-11-12",
+          "snippet": "Ironbark Pipe Co | Blocked drains and burst pipes. Invented snippet for the S04B fixture.",
+          "source": "web",
+          "title": "Ironbark Pipe Co | Blocked drains and burst pipes",
+          "url": "https://ironbarkpipe.example.com.au/"
+        },
+        {
+          "date": "2026-10-03",
+          "id": 3,
+          "last_updated": "2026-11-13",
+          "snippet": "Top rated plumbers in Kurrajong Heights (3 free quotes). Invented snippet for the S04B fixture.",
+          "source": "web",
+          "title": "Top rated plumbers in Kurrajong Heights (3 free quotes)",
+          "url": "https://tradesdirectory.example.com.au/plumbers/kurrajong-heights"
+        }
+      ],
+      "type": "search_results"
+    },
+    {
+      "content": [
+        {
+          "annotations": [],
+          "text": "For an emergency callout in Kurrajong Heights, two local options stand out. **Wattle Creek Plumbing** advertises 24/7 service and a one-hour arrival window. **Ironbark Pipe Co** handles burst pipes and blocked drains after hours. A trades directory lists more plumbers with reviews.",
+          "type": "output_text"
+        }
+      ],
+      "id": "msg_00000000-0000-4000-8000-000000000002",
+      "role": "assistant",
+      "status": "completed",
+      "type": "message"
+    }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "reasoning": null,
+  "safety_identifier": null,
+  "service_tier": "default",
+  "status": "completed",
+  "store": true,
+  "temperature": 0.7,
+  "text": {
+    "format": {
+      "type": "text"
+    }
+  },
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "web_search",
+      "user_location": {
+        "city": "Kurrajong Heights",
+        "region": "NSW",
+        "country": "AU"
+      }
+    }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1,
+  "truncation": "",
+  "usage": {
+    "cost": {
+      "cache_creation_cost": 0.00108,
+      "currency": "USD",
+      "input_cost": 0.00014,
+      "output_cost": 0.00101,
+      "tool_calls_cost": 0.0025,
+      "tool_calls_cost_details": {
+        "search_web": 0.0025
+      },
+      "total_cost": 0.00473
+    },
+    "input_tokens": 4874,
+    "input_tokens_details": {
+      "cache_creation_input_tokens": 4314,
+      "cache_read_input_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 405,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "tool_calls_details": {
+      "search_web": {
+        "cost_usd": 0.0025,
+        "invocation": 1
+      }
+    },
+    "total_tokens": 5279
+  },
+  "user": null
+}

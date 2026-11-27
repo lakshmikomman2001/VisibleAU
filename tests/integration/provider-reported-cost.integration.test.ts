@@ -1,8 +1,8 @@
 /**
  * "Record costs from what each provider actually reports" (6 Nov), item 1 -- real DB, both real
  * runners, the real PerplexityImpl. Perplexity's HTTP answer is stubbed with the usage shape one real
- * call returned on 6 Nov (usage.cost.total_cost); ChatGPT answers through the price table. Each row
- * records its cost and where it came from (migration 0120).
+ * call returned (usage.cost.total_cost; since S04B part 1, LLD amendment 99, the Agent API's, recorded 28 Nov);
+ * ChatGPT answers through the price table. Each row records its cost and where it came from (migration 0120).
  *
  * (DEV/TEST DB ONLY -- never run against visibleau_prod.)
  */
@@ -11,6 +11,10 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Engine } from "@/lib/llm/interface";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
+import {
+  perplexityAgentResponse,
+  RECORDED_AGENT_USAGE,
+} from "@/tests/helpers/perplexity-agent-response";
 import { getTestDatabaseUrl } from "@/tests/helpers/test-db-url";
 
 // S01B part 3 (LLD amendment 50): the inline runner's recommendation step searches Wikipedia for the business; the
@@ -25,8 +29,8 @@ const INNGEST_BRAND = randomUUID();
 const INLINE_AUDIT = randomUUID();
 const INNGEST_AUDIT = randomUUID();
 const MARKER = `provider-cost-${ORG_ID.slice(0, 8)}`;
-const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
-const TOTAL_COST = 0.00462;
+const PERPLEXITY_URL = "https://api.perplexity.ai/v1/agent";
+const TOTAL_COST = 0.00473;
 
 // ChatGPT through the price table, exactly as OpenAIImpl prices it; Perplexity is the real client.
 vi.mock("@/lib/llm", async (importOriginal) => {
@@ -72,33 +76,20 @@ beforeAll(async () => {
   // Only Perplexity's endpoint is answered here: the second question gets a blank (billed) answer.
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     if (urlOf(input) !== PERPLEXITY_URL) return realFetch(input, init);
-    const body = JSON.parse(String(init?.body)) as {
-      model: string;
-      messages: { content: string }[];
-    };
-    const blank = body.messages[0].content.includes("question two");
+    const body = JSON.parse(String(init?.body)) as { model: string; input: string };
+    const blank = body.input.includes("question two");
     return new Response(
-      JSON.stringify({
-        model: body.model,
-        object: "chat.completion",
-        choices: [
-          { message: { content: blank ? "  " : "A plain answer that names no business at all." } },
-        ],
-        usage: {
-          prompt_tokens: 12,
-          completion_tokens: 40,
-          total_tokens: 52,
-          search_context_size: "low",
-          cost: {
-            input_tokens_cost: 0.0021,
-            output_tokens_cost: 0.00002,
-            request_cost: 0.0025,
-            total_cost: TOTAL_COST,
+      JSON.stringify(
+        perplexityAgentResponse({
+          model: body.model,
+          text: blank ? "  " : "A plain answer that names no business at all.",
+          searchResults: [],
+          usage: {
+            ...RECORDED_AGENT_USAGE,
+            cost: { ...RECORDED_AGENT_USAGE.cost, total_cost: TOTAL_COST },
           },
-        },
-        citations: [],
-        search_results: [],
-      }),
+        }),
+      ),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
@@ -190,7 +181,7 @@ function expectRecordedCosts({ answers, failures }: Awaited<ReturnType<typeof ro
     {
       engine: "perplexity",
       prompt_index: 0,
-      llm_cost_usd: "0.004620",
+      llm_cost_usd: "0.004730",
       llm_cost_source: "provider_reported",
     },
   ]);
@@ -199,7 +190,7 @@ function expectRecordedCosts({ answers, failures }: Awaited<ReturnType<typeof ro
       engine: "perplexity",
       prompt_index: 1,
       error_class: "empty_response",
-      cost_usd: "0.004620",
+      cost_usd: "0.004730",
       cost_source: "provider_reported",
     },
   ]);

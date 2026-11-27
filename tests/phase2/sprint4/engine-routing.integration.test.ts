@@ -54,8 +54,9 @@ describe("engine-routing integration (REAL impl classes + selectModel — bug 4:
       expect(selectModel("agency", "chatgpt", "brand_mention")).toBe("gpt-4.1");
     });
 
-    it("agency/perplexity/brand_mention → sonar-pro (upgraded)", () => {
-      expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar-pro");
+    // S04B part 1 (LLD amendment 99): the Agent API has no Sonar Pro; every plan asks Perplexity's own Sonar.
+    it("agency/perplexity/brand_mention → sonar (the Agent API has no Sonar Pro)", () => {
+      expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar");
     });
 
     it("free/perplexity/brand_mention → sonar (base)", () => {

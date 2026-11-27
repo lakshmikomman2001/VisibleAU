@@ -65,8 +65,9 @@ describe("selectModel (tier + engine → model selection)", () => {
     expect(selectModel("agency", "chatgpt", "brand_mention")).toBe("gpt-4.1");
   });
 
-  it("agency/perplexity → sonar-pro (upgraded)", () => {
-    expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar-pro");
+  // S04B part 1 (LLD amendment 99): the Agent API has no Sonar Pro; every plan asks Perplexity's own Sonar.
+  it("agency/perplexity → sonar (the Agent API has no Sonar Pro)", () => {
+    expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar");
   });
 
   it("growth/claude → claude-sonnet-4-6 (mid-tier upgrade)", () => {

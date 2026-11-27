@@ -25,10 +25,15 @@ export interface ModelDrift {
 const SNAPSHOT_TAG = /^(\d{4}-\d{2}-\d{2}|\d{8}|\d{3})$/;
 
 function normaliseModel(model: string): string {
-  return model
-    .trim()
-    .toLowerCase()
-    .replace(/^models\//, "");
+  return (
+    model
+      .trim()
+      .toLowerCase()
+      .replace(/^models\//, "")
+      // S04B part 1 (LLD amendment 99): Perplexity's Agent API names its own models "perplexity/<id>"
+      // (https://docs.perplexity.ai/docs/agent-api/models.md): "perplexity/sonar" is the "sonar" asked for.
+      .replace(/^perplexity\//, "")
+  );
 }
 
 /** Whether the model a response named is the one asked for, or a dated snapshot of it. */

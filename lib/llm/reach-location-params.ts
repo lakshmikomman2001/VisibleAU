@@ -19,15 +19,15 @@
  *   error)", "Provide at least one of `city`, `region`, `country`, or `timezone`." So country alone, or region and
  *   country without a city, are valid. Sent today through @ai-sdk/anthropic's `userLocation` (anthropic-impl.ts).
  *
- * Perplexity -- none in our integration. Its current docs document `user_location` (country, region, city, latitude,
- *   longitude) only on the Agent API's `web_search` tool:
- *   https://docs.perplexity.ai/docs/agent-api/tools/web-search ("`user_location` | object | Personalize search by
- *   country, region, city, latitude, and longitude.")
- *   We call Sonar chat completions (lib/llm/perplexity-impl.ts, https://api.perplexity.ai/chat/completions), whose
- *   `web_search_options.user_location` the migration page only maps to the Agent API's
- *   (https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to.md); the Sonar schema itself is no longer
- *   documented ("Sonar Chat Completions support ended on September 27, 2026.",
- *   https://docs.perplexity.ai/api-reference/chat-completions-post). So Perplexity gets the place in the words only.
+ * Perplexity -- from S04B (LLD amendment 99), the Agent API's `web_search` tool, `user_location`
+ *   https://docs.perplexity.ai/docs/agent-api/tools/web-search (read 28 Nov 2026): `user_location` sits beside
+ *   `filters` on the tool and takes `country` (ISO 3166-1 alpha-2, e.g. "US"), `region` (e.g. "California"), `city`
+ *   (e.g. "San Francisco"), `latitude` and `longitude` ("`latitude` and `longitude` must be provided together with
+ *   `country`"). Sent from lib/llm/perplexity-impl.ts as { type: "web_search", user_location: { country, region, city } }
+ *   with only the fields the reach has: Local as today's buildEngineLocation, State the region and country (as
+ *   Claude), Country the country, Worldwide none. Until S04B we called Sonar chat completions, which took none in our
+ *   integration ("Sonar Chat Completions support ended on September 27, 2026.",
+ *   https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/overview.md).
  *
  * Gemini -- none. The `google_search` grounding tool takes no arguments and the page mentions no location:
  *   https://aistudio.google.com/docs/google-search (redirected from ai.google.dev/gemini-api/docs/google-search).
@@ -50,22 +50,31 @@ export type ReachKey = "local" | "state" | "country" | "global";
 export const ENGINE_LOCATION_FIELDS = {
   chatgpt: ["city", "region", "country"],
   claude: ["city", "region", "country"],
-  perplexity: [],
+  perplexity: ["city", "region", "country"],
   gemini: [],
 } as const satisfies Record<string, readonly ("city" | "region" | "country")[]>;
 
 /**
- * The table that drives part 4 (LLD 8.4.4 as confirmed): which fields each reach sends to ChatGPT and Claude. Local is
+ * The table that drives part 4 (LLD 8.4.4 as confirmed): which fields each reach sends to ChatGPT, Claude and (from
+ * S04B) Perplexity. Local is
  * today's payload (lib/brands/region-label.ts buildEngineLocation: city, state, "AU", only for a confirmed fixed
  * location with a city). State sends the state and the country, plus the capital as the city for ChatGPT (LLD 8.4.4;
  * OpenAI's examples always pair city and region); Country sends "AU" alone; Worldwide sends nothing.
  */
 export const REACH_LOCATION_FIELDS: Record<
   ReachKey,
-  { chatgpt: readonly string[]; claude: readonly string[] }
+  { chatgpt: readonly string[]; claude: readonly string[]; perplexity: readonly string[] }
 > = {
-  local: { chatgpt: ["city", "region", "country"], claude: ["city", "region", "country"] },
-  state: { chatgpt: ["city (the capital)", "region", "country"], claude: ["region", "country"] },
-  country: { chatgpt: ["country"], claude: ["country"] },
-  global: { chatgpt: [], claude: [] },
+  local: {
+    chatgpt: ["city", "region", "country"],
+    claude: ["city", "region", "country"],
+    perplexity: ["city", "region", "country"],
+  },
+  state: {
+    chatgpt: ["city (the capital)", "region", "country"],
+    claude: ["region", "country"],
+    perplexity: ["region", "country"],
+  },
+  country: { chatgpt: ["country"], claude: ["country"], perplexity: ["country"] },
+  global: { chatgpt: [], claude: [], perplexity: [] },
 };

@@ -82,7 +82,8 @@ describe("each plan's models, from the code that picks them", () => {
     expect(planModel("starter", "chatgpt")).toBe("GPT-4.1 mini");
     expect(planModel("agency", "chatgpt")).toBe("GPT-4.1");
     expect(planModel("growth", "perplexity")).toBe("Sonar");
-    expect(planModel("agency", "perplexity")).toBe("Sonar Pro");
+    // S04B part 1 (LLD amendment 99): the Agent API has no Sonar Pro; every plan asks Perplexity's own Sonar.
+    expect(planModel("agency", "perplexity")).toBe("Sonar");
   });
 
   it("every card names its models after its highlights", () => {

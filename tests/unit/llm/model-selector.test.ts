@@ -14,8 +14,9 @@ describe("selectModel", () => {
   it("growth tier gemini brand_mention returns gemini-3.5-flash-lite", () => {
     expect(selectModel("growth", "gemini", "brand_mention")).toBe("gemini-3.5-flash-lite");
   });
-  it("agency tier perplexity brand_mention returns sonar-pro", () => {
-    expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar-pro");
+  // S04B part 1 (LLD amendment 99): the Agent API has no Sonar Pro; every plan asks Perplexity's own Sonar.
+  it("agency tier perplexity brand_mention returns sonar", () => {
+    expect(selectModel("agency", "perplexity", "brand_mention")).toBe("sonar");
   });
   it("sentiment task always returns cheapest model regardless of tier", () => {
     expect(selectModel("agency_pro", "chatgpt", "sentiment")).toBe("gpt-4.1-mini");

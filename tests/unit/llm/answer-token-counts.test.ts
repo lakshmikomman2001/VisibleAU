@@ -12,6 +12,7 @@ import {
   cannedFetch,
   geminiResponse,
 } from "../../helpers/canned-llm-responses";
+import { perplexityAgentResponse } from "../../helpers/perplexity-agent-response";
 
 const { getCachedMock } = vi.hoisted(() => ({ getCachedMock: vi.fn() }));
 vi.mock("@/lib/llm/cache", () => ({
@@ -63,14 +64,13 @@ function openaiResponse(): Record<string, unknown> {
   };
 }
 
+// S04B part 1 (LLD amendment 99): Perplexity answers through its Agent API (tests/helpers/perplexity-agent-response.ts).
 function perplexityResponse(usage: Record<string, unknown> | undefined): Record<string, unknown> {
-  return {
-    id: "pplx-1",
-    model: "sonar-pro",
-    choices: [{ index: 0, message: { role: "assistant", content: ANSWER }, finish_reason: "stop" }],
+  return perplexityAgentResponse({
+    text: ANSWER,
+    searchResults: ["https://yabbyservices.com.au/"],
     ...(usage ? { usage } : {}),
-    citations: ["https://yabbyservices.com.au/"],
-  };
+  });
 }
 
 async function run(
@@ -131,9 +131,9 @@ describe("each adapter records the provider's own input and output tokens", () =
     expect(output).toMatchObject({ inputTokens: 20, outputTokens: 100 });
   });
 
-  it("Perplexity: usage.prompt_tokens and completion_tokens", async () => {
+  it("Perplexity: usage.input_tokens and output_tokens", async () => {
     const output = await run("perplexity", [
-      perplexityResponse({ prompt_tokens: 25, completion_tokens: 310, total_tokens: 335 }),
+      perplexityResponse({ input_tokens: 25, output_tokens: 310, total_tokens: 335 }),
     ]);
     expect(output).toMatchObject({ inputTokens: 25, outputTokens: 310 });
   });
@@ -154,7 +154,7 @@ describe("never estimated", () => {
   });
 
   it("Perplexity reporting only one side: that side, and the other undefined", async () => {
-    const output = await run("perplexity", [perplexityResponse({ completion_tokens: 310 })]);
+    const output = await run("perplexity", [perplexityResponse({ output_tokens: 310 })]);
     expect(output).toMatchObject({ outputTokens: 310 });
     expect(output.inputTokens).toBeUndefined();
   });

@@ -9,8 +9,17 @@
  * see perplexity-impl.ts's header comment) and parses citations/
  * search_results from the JSON body. See
  * docs/ops/post-launch-db-hardening.md section 43.
+ *
+ * S04B part 1 (LLD amendment 99): Perplexity now answers through its Agent API (POST /v1/agent), so the canned
+ * responses below have the Agent API's shape (tests/helpers/perplexity-agent-response.ts): the answer in
+ * output[].content[].text, its sources in url_citation annotations and the search_results item, usage.input_tokens /
+ * output_tokens, and `status` instead of finish_reason. What each test checks is unchanged.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type AgentResponseParts,
+  perplexityAgentResponse,
+} from "../../helpers/perplexity-agent-response";
 
 vi.mock("@/lib/llm/cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
@@ -18,20 +27,20 @@ vi.mock("@/lib/llm/cache", () => ({
   AUDIT_RETRY_CACHE_WINDOW_MS: 60 * 60 * 1000,
 }));
 
-function perplexityResponse(overrides: Record<string, unknown> = {}) {
+function perplexityResponse(parts: AgentResponseParts = {}) {
   return {
     ok: true,
     status: 200,
-    json: async () => ({
-      model: "sonar-pro",
-      choices: [{ message: { content: "The strongest options are hipages and Airtasker." } }],
-      usage: { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 },
-      citations: [
-        "https://hipages.com.au/connect/plumber",
-        "https://www.airtasker.com/tasks/plumbing",
-      ],
-      ...overrides,
-    }),
+    json: async () =>
+      perplexityAgentResponse({
+        text: "The strongest options are hipages and Airtasker.",
+        usage: { input_tokens: 50, output_tokens: 30, total_tokens: 80 },
+        annotations: [
+          "https://hipages.com.au/connect/plumber",
+          "https://www.airtasker.com/tasks/plumbing",
+        ],
+        ...parts,
+      }),
     text: async () => "",
   };
 }
@@ -47,7 +56,7 @@ describe("PerplexityImpl -- captures structured citations", () => {
     vi.resetModules();
   });
 
-  it("returns citedUrls parsed from the API's citations array", async () => {
+  it("returns citedUrls parsed from the answer's url_citation annotations", async () => {
     const fetchMock = vi.fn().mockResolvedValue(perplexityResponse());
     vi.stubGlobal("fetch", fetchMock);
 
@@ -110,13 +119,13 @@ describe("PerplexityImpl -- captures structured citations", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("merges search_results URLs with citations, de-duplicated, citations first", async () => {
+  it("merges search result URLs with the annotations, de-duplicated, annotations first", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       perplexityResponse({
-        citations: ["https://hipages.com.au/connect/plumber"],
-        search_results: [
-          { url: "https://hipages.com.au/connect/plumber", title: "Hipages" }, // duplicate
-          { url: "https://www.productreview.com.au/p/brand", title: "Reviews" },
+        annotations: ["https://hipages.com.au/connect/plumber"],
+        searchResults: [
+          "https://hipages.com.au/connect/plumber", // duplicate
+          "https://www.productreview.com.au/p/brand",
         ],
       }),
     );
@@ -136,8 +145,8 @@ describe("PerplexityImpl -- captures structured citations", () => {
     ]);
   });
 
-  it("returns an empty citedUrls array (not undefined) when the API returns no citations", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse({ citations: [] }));
+  it("returns an empty citedUrls array (not undefined) when the API returns no sources", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse({ annotations: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
@@ -163,10 +172,10 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
     vi.resetModules();
   });
 
-  it("computes tokensUsed and costEstimateUsd from the real sonar-pro pricing, same as before", async () => {
+  it("computes tokensUsed and costEstimateUsd from the price table's sonar rates, same as before", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       perplexityResponse({
-        usage: { prompt_tokens: 1000, completion_tokens: 1000, total_tokens: 2000 },
+        usage: { input_tokens: 1000, output_tokens: 1000, total_tokens: 2000 },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -177,28 +186,27 @@ describe("PerplexityImpl -- cost/token accounting parity", () => {
       engine: "perplexity",
       prompt: "Cost check",
       task: "brand_mention",
-      model: "sonar-pro",
+      model: "sonar",
     });
 
     expect(result.tokensUsed).toBe(2000);
-    // sonar-pro: $0.003/1k input + $0.015/1k output = 0.003 + 0.015
-    expect(result.costEstimateUsd).toBeCloseTo(0.018, 6);
-    expect(result.model).toBe("sonar-pro");
+    // sonar: $0.001/1k input + $0.001/1k output = 0.001 + 0.001
+    expect(result.costEstimateUsd).toBeCloseTo(0.002, 6);
+    expect(result.model).toBe("sonar");
   });
 });
 
-// "Record costs from what each provider actually reports" (6 Nov), item 1: the
-// shape below is what one real call to each of sonar-pro and sonar returned
-// from local dev on 6 Nov (usage only; no key, no answer).
-const SONAR_PRO_USAGE = {
-  prompt_tokens: 12,
-  completion_tokens: 4,
+// "Record costs from what each provider actually reports" (6 Nov), item 1: a usage block with Perplexity's own
+// cost. S04B part 1: in the Agent API's field names (recorded 28 Nov 2026); the figures are 6 Nov's.
+const AGENT_USAGE = {
+  input_tokens: 12,
+  output_tokens: 4,
   total_tokens: 16,
-  search_context_size: "low",
   cost: {
-    input_tokens_cost: 0.0021,
-    output_tokens_cost: 0.00002,
-    request_cost: 0.0025,
+    currency: "USD",
+    input_cost: 0.0021,
+    output_cost: 0.00002,
+    tool_calls_cost: 0.0025,
     total_cost: 0.00462,
   },
 };
@@ -215,11 +223,8 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
     vi.restoreAllMocks();
   });
 
-  async function complete(usage: unknown, model = "sonar-pro", content = "An answer.") {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(perplexityResponse({ usage, choices: [{ message: { content } }] })),
-    );
+  async function complete(usage: Record<string, unknown>, model = "sonar", content = "An answer.") {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(perplexityResponse({ usage, text: content })));
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
     return new PerplexityImpl().complete({
       engine: "perplexity",
@@ -230,7 +235,7 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
   }
 
   it("a response with usage.cost records exactly total_cost, as provider-reported", async () => {
-    const result = await complete(SONAR_PRO_USAGE);
+    const result = await complete(AGENT_USAGE);
 
     expect(result.costEstimateUsd).toBe(0.00462);
     expect(result.costSource).toBe("provider_reported");
@@ -238,11 +243,11 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
   });
 
   it("adds no table rate or request fee on top of the provider's figure", async () => {
-    // At the table's sonar-pro rates these tokens alone would be US$0.018.
+    // At the table's sonar rates these tokens alone would be US$0.002.
     const result = await complete({
-      ...SONAR_PRO_USAGE,
-      prompt_tokens: 1000,
-      completion_tokens: 1000,
+      ...AGENT_USAGE,
+      input_tokens: 1000,
+      output_tokens: 1000,
     });
 
     expect(result.costEstimateUsd).toBe(0.00462);
@@ -250,13 +255,13 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
 
   it("a response without usage.cost falls back to the price table, marked price_table", async () => {
     const result = await complete({
-      prompt_tokens: 1000,
-      completion_tokens: 1000,
+      input_tokens: 1000,
+      output_tokens: 1000,
       total_tokens: 2000,
     });
 
-    // sonar-pro: $0.003/1k input + $0.015/1k output; requestFeeUsd null adds nothing.
-    expect(result.costEstimateUsd).toBeCloseTo(0.018, 9);
+    // sonar: $0.001/1k input + $0.001/1k output; requestFeeUsd null adds nothing.
+    expect(result.costEstimateUsd).toBeCloseTo(0.002, 9);
     expect(result.costSource).toBe("price_table");
   });
 
@@ -264,19 +269,19 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
     for (const total_cost of ["0.00462", -1, Number.NaN, null]) {
       vi.resetModules();
       const result = await complete({
-        prompt_tokens: 1000,
-        completion_tokens: 1000,
+        input_tokens: 1000,
+        output_tokens: 1000,
         cost: { total_cost },
       });
       expect(result.costSource, String(total_cost)).toBe("price_table");
-      expect(result.costEstimateUsd, String(total_cost)).toBeCloseTo(0.018, 9);
+      expect(result.costEstimateUsd, String(total_cost)).toBeCloseTo(0.002, 9);
     }
   });
 
   it("a model the price table doesn't know still has a known cost when Perplexity reports one", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const result = await complete(SONAR_PRO_USAGE, "sonar-something-new");
+    const result = await complete(AGENT_USAGE, "sonar-something-new");
 
     expect(result.costEstimateUsd).toBe(0.00462);
     expect(result.costSource).toBe("provider_reported");
@@ -286,7 +291,7 @@ describe("PerplexityImpl -- the cost is what Perplexity reports (usage.cost.tota
   it("an empty answer's error carries the provider's figure and its source", async () => {
     const { EmptyResponseError } = await import("@/lib/llm/errors");
     try {
-      await complete(SONAR_PRO_USAGE, "sonar-pro", "   ");
+      await complete(AGENT_USAGE, "sonar", "   ");
       expect.unreachable("expected complete() to throw");
     } catch (err) {
       expect(err).toBeInstanceOf(EmptyResponseError);
@@ -413,9 +418,7 @@ describe("PerplexityImpl -- error handling (exactly one attempt; retry is lib/ll
   });
 
   it("throws EmptyResponseError when the model returns blank content, never caches or returns it as a real answer", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(perplexityResponse({ choices: [{ message: { content: "  " } }] }));
+    const fetchMock = vi.fn().mockResolvedValue(perplexityResponse({ text: "  " }));
     vi.stubGlobal("fetch", fetchMock);
 
     const { PerplexityImpl } = await import("@/lib/llm/perplexity-impl");
@@ -544,8 +547,9 @@ describe("PerplexityImpl -- cacheMode", () => {
   });
 });
 
-// "Mention detection" (6 Nov), part 2: Perplexity's finish_reason is stored, and "length" (the answer hit
-// max_tokens) is kept but flagged as truncated, and never cached.
+// "Mention detection" (6 Nov), part 2: why Perplexity stopped is stored, and an answer that hit the output limit is
+// kept but flagged as truncated, and never cached. S04B part 1: on the Agent API that is `status: "incomplete"` with
+// incomplete_details.reason "max_output_tokens" (Sonar's finish_reason "length").
 describe("PerplexityImpl -- why the answer stopped", () => {
   beforeEach(() => {
     vi.stubEnv("PERPLEXITY_API_KEY", "test-key");
@@ -557,16 +561,15 @@ describe("PerplexityImpl -- why the answer stopped", () => {
     vi.resetModules();
   });
 
-  async function complete(finishReason: string) {
+  async function complete(incompleteReason?: string) {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          perplexityResponse({
-            choices: [{ message: { content: "An answer." }, finish_reason: finishReason }],
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        perplexityResponse({
+          text: "An answer.",
+          ...(incompleteReason ? { status: "incomplete", incompleteReason } : {}),
+        }),
+      ),
     );
     const { setCached } = await import("@/lib/llm/cache");
     vi.mocked(setCached).mockClear();
@@ -579,15 +582,19 @@ describe("PerplexityImpl -- why the answer stopped", () => {
     return { output, cached: vi.mocked(setCached).mock.calls.length };
   }
 
-  it('"stop": complete, stored as such, cached', async () => {
-    const { output, cached } = await complete("stop");
-    expect(output).toMatchObject({ stopReason: "stop", truncated: false });
+  it('"completed": complete, stored as such, cached', async () => {
+    const { output, cached } = await complete();
+    expect(output).toMatchObject({ stopReason: "completed", truncated: false });
     expect(cached).toBe(1);
   });
 
-  it('"length": kept, flagged as truncated, not cached', async () => {
-    const { output, cached } = await complete("length");
-    expect(output).toMatchObject({ response: "An answer.", stopReason: "length", truncated: true });
+  it('"max_output_tokens": kept, flagged as truncated, not cached', async () => {
+    const { output, cached } = await complete("max_output_tokens");
+    expect(output).toMatchObject({
+      response: "An answer.",
+      stopReason: "max_output_tokens",
+      truncated: true,
+    });
     expect(cached).toBe(0);
   });
 });

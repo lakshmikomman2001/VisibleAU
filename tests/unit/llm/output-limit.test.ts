@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ANSWER_MAX_OUTPUT_TOKENS } from "@/lib/llm/output-limit";
 import { anthropicMessage, anthropicText, cannedFetch } from "../../helpers/canned-llm-responses";
+import { perplexityAgentResponse } from "../../helpers/perplexity-agent-response";
 
 vi.mock("@/lib/llm/cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
@@ -57,16 +58,15 @@ function openaiResponse(cutOff = false): Record<string, unknown> {
   };
 }
 
-function perplexityResponse(finishReason = "stop"): Record<string, unknown> {
-  return {
-    id: "pplx-1",
-    model: "sonar-pro",
-    choices: [
-      { index: 0, message: { role: "assistant", content: ANSWER }, finish_reason: finishReason },
-    ],
-    usage: { prompt_tokens: 20, completion_tokens: 30, total_tokens: 50 },
-    citations: ["https://yabbyservices.com.au/"],
-  };
+// S04B part 1 (LLD amendment 99): Perplexity answers through its Agent API (tests/helpers/perplexity-agent-response.ts);
+// an answer that hit the limit is `status: "incomplete"` with incomplete_details.reason "max_output_tokens".
+function perplexityResponse(incompleteReason?: string): Record<string, unknown> {
+  return perplexityAgentResponse({
+    text: ANSWER,
+    searchResults: ["https://yabbyservices.com.au/"],
+    usage: { input_tokens: 20, output_tokens: 30, total_tokens: 50 },
+    ...(incompleteReason ? { status: "incomplete", incompleteReason } : {}),
+  });
 }
 
 async function chatgpt(body: Record<string, unknown>) {
@@ -105,7 +105,7 @@ async function perplexity(body: Record<string, unknown>) {
     engine: "perplexity",
     prompt: PROMPT,
     task: "brand_mention",
-    model: "sonar-pro",
+    model: "sonar",
     cacheMode: "fresh",
   });
   return { output, request: canned.requests[0] };
@@ -126,9 +126,9 @@ describe("each adapter asks for at most 8,192 output tokens", () => {
     expect(request.max_tokens).toBe(8192);
   });
 
-  it("Perplexity: max_tokens 8,192, not 800", async () => {
+  it("Perplexity (Agent API): max_output_tokens 8,192, not 800", async () => {
     const { request } = await perplexity(perplexityResponse());
-    expect(request.max_tokens).toBe(8192);
+    expect(request.max_output_tokens).toBe(8192);
   });
 });
 
@@ -147,13 +147,17 @@ describe("an answer that reaches the limit is still kept and flagged as truncate
     expect(output).toMatchObject({ response: ANSWER, truncated: true, stopReason: "max_tokens" });
   });
 
-  it("Perplexity length", async () => {
-    const { output } = await perplexity(perplexityResponse("length"));
-    expect(output).toMatchObject({ response: ANSWER, truncated: true, stopReason: "length" });
+  it("Perplexity max_output_tokens (status incomplete)", async () => {
+    const { output } = await perplexity(perplexityResponse("max_output_tokens"));
+    expect(output).toMatchObject({
+      response: ANSWER,
+      truncated: true,
+      stopReason: "max_output_tokens",
+    });
   });
 
   it("a normal stop is a complete answer", async () => {
     const { output } = await perplexity(perplexityResponse());
-    expect(output).toMatchObject({ truncated: false, stopReason: "stop" });
+    expect(output).toMatchObject({ truncated: false, stopReason: "completed" });
   });
 });

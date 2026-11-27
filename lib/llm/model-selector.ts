@@ -1,6 +1,10 @@
 import type { Tier } from "@/db/schema/enums";
 import type { Engine, ModelTask } from "./interface";
 
+// S04B part 1 (LLD amendment 99): Perplexity is "sonar" on every plan. Its Agent API has no Sonar Pro -- its only own
+// model is perplexity/sonar, and the migration guide maps both "`sonar` → `fast`, `sonar-pro` → `fast`"
+// (https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to.md, read 28 Nov 2026) -- and Agency's Sonar Pro
+// requests were already answered by Sonar (the model drift recorded since 7 Nov). lib/llm/perplexity-impl.ts.
 // Methodology v2.2 (Sri's decision, 7 Nov), part 2: Gemini is gemini-3.5-flash-lite on every plan and task.
 // gemini-2.5-flash shuts down on 1 Dec 2026, when Google starts serving its calls with 3.5 Flash-Lite at
 // Flash-Lite's rates (https://aistudio.google.com/docs/deprecations, checked 7 Nov 2026); switching first
@@ -28,19 +32,19 @@ const PRIMARY_MODELS: Record<Tier, Record<Engine, string>> = {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
     gemini: "gemini-3.5-flash-lite",
-    perplexity: "sonar-pro",
+    perplexity: "sonar",
   },
   agency_pro: {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
     gemini: "gemini-3.5-flash-lite",
-    perplexity: "sonar-pro",
+    perplexity: "sonar",
   },
   enterprise: {
     chatgpt: "gpt-4.1",
     claude: "claude-sonnet-4-6",
     gemini: "gemini-3.5-flash-lite",
-    perplexity: "sonar-pro",
+    perplexity: "sonar",
   },
 };
 
@@ -49,7 +53,7 @@ export const ENGINE_DEFAULT_MODELS: Record<Engine, string> = {
   chatgpt: "gpt-4.1-mini",
   claude: "claude-haiku-4-5",
   gemini: "gemini-3.5-flash-lite",
-  perplexity: "sonar-pro",
+  perplexity: "sonar",
 };
 
 const DERIVED_TASK_MODELS: Record<Engine, string> = {

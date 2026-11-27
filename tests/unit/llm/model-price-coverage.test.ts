@@ -49,8 +49,8 @@ describe("model price coverage", () => {
       "gemini-3.5-flash-lite",
       "gpt-4.1",
       "gpt-4.1-mini",
+      // S04B part 1 (LLD amendment 99): sonar-pro is no longer asked for (the Agent API has no Sonar Pro).
       "sonar",
-      "sonar-pro",
     ]);
   });
 

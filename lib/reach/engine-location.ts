@@ -5,11 +5,12 @@ import { findState, marketFor } from "@/lib/markets";
 
 /**
  * S04 part 4 (LLD 8.4.4, as part 1 confirmed: lib/llm/reach-location-params.ts): the location an engine's web search is
- * told for a question, by the question's reach. Only ChatGPT and Claude take one (Gemini and our Perplexity
- * integration: the place is in the words only).
+ * told for a question, by the question's reach. ChatGPT, Claude and, from S04B, Perplexity take one (Gemini: the place
+ * is in the words only).
  * - local: today's, unchanged (buildEngineLocation: city, state, the country -- only for a confirmed fixed location
  *   with a city);
- * - state: the state's name and the country, and for ChatGPT the capital as the city (LLD 8.4.4);
+ * - state: the state's name and the country, and for ChatGPT the capital as the city (LLD 8.4.4; Claude and
+ *   Perplexity: no city);
  * - country: the country alone;
  * - global ("Worldwide"): none.
  * A market that can't place the reach (the US stub; a brand with no state) gives none.
@@ -26,7 +27,9 @@ type LocationBrand = Pick<
   "locationMode" | "locationConfirmedAt" | "city" | "state" | "region"
 >;
 
-const TAKES_LOCATION: ReadonlySet<string> = new Set(["chatgpt", "claude"]);
+// S04B part 1 (LLD amendment 99): Perplexity's Agent API web_search takes a user_location (country, region, city), so
+// Perplexity is told the reach's location as Claude is (the state's name and the country for State).
+const TAKES_LOCATION: ReadonlySet<string> = new Set(["chatgpt", "claude", "perplexity"]);
 
 export function engineLocationForReach(
   reach: QuestionReach | undefined,

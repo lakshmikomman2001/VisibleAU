@@ -5,7 +5,8 @@
  * - Local: exactly today's (city, state, "AU" for a confirmed fixed location with a city), and today's cache key.
  * - State: ChatGPT gets the capital as the city, the state's name and the country; Claude the state's name and the
  *   country. Country: the country alone. Worldwide: no user_location at all.
- * - Gemini and Perplexity: none, whatever the reach.
+ * - Gemini: none, whatever the reach. Perplexity (S04B part 1, LLD amendment 99): as Claude (its request body is in
+ *   tests/unit/llm/perplexity-agent-api.test.ts).
  * - The cache key of a question beyond Local carries its reach and location, so the same words are never replayed from
  *   another reach (or another place); a Local key is unchanged.
  */
@@ -144,10 +145,13 @@ describe("each engine's request per reach", () => {
     expect((await sent("claude", "global")).search?.user_location).toBeUndefined();
   });
 
-  it("Gemini and Perplexity are told no location for any reach; Local is buildEngineLocation's, unchanged", () => {
+  it("Gemini is told no location for any reach, Perplexity Claude's; Local is buildEngineLocation's, unchanged", () => {
     for (const reach of ["state", "country", "global"] as const) {
       expect(engineLocationForReach(reach, "gemini", BRAND)).toBeUndefined();
-      expect(engineLocationForReach(reach, "perplexity", BRAND)).toBeUndefined();
+      // S04B part 1 (LLD amendment 99): Perplexity's Agent API web_search takes a user_location.
+      expect(engineLocationForReach(reach, "perplexity", BRAND)).toEqual(
+        engineLocationForReach(reach, "claude", BRAND),
+      );
     }
     for (const engine of ["chatgpt", "claude", "gemini", "perplexity"])
       expect(engineLocationForReach("local", engine, BRAND)).toEqual(buildEngineLocation(BRAND));

@@ -19,6 +19,7 @@ import {
   cannedFetch,
   geminiResponse,
 } from "../../helpers/canned-llm-responses";
+import { perplexityAgentResponse } from "../../helpers/perplexity-agent-response";
 
 const { setCachedMock } = vi.hoisted(() => ({ setCachedMock: vi.fn() }));
 vi.mock("@/lib/llm/cache", () => ({
@@ -106,19 +107,14 @@ describe("the rule: a dated snapshot is the same model, anything else isn't", ()
   });
 });
 
-const perplexityBody = (model: string) => ({
-  id: "pplx-1",
-  model,
-  choices: [
-    {
-      index: 0,
-      message: { role: "assistant", content: "Yabby Services is a plumber in Norwest." },
-      finish_reason: "stop",
-    },
-  ],
-  usage: { prompt_tokens: 20, completion_tokens: 30, total_tokens: 50 },
-  citations: ["https://yabbyservices.com.au/"],
-});
+// S04B part 1 (LLD amendment 99): Perplexity answers through its Agent API (tests/helpers/perplexity-agent-response.ts).
+const perplexityBody = (model: string) =>
+  perplexityAgentResponse({
+    model,
+    text: "Yabby Services is a plumber in Norwest.",
+    searchResults: ["https://yabbyservices.com.au/"],
+    usage: { input_tokens: 20, output_tokens: 30, total_tokens: 50 },
+  });
 
 const openaiResponsesBody = (model: string) => ({
   id: "resp_canned",
@@ -154,7 +150,7 @@ async function perplexity(namedModel: string) {
     engine: "perplexity",
     prompt: "Good plumber in Norwest?",
     task: "brand_mention",
-    model: "sonar-pro",
+    model: "sonar",
     cacheMode: "fresh",
   });
 }
@@ -205,22 +201,23 @@ async function chatgpt(namedModel: string) {
 }
 
 describe("each adapter records the model asked for and the model its provider named", () => {
-  it("Perplexity: sonar-pro asked for, sonar named -- model stays sonar-pro, and the cache keeps what answered", async () => {
-    const output = await perplexity("sonar");
-    expect(output.model).toBe("sonar-pro");
-    expect(output.modelAnswered).toBe("sonar");
+  it("Perplexity: sonar asked for, another model named -- model stays sonar, and the cache keeps what answered", async () => {
+    const output = await perplexity("openai/gpt-6-luna");
+    expect(output.model).toBe("sonar");
+    expect(output.modelAnswered).toBe("openai/gpt-6-luna");
     expect(isSameModel(output.model, output.modelAnswered ?? "")).toBe(false);
     expect(setCachedMock).toHaveBeenCalledWith(
       "Good plumber in Norwest?",
-      "sonar-pro",
-      expect.objectContaining({ modelAnswered: "sonar" }),
+      "sonar",
+      expect.objectContaining({ modelAnswered: "openai/gpt-6-luna" }),
       "grounded",
     );
   });
 
-  it("Perplexity: sonar-pro named -- the same model", async () => {
-    const output = await perplexity("sonar-pro");
-    expect(output).toMatchObject({ model: "sonar-pro", modelAnswered: "sonar-pro" });
+  it("Perplexity: perplexity/sonar named -- the same model", async () => {
+    const output = await perplexity("perplexity/sonar");
+    expect(output).toMatchObject({ model: "sonar", modelAnswered: "perplexity/sonar" });
+    expect(isSameModel(output.model, output.modelAnswered ?? "")).toBe(true);
   });
 
   it("Gemini: the response's modelVersion -- 3.5 Flash-Lite answering a 2.5 Flash call is different", async () => {

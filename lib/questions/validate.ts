@@ -10,7 +10,7 @@ import { questionTextKey } from "@/lib/questions/text-key";
  *
  * Always shown, pass or fail: one question of 10-200 characters; not already in the brand's questions (compared as
  * question_text_key); whether it names the business (then it's shown but not scored -- a warning, not a failure); no
- * links, emails or phone numbers. Shown only when they apply: no place in the question (a warning, with a one-click
+ * links, emails or phone numbers. Shown only when they apply: HTML (a failure: plain text only, amendment 89); no place in the question (a warning, with a one-click
  * fix, never for Worldwide); a sixth question naming the business (a failure: at most 5, D-QI-BR); an instruction to
  * the AI rather than a customer's question (a failure, appendix C2); a competitor named (a warning: it's a comparison
  * question, still everyday unless it names the business too). Any failure blocks.
@@ -31,7 +31,8 @@ export type QuestionCheckId =
   | "place"
   | "branded_limit"
   | "instruction"
-  | "competitor";
+  | "competitor"
+  | "html";
 export type QuestionCheckStatus = "pass" | "warn" | "fail";
 
 export interface QuestionCheck {
@@ -78,6 +79,7 @@ export const CHECK_COPY = {
     "No place in the question. AI answers differ by place, and Gemini can't be told your location.",
   brandedLimit: "Already 5 questions name your business. Remove one first.",
   instruction: "This reads like an instruction to the AI, not a customer's question.",
+  html: "Plain text only: remove the HTML.",
   competitor: (name: string) =>
     `Names ${name}. That's fine: it's counted as a comparison question.`,
   addPlace: (place: string) => `Add “in ${place}”`,
@@ -128,15 +130,12 @@ export function validateQuestion(raw: string, ctx: QuestionValidationContext): Q
   const plain = readable(text);
   const checks: QuestionCheck[] = [];
 
-  // LLD 11 (stored XSS): no HTML accepted. P03 has no line of its own for it, so markup fails "One question": a
-  // question is plain text.
   const oneQuestion =
     text.length >= QUESTION_MIN_LENGTH &&
     text.length <= QUESTION_MAX_LENGTH &&
     !/[\r\n]/.test(text) &&
     text.endsWith("?") &&
-    (text.match(/\?/g) ?? []).length === 1 &&
-    !HTML_TAG.test(text);
+    (text.match(/\?/g) ?? []).length === 1;
   checks.push({ id: "shape", status: oneQuestion ? "pass" : "fail", message: CHECK_COPY.shape });
 
   const duplicate = text.length > 0 && ctx.existingKeys.has(questionTextKey(text));
@@ -156,6 +155,12 @@ export function validateQuestion(raw: string, ctx: QuestionValidationContext): Q
 
   const contact = URL_LIKE.test(plain) || EMAIL_LIKE.test(plain) || PHONE_LIKE.test(plain);
   checks.push({ id: "contact", status: contact ? "fail" : "pass", message: CHECK_COPY.contact });
+
+  // LLD 11 (stored XSS): no HTML accepted. S04 part 0f (amendment 89; contract v1.9 P03.checks): its own blocking line,
+  // shown only when the question holds a tag or comment (it failed "One question" before).
+  if (HTML_TAG.test(text)) {
+    checks.push({ id: "html", status: "fail", message: CHECK_COPY.html });
+  }
 
   if (ctx.reach !== "global" && ctx.fixPlace && !namesPlace(text, ctx.places)) {
     checks.push({

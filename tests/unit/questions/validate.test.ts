@@ -239,7 +239,12 @@ describe("the stored text", () => {
       "Who fixes taps in Chatswood <img src=x onerror=alert(1)?",
     ]) {
       const v = validateQuestion(text, ctx());
-      expect(v.checks[0], text).toMatchObject({ id: "shape", status: "fail" });
+      // S04 part 0f (LLD amendment 89): 'A question containing HTML fails its own blocking check, "Plain text only:
+      // remove the HTML.", instead of "One question"'.
+      expect(
+        v.checks.find((c) => c.id === "html"),
+        text,
+      ).toMatchObject({ status: "fail", message: "Plain text only: remove the HTML." });
       expect(v.ok, text).toBe(false);
     }
     expect(status("Which Chatswood plumber charges < $200 for a tap?", "shape")).toBe("pass");

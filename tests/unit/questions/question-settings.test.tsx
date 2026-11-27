@@ -94,7 +94,9 @@ describe("the Questions settings page (P05)", () => {
     expect(rows[0]).toHaveTextContent("9 / 20");
     expect(rows[0]).toHaveTextContent("+1 pack");
     expect(rows[0]).toHaveTextContent("26 Nov 2026 · Pat Owner");
-    expect(rows[1]).toHaveTextContent("backfill");
+    // S04 part 0d (LLD amendment 95): '"Last change" reads "Original questions · 27 Nov 2026" for 0155's version 1 (it
+    // printed "backfill")'.
+    expect(rows[1]).toHaveTextContent("Original questions · 20 Nov 2026");
     expect(
       within(rows[1]).getByRole("link", { name: "Edit questions for Kookaburra Plumbing" }),
     ).toHaveAttribute("href", "/brands/b-2/questions?edit=1");

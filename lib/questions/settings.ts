@@ -4,6 +4,7 @@ import { brandQuestions, brands, organizations } from "@/db/schema";
 import { isBrandedPrompt } from "@/lib/audit/flag-branded-prompts";
 import { effectiveTier } from "@/lib/pricing/effective-tier";
 import { tierDisplayName } from "@/lib/pricing/tiers";
+import { CONFIRMED_SET_NOTE } from "@/lib/questions/apply";
 import { MIN_EVERYDAY_QUESTIONS, questionLimitsFor } from "@/lib/questions/limits";
 import { loadCurrentQuestionSet } from "@/lib/questions/question-set-store";
 import { questionTextKey } from "@/lib/questions/text-key";
@@ -50,7 +51,11 @@ export interface BrandQuestionRow {
   packs: number;
   writtenByAgency: number;
   version: number | null;
-  lastChange: { at: string; by: string | null; backfill: boolean } | null;
+  /**
+   * S04 part 0d (LLD amendment 95): `backfill` is 0155's version 1 ("Original questions · {date}"), `confirmed` a version
+   * the confirm screen saved ("Confirmed · {date} · {userName}"); otherwise one applied in P04 ("{date} · {userName}").
+   */
+  lastChange: { at: string; by: string | null; backfill: boolean; confirmed?: boolean } | null;
 }
 
 export interface QuestionSettingsView {
@@ -125,6 +130,7 @@ export async function loadQuestionSettings(
               at: new Date(r.applied_at).toISOString(),
               by: r.applied_by,
               backfill: r.version === 1 && r.note === BACKFILL_NOTE,
+              confirmed: r.note === CONFIRMED_SET_NOTE,
             }
           : null,
       };

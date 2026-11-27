@@ -8,7 +8,7 @@ import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { classificationFloor } from "@/lib/prompts/classification-floor";
 import { PROMPT_GENERATOR_VERSION } from "@/lib/prompts/generator-version";
 import { questionAgencyName } from "@/lib/questions/agency-name";
-import { type ApplyResult, applyQuestionSet } from "@/lib/questions/apply";
+import { type ApplyResult, applyQuestionSet, CONFIRMED_SET_NOTE } from "@/lib/questions/apply";
 import { getQuestionLimits } from "@/lib/questions/limits";
 import { loadCurrentQuestionSet } from "@/lib/questions/question-set-store";
 import { SUGGESTION_COUNT } from "@/lib/questions/questions-view";
@@ -269,6 +269,7 @@ export async function confirmQuestions(
     organizationId: input.organizationId,
     brandId: input.brandId,
     userId: input.userId,
+    note: CONFIRMED_SET_NOTE,
     baseVersion: current?.version ?? 0,
     items: input.shown.map((s, position) =>
       s.source === "agency"

@@ -1038,3 +1038,35 @@ test("Brands list: audit #36 shows '8%' over '3 of 40'; no audit and too few ans
   await expect(cell("No Audit Co")).toHaveText(/—\s*No audit yet/);
   await expect(cell("Thin Answers Co")).toHaveText(/—\s*Not enough answers/);
 });
+
+// ---------------------------------------------------------------------------
+// S04 part 0d (LLD amendment 95; contract v1.9 P05): Workspace -> Questions inside the Account pages' wrapper. Live at
+// about 1920 wide its title and cards started at the sidebar's edge and the cards ran off the right edge.
+// ---------------------------------------------------------------------------
+
+test("Questions settings: fits 390, 768, 1240 and 1920, in the Account pages' wrapper", async ({
+  page,
+}) => {
+  await signIn(page);
+  for (const width of [390, 768, 1240, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, "/settings/questions");
+    const header = page.getByTestId("p05-header");
+    await expect(header).toBeVisible({ timeout: 30_000 });
+    const result = await measureFit(page);
+    const where = `/settings/questions at ${width}px: ${JSON.stringify(result)}`;
+    expect.soft(result.overflowing, where).toBe(false);
+    expect.soft(result.clipped, where).toEqual([]);
+    // The title and the cards keep a margin from the main area's edges, and the cards end inside it.
+    const main = await page.locator("[data-app-main]").boundingBox();
+    const title = await header.boundingBox();
+    const brands = await page.getByTestId("p05-brands").boundingBox();
+    expect.soft(main && title ? title.x - main.x : 0, where).toBeGreaterThanOrEqual(16);
+    expect
+      .soft(main && brands ? main.x + main.width - (brands.x + brands.width) : -1, where)
+      .toBeGreaterThanOrEqual(16);
+    if (width >= 1240) {
+      expect.soft(main && title ? title.x - main.x : 0, where).toBeGreaterThanOrEqual(32);
+    }
+  }
+});

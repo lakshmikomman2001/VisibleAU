@@ -47,7 +47,15 @@ export interface ApplyInput {
   items: readonly ApplyItem[];
   /** The everyday count the draft showed; when sent, it must match the items. */
   count?: number;
+  /** S04 part 0d: stored as the set's note (the confirm screen's CONFIRMED_SET_NOTE); none for P04's apply. */
+  note?: string;
 }
+
+/**
+ * S04 part 0d (LLD amendment 95): the note on a version the confirm screen's Questions step saved, so Workspace ->
+ * Questions says "Confirmed · {date} · {userName}" for it.
+ */
+export const CONFIRMED_SET_NOTE = "Confirmed on the confirm screen's Questions step";
 
 export interface ItemProblem {
   position: number;
@@ -310,6 +318,7 @@ export async function applyQuestionSet(tx: DbClient, input: ApplyInput): Promise
       isCurrent: true,
       comparisonHash,
       appliedBy: input.userId,
+      note: input.note ?? null,
     })
     .returning({ id: brandQuestionSets.id });
   await tx.insert(brandQuestionSetItems).values(

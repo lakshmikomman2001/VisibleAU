@@ -568,13 +568,7 @@ function BrandsTable({ view, onCopy }: { view: QuestionSettingsView; onCopy: () 
                     </td>
                     <td style={td}>{b.writtenByAgency}</td>
                     <td style={td}>{b.version ?? "—"}</td>
-                    <td style={td}>
-                      {b.lastChange
-                        ? b.lastChange.backfill
-                          ? "backfill"
-                          : `${formatCheckDate(b.lastChange.at)}${b.lastChange.by ? ` · ${b.lastChange.by}` : ""}`
-                        : "—"}
-                    </td>
+                    <td style={td}>{b.lastChange ? lastChangeText(b.lastChange) : "—"}</td>
                     <td style={td}>
                       <Link
                         href={`/brands/${b.id}/questions?edit=1`}
@@ -625,6 +619,22 @@ function BrandsTable({ view, onCopy }: { view: QuestionSettingsView; onCopy: () 
   );
 }
 
+/**
+ * S04 part 0d (LLD amendment 95; contract P05.brands.table): "Original questions · {date}" for 0155's version 1 (it
+ * printed "backfill"), "Confirmed · {date} · {userName}" for a version the confirm screen saved, "{date} · {userName}"
+ * for one applied in P04.
+ */
+export function lastChangeText(change: {
+  at: string;
+  by: string | null;
+  backfill: boolean;
+  confirmed?: boolean;
+}): string {
+  const date = formatCheckDate(change.at);
+  if (change.backfill) return `Original questions · ${date}`;
+  const by = change.by ? ` · ${change.by}` : "";
+  return change.confirmed ? `Confirmed · ${date}${by}` : `${date}${by}`;
+}
 export function QuestionSettings() {
   const loaded = useJson<QuestionSettingsView>("/api/settings/questions");
   const [copying, setCopying] = useState(false);

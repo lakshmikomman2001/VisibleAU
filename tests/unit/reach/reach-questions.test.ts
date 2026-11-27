@@ -17,9 +17,15 @@ import { validateGeneratedQuestion } from "@/lib/prompts/validate-question";
 import { questionTextKey } from "@/lib/questions/text-key";
 import { validateQuestion } from "@/lib/questions/validate";
 import { type BeyondLocal, brandReachQuestions, type ReachBrand } from "@/lib/reach/generate";
-import { availableReaches, placeForReach, reachLabel, reachPlaceWords } from "@/lib/reach/places";
+import {
+  availableReaches,
+  type BrandPlaceFields,
+  placeForReach,
+  reachLabel,
+  reachPlaceWords,
+} from "@/lib/reach/places";
 
-const NUMBATEK: ReachBrand = {
+const NUMBATEK: ReachBrand & BrandPlaceFields = {
   name: "NumbaTek IT",
   domain: "numbatekit.example.com.au",
   aliases: [],
@@ -37,11 +43,12 @@ const NUMBATEK: ReachBrand = {
   suburb: "Mount Druitt",
   city: "Sydney",
   state: "NSW",
+  postcode: null,
   region: "au",
   primaryRegions: ["NSW:Mount Druitt"],
 };
 
-const HOBART: ReachBrand = {
+const HOBART: ReachBrand & BrandPlaceFields = {
   ...NUMBATEK,
   name: "Quoll Plumbing",
   domain: "quollplumbing.example.com.au",
@@ -54,13 +61,18 @@ const HOBART: ReachBrand = {
   primaryRegions: ["TAS:Sandy Bay"],
 };
 
-function questions(brand: ReachBrand, reach: BeyondLocal, count = 10, market = AU_MARKET) {
+function questions(
+  brand: ReachBrand & BrandPlaceFields,
+  reach: BeyondLocal,
+  count = 10,
+  market = AU_MARKET,
+) {
   const place = placeForReach(reach, brand, market);
   if (!place) return [];
   return brandReachQuestions(brand, { reach, market, place, count });
 }
 
-function passesP03(brand: ReachBrand, reach: BeyondLocal, text: string) {
+function passesP03(brand: ReachBrand & BrandPlaceFields, reach: BeyondLocal, text: string) {
   const place = placeForReach(reach, brand, AU_MARKET) ?? {};
   const words = reachPlaceWords(reach, place, AU_MARKET);
   return validateQuestion(text, {

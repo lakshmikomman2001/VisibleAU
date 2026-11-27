@@ -201,13 +201,17 @@ export async function getAuditQuestions(
   // S02 part 3 (LLD 8.2.1): the brand's current question set, in position order. It equals the stored pack (the 0155
   // backfill made version 1 from it, and every regenerated pack becomes the next version), so this asks exactly what
   // the code below would have asked (N1). isBranded stays the run-time rule on the text, as scoring reads it.
+  // S04 part 0a (LLD amendment 84; N4): a set a person applied survives a rename, so a question typed as naming the
+  // business under the old name ("Is {old name} a good choice ...?") would no longer match the new name: the set's own
+  // kind keeps it shown and never counted, and the audit's hash equal to the set's. For every other set the two agree
+  // (each set is typed by the same rule when it is written).
   const set = await loadCurrentQuestionSet(serviceDb, currentBrand.id);
   if (set) {
     return {
       setId: set.setId,
       prompts: set.items.map((item) => ({
         text: item.text,
-        isBranded: isBrandedPrompt(item.text, currentBrand),
+        isBranded: item.kind === "branded" || isBrandedPrompt(item.text, currentBrand),
         questionId: item.questionId,
         kind: item.kind,
         reach: item.reach,

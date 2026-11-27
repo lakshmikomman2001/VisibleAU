@@ -37,7 +37,7 @@ import { PlanLockBadge } from "@/components/domain/pricing/plan-lock";
 import { useCan } from "@/components/domain/role-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { LoadError } from "@/components/shared/load-error";
-import { SaveFeedback, useSave } from "@/components/shared/save-feedback";
+import { QuestionsKeptStatus, SaveFeedback, useSave } from "@/components/shared/save-feedback";
 import { isExcludedFromTrends } from "@/lib/audit/trend-exclusion";
 import { formatAbn, normaliseAbnInput } from "@/lib/brands/abn";
 import { aliasProblem, MAX_ALIASES } from "@/lib/brands/aliases";
@@ -296,6 +296,8 @@ export function BrandDetailClient({
   const [abnError, setAbnError] = useState<string | null>(null);
   const [abnStatus, setAbnStatus] = useState<string | null>(null);
   const [changingLocation, setChangingLocation] = useState(false);
+  // S04 part 0a (LLD amendment 84): a location change kept the questions a person applied; say so under the location.
+  const [locationKeptQuestions, setLocationKeptQuestions] = useState(false);
 
   // Vunnara Build 1, Part C.5: running an audit on an unconfirmed
   // classification isn't blocked -- just warned about -- so a brand
@@ -792,7 +794,11 @@ export function BrandDetailClient({
         )}
         {(editMode || brandSave.status !== "idle") && (
           <span data-brand-save-feedback="" style={{ alignSelf: "center" }}>
-            <SaveFeedback status={brandSave.status} error={brandSave.error} />
+            <SaveFeedback
+              status={brandSave.status}
+              error={brandSave.error}
+              questionsHref={`/brands/${brand.id}/questions`}
+            />
           </span>
         )}
         {canDeleteBrand && (
@@ -2079,7 +2085,13 @@ export function BrandDetailClient({
                   isLegacyDefaultRegion={isLegacyDefaultRegion}
                   currentPostcode={brand.postcode ?? null}
                   onClose={() => setChangingLocation(false)}
+                  onQuestionsKept={() => setLocationKeptQuestions(true)}
                 />
+              </div>
+            )}
+            {locationKeptQuestions && !changingLocation && (
+              <div style={{ marginTop: 8 }}>
+                <QuestionsKeptStatus questionsHref={`/brands/${brand.id}/questions`} />
               </div>
             )}
           </div>
@@ -2216,7 +2228,11 @@ export function BrandDetailClient({
               >
                 {saving ? "Saving…" : "Save brand settings"}
               </button>
-              <SaveFeedback status={brandSave.status} error={brandSave.error} />
+              <SaveFeedback
+                status={brandSave.status}
+                error={brandSave.error}
+                questionsHref={`/brands/${brand.id}/questions`}
+              />
             </div>
           )}
         </div>

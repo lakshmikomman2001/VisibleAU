@@ -3,11 +3,28 @@ import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
-import { writeSetFromPack } from "@/lib/questions/question-set-store";
+import {
+  addPackAsSuggestions,
+  currentSetAppliedByPerson,
+  writeSetFromPack,
+} from "@/lib/questions/question-set-store";
 import type { BrandClassification } from "@/lib/types/brand";
 import { buildPromptPack } from "./build-prompt-pack";
 import { classificationFloor } from "./classification-floor";
 import { PROMPT_GENERATOR_VERSION } from "./generator-version";
+
+/**
+ * S04 part 0a: what a regeneration did, for the brand PATCH's "Saved. Your questions didn't change ..." status. Nothing
+ * (undefined) when the brand isn't confirmed and placed yet, so no pack was made.
+ * - unchanged: the same pack; at most the generator version stamped;
+ * - new_version: the new pack became the brand's next set version (amendment 74);
+ * - set_kept: a person applied the current set, so it stayed; the pack's questions went into the library as
+ *   suggestions, `suggestionsAdded` of them (LLD amendment 84).
+ */
+export type RegenerateResult =
+  | { outcome: "unchanged" }
+  | { outcome: "new_version" }
+  | { outcome: "set_kept"; suggestionsAdded: number };
 
 /**
  * Vunnara Build 1, Part E.1/E.2: the ONE place a brand's frozen prompt
@@ -22,7 +39,11 @@ import { PROMPT_GENERATOR_VERSION } from "./generator-version";
  *
  * Every caller that changes category/audience/location/competitors
  * (confirm-classification, the location-confirming brand PATCH,
- * classifyAndStoreBrand itself) calls this afterwards. It decides
+ * classifyAndStoreBrand itself) calls this afterwards, and so does the
+ * audit start in both runners for a pack from an older generator
+ * (lib/audit/get-audit-prompts.ts): S04 part 0a found no other path that
+ * rewrites a brand's pack. When a person applied the brand's current set,
+ * this keeps it (LLD amendment 84; the branch below). It decides
  * fresh-generation (keeps the current version) vs regeneration (bumps
  * it) by checking whether a pack already existed, so no caller has to
  * track that distinction itself -- a brand's first-ever pack always
@@ -36,7 +57,10 @@ import { PROMPT_GENERATOR_VERSION } from "./generator-version";
  * serviceDb-fence allowlist (biome.json's noRestrictedImports), and
  * this function has no business deciding its own DB scope anyway.
  */
-export async function regeneratePromptPack(tx: DbClient, brandId: string): Promise<void> {
+export async function regeneratePromptPack(
+  tx: DbClient,
+  brandId: string,
+): Promise<RegenerateResult | undefined> {
   const [brand] = await tx
     .select({
       id: brands.id,
@@ -117,17 +141,36 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
         .set({ promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION })
         .where(eq(brands.id, brandId));
     }
-    return;
+    return { outcome: "unchanged" };
   }
 
   const newVersion = hadPackBefore
     ? (brand.promptPackVersion ?? 1) + 1
     : (brand.promptPackVersion ?? 1);
 
-  // S02 part 3 (LLD 8.2.1): audits ask the brand's current question set, so a new pack becomes the next set version
-  // in the same transaction (a savepoint when the caller's is already open): the set always equals the stored pack,
-  // and an audit asks exactly what it asked before S02 (N1). Only a changed pack gets here, as before.
-  await tx.transaction(async (t) => {
+  return tx.transaction(async (t): Promise<RegenerateResult> => {
+    // The brand row, locked, as an apply locks it (lib/questions/apply.ts): whether a person applied the current set is
+    // decided and acted on in one turn.
+    await t.select({ id: brands.id }).from(brands).where(eq(brands.id, brandId)).for("update");
+
+    // S04 part 0a (LLD amendment 84): a set a person applied (P04's apply, the confirm screen's Questions step) is never
+    // replaced by the generator. Its questions stay what audits ask; the regenerated ones become suggestions, and the
+    // generator version is stamped so the next audit start doesn't regenerate again. The stored pack becomes the new
+    // one, so saving the same details again is "unchanged" (no suggestions re-added); its version number stays, since
+    // what audits ask didn't change.
+    if (await currentSetAppliedByPerson(t, brandId)) {
+      const suggestionsAdded = await addPackAsSuggestions(t, { brandId, pack });
+      await t
+        .update(brands)
+        .set({ promptPack: pack, promptPackGeneratorVersion: PROMPT_GENERATOR_VERSION })
+        .where(eq(brands.id, brandId));
+      console.info(JSON.stringify({ event: "question_set_kept", brandId, suggestionsAdded }));
+      return { outcome: "set_kept", suggestionsAdded };
+    }
+
+    // S02 part 3 (LLD 8.2.1; amendment 74): audits ask the brand's current question set, so a new pack becomes the next
+    // set version in the same transaction (a savepoint when the caller's is already open): the set always equals the
+    // stored pack, and an audit asks exactly what it asked before S02 (N1). Only a changed pack gets here, as before.
     await t
       .update(brands)
       .set({
@@ -137,5 +180,6 @@ export async function regeneratePromptPack(tx: DbClient, brandId: string): Promi
       })
       .where(eq(brands.id, brandId));
     await writeSetFromPack(t, { brandId, pack, note: "The regenerated question pack" });
+    return { outcome: "new_version" };
   });
 }

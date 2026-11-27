@@ -6,6 +6,7 @@ import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
 import { buildPromptPack } from "@/lib/prompts/build-prompt-pack";
 import { classificationFloor } from "@/lib/prompts/classification-floor";
+import { isRegeneratedSuggestion } from "@/lib/questions/question-set-store";
 import type { BrandClassification } from "@/lib/types/brand";
 
 /**
@@ -39,6 +40,11 @@ export interface QuestionsView {
     /** The first complete audit with this set's question hash; null when none has asked it yet. */
     comparingSinceAudit: number | null;
   } | null;
+  /**
+   * S04 part 0a (LLD amendment 84; contract P02.regenBanner): a regeneration (a rename, a location change, a newer
+   * generator) added suggestions after a person applied the current set. False once a newer version is applied.
+   */
+  regeneratedSuggestions?: boolean;
   questions: QuestionView[];
   lastAudit: { id: string; number: number; engines: string[] } | null;
   history: Array<{
@@ -56,6 +62,8 @@ export interface QuestionsView {
     text: string;
     serviceLabel: string | null;
     source?: QuestionView["source"];
+    /** S04 part 0a: a regenerated suggestion may name the business (its new name); absent means everyday. */
+    kind?: QuestionView["kind"];
   }>;
 }
 
@@ -75,6 +83,7 @@ type Row = {
   version: number;
   applied_at: string;
   applied_by: string | null;
+  applied_by_person: boolean;
   note: string | null;
   comparing_since: number | null;
   audit_id: string | null;
@@ -124,7 +133,8 @@ export function questionsViewSql(brandId: string, organizationId: string) {
     res AS (SELECT question_id, jsonb_object_agg(engine, result) AS results FROM answers GROUP BY question_id)
     SELECT it.id AS question_id, it.position, it.text, it.kind, it.reach, it.source, it.service_label, it.intent,
            res.results,
-           s.id AS set_id, s.version, s.applied_at, u.name AS applied_by, s.note,
+           s.id AS set_id, s.version, s.applied_at, u.name AS applied_by,
+           s.applied_by IS NOT NULL AS applied_by_person, s.note,
            (SELECT audit_number FROM since) AS comparing_since,
            la.id AS audit_id, la.audit_number, la.engines AS audit_engines
     FROM items it CROSS JOIN s
@@ -175,6 +185,8 @@ export async function loadQuestionsView(
         source: brandQuestions.source,
         status: brandQuestions.status,
         serviceLabel: brandQuestions.serviceLabel,
+        reasons: brandQuestions.reasons,
+        createdAt: brandQuestions.createdAt,
       })
       .from(brandQuestions)
       .where(
@@ -186,6 +198,15 @@ export async function loadQuestionsView(
       )
       .orderBy(brandQuestions.createdAt),
   ]);
+
+  const appliedAt = first ? new Date(first.applied_at) : null;
+  const regeneratedSuggestions =
+    !!first?.applied_by_person &&
+    appliedAt !== null &&
+    library.some(
+      (q) =>
+        q.status === "suggested" && isRegeneratedSuggestion(q.reasons) && q.createdAt > appliedAt,
+    );
 
   return {
     set: first
@@ -220,10 +241,23 @@ export async function loadQuestionsView(
       everyday: h.everyday,
       audits: h.from !== null && h.to !== null ? { from: h.from, to: h.to } : null,
     })),
-    library: library.map(({ serviceLabel: _s, ...q }) => q),
+    library: library.map(({ id, text, kind, source, status }) => ({
+      id,
+      text,
+      kind,
+      source,
+      status,
+    })),
     suggestions: library
       .filter((q) => q.status === "suggested")
-      .map((q) => ({ id: q.id, text: q.text, serviceLabel: q.serviceLabel, source: q.source })),
+      .map((q) => ({
+        id: q.id,
+        text: q.text,
+        serviceLabel: q.serviceLabel,
+        source: q.source,
+        kind: q.kind,
+      })),
+    regeneratedSuggestions,
   };
 }
 

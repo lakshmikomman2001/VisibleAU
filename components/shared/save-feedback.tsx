@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ActionError } from "@/components/shared/load-error";
 import { fetchOrFail, LoadFailure, readJson } from "@/lib/load/fetch-json";
 
-export type SaveStatus = "idle" | "saving" | "saved" | "unchanged" | "error";
+export type SaveStatus = "idle" | "saving" | "saved" | "unchanged" | "questions_kept" | "error";
 
 /**
  * 12 Nov, part 5 (moved here 13 Nov, part 2, so the brand page's Save says the same): one save's feedback --
@@ -35,8 +36,16 @@ export function useSave(
         headers: { "content-type": "application/json" },
         body: JSON.stringify(change),
       });
-      const body = await readJson<{ status?: "saved" | "unchanged" }>(res);
-      setStatus(body.status === "unchanged" ? "unchanged" : "saved");
+      const body = await readJson<{ status?: "saved" | "unchanged" | "questions_kept" }>(res);
+      // S04 part 0a: "questions_kept" -- the brand's details changed, but a person had applied its questions, so they
+      // stayed and the new ones arrived as suggestions (PATCH /api/brands/:id; LLD amendment 84).
+      setStatus(
+        body.status === "unchanged"
+          ? "unchanged"
+          : body.status === "questions_kept"
+            ? "questions_kept"
+            : "saved",
+      );
       onSaved?.();
       router.refresh();
       return true;
@@ -62,7 +71,46 @@ export function useSave(
   return { status, error, saving: status === "saving", save, reset };
 }
 
-export function SaveFeedback({ status, error }: { status: SaveStatus; error: string | null }) {
+/** S04 part 0a (LLD amendment 84): what brand settings says when a save kept the questions a person applied. */
+export function QuestionsKeptStatus({ questionsHref }: { questionsHref: string }) {
+  return (
+    <span
+      role="status"
+      data-testid="questions-kept-status"
+      className="text-[12px]"
+      style={{ color: "var(--success)" }}
+    >
+      Saved. Your questions didn't change:{" "}
+      <Link
+        href={questionsHref}
+        style={{ color: "var(--accent-blue)", textDecoration: "underline", textUnderlineOffset: 2 }}
+      >
+        review the new suggestions in Questions
+      </Link>
+      .
+    </span>
+  );
+}
+
+export function SaveFeedback({
+  status,
+  error,
+  questionsHref,
+}: {
+  status: SaveStatus;
+  error: string | null;
+  /** S04 part 0a: the brand's Questions page, linked when a save kept its questions ("questions_kept"). */
+  questionsHref?: string;
+}) {
+  if (status === "questions_kept") {
+    return questionsHref ? (
+      <QuestionsKeptStatus questionsHref={questionsHref} />
+    ) : (
+      <span role="status" className="text-[12px]" style={{ color: "var(--success)" }}>
+        Saved. Your questions didn't change: review the new suggestions in Questions.
+      </span>
+    );
+  }
   if (status === "saving") {
     return (
       <span role="status" className="text-[12px]" style={{ color: "var(--text-secondary)" }}>

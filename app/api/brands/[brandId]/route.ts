@@ -203,6 +203,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
     // just changed -- regenerate the frozen pack (bumps prompt_pack_
     // version if one already existed; a no-op if this brand still
     // isn't classification+location ready).
+    // S04 part 0a (LLD amendment 84): a set a person applied is kept; the new questions arrive as suggestions, and the
+    // response says so (status "questions_kept"), for brand settings' "Saved. Your questions didn't change ...".
+    let questionsKept = false;
     if (
       parsed.data.locationMode !== undefined ||
       parsed.data.suburb !== undefined ||
@@ -213,7 +216,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       // so a rename regenerates them too.
       (parsed.data.name !== undefined && parsed.data.name !== existing.name)
     ) {
-      await regeneratePromptPack(tx, brandId);
+      const regenerated = await regeneratePromptPack(tx, brandId);
+      questionsKept = regenerated?.outcome === "set_kept" && regenerated.suggestionsAdded > 0;
     }
 
     // S01C part 5b (LLD amendment 65): a new name is a new search, so a "Not mine" kept past retention no longer
@@ -255,7 +259,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ brandI
       if (abnUpdate.abn) after(() => runBrandEntityCheck(currentUser.organizationId, brandId));
     }
 
-    return NextResponse.json({ brand: updated });
+    return NextResponse.json({
+      brand: updated,
+      ...(questionsKept ? { status: "questions_kept" as const } : {}),
+    });
   });
 }
 

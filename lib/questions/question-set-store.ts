@@ -64,6 +64,95 @@ export async function loadCurrentQuestionSet(
 /** brand_questions' CHECK (migration 0155). */
 const QUESTION_LENGTH = { min: 10, max: 200 } as const;
 
+/**
+ * S04 part 0a (LLD amendment 84): the reason a suggestion carries when a regeneration added it after a person applied
+ * the brand's set. The Questions page shows its banner while such a suggestion is newer than the current set
+ * (lib/questions/questions-view.ts), so applying a new version takes the banner away.
+ */
+export const REGENERATED_REASON = { type: "regenerated" } as const;
+
+/** Whether a library row's `reasons` mark it as added by a regeneration (REGENERATED_REASON). */
+export function isRegeneratedSuggestion(reasons: unknown): boolean {
+  return (
+    Array.isArray(reasons) &&
+    reasons.some(
+      (r) =>
+        !!r && typeof r === "object" && (r as { type?: unknown }).type === REGENERATED_REASON.type,
+    )
+  );
+}
+
+/** Whether the brand's current set was applied by a person (P04's apply, the confirm screen's Questions step). */
+export async function currentSetAppliedByPerson(db: DbClient, brandId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ appliedBy: brandQuestionSets.appliedBy })
+    .from(brandQuestionSets)
+    .where(and(eq(brandQuestionSets.brandId, brandId), eq(brandQuestionSets.isCurrent, true)));
+  return !!row?.appliedBy;
+}
+
+/**
+ * S04 part 0a (LLD amendment 84): a regenerated pack for a brand whose set a person applied goes into its library as
+ * suggestions instead of becoming a set version: source 'template', kind by isBrandedPrompt on the brand's current
+ * name, reach Local, marked REGENERATED_REASON. A question whose compared text is already live (in the set, in the
+ * library, an earlier suggestion) is skipped, as is one the library can't hold (outside 10-200 characters). Returns
+ * how many were added. Run inside the transaction that locked the brand row.
+ */
+export async function addPackAsSuggestions(
+  tx: DbClient,
+  input: { brandId: string; pack: readonly string[] },
+): Promise<number> {
+  const [brand] = await tx
+    .select({
+      organizationId: brands.organizationId,
+      name: brands.name,
+      domain: brands.domain,
+      aliases: brands.aliases,
+    })
+    .from(brands)
+    .where(eq(brands.id, input.brandId));
+  const usable = input.pack.filter(
+    (q) => q.length >= QUESTION_LENGTH.min && q.length <= QUESTION_LENGTH.max,
+  );
+  if (!brand || usable.length === 0) return 0;
+  const keys = await tx.execute<{ text: string; key: string }>(
+    sql`SELECT t AS text, question_text_key(t) AS key FROM unnest(ARRAY[${sql.join(
+      usable.map((t) => sql`${t}::text`),
+      sql`, `,
+    )}]::text[]) AS t`,
+  );
+  const live = await tx
+    .select({ key: brandQuestions.textKey })
+    .from(brandQuestions)
+    .where(and(eq(brandQuestions.brandId, input.brandId), isNull(brandQuestions.archivedAt)));
+  const seen = new Set(live.map((r) => r.key));
+  const fresh: string[] = [];
+  for (const { text, key } of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fresh.push(text);
+  }
+  if (fresh.length === 0) return 0;
+  const inserted = await tx
+    .insert(brandQuestions)
+    .values(
+      fresh.map((text) => ({
+        organizationId: brand.organizationId,
+        brandId: input.brandId,
+        text,
+        textKey: sql`question_text_key(${text})`,
+        kind: (isBrandedPrompt(text, brand) ? "branded" : "everyday") as QuestionKind,
+        source: "template" as const,
+        reach: "local" as const,
+        status: "suggested" as const,
+        reasons: [REGENERATED_REASON],
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ id: brandQuestions.id });
+  return inserted.length;
+}
+
 export type PackSetResult =
   | { written: true; setId: string; version: number }
   | { written: false; reason: "empty_pack" | "question_length" | "duplicate_question" };

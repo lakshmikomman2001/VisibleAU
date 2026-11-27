@@ -24,9 +24,21 @@ interface LocationConfirmCardProps {
    * this location", which only closed the picker but read like a second way to confirm.
    */
   onClose?: () => void;
+  /**
+   * S04 part 0a (LLD amendment 84): called after a save that kept the questions a person applied (the response's
+   * status "questions_kept": the new questions arrived as suggestions), so the page can say so once this closes.
+   */
+  onQuestionsKept?: () => void;
 }
 
 const POSTCODE = /^\d{4}$/;
+
+/** S04 part 0a: whether a location save kept the brand's applied questions (PATCH /api/brands/:id's status). */
+async function noteQuestionsKept(res: Response, onQuestionsKept?: () => void): Promise<void> {
+  if (!onQuestionsKept) return;
+  const body = (await res.json().catch(() => null)) as { status?: string } | null;
+  if (body?.status === "questions_kept") onQuestionsKept();
+}
 
 export function LocationConfirmCard({
   brandId,
@@ -34,6 +46,7 @@ export function LocationConfirmCard({
   isLegacyDefaultRegion,
   currentPostcode = null,
   onClose,
+  onQuestionsKept,
 }: LocationConfirmCardProps) {
   const changing = onClose !== undefined;
   const router = useRouter();
@@ -64,6 +77,7 @@ export function LocationConfirmCard({
           setError("Couldn't save — try again.");
           return;
         }
+        await noteQuestionsKept(res, onQuestionsKept);
         markJustConfirmed(brandId);
         router.refresh();
         onClose?.();
@@ -116,6 +130,7 @@ export function LocationConfirmCard({
         setError("Couldn't save — try again.");
         return;
       }
+      await noteQuestionsKept(res, onQuestionsKept);
       markJustConfirmed(brandId);
       router.refresh();
       onClose?.();

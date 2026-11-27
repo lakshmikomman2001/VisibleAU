@@ -491,6 +491,17 @@ function Skeleton() {
   );
 }
 
+/**
+ * S04 part 0a (contract P02.regenBanner): "Review suggestions" scrolls to the Suggestions card (view or edit mode: one
+ * is on the page at a time, both headed `{brandId}-suggestions`) and moves focus to its heading.
+ */
+export function reviewSuggestions(brandId: string): void {
+  const heading = document.getElementById(`${brandId}-suggestions`);
+  if (!heading) return;
+  heading.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  heading.focus();
+}
+
 export function QuestionsTab({ brandId }: { brandId: string }) {
   const loaded = useJson<QuestionsResponse>(`/api/brands/${brandId}/questions`, {
     isEmpty: (d) => d.questions.length === 0,
@@ -737,6 +748,37 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
         </p>
       )}
 
+      {view.regeneratedSuggestions && (
+        <Banner
+          tone="neutral"
+          testId="p02-regen-banner"
+          actions={
+            view.limits.suggestionsShown ? (
+              <button
+                type="button"
+                data-testid="p02-regen-banner-review"
+                onClick={() => reviewSuggestions(brandId)}
+                style={{
+                  height: 32,
+                  padding: "0 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: "var(--bg-elevated)",
+                  border: "1px solid var(--border-default)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
+              >
+                Review suggestions
+              </button>
+            ) : undefined
+          }
+        >
+          Your business details changed after these questions were set. Review the suggestions.
+        </Banner>
+      )}
+
       {editing && (
         <QuestionEditor
           brandId={brandId}
@@ -806,6 +848,7 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
           >
             <h2
               id={`${brandId}-suggestions`}
+              tabIndex={-1}
               style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}
             >
               Suggestions
@@ -832,6 +875,11 @@ export function QuestionsTab({ brandId }: { brandId: string }) {
                   >
                     {s.text}
                   </p>
+                  {s.kind === "branded" && (
+                    <div style={{ marginTop: 6 }}>
+                      <Pill tone="branded">Names your business · not scored</Pill>
+                    </div>
+                  )}
                   {s.serviceLabel && (
                     <div style={{ marginTop: 6 }}>
                       <Chip name="Service" value={s.serviceLabel} />

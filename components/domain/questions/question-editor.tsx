@@ -983,6 +983,8 @@ export function QuestionEditor({
 
   function row(item: DraftItem, index: number, list: DraftItem[]) {
     const branded = item.kind === "branded";
+    // S04 part 0a: a regenerated suggestion may name the business; a row swaps only for one of its own kind.
+    const swaps = spare.filter((s) => (s.kind ?? "everyday") === item.kind);
     return (
       <li
         key={item.key}
@@ -1047,7 +1049,7 @@ export function QuestionEditor({
                 Swap for:
               </p>
               <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
-                {spare.map((s) => (
+                {swaps.map((s) => (
                   <li key={s.id}>
                     <button
                       type="button"
@@ -1059,7 +1061,7 @@ export function QuestionEditor({
                                   key: s.id,
                                   questionId: s.id,
                                   text: s.text,
-                                  kind: "everyday",
+                                  kind: item.kind,
                                   source: s.source ?? "template",
                                   reach: "local",
                                 }
@@ -1089,7 +1091,7 @@ export function QuestionEditor({
           item={item}
           first={index === 0}
           last={index === list.length - 1}
-          canSwap={spare.length > 0}
+          canSwap={swaps.length > 0}
           onEdit={() => setDrawer({ replaces: item })}
           onSwap={() => setSwapping(item.key)}
           onUp={() => move(item.key, -1)}
@@ -1255,7 +1257,11 @@ export function QuestionEditor({
             className="flex flex-col min-[641px]:flex-row min-[641px]:items-baseline min-[641px]:justify-between"
             style={{ gap: 2 }}
           >
-            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+            <h2
+              id={`${brandId}-suggestions`}
+              tabIndex={-1}
+              style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}
+            >
               Suggestions
             </h2>
             <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-tertiary)" }}>
@@ -1269,16 +1275,23 @@ export function QuestionEditor({
                 className="flex flex-col min-[641px]:flex-row min-[641px]:items-center min-[641px]:justify-between"
                 style={{ gap: 8, padding: "12px 0", borderTop: "1px solid var(--border-default)" }}
               >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 14.5,
-                    lineHeight: "21px",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  {s.text}
-                </p>
+                <div style={{ minWidth: 0 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 14.5,
+                      lineHeight: "21px",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    {s.text}
+                  </p>
+                  {s.kind === "branded" ? (
+                    <div style={{ marginTop: 6 }}>
+                      <Pill tone="branded">Names your business · not scored</Pill>
+                    </div>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   aria-label={`Add: ${s.text}`}
@@ -1287,7 +1300,7 @@ export function QuestionEditor({
                       key: s.id,
                       questionId: s.id,
                       text: s.text,
-                      kind: "everyday",
+                      kind: s.kind ?? "everyday",
                       source: s.source ?? "template",
                       reach: "local",
                     });

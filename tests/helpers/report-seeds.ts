@@ -706,10 +706,12 @@ export async function seedReportBrand(
     }
     // The agency hides one other item (here a finding's own action: Bluegum has no other open item): a hidden action
     // never prints, and its finding's card shows the finding without the action's pills.
+    // S04 part 0i (LLD amendment 91): picked by title, so it's the same item every run -- the audit writes its items
+    // in one transaction, so their created_at are equal, and ORDER BY created_at, id picked by a random id.
     const [other] = await sql<{ id: string; title: string }[]>`
       SELECT id, title FROM action_items
       WHERE audit_id = ${basisAuditId} AND status = 'open' AND recommendation_key <> 'directory-visibility'
-      ORDER BY created_at, id LIMIT 1`;
+      ORDER BY title COLLATE "C", id LIMIT 1`;
     if (other) {
       hiddenActionTitle = other.title;
       await sql`

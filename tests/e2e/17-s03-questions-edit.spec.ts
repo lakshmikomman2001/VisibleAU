@@ -57,10 +57,11 @@ test.afterAll(async () => {
 });
 
 test.describe("S03 part 4: edit, apply, and the next audit asks the new set", () => {
+  // S04 part 0i (LLD amendment 91): set before the tests start, so the sign-in fixture is covered too.
+  test.describe.configure({ timeout: 240_000 });
   test("edit mode by keyboard and menu, add through the drawer, apply; the next audit asks version 2", async ({
     page,
   }) => {
-    test.setTimeout(240_000);
     await page.setViewportSize({ width: 1240, height: 900 });
     await page.goto(`/brands/${brandId}/questions`);
     await page.getByTestId("p02-header-edit").click({ timeout: 30_000 });

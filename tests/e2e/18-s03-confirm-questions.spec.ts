@@ -79,10 +79,12 @@ test.afterAll(async () => {
 });
 
 test.describe("S03 part 7: the Questions step on a new brand's confirm screen", () => {
+  // S04 part 0i (LLD amendment 91): set before the test starts, so the sign-in fixture is covered too (the first run
+  // timed out signing in on a cold server: test.setTimeout in the body starts only after the fixtures).
+  test.describe.configure({ timeout: 420_000 });
   test("Agency: swap, make room, add their own, confirm; the first audit asks exactly that, labelled", async ({
     page,
   }) => {
-    test.setTimeout(420_000);
     await page.setViewportSize({ width: 1240, height: 900 });
     const brandId = brandIds.agency;
     const step = await openQuestionsStep(page, brandId);

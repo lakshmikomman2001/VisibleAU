@@ -64,8 +64,10 @@ const BLUEGUM_GEMINI_CITES: SeedSpec = {
 };
 const KURRAJONG_NO_ABN: SeedSpec = { ...KURRAJONG, abn: null, entity: null };
 
+// S04 part 0g (LLD amendment 87): "A directory the directory actions already name ... isn't repeated in rule b's
+// action" -- today's directory finding names hipages and Airtasker (with Localsearch), so rule b lists Yellow Pages.
 const GEMINI_ACTION =
-  "Make sure your profiles on Yellow Pages, hipages and Airtasker, the directories Gemini cites most, are complete and linked in brand settings";
+  "Make sure your profile on Yellow Pages, the directory Gemini cites most, is complete and linked in brand settings";
 
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 const seeds: Record<"geminiCites" | "geminiSilent" | "noAbn", SeededReportBrand | null> = {
@@ -119,8 +121,12 @@ describe.each(
     const b = findingsOf(r).find((f) => f.rule === "b");
     expect(b?.fix).toBe(GEMINI_ACTION);
     expect(b?.recommendation.title).toBe(GEMINI_ACTION);
-    expect(b?.recommendation.detail).toContain(
-      "We can see the pages Gemini cited, but not what it searched, so we can't say why",
+    // S04 part 0g (LLD amendment 87): 'Its reason says why these directories: "{Engine} didn't name you in any of its
+    // {n} answers to everyday questions. These are the directories it cited most in them.", where {n} is the per-engine
+    // panel's count'.
+    const gemini = r.data.engines.find((e) => e.engine === "gemini");
+    expect(b?.recommendation.detail).toBe(
+      `Gemini didn't name you in any of its ${gemini?.sampleCount} answers to everyday questions. These are the directories it cited most in them.`,
     );
     expect(r.text).toContain("Gemini cited most → ");
     expect(r.text).toContain("Yellow Pages (5), hipages (2), Airtasker (1)");

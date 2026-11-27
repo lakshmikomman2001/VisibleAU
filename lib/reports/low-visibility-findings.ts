@@ -245,16 +245,25 @@ function couldNotFindFinding(data: LowVisibilityData): Finding | null {
   };
 }
 
-function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
-  if (!data.lowVisibility) return null;
-  const total = data.directories.totalAnswers;
-  const rows = data.directories.rows
+/**
+ * Rule i's directories: beyond the brand's type, cited at least DIRECTORY_MIN_CITED times, profile not linked; most
+ * cited first, at most 4. None while report_v2 is off. S04 part 0g: rule b leaves out the ones this names.
+ */
+export function directoriesNotOnRows(data: LowVisibilityData) {
+  if (!data.lowVisibility) return [];
+  return data.directories.rows
     .filter(
       (r) =>
         r.relevantToBrand === false && r.citedCount >= DIRECTORY_MIN_CITED && !r.ownerProfileLinked,
     )
     .sort((a, b) => b.citedCount - a.citedCount || a.name.localeCompare(b.name))
     .slice(0, 4);
+}
+
+function directoriesNotOnFinding(data: LowVisibilityData): Finding | null {
+  if (!data.lowVisibility) return null;
+  const total = data.directories.totalAnswers;
+  const rows = directoriesNotOnRows(data);
   if (rows.length === 0) return null;
   const names = rows.map((r) => r.name);
   return {

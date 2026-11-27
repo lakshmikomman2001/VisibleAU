@@ -8,7 +8,7 @@ import {
 import { linkedStateSentence } from "@/lib/directories/linked-state";
 import { directoryProfileStatus } from "@/lib/directories/profile-status";
 import { formatTypicalRank, smallSampleNote } from "@/lib/scoring/measured-display";
-import { lowVisibilityFindings } from "./low-visibility-findings";
+import { directoriesNotOnRows, lowVisibilityFindings } from "./low-visibility-findings";
 import type { FindingsData, ReportEngineRow } from "./report-data";
 import { plural, relevantCitedDirectories } from "./report-format";
 import { countWord } from "./report-narrative";
@@ -283,6 +283,31 @@ function silentEngineRecommendation(
   return { title, detail: reasons.join(" ") };
 }
 
+/**
+ * S04 part 0g (LLD amendment 87): rule b's reason for the directories its action names -- "Claude didn't name you in
+ * any of its 10 answers to everyday questions. These are the directories it cited most in them." -- for the engines
+ * the action credits, {n} the per-engine panel's count (ReportEngineRow.sampleCount, the same resolve the panel
+ * reads). Live audit #56 printed "any of 9 answers" beside "Claude 0 of 10": that 9 was searchResults.answers, Claude's
+ * everyday answers that kept their web-search results (lib/reports/search-results.ts), not all its answers.
+ */
+function citedMostReason(credited: readonly ReportEngineRow[]): string {
+  const n = credited.reduce((s, e) => s + e.sampleCount, 0);
+  const one = credited.length === 1;
+  return `${engineNameList(credited.map((e) => e.engine))} didn't name you in any of ${one ? "its" : "their"} ${n} ${plural(n, "answer")} to everyday questions. These are the directories ${one ? "it" : "they"} cited most in them.`;
+}
+
+/**
+ * S04 part 0g (LLD amendment 87): the directories the directory actions already name -- rule a's ("Link your Yellow
+ * Pages, hipages and Word of Mouth profiles") and rule i's -- which rule b's action doesn't repeat (#56 named Yellow
+ * Pages twice, both High).
+ */
+function directoriesNamedByActions(data: FindingsData): Set<string> {
+  return new Set([
+    ...directoryGaps(data).map((r) => r.name),
+    ...directoriesNotOnRows(data).map((r) => r.name),
+  ]);
+}
+
 function silentEngineFinding(data: FindingsData): Finding | null {
   const silent = silentEngines(data);
   if (silent.length === 0) return null;
@@ -301,11 +326,31 @@ function silentEngineFinding(data: FindingsData): Finding | null {
   const one = silent.length === 1;
   // S01C part 2b: one action, in the finding and in Recommended next, from what the silent engines cited; none
   // when they cited no directory (then Recommended next leaves the item out).
+  // S04 part 0g (LLD amendment 87): the action leaves out a directory the directory actions already name, and
+  // credits only the engines that cited the directories it lists ("the directories Claude cites most" when only
+  // Claude did); its reason says why these directories. If none is left, the finding keeps its reason (the engines
+  // that cited the most-cited ones) and has no action.
   const top = mostCitedBy(
     data,
     silent.map((e) => e.engine),
   ).map((d) => d.name);
-  const action = top.length > 0 ? silentEngineAction(names, !one, top) : null;
+  const named = directoriesNamedByActions(data);
+  const listed = top.filter((d) => !named.has(d));
+  const citedBy = (directories: readonly string[]) =>
+    silent.filter((e) =>
+      data.directories.rows.some(
+        (r) => directories.includes(r.name) && (r.citedByEngine?.[e.engine] ?? 0) > 0,
+      ),
+    );
+  const credited = citedBy(listed.length > 0 ? listed : top);
+  const action =
+    listed.length > 0
+      ? silentEngineAction(
+          engineNameList(credited.map((e) => e.engine)),
+          credited.length > 1,
+          listed,
+        )
+      : null;
   const citedMost: EvidenceLine[] = silent.flatMap((e): EvidenceLine[] => {
     const cited = mostCitedBy(data, [e.engine]);
     if (cited.length === 0) return [];
@@ -335,10 +380,15 @@ function silentEngineFinding(data: FindingsData): Finding | null {
       ...citedMost,
     ],
     fix: action ?? "",
-    // Recommended next keeps its body sentence ("We can see the pages Gemini cited, but not what it searched, so we
-    // can't say why") and takes the action as its title: "Gemini didn't name you in any of 10 answers" was the
-    // problem, not an action.
-    recommendation: action ? { title: action, detail: recommendation.detail } : recommendation,
+    // Recommended next takes the action as its title ("Gemini didn't name you in any of 10 answers" was the problem,
+    // not an action). S04 part 0g (amendment 87): its reason says why these directories, for the engines it credits;
+    // with no directory cited at all, the measured reason as before ("We can see the pages Gemini cited, but not what
+    // it searched, so we can't say why").
+    recommendation: action
+      ? { title: action, detail: citedMostReason(credited) }
+      : top.length > 0
+        ? { title: recommendation.title, detail: citedMostReason(credited) }
+        : recommendation,
     ...(action ? {} : { noAction: true as const }),
   };
 }

@@ -1,7 +1,10 @@
 /* =============================================================================
  * Vunnara UI contract: client enhancements (canonical)
  * Repo path : docs/prototypes/vunnara-ui-config.ts
- * Version   : 1.9 · 27 Nov 2026 (1.9: S03 as built and LLD amendments 84–96: P02 regeneration banner, Free view
+ * Version   : 1.10 · 28 Nov 2026 (1.10: S04 as built and LLD amendments 98–110: P01 plan chip singular and the
+ *             small-sample rule for Local; P02 edit mode by reach with Move to another area; the archive refusal
+ *             copy; P03 area preselected; P07 reach filter, Responses by reach and the Google place line; C-39, C-40).
+ *             1.9 · 27 Nov 2026 (1.9: S03 as built and LLD amendments 84–96: P02 regeneration banner, Free view
  *             only, the draft prompt on return and only for a changed draft, Add disabled at the limit, as-built
  *             messages; P03 HTML line and the confirm screen's button; overlays at z-50; P05 page wrapper, one error
  *             banner, two-block skeleton, "Last change" words; P07.mix example, P07.split one source per line and
@@ -43,7 +46,7 @@ export type ScreenId =
   | 'P09' | 'P10' | 'P11' | 'P12' | 'P13' | 'P14' | 'P15' | 'P16' | 'P17' | 'P18';
 
 export type SprintId =
-  | 'S00' | 'S01' | 'S02' | 'S03' | 'S04' | 'S05' | 'S06' | 'S07' | 'S08' | 'S09' | 'S10';
+  | 'S00' | 'S01' | 'S02' | 'S03' | 'S04' | 'S04B' | 'S05' | 'S06' | 'S07' | 'S08' | 'S09' | 'S10';
 
 export type FlagName =
   | 'report_v2' | 'abn_suggestion' | 'question_library' | 'agency_questions'
@@ -734,7 +737,7 @@ const P01: ScreenSpec = {
     { id: 'P01.aliases', component: 'Field', variant: 'Chip removable + Button ghost sm', copy: 'Also known as|+ Add a name|Other ways AI might write your name. Used to recognise mentions.', bind: 'brands.aliases', behaviour: ['Up to 10 names, each 2–60 characters, unique ignoring case, not equal to the brand name ignoring case and spaces', 'Never suggest the name without spaces or the domain stem: detection already matches those (LLD section 0, #5)', '"+ Add a name" turns into an inline Input (36 tall) with Enter to add and Esc to cancel', 'Suggested aliases from S00 Part 4 are pre-filled when the brand is added; never added silently later'] },
     { id: 'P01.abn', component: 'Banner', variant: 'info', copy: 'Is this your ABN?|{abn} · {entityName} · {state} {postcode} · {status}|Found on the Australian Business Register by your business name.|Confirm|Not mine', bind: 'brands.abn_suggestion (S01 Part 8)', showWhen: 'flag abn_suggestion on AND brands.abn is empty AND a confident ABR match exists AND not dismissed', style: 'ABN line type evidence without fill (mono 12.5)', behaviour: ['Confirm (primary sm) writes the ABN, queues the entity check, replaces the banner with the ABN in a read-only Input and inline status "ABN saved. We\'ll check the register now."', 'Not mine (ghost sm) hides it for this brand permanently'] },
     { id: 'P01.abnField', component: 'Field', variant: 'Input', copy: 'ABN|11 digits, from the Australian Business Register|Enter the 11 digits of an ABN.|This isn\'t a valid ABN. Check the digits.', bind: 'brands.abn (exists; PATCH /api/brands/:id gains it in S01)', behaviour: ['Accepts spaces as typed and saves digits only; validated with the ABN checksum on the client and the server', 'Empty is allowed (no ABN); saving a new ABN queues the entity check', 'Read-only for roles without manage_brands'] },
-    { id: 'P01.reach', component: 'Card', copy: 'Where do you want to be visible?|Local is always on. Add NSW, Australia or worldwide to see whether AI recommends you beyond your area. Each area gets its own questions and its own score.|{planName}: up to {reachLimit} areas', showWhen: 'flag visibility_reach on', behaviour: ['"NSW" and "Australia" in the help text come from lib/markets (the brand\'s state and country)'] },
+    { id: 'P01.reach', component: 'Card', copy: 'Where do you want to be visible?|Local is always on. Add NSW, Australia or worldwide to see whether AI recommends you beyond your area. Each area gets its own questions and its own score.|{planName}: up to {reachLimit} areas', showWhen: 'flag visibility_reach on', behaviour: ['"NSW" and "Australia" in the help text come from lib/markets (the brand\'s state and country)', 'One area: "{planName}: up to 1 area" (amendment 103)'] },
     { id: 'P01.reach.suggest', component: 'Banner', variant: 'info', copy: 'Your website says you work across {scope} ("{quote}"). Add {reachList}?|Add|Not now', bind: 'GET /reaches → suggestions[0]', showWhen: 'a suggestion exists and was not dismissed', behaviour: ['Add (accent sm) switches the listed reaches on in the form (not saved until Save)', 'Not now (ghost sm) stores the dismissal per brand and reason', 'Never enables a reach by itself'] },
     { id: 'P01.reach.list', component: 'List' },
     { id: 'P01.reach.local', component: 'QuestionRow', variant: 'reach (44 | 1fr | auto)', copy: 'Local|Always on|City: {city}|Areas: {areas}|Suburb: {suburb} {state} {postcode}|Change|Questions', bind: 'reaches[local]', behaviour: ['Toggle locked on', 'Chips show only the parts the brand has (hide empty ones)', '"Change" opens the existing location editor', 'Stepper min 4, max = limit − other targets'] },
@@ -743,7 +746,7 @@ const P01: ScreenSpec = {
     { id: 'P01.reach.global', component: 'QuestionRow', variant: 'reach', copy: 'Worldwide|Measured on the four AI engines only. Google\'s AI answers always depend on a country.|Questions', bind: 'reaches[global]' },
     { id: 'P01.reach.total', component: 'Text', copy: 'Everyday questions used|{used} of {limit}', style: 'label help; value figureStrong', behaviour: ['Updates live; at the limit every + is disabled with tooltip "Limit reached. Lower another area or add a question pack."'] },
     { id: 'P01.reach.bar', component: 'SegmentedBar', a11y: 'role="img" aria-label "Local 4, NSW 3, Australia 3"' },
-    { id: 'P01.reach.legend', component: 'Text', copy: 'Local {n} · {stateAbbrev} {n} (small sample) · {countryName} {n} (small sample) · Want more? Add a question pack', style: 'help', behaviour: ['"(small sample)" when a reach has < 5 questions; tooltip: "Small sample ({n} questions): this figure can move a lot between audits."', '"Want more? Add a question pack" only when flag question_packs is on and the plan offers packs; links to /settings/billing'] },
+    { id: 'P01.reach.legend', component: 'Text', copy: 'Local {n} · {stateAbbrev} {n} (small sample) · {countryName} {n} (small sample) · Want more? Add a question pack', style: 'help', behaviour: ['"(small sample)" when a reach has < 5 questions, Local included (amendment 103); tooltip: "Small sample ({n} questions): this figure can move a lot between audits."', '"Want more? Add a question pack" only when flag question_packs is on and the plan offers packs; links to /settings/billing'] },
     { id: 'P01.reach.actions', component: 'Layout', copy: 'Save and review questions|Cancel', behaviour: ['Save (primary): PUT /reaches; on 200 navigate to /brands/:id/questions?edit=1 with the returned draft (P02 → P04)', 'Cancel (ghost): restore the last saved values', 'Save disabled until something changed'] },
   ],
   states: {
@@ -811,9 +814,9 @@ const P02: ScreenSpec = {
     { id: 'P02.intro', component: 'Banner', variant: 'neutral', copy: 'Every audit asks these questions on {engines}. Only everyday questions count toward your score.|How questions are chosen', behaviour: ['Link opens the methodology page anchor (/methodology#how-we-gather-answers)', '{engines}: the engines the workspace\'s plan asks, in EngineDots order: "ChatGPT, Claude, Gemini and Perplexity" on Starter and up, "ChatGPT and Perplexity" on Free (amendment 79)'] },
     { id: 'P02.legend', component: 'Text', variant: 'help', copy: 'Squares, left to right: {engineList} · ✓ named you · ? named but not verified · striped: no answer (failed). Only ✓ counts.', behaviour: ['Once, under the intro, only when a row shows EngineDots', '{engineList}: the plan\'s engines joined with " · ", in EngineDots order (amendment 79)'] },
     { id: 'P02.regenBanner', component: 'Banner', variant: 'neutral', copy: 'Your business details changed after these questions were set. Review the suggestions.|Review suggestions', showWhen: 'a regeneration (rename, location change, newer generator) added suggestions after a person applied the current set (amendment 84)', behaviour: ['Under the legend, above the lists', '"Review suggestions" scrolls to the Suggestions card and moves focus to its heading', 'Goes when a new version is applied'] },
-    { id: 'P02.section.local', component: 'List', copy: '{reachLabel}|{n} questions|Last audit (#{auditNumber}): {m} of {a} answers named you', bind: 'set.items grouped by reach', behaviour: ['Header uses ReachHeader; "· small sample" after the count when n < 5', 'Right text omitted when the version has no audit yet', 'Without flag visibility_reach there is one section titled "Everyday questions"'] },
+    { id: 'P02.section.local', component: 'List', copy: '{reachLabel}|{n} questions|Last audit (#{auditNumber}): {m} of {a} answers named you', bind: 'set.items grouped by reach', behaviour: ['Header uses ReachHeader; "· small sample" after the count when n < 5', 'Edit mode keeps the sections (S04B, amendment 102): rows drag within a section; "Move to another area" moves a row between sections; each section has "+ Add question" at its foot', 'Right text omitted when the version has no audit yet', 'Without flag visibility_reach there is one section titled "Everyday questions"'] },
     { id: 'P02.row', component: 'QuestionRow', variant: 'view / edit', copy: '{text}|Named you:', bind: 'item.text, item.source, item.service_label, item.intent, lastResult[engine]', behaviour: ['Source pill: Original set (neutral) / From your business type (neutral; template) / AI-suggested (ai) / Written by {agencyName} (agency; "Written by your agency" until S03 binds the name)', 'Chips: service label, intent label (intents map)', 'EngineDots from the last audit that used this question; omitted if none'] },
-    { id: 'P02.row.more', component: 'IconButton', variant: 'Menu', copy: 'More actions for {text}', behaviour: ['View mode: Copy text, See answers in the last audit', 'Edit mode: Edit wording (archives old, adds new), Swap for a suggestion, Move to another area (S04), Move up, Move down, Remove from set, Archive'] },
+    { id: 'P02.row.more', component: 'IconButton', variant: 'Menu', copy: 'More actions for {text}', behaviour: ['View mode: Copy text, See answers in the last audit', 'Edit mode: Edit wording (archives old, adds new), Swap for a suggestion, Move to another area (S04B: enabled reaches only; hidden with one reach), Move up, Move down, Remove from set, Archive'] },
     { id: 'P02.row.weak', component: 'QuestionRow', variant: 'weak', copy: 'AI doesn\'t name any business here (last 2 audits)|Swap', showWhen: 'flag qi_learning on and the question is flagged (S09)', behaviour: ['"Swap" opens P16 inline under the row'] },
     { id: 'P02.section.branded', component: 'List', copy: 'Names your business|{n} questions · not scored|Shown in results, never counted', behaviour: ['Rows use variant branded with pill "Names your business · not scored"; never draggable into reach sections'] },
     { id: 'P02.suggestions', component: 'Card', variant: 'tight', copy: 'Suggestions|{sourceLine}|Add', bind: 'GET /questions → suggestions', showWhen: 'plan is not Free', behaviour: ['{sourceLine}: before S06 "From your business type"; with website analysis "From your website"; adds ", listings" (S07) and " and local search demand" (S08) as those layers are on', 'Each suggestion row: question text, reason chips (Service: {service} · {sourcePath}, Demand: {level}, Pre-test: named {n} businesses)', 'Add (secondary sm) disabled in view mode with tooltip "Edit questions to add"; in edit mode adds to the draft in the suggestion\'s reach', 'In edit mode at the plan\'s limit, Add is disabled with the tooltip "Your plan includes {limit} everyday questions per brand. Remove one, or add a question pack."; Swap (row menu) and Remove still work (amendment 96)', 'A suggestion copied from another brand carries its source pill ("Written by {agencyName}")'] },
@@ -839,7 +842,7 @@ const P02: ScreenSpec = {
   ],
   api: [
     { call: 'GET /api/brands/:id/questions', use: 'One request for the whole tab: { set, library, suggestions, limits }' },
-    { call: 'POST /api/brands/:id/questions/:qid/archive', use: 'Archive from the menu (409 if in the current set)' },
+    { call: 'POST /api/brands/:id/questions/:qid/archive', use: 'Archive from the menu (409 if in the current set: "This question is in the current set. Remove it from the set and apply, then archive it.", amendment 109)' },
     { call: 'POST /api/brands/:id/question-sets', use: 'Through P04 only' },
   ],
   a11y: [
@@ -876,7 +879,7 @@ const P03: ScreenSpec = {
     { id: 'P03.title', component: 'Text', copy: 'Add a question', style: 'dialogTitle' },
     { id: 'P03.close', component: 'IconButton', copy: 'Close' },
     { id: 'P03.text', component: 'Textarea', copy: 'Question a customer would ask AI|{n} / 200 characters', behaviour: ['Autofocus on open', 'Checks run 250ms after typing stops (POST validate); the last response wins'] },
-    { id: 'P03.area', component: 'Segmented', copy: 'Area|{reachLabels…}', behaviour: ['Only enabled reaches; preselected from the section that opened the drawer', 'Changing area re-runs the checks'] },
+    { id: 'P03.area', component: 'Segmented', copy: 'Area|{reachLabels…}', behaviour: ['Only enabled reaches; preselected from the section that opened the drawer (S04B; in S04 edit mode had no sections, so Local was preselected)', 'Changing area re-runs the checks'] },
     { id: 'P03.checks', component: 'CheckItem', copy: [
       'One question, 10–200 characters',
       'Not already in your questions',
@@ -1022,7 +1025,7 @@ const P06: ScreenSpec = {
 };
 
 const P07: ScreenSpec = {
-  id: 'P07', title: 'Audit page additions', route: '/audits/:id', sprints: ['S01', 'S03', 'S04'], flags: ['report_v2', 'agency_questions', 'visibility_reach'],
+  id: 'P07', title: 'Audit page additions', route: '/audits/:id', sprints: ['S01', 'S03', 'S04', 'S04B'], flags: ['report_v2', 'agency_questions', 'visibility_reach'],
   frame: { kind: 'app', width: 1240, mobile: true },
   access: { roles: 'All members; client portal shows the same cards read-only', plans: 'All' },
   layout: ['Existing header and cards unchanged. Added: reach row card (S04), mix and split lines (S03), "Why, and what to do next" finding tiles (S01), "Beyond AI answers" card (S01)'],
@@ -1031,6 +1034,9 @@ const P07: ScreenSpec = {
     { id: 'P07.score', component: 'ScoreFigure', copy: 'VISIBILITY|{pct}%|Mentioned in {m} of {n} answers · {reachLabel}', behaviour: ['{reachLabel}: "Local · {city}" for Local-only brands; "across Local, NSW and Australia" otherwise (D-QI9)'] },
     { id: 'P07.reachRow', component: 'Card', copy: 'Where AI recommends you|Each area has its own questions', showWhen: 'flag visibility_reach on and more than one enabled reach' },
     { id: 'P07.reachRow.tile', component: 'StatTile', variant: 'score', copy: '{reachLabel}|{pct}%|{m} of {n} answers · 95% CI {lo}–{hi}%|Small sample', bind: 'audit_reach_results', behaviour: ['One tile per reach in reach order; grid 3 (4 when Worldwide is on)', 'Small sample pill when the reach has < 5 questions (tooltip sentence)'] },
+    { id: 'P07.reachFilter', component: 'Segmented', copy: 'All areas|{reachLabels…}', showWhen: 'flag visibility_reach on and more than one reach in this audit', behaviour: ['Above the per-engine table; the same choice also filters Competitor context (S04B, amendment 102)', 'Recomputes both from this audit\'s answers in the chosen reach; one grouped read, no query per reach', 'Default "All areas", which equals the page without the filter; the choice isn\'t remembered between audits'] },
+    { id: 'P07.responses', component: 'List', copy: '{reachLabel}|{n} questions', showWhen: 'Responses tab, flag visibility_reach on and more than one reach in this audit', behaviour: ['One section per reach in reach order, with the Questions tab\'s labels; the names-your-business questions last, as today (S04B, amendment 102)', 'One reach: no section header, as today'] },
+    { id: 'P07.googlePlace', component: 'Text', copy: '{suburb} {STATE} {postcode} · {device} · {date}', style: 'help', behaviour: ['The Google Search AI card\'s place line, as on the PDF (amendment 110): "Yennora NSW 2161 · desktop · 28 Nov 2026" when the postcode is the brand\'s own; otherwise the place the provider used, labelled as today'] },
     { id: 'P07.mix', component: 'Text', copy: '{total} questions: {everyday} everyday ({ai} AI-suggested, {agency} written by {agencyName}) and {branded} that name the business.', style: 'help, margin-top 12', showWhen: 'flag agency_questions on (S03)', behaviour: ['Omit parts that are zero; singular forms', 'A brand whose questions were never changed: "13 questions: 10 everyday (all from the original set) and 3 that name the business." (amendment 93)', 'Also in the client portal (under "Mentioned in …") and on the PDF Method page (from the report snapshot)'] },
     { id: 'P07.split', component: 'Text', copy: 'AI-suggested questions: {pct}% ({m} of {n})|Written by {agencyName}: {pct}% ({m} of {n})', style: 'help', showWhen: 'both sources exist in this audit (D2)', behaviour: ['Each source on its own line under the headline, right-aligned with it; a long agency name never wraps inside a part (amendment 94)', 'Audit page only: not the client portal, not the PDF (amendment 93)', 'Counted exactly as the headline: when the headline includes Google\'s AI answers, they are split too, so the parts add up to the headline (amendment 88)'] },
     { id: 'P07.findings', component: 'Card', copy: 'Why, and what to do next', behaviour: ['Existing rules a–f plus g–j (LLD 8.1.5); also listed in Recommended actions'] },
@@ -1427,6 +1433,8 @@ export const conflicts: ConflictResolution[] = [
   { id: 'C-34', where: 'EngineDots', conflict: 'The audit page has a "Maybe" result the contract lacked', resolution: 'Fourth state "unverified" (D-UI6)' },
   { id: 'C-36', where: 'P07.mix vs LLD 8.3.3 and S03', conflict: 'The contract\'s untouched-brand example "13 questions: 13 everyday." counted the branded questions as everyday', resolution: '"13 questions: 10 everyday (all from the original set) and 3 that name the business." (amendment 93)' },
   { id: 'C-37', where: 'P02 "Keep your draft?"', conflict: 'Asked on leaving the page, which only the browser\'s own beforeunload prompt can do', resolution: 'Asked on return, and only for a draft that differs from the current set (amendments 93, 96)' },
+  { id: 'C-39', where: 'P01.reach.legend in the prototype', conflict: 'The prototype printed "Local 4" without "(small sample)"; the rule says any reach under 5 questions', resolution: 'The rule wins, Local included; the prototype is corrected (amendment 103)' },
+  { id: 'C-40', where: 'P07 Google card vs the PDF (amendment 64)', conflict: 'The audit page printed "2161 NSW" where the PDF prints "Yennora NSW 2161"', resolution: 'P07.googlePlace uses the PDF\'s place line (amendment 110)' },
   { id: 'C-38', where: 'zIndex.overlay 40 vs the cookie banner (z-50)', conflict: 'The drawer and modal sat under the cookie banner (spec 17\'s first run)', resolution: 'Overlays at 50, as ConfirmDialog (amendment 93)' },
 ];
 
@@ -1441,8 +1449,8 @@ export const uiDecisions = [
 ] as const;
 
 export const uiConfig = {
-  version: '1.9',
-  date: '2026-11-27',
+  version: '1.10',
+  date: '2026-11-28',
   precedence, color, contrast, fontFamily, typography, typeRule, space, spaceRule, radius, shadow, motion, zIndex,
   breakpoints, layout, icons, scoreBands, reachLabels, engines, intents, components, screens, conflicts, uiDecisions,
 } as const;

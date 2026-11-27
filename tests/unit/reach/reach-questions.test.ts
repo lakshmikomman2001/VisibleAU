@@ -191,7 +191,7 @@ describe("places and labels", () => {
     ) as { states: Record<string, number>; country: number };
     expect(AU_MARKET.country?.googleLocation.code).toBe(cached.country);
     expect(
-      Object.fromEntries(AU_MARKET.states.map((s) => [s.code, s.googleLocation.code])),
+      Object.fromEntries(AU_MARKET.states.map((s) => [s.code, s.googleLocation?.code])),
     ).toEqual(cached.states);
     expect(AU_MARKET.states.map((s) => s.capital)).toEqual([
       "Sydney",

@@ -227,6 +227,30 @@ async function recordFailed(row: Row, statusCode: number, message: string, raw: 
     .where(eq(googleSurfaceResults.id, row.id));
 }
 
+/**
+ * S04 part 5 (LLD 8.4.5): the per-audit cost ceiling scales with the questions checked. The stored ceiling covers the
+ * questions checked at the audit's own location (its Local questions), as it always did; questions checked elsewhere
+ * (a State or Country reach's) add their share. An audit with only Local questions keeps the stored ceiling exactly.
+ */
+async function ceilingUsd(
+  auditId: string,
+  snap: NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>,
+): Promise<number> {
+  const base = (snap.settings as StoredGoogleSettings).maxCostUsdPerAudit;
+  const local = (snap.location as GoogleLocation | null)?.code;
+  if (local === undefined) return base;
+  const [counts] = await serviceDb
+    .select({
+      all: sql<number>`count(DISTINCT ${googleSurfaceResults.promptIndex})::int`,
+      atLocal: sql<number>`(count(DISTINCT ${googleSurfaceResults.promptIndex}) FILTER (WHERE ${googleSurfaceResults.locationCode} = ${local}))::int`,
+    })
+    .from(googleSurfaceResults)
+    .where(eq(googleSurfaceResults.auditId, auditId));
+  const all = Number(counts?.all ?? 0);
+  const atLocal = Number(counts?.atLocal ?? 0);
+  return atLocal > 0 && all > atLocal ? (base * all) / atLocal : base;
+}
+
 function targetOf(snap: NonNullable<Awaited<ReturnType<typeof loadSnapshot>>>): SurfaceTarget {
   const location = snap.location as GoogleLocation;
   const settings = snap.settings as StoredGoogleSettings;
@@ -283,9 +307,37 @@ async function postRows(
   priority: 1 | 2,
   provider: GoogleSurfaceProvider,
 ): Promise<{ stopped: boolean }> {
-  for (const surface of ["google_ai_overviews", "google_ai_mode"] as const) {
-    const mine = rows.filter((r) => r.surface === surface);
-    if (mine.length === 0) continue;
+  // S04 part 5 (LLD 8.4.5): each question is checked at its row's location (its reach's); one post per location, so a
+  // Local-only audit posts exactly as before.
+  const groups = [...new Set(rows.map((r) => r.locationCode ?? target.locationCode))].map(
+    (locationCode) => ({
+      target: { ...target, locationCode },
+      rows: rows.filter((r) => (r.locationCode ?? target.locationCode) === locationCode),
+    }),
+  );
+  for (const group of groups)
+    for (const surface of ["google_ai_overviews", "google_ai_mode"] as const) {
+      const stop = await postGroup(
+        group.rows.filter((r) => r.surface === surface),
+        surface,
+        group.target,
+        priority,
+        provider,
+      );
+      if (stop.stopped) return stop;
+    }
+  return { stopped: false };
+}
+
+async function postGroup(
+  mine: Row[],
+  surface: GoogleSurface,
+  target: SurfaceTarget,
+  priority: 1 | 2,
+  provider: GoogleSurfaceProvider,
+): Promise<{ stopped: boolean }> {
+  {
+    if (mine.length === 0) return { stopped: false };
     const posted = await provider.postTasks(
       surface,
       mine.map((r) => ({ promptIndex: r.promptIndex, question: r.prompt })),
@@ -341,9 +393,10 @@ async function admit(
   brandId: string,
   rows: Row[],
   settings: StoredGoogleSettings,
+  ceiling: number,
 ): Promise<Row[]> {
   const price = GOOGLE_PRICE_PER_QUESTION_USD[settings.queueMode];
-  let budget = settings.maxCostUsdPerAudit - (await spentSoFar(auditId));
+  let budget = ceiling - (await spentSoFar(auditId));
   const admitted: Row[] = [];
   const overCeiling: string[] = [];
   for (const row of rows) {
@@ -353,7 +406,7 @@ async function admit(
       budget -= cost;
     } else overCeiling.push(row.id);
   }
-  await skipRows(overCeiling, REASON.costCeiling(settings.maxCostUsdPerAudit));
+  await skipRows(overCeiling, REASON.costCeiling(ceiling));
   if (admitted.length === 0) return [];
 
   const estimateUsd = admitted.reduce((sum, r) => sum + price[r.surface], 0);
@@ -418,7 +471,7 @@ async function pollOnce(
     }
     // One more (billed) attempt for the provider's retryable codes, if it fits under the ceiling.
     const price = GOOGLE_PRICE_PER_QUESTION_USD[settings.queueMode][row.surface];
-    const fits = (await spentSoFar(auditId)) + price <= settings.maxCostUsdPerAudit + 1e-9;
+    const fits = (await spentSoFar(auditId)) + price <= (await ceilingUsd(auditId, snap)) + 1e-9;
     if (poll.retryable && row.attempts < MAX_ATTEMPTS && fits) {
       await postRows(
         [row],
@@ -448,14 +501,16 @@ async function liveOne(
   if (row?.outcome !== "pending") return;
   const stop = stopReason();
   if (stop) return skipRows([row.id], stop);
-  const settings = snap.settings as StoredGoogleSettings;
   const brand = await loadBrand(brandId);
-  const target = targetOf(snap);
+  // S04 part 5: the question's own location (its reach's); a Local one's is the audit's, as before.
+  const base = targetOf(snap);
+  const target = { ...base, locationCode: row.locationCode ?? base.locationCode };
+  const ceiling = await ceilingUsd(auditId, snap);
   let current = row;
   for (let attempt = row.attempts; attempt < MAX_ATTEMPTS; attempt++) {
     const price = GOOGLE_PRICE_PER_QUESTION_USD.live[row.surface];
-    if ((await spentSoFar(auditId)) + price > settings.maxCostUsdPerAudit + 1e-9) {
-      return skipRows([row.id], REASON.costCeiling(settings.maxCostUsdPerAudit));
+    if ((await spentSoFar(auditId)) + price > ceiling + 1e-9) {
+      return skipRows([row.id], REASON.costCeiling(ceiling));
     }
     const live =
       row.surface === "google_ai_overviews"
@@ -566,7 +621,14 @@ export async function collectGoogleSurfaces(
       return { mode: "none" as const, liveRows: [] as string[] };
     }
     const settings = snap.settings as StoredGoogleSettings;
-    const admitted = await admit(auditId, data.organizationId, data.brandId, rows, settings);
+    const admitted = await admit(
+      auditId,
+      data.organizationId,
+      data.brandId,
+      rows,
+      settings,
+      await ceilingUsd(auditId, snap),
+    );
     if (settings.queueMode === "live")
       return { mode: "live" as const, liveRows: admitted.map((r) => r.id) };
     await postRows(

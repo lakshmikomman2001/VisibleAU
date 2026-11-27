@@ -1,6 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { serviceDb } from "@/db/client";
-import { auditGoogleSurfaces, googleSurfaceResults } from "@/db/schema";
+import {
+  auditGoogleSurfaces,
+  audits,
+  brands,
+  googleSurfaceResults,
+  type QuestionReach,
+} from "@/db/schema";
 import { type GoogleLocation, googleLocationForBrand } from "@/lib/google-surfaces/location";
 import {
   brandGooglePostcode,
@@ -9,6 +15,7 @@ import {
   resolveGoogleSurfaces,
 } from "@/lib/governance/google-surfaces";
 import { inngest } from "@/lib/inngest/client";
+import { googleLocationForReach } from "@/lib/reach/google-location";
 import { GOOGLE_STORED_REASON } from "./reasons";
 
 /**
@@ -112,10 +119,14 @@ export async function startGoogleSurfaces(input: {
 /**
  * After the core audit finished: one pending row per surface and question. True when there's something
  * for the Google function to do. Never throws.
+ *
+ * S04 part 5 (LLD 8.4.5): each question is checked where its reach is (lib/reach/google-location.ts): a Local one at
+ * the audit's location, as before; a State one at the state, a Country one at the country; a Worldwide one isn't
+ * checked (no row). Every question is Local until a person applies a set with other reaches.
  */
 export async function queueGoogleQuestions(
   auditId: string,
-  prompts: readonly { text: string; isBranded: boolean }[],
+  prompts: readonly { text: string; isBranded: boolean; reach?: QuestionReach }[],
 ): Promise<boolean> {
   try {
     const [snap] = await serviceDb
@@ -125,8 +136,18 @@ export async function queueGoogleQuestions(
     if (snap?.status !== "queued" || !snap.location) return false;
     const location = snap.location as GoogleLocation;
     const settings = snap.settings as StoredGoogleSettings;
+    const place = prompts.some((p) => p.reach && p.reach !== "local")
+      ? await auditBrandPlace(auditId)
+      : { state: null, region: null };
+    const checked = prompts
+      .map((p, promptIndex) => ({
+        p,
+        promptIndex,
+        where: googleLocationForReach(p.reach, place, location),
+      }))
+      .filter((q) => q.where !== null);
     const rows = (snap.surfaces as GoogleSurface[]).flatMap((surface) =>
-      prompts.map((p, promptIndex) => ({
+      checked.map(({ p, promptIndex, where }) => ({
         auditId,
         organizationId: snap.organizationId,
         surface,
@@ -135,8 +156,8 @@ export async function queueGoogleQuestions(
         isBrandedPrompt: p.isBranded,
         outcome: "pending" as const,
         provider: settings.provider,
-        locationCode: location.code,
-        locationLabel: location.label,
+        locationCode: where?.code ?? location.code,
+        locationLabel: where?.label ?? location.label,
         device: settings.device,
         seDomain: GOOGLE_SURFACE_DOMAIN[surface],
         languageCode: "en",
@@ -165,6 +186,18 @@ export async function queueGoogleQuestions(
     );
     return false;
   }
+}
+
+/** The audit's brand's state and market, for the reaches beyond Local. */
+async function auditBrandPlace(
+  auditId: string,
+): Promise<{ state: string | null; region: string | null }> {
+  const [row] = await serviceDb
+    .select({ state: brands.state, region: brands.region })
+    .from(audits)
+    .innerJoin(brands, eq(brands.id, audits.brandId))
+    .where(eq(audits.id, auditId));
+  return row ?? { state: null, region: null };
 }
 
 /** Every question still pending is skipped, with why, and the audit's Google part is complete. */

@@ -14,8 +14,11 @@ export interface MarketState {
   capital: string;
   /** How the state is written inside a question and on its reach label (LLD 8.4.2's phrasing rule). */
   inQuestion: string;
-  /** DataForSEO's Google location for the state: its location_name and location_code (location_type "State"). */
-  googleLocation: { name: string; code: number };
+  /**
+   * DataForSEO's Google location for the state: its location_name and location_code (location_type "State"). Null when
+   * DataForSEO lists no such state: Google is then checked from the capital (LLD 8.4.5). Every AU state is listed.
+   */
+  googleLocation: { name: string; code: number } | null;
 }
 
 export interface MarketCountry {

@@ -114,7 +114,8 @@ describe("a spend limit is never retried (1 Nov, item 1)", () => {
       }),
     );
     expect(c.retryable).toBe(false);
-    expect(c.errorClass).toBe("other");
+    // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal is provider_quota (it was "other").
+    expect(c.errorClass).toBe("provider_quota");
     expect(failureMessage(c)).toBe(
       `HTTP 429 rate_limit_error (enforced_spend_limit_reached): ${ANTHROPIC_TIER_CAP}`,
     );

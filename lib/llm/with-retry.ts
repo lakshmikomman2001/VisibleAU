@@ -5,7 +5,7 @@ import type { CompleteOutput, CostSource } from "./interface";
 
 /** Truncated at write time (db/schema/engine-call-failures.ts's
  * error_message column has no length cap of its own). */
-const ERROR_MESSAGE_MAX_LENGTH = 500;
+export const ERROR_MESSAGE_MAX_LENGTH = 500;
 
 /** Base jittered backoff before the first retry -- short, because
  * this runs inside an audit's own overall time budget (Part C's

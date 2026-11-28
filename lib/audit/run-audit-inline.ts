@@ -19,6 +19,11 @@ import { auditsCountingGoogle } from "@/lib/audit/google-surfaces/summary";
 import { auditModels } from "@/lib/audit/model-drift";
 import { sendModelDriftAlert } from "@/lib/audit/model-drift-alert";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import {
+  alertOperatorsOnProviderQuota,
+  notSentFailure,
+  PROVIDER_QUOTA,
+} from "@/lib/audit/provider-quota";
 import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -204,7 +209,22 @@ export async function runAuditInline(
     const tier = planTier as Tier;
     const mockScenario = (a.metadata as { mockScenario?: MockScenario } | null)?.mockScenario;
 
+    // S04B part 2 (LLD amendment 100): after an engine's first provider_quota refusal in this audit, its remaining calls
+    // aren't sent -- each is recorded as failed with the same class and no request (lib/audit/provider-quota.ts). This
+    // runner is one continuous execution, so the stop lives here; inngest/functions/run-audit.ts reads it from the table.
+    const quotaRefusals = new Map<string, string>();
+
     async function runOneCall(engine: Engine, promptIdx: number, run: number) {
+      const refusal = quotaRefusals.get(engine);
+      if (refusal !== undefined) {
+        return {
+          kind: "failure" as const,
+          engine,
+          promptIdx,
+          run,
+          ...notSentFailure(engine, refusal),
+        };
+      }
       const llm = getLLMService(engine);
       const model = selectModel(tier, engine, "brand_mention" as ModelTask);
       const callResult = await callWithRetry(
@@ -229,6 +249,14 @@ export async function runAuditInline(
       );
 
       if (callResult.status === "failure") {
+        if (callResult.errorClass === PROVIDER_QUOTA && !quotaRefusals.has(engine)) {
+          quotaRefusals.set(engine, callResult.errorMessage);
+          await alertOperatorsOnProviderQuota(serviceDb, {
+            auditId,
+            engine,
+            message: callResult.errorMessage,
+          });
+        }
         return { kind: "failure" as const, engine, promptIdx, run, ...callResult };
       }
 

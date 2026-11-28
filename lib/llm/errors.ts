@@ -15,6 +15,9 @@ export type LLMErrorClass =
   | "parse_error"
   // "Mention detection" (6 Nov), part 2: the provider stopped before the answer was complete.
   | "incomplete_answer"
+  // S04B part 2 (LLD amendment 100; migration 0158): a spend limit, credit or quota on our provider account refused the
+  // call. Never retried; the runners send that engine no more calls in the audit (lib/audit/provider-quota.ts).
+  | "provider_quota"
   | "other";
 
 /** Error classes worth retrying once -- rate_limited/overloaded/timeout

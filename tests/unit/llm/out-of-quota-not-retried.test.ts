@@ -73,7 +73,8 @@ describe("OpenAI's 429 insufficient_quota is not retried", () => {
   it("classified as not retryable, kept with its type, and named credit/quota", () => {
     const c = classifyError(openAiError(OUT_OF_QUOTA, "insufficient_quota", "insufficient_quota"));
     expect(c.retryable).toBe(false);
-    expect(c.errorClass).toBe("other");
+    // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal is provider_quota (it was "other").
+    expect(c.errorClass).toBe("provider_quota");
     const stored = failureMessage(c);
     expect(stored).toBe(`HTTP 429 insufficient_quota: ${OUT_OF_QUOTA}`);
     const reason = describeEngineFailure({ errorClass: c.errorClass, message: stored });
@@ -91,7 +92,8 @@ describe("OpenAI's 429 insufficient_quota is not retried", () => {
     expect(result.status).toBe("failure");
     if (result.status !== "failure") return;
     expect(result.attempts).toBe(1);
-    expect(result.errorClass).toBe("other");
+    // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal is provider_quota (it was "other").
+    expect(result.errorClass).toBe("provider_quota");
     expect(
       describeEngineFailure({ errorClass: result.errorClass, message: result.errorMessage }).key,
     ).toBe("account_or_credit");

@@ -57,6 +57,9 @@ export const engineCallFailures = pgTable(
         // complete -- Claude still paused after its continuations, or a provider's filter cut it off.
         "incomplete_answer",
         "other",
+        // Migration 0158 (S04B part 2, LLD amendment 100): a spend limit, credit or quota on our provider account
+        // refused the call -- or, after such a refusal in the audit, the call wasn't sent (attempts 0).
+        "provider_quota",
       ],
     }).notNull(),
     // Truncated to 500 chars at write time (lib/llm/with-retry.ts),

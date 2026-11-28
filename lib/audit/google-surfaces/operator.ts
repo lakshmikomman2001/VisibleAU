@@ -7,6 +7,7 @@ import {
   googleSurfaceResults,
   organizations,
 } from "@/db/schema";
+import { type EngineRefusalGroups, loadEngineRefusalGroups } from "@/lib/audit/engine-refusals";
 import { appUrl } from "@/lib/email/links";
 import { operatorRecipients } from "@/lib/email/operator-recipients";
 import { idempotencyKeyFor, sendEmailOrThrow } from "@/lib/email/send";
@@ -83,15 +84,21 @@ export interface GoogleOperatorHealth {
    * fold away the errors from before it (lib/audit/google-surfaces/provider-errors-view.ts). Null when none has.
    */
   lastCleanRun: CleanGoogleRun | null;
+  /**
+   * S04B part 2 (LLD amendment 100): the AI engines' spend and quota refusals, shown in the same Provider errors
+   * section (lib/audit/engine-refusals.ts).
+   */
+  engineRefusals?: EngineRefusalGroups;
 }
 
 export async function loadGoogleOperatorHealth(): Promise<GoogleOperatorHealth> {
-  const [lastRun, providerErrorGroups, lastCleanRun] = await Promise.all([
+  const [lastRun, providerErrorGroups, lastCleanRun, engineRefusals] = await Promise.all([
     loadLastGoogleRun(),
     loadGoogleProviderErrorGroups(),
     loadLastCleanGoogleRun(),
+    loadEngineRefusalGroups(),
   ]);
-  return { lastRun, providerErrorGroups, lastCleanRun };
+  return { lastRun, providerErrorGroups, lastCleanRun, engineRefusals };
 }
 
 /** A Google result row's outcome that means the question was checked: Google answered, with or without an Overview. */

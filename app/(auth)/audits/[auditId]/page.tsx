@@ -140,6 +140,9 @@ const FAILURE_REASON_LABELS: Record<string, string> = {
   empty_response: "empty response",
   parse_error: "parse error",
   other: "error",
+  // S04B part 2 (LLD amendment 100): a spend or quota refusal on our account, and the calls not sent after it, read as
+  // an error, as they did while the class was "other" (customers see only "a problem on our side").
+  provider_quota: "error",
 };
 
 function pluralizeReason(label: string, n: number): string {
@@ -163,13 +166,16 @@ function failureReasons(rows: Array<{ errorClass: string; count: number }>): str
   // appear once per engine (e.g. chatgpt's 3 "other"s and perplexity's
   // 3 "other"s) and must collapse into one "6 errors", never list the
   // same reason label twice.
-  const byClass = new Map<string, number>();
+  // S04B part 2: merged by the label shown, so two classes that read the same ("other" and "provider_quota", both
+  // "error") make one "6 errors".
+  const byLabel = new Map<string, number>();
   for (const r of rows) {
-    byClass.set(r.errorClass, (byClass.get(r.errorClass) ?? 0) + r.count);
+    const label = FAILURE_REASON_LABELS[r.errorClass] ?? r.errorClass;
+    byLabel.set(label, (byLabel.get(label) ?? 0) + r.count);
   }
-  const reasons = [...byClass.entries()]
+  const reasons = [...byLabel.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([errorClass, n]) => pluralizeReason(FAILURE_REASON_LABELS[errorClass] ?? errorClass, n));
+    .map(([label, n]) => pluralizeReason(label, n));
   return reasons.join(", ");
 }
 

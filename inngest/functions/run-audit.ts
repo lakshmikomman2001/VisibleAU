@@ -19,6 +19,12 @@ import {
   startGoogleSurfaces,
 } from "@/lib/audit/google-surfaces/dispatch";
 import { type AuditCallOutcome, selectOrganicCitations } from "@/lib/audit/organic-citations";
+import {
+  alertOperatorsOnProviderQuota,
+  notSentFailure,
+  PROVIDER_QUOTA,
+  recordedQuotaRefusal,
+} from "@/lib/audit/provider-quota";
 import { questionSetHashSql } from "@/lib/audit/question-set-sql";
 import { RESPONSE_SNIPPET_CHARS } from "@/lib/audit/response-snippet";
 import { recordCostForTerminalAudit } from "@/lib/audit/stale-audit-guard";
@@ -239,25 +245,33 @@ export const runAudit = inngest.createFunction(
             engine as Engine,
             "brand_mention",
           );
-          const callResult = await callWithRetry(
-            () =>
-              llm.complete({
-                engine: engine as Engine,
-                prompt: prompts[i].text,
-                task: "brand_mention",
-                model,
-                // S04 part 4 (LLD 8.4.4): the location for this question's reach (Local: today's), and the cache scope
-                // that keeps a reach's answers apart (none for Local).
-                ...engineCallReach(prompts[i].reach, engine, loaded.brand),
-                cacheMode: loaded.cacheMode,
-                metadata: {
-                  mockScenario: (loaded.audit.metadata as { mockScenario?: MockScenario } | null)
-                    ?.mockScenario,
-                },
-                deadlineAt,
-              }),
-            { deadlineAt },
-          );
+          // S04B part 2 (LLD amendment 100): after this engine's first provider_quota refusal in the audit, its remaining
+          // calls aren't sent -- each is recorded as failed with the same class and no request
+          // (lib/audit/provider-quota.ts). Read from engine_call_failures: each call step can run in its own invocation.
+          const refusal = await recordedQuotaRefusal(serviceDb, auditId, engine);
+          const callResult =
+            refusal !== null
+              ? notSentFailure(engine, refusal)
+              : await callWithRetry(
+                  () =>
+                    llm.complete({
+                      engine: engine as Engine,
+                      prompt: prompts[i].text,
+                      task: "brand_mention",
+                      model,
+                      // S04 part 4 (LLD 8.4.4): the location for this question's reach (Local: today's), and the cache scope
+                      // that keeps a reach's answers apart (none for Local).
+                      ...engineCallReach(prompts[i].reach, engine, loaded.brand),
+                      cacheMode: loaded.cacheMode,
+                      metadata: {
+                        mockScenario: (
+                          loaded.audit.metadata as { mockScenario?: MockScenario } | null
+                        )?.mockScenario,
+                      },
+                      deadlineAt,
+                    }),
+                  { deadlineAt },
+                );
 
           if (callResult.status === "failure") {
             // "Audits time out on Vercel" follow-up, item 2 -- the
@@ -301,6 +315,13 @@ export const runAudit = inngest.createFunction(
                   engineCallFailures.promptIndex,
                 ],
               });
+            if (refusal === null && callResult.errorClass === PROVIDER_QUOTA) {
+              await alertOperatorsOnProviderQuota(serviceDb, {
+                auditId,
+                engine,
+                message: callResult.errorMessage,
+              });
+            }
 
             return {
               kind: "failure" as const,

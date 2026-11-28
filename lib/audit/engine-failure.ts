@@ -210,6 +210,9 @@ export function describeEngineFailure(f: {
   if (category === "answerIncomplete") return reason("answer_incomplete");
   if (category === "providerFilter") return reason("provider_filter");
   switch (f.errorClass) {
+    // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal whose words named none of the above.
+    case "provider_quota":
+      return reason("account_or_credit");
     case "incomplete_answer":
       return reason("answer_incomplete");
     case "rate_limited":

@@ -246,9 +246,11 @@ function ProviderErrorGroupRow({
 function ProviderErrors({
   errors,
   lastCleanRun,
+  engineRefusals,
 }: {
   errors: GoogleOperatorHealth["providerErrorGroups"];
   lastCleanRun: CleanGoogleRun | null;
+  engineRefusals?: GoogleOperatorHealth["engineRefusals"];
 }) {
   // 19 Nov: errors from before the last clean run are history, folded away; "No provider errors since ..." when no
   // error is newer (lib/audit/google-surfaces/provider-errors-view.ts).
@@ -299,7 +301,79 @@ function ProviderErrors({
           ) : null}
         </div>
       )}
+      {engineRefusals ? <EngineRefusals refusals={engineRefusals} /> : null}
     </section>
+  );
+}
+
+/**
+ * S04B part 2 (LLD amendment 100): the AI engines' refusals -- a spend limit, credit or quota on our provider account
+ * -- newest first: the engine, the class, the provider's own message, first and last seen, and the audits affected
+ * (lib/audit/engine-refusals.ts). Operators only; customers see "a problem on our side".
+ */
+function EngineRefusals({
+  refusals,
+}: {
+  refusals: NonNullable<GoogleOperatorHealth["engineRefusals"]>;
+}) {
+  return (
+    <div className="mt-4" data-admin-engine-refusals="">
+      <h3 className="text-[13px] font-semibold mb-1" style={label}>
+        AI engines
+      </h3>
+      <p className="text-[12px] mb-2" style={muted}>
+        Calls an engine's provider refused because a spend limit, credit or quota on our account is
+        reached, newest first. After the first refusal in an audit, that engine's other calls in it
+        aren't sent.
+      </p>
+      {refusals.total > refusals.groups.length && (
+        <p className="text-[12px] mb-2" style={muted}>
+          Showing the latest {refusals.groups.length} of {refusals.total}.
+        </p>
+      )}
+      {refusals.groups.length === 0 ? (
+        <p className="text-[13px]" style={muted}>
+          None recorded.
+        </p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table className="text-[12px] w-full" style={muted}>
+            <thead>
+              <tr style={label}>
+                <th className="text-left pr-3 pb-1">Engine</th>
+                <th className="text-left pr-3 pb-1">Class</th>
+                <th className="text-left pr-3 pb-1">Provider's message</th>
+                <th className="text-left pr-3 pb-1">First seen (Sydney time)</th>
+                <th className="text-left pr-3 pb-1">Last seen</th>
+                <th className="text-left pb-1">Audits affected</th>
+              </tr>
+            </thead>
+            <tbody>
+              {refusals.groups.map((g) => (
+                <tr key={g.key} data-admin-engine-refusal={g.engine}>
+                  <td className="pr-3 py-1 whitespace-nowrap" style={label}>
+                    {g.engine}
+                  </td>
+                  <td className="pr-3 py-1 whitespace-nowrap">{g.errorClass}</td>
+                  <td className="pr-3 py-1" style={{ wordBreak: "break-word" }}>
+                    {g.message || "—"}
+                  </td>
+                  <td className="pr-3 py-1 whitespace-nowrap">
+                    <SydneyTime iso={g.firstSeen} />
+                  </td>
+                  <td className="pr-3 py-1 whitespace-nowrap">
+                    <SydneyTime iso={g.lastSeen} />
+                  </td>
+                  <td className="py-1 whitespace-nowrap">
+                    {`${g.audits} (${g.refused} refused, ${g.notSent} not sent)`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -717,7 +791,11 @@ export function GoogleSurfacesAdmin({
           )}
         </section>
 
-        <ProviderErrors errors={health.providerErrorGroups} lastCleanRun={health.lastCleanRun} />
+        <ProviderErrors
+          errors={health.providerErrorGroups}
+          lastCleanRun={health.lastCleanRun}
+          engineRefusals={health.engineRefusals}
+        />
 
         {flags}
 

@@ -100,8 +100,10 @@ describe("an OpenAI account out of quota, through the inline runner (1 Nov)", ()
     expect(rows).toHaveLength(3);
     for (const row of rows) {
       expect(row.engine).toBe("chatgpt");
+      // Three questions, three calls at once (ENGINE_CALL_CONCURRENCY): all were sent before the first refusal came back.
       expect(row.attempts).toBe(1);
-      expect(row.error_class).toBe("other");
+      // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal is provider_quota (it was "other").
+      expect(row.error_class).toBe("provider_quota");
       expect(row.error_message).toBe(
         "HTTP 429 insufficient_quota: You exceeded your current quota, please check your plan and billing details.",
       );
@@ -129,7 +131,8 @@ describe("an OpenAI account out of quota, through the inline runner (1 Nov)", ()
         reasonLabel: CREDIT_LABEL,
         customerReason: "A problem on our side",
         reasonCheck: CREDIT_CHECK,
-        errorClass: "other",
+        // S04B part 2 (LLD amendment 100): a spend, credit or quota refusal is provider_quota (it was "other").
+        errorClass: "provider_quota",
         statusCode: 429,
       },
     ]);

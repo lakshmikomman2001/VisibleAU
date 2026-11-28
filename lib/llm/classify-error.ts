@@ -143,6 +143,19 @@ function isOutOfQuota(
   return matchesFailurePattern("creditOrQuota", identifiers || message);
 }
 
+/** Gemini's FAILED_PRECONDITION or PERMISSION_DENIED whose message is about billing, credit or a balance owed. */
+function isGeminiBillingRefusal(
+  providerErrorType: string | undefined,
+  providerErrorCode: string | undefined,
+  message: string,
+): boolean {
+  const status = [providerErrorType, providerErrorCode].filter(Boolean).join(" ");
+  if (!/failed_precondition|permission_denied/i.test(status)) return false;
+  return (
+    matchesFailurePattern("creditOrQuota", message) || /outstanding balance|prepay/i.test(message)
+  );
+}
+
 function isAbortOrTimeout(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   if (err.name === "AbortError" || err.name === "TimeoutError") return true;
@@ -265,27 +278,37 @@ export function classifyError(err: unknown): ClassifiedError {
     ...(providerErrorCode ? { providerErrorCode } : {}),
   };
   const message = err instanceof Error ? err.message : String(err);
+  // S04B part 2 (LLD amendment 100): a refusal because a spend limit, credit or quota on our provider account is
+  // reached is "provider_quota" (it was "other" until S04B: live audit #57 filed Anthropic's spend limit so). Never
+  // retried, and the runners send that engine no more calls in the audit (lib/audit/provider-quota.ts).
+  const providerQuota = () => ({
+    errorClass: "provider_quota" as const,
+    retryable: false,
+    costUsd: 0,
+    capReserveUsd: 0,
+    message,
+    ...statusFields,
+  });
   // Engine-failure follow-ups (1 Nov), item 1: a spend limit is never
   // retried -- every retry is another refused call until the limit is
   // raised or resets. It can come as a 400 (Anthropic, a limit you set)
   // or a 429 with no retry-after (Anthropic's tier cap, OpenAI), so it's
-  // checked before the 429 branch; "other", because it isn't a rate
-  // limit that clears by waiting. lib/audit/engine-failure.ts names it
-  // from the same patterns.
+  // checked before the 429 branch. lib/audit/engine-failure.ts names it
+  // from the same patterns. The shapes, from each provider's docs (read 28 Nov 2026):
+  // - Anthropic, https://platform.claude.com/docs/en/api/rate-limits: "When usage reaches a spend limit you set,
+  //   requests return HTTP 400 with error type `invalid_request_error`", the message "starts with `You have reached
+  //   your specified API usage limits`, or `You have reached your specified workspace API usage limits`"; and
+  //   https://platform.claude.com/docs/en/api/errors: the monthly spend cap is a 429 `rate_limit_error` whose
+  //   `"details": { "error_code": "enforced_spend_limit_reached" }`.
+  // - OpenAI, https://developers.openai.com/api/docs/guides/error-codes: 429 codes `organization_spend_limit_exceeded`,
+  //   `project_spend_limit_exceeded`, `organization_usage_limit_exceeded`.
   if (
     matchesFailurePattern(
       "spendLimit",
       [message, providerErrorType, providerErrorCode].filter(Boolean).join(" "),
     )
   ) {
-    return {
-      errorClass: "other",
-      retryable: false,
-      costUsd: 0,
-      capReserveUsd: 0,
-      message,
-      ...statusFields,
-    };
+    return providerQuota();
   }
   // Methodology v2.2 (7 Nov), part 2: Google's daily limit on grounded Gemini requests
   // (lib/llm/failure-patterns.ts's dailySearchLimit) -- a rate limit, but one no retry gets past
@@ -303,16 +326,26 @@ export function classifyError(err: unknown): ClassifiedError {
   // Out of credit or quota (1 Nov, Sri's decision): not retried either.
   // Checked after the spend limit, which stays first (an OpenAI spend
   // limit is also type insufficient_quota, with a more specific code),
-  // and before an ordinary 429, which is still retried.
+  // and before an ordinary 429, which is still retried. OpenAI: "The broader `error.type` can still be
+  // `insufficient_quota`", and 429 `credit_balance_exhausted`, "your organization's prepaid credit balance is
+  // depleted" (the error-codes guide above).
   if (status === 429 && isOutOfQuota(providerErrorType, providerErrorCode, message)) {
-    return {
-      errorClass: "other",
-      retryable: false,
-      costUsd: 0,
-      capReserveUsd: 0,
-      message,
-      ...statusFields,
-    };
+    return providerQuota();
+  }
+  // S04B part 2: 402 Payment Required is a billing refusal on every provider that sends it -- Anthropic 402
+  // `billing_error`, "There's an issue with your billing or payment information."
+  // (https://platform.claude.com/docs/en/api/errors); Gemini `payment_required`, "Your Prepay credit balance is
+  // depleted." (https://aistudio.google.com/docs/api-errors); Perplexity, "If your account runs out of credits,
+  // requests can return `402 Payment Required`" (https://docs.perplexity.ai/docs/resources/faq.md).
+  if (status === 402) return providerQuota();
+  // Gemini's billing refusals (https://aistudio.google.com/docs/troubleshooting and /api-errors): 400
+  // `failed_precondition`, "a prerequisite is not met (for example, disabled billing)", and 403 PERMISSION_DENIED
+  // "citing an outstanding balance". Only when the message says it's billing: a 403 can also be a key's permission.
+  if (
+    (status === 400 || status === 403) &&
+    isGeminiBillingRefusal(providerErrorType, providerErrorCode, message)
+  ) {
+    return providerQuota();
   }
   if (status === 429) {
     return {

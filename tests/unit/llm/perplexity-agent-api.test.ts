@@ -116,7 +116,7 @@ describe("Perplexity's request: the Agent API, web search on", () => {
       input: "Who is the best emergency plumber in Kurrajong Heights?",
       temperature: 0.7,
       max_output_tokens: 8192,
-      tools: [{ type: "web_search" }],
+      tools: [{ type: "web_search", max_results: 10 }],
     });
   });
 
@@ -165,7 +165,7 @@ describe("Perplexity's request: the Agent API, web search on", () => {
       fetchMock,
       engineCallReach("local", "perplexity", { ...BRAND, locationConfirmedAt: null }),
     );
-    expect(sentRequest(fetchMock).body.tools).toEqual([{ type: "web_search" }]);
+    expect(sentRequest(fetchMock).body.tools).toEqual([{ type: "web_search", max_results: 10 }]);
   });
 
   it("keeps the timeout: the fetch is aborted by ENGINE_CALL_TIMEOUT_MS.perplexity", async () => {
@@ -290,6 +290,87 @@ describe("Perplexity's response: the recorded Agent API shape", () => {
     const err = await completeWith(vi.fn().mockResolvedValue(okResponse(body))).catch((e) => e);
     expect(err).toBeInstanceOf(EmptyResponseError);
     expect((err as InstanceType<typeof EmptyResponseError>).costUsd).toBe(0.00473);
+  });
+});
+
+/**
+ * S04B pre-push check: every search result is stored as a source the answer cited, so the number of results is the
+ * number of sources Perplexity's figures count. Sonar returned 10 (its `citations` were its `search_results`); the
+ * recorded Agent API call, with no limit, returned 15. The limit is the web_search tool's `max_results`.
+ */
+describe("Perplexity's sources stay comparable after the Agent API move", () => {
+  it("asks web search for at most 10 results, Sonar's count, on every reach and with no location", async () => {
+    const { PERPLEXITY_MAX_SEARCH_RESULTS } = await import("@/lib/llm/perplexity-impl");
+    expect(PERPLEXITY_MAX_SEARCH_RESULTS).toBe(10);
+    const { engineCallReach } = await import("@/lib/reach/engine-location");
+    const calls = [
+      ...(["local", "state", "country", "global"] as const).map((reach) =>
+        engineCallReach(reach, "perplexity", BRAND),
+      ),
+      engineCallReach("local", "perplexity", { ...BRAND, locationConfirmedAt: null }),
+    ];
+    for (const extra of calls) {
+      const fetchMock = vi.fn().mockResolvedValue(okResponse(recorded()));
+      await completeWith(fetchMock, extra);
+      const tools = sentRequest(fetchMock).body.tools as Json[];
+      expect(tools).toHaveLength(1);
+      expect(tools[0].max_results).toBe(10);
+    }
+  });
+
+  it("the recorded probe's shape (one search, 15 results, no annotations): each result is stored as a cited source, one per site", async () => {
+    const { perplexityAgentResponse, RECORDED_AGENT_USAGE } = await import(
+      "@/tests/helpers/perplexity-agent-response"
+    );
+    const { citedSourcesOf, extractCitations, mergeCitedSources } = await import(
+      "@/lib/audit/extract-citations"
+    );
+    const { searchResultsSeen } = await import("@/lib/reports/search-results");
+    const { accuracyDimensionScore } = await import("@/lib/scoring/accuracy");
+    // 15 results on 13 sites (two sites twice), as recorded; the URLs are invented.
+    const urls = [
+      "https://tradesdirectory.example.com.au/plumbers/kurrajong-heights",
+      "https://tradesdirectory.example.com.au/plumbers/hawkesbury",
+      "https://rankedtrades.example.com.au/plumbers/kurrajong-heights",
+      "https://kurrajongemergency.example.com.au/",
+      "https://wattlecreekplumbing.example.com.au/emergency",
+      "https://ironbarkpipe.example.com.au/locations/kurrajong",
+      "https://splashworks.example.com.au/kurrajong",
+      "https://neighbourreviews.example.com.au/nsw/kurrajong/plumber",
+      "https://gumtreeplumbing.example.com.au/",
+      "https://hillsidepipes.example.com.au/",
+      "https://allhoursplumbing.example.com.au/kurrajong",
+      "https://directplumbers.example.com.au/kurrajong",
+      "https://nearbyplumbing.example.com.au/kurrajong",
+      "https://limestoneplumbing.example.com.au/kurrajong",
+      "https://ironbarkpipe.example.com.au/locations/north-kurrajong",
+    ];
+    const text = "**Ironbark Pipe Co** and **Wattle Creek Plumbing** both advertise 24/7 callouts.";
+    const result = await completeWith(
+      vi
+        .fn()
+        .mockResolvedValue(
+          okResponse(
+            perplexityAgentResponse({ text, searchResults: urls, usage: RECORDED_AGENT_USAGE }),
+          ),
+        ),
+    );
+    // CompleteOutput.citedUrls: every search result, in order (no annotations to put first).
+    expect(result.citedUrls).toEqual(urls);
+    // citations.cited_sources, as both runners store it (mergeCitedSources): one entry per site, all "retrieved",
+    // none an uncited search result -- so all 13 count as sources the answer cited.
+    const stored = mergeCitedSources(extractCitations(result.response), result.citedUrls);
+    expect(stored).toHaveLength(13);
+    expect(stored.every((s) => s.origin === "retrieved" && s.cited === undefined)).toBe(true);
+    expect(citedSourcesOf(stored)).toHaveLength(13);
+    // searchResultsSeen counts only answers that kept an uncited result (Claude's): never Perplexity's.
+    expect(searchResultsSeen([{ citedSources: stored }], "brand.example.com.au")).toBeNull();
+    // The source-citation rate: a mention with at least one source, whatever the count.
+    expect(
+      accuracyDimensionScore([
+        { brandMentioned: true, mentionVerification: "verified", citedSources: stored },
+      ]),
+    ).toBe(100);
   });
 });
 

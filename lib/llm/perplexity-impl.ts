@@ -40,6 +40,8 @@ import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-con
  * - Location: the web_search tool's `user_location` takes `country` (ISO 3166-1 alpha-2), `region` and `city` (the
  *   web-search page), so Perplexity is told the reach's location as ChatGPT and Claude are
  *   (lib/reach/engine-location.ts, lib/llm/reach-location-params.ts).
+ * - Results: `max_results` is 10 (PERPLEXITY_MAX_SEARCH_RESULTS below), Sonar's count, so an answer stores as many
+ *   sources as before the move.
  *
  * The response (agent-post's schema, and one call recorded on 28 Nov 2026 whose shape
  * tests/fixtures/perplexity/agent-api-response.json keeps, with invented content):
@@ -47,8 +49,8 @@ import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-con
  *   entries with `"type": "output_text"`" (quickstart); "Agent API responses have no `choices[0].message.content`".
  * - Sources: an output item `{"type": "search_results", "results": [{ id, url, title, snippet, date, ... }]}`
  *   (web-search page), and `url_citation` annotations on output_text ("Text annotation (URL citation)", agent-post).
- *   The recorded call had 15 search results and no annotations or [n] markers. As Sonar's `citations` and
- *   `search_results` were, both go into citedUrls, annotations first, de-duplicated in order.
+ *   The recorded call had 15 search results (3 queries, one web_search call) and no annotations or [n] markers. As
+ *   Sonar's `citations` and `search_results` were, both go into citedUrls, annotations first, de-duplicated in order.
  * - `status`: "completed, failed, incomplete, in_progress, queued, cancelled" (agent-post). incomplete_details' reasons
  *   aren't documented; the Responses shape names `max_output_tokens` and `content_filter`, read as OpenAI's are
  *   (lib/llm/stop-reason.ts).
@@ -67,6 +69,23 @@ import { deadlineAwareTimeoutMs, ENGINE_CALL_TIMEOUT_MS } from "./web-search-con
  */
 
 const PERPLEXITY_AGENT_API_URL = "https://api.perplexity.ai/v1/agent";
+
+/**
+ * S04B pre-push check: the web_search tool's results limit, Sonar's count. Every search result is stored as a source
+ * the answer cited (Sonar's 10 `citations` were its 10 `search_results`, the same URLs in the same order), and the
+ * directory counts, "Linked a source", the source-citation rate and the finding rules read those sources. With no
+ * limit, the recorded Agent API call returned 15 results (13 sites, against Sonar's 9 for the same question), so
+ * Perplexity's figures would have moved with the API, not the business.
+ *
+ * The docs (read 28 Nov 2026): "Set `max_results` to control how many results the tool collects per `web_search`
+ * call." (https://docs.perplexity.ai/docs/agent-api/tools/web-search); "Upper bound on the number of search results
+ * collected per call." ... "Must be between 1 and 50; values outside that range are rejected with a 400 error."
+ * (https://docs.perplexity.ai/api-reference/agent-post.md, WebSearchTool); and Sonar's `num_search_results` becomes
+ * `max_results`, "on the `web_search` tool — a cap on the total number of results"
+ * (https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to.md). It is an upper bound: "Within range, the
+ * backend may return fewer results than requested" (the web-search page).
+ */
+export const PERPLEXITY_MAX_SEARCH_RESULTS = 10;
 
 /** Our model id as the Agent API names it: "sonar" is Perplexity's own `perplexity/sonar`. */
 export function agentApiModel(modelId: string): string {
@@ -123,7 +142,13 @@ export function agentApiRequestBody(
     temperature: 0.7,
     // Methodology v2.2, part 1: the answer's output limit (lib/llm/output-limit.ts).
     max_output_tokens: ANSWER_MAX_OUTPUT_TOKENS,
-    tools: [{ type: "web_search", ...(userLocation ? { user_location: userLocation } : {}) }],
+    tools: [
+      {
+        type: "web_search",
+        max_results: PERPLEXITY_MAX_SEARCH_RESULTS,
+        ...(userLocation ? { user_location: userLocation } : {}),
+      },
+    ],
   };
 }
 

@@ -296,9 +296,55 @@ describe("Perplexity's response: the recorded Agent API shape", () => {
 /**
  * S04B pre-push check: every search result is stored as a source the answer cited, so the number of results is the
  * number of sources Perplexity's figures count. Sonar returned 10 (its `citations` were its `search_results`); the
- * recorded Agent API call, with no limit, returned 15. The limit is the web_search tool's `max_results`.
+ * recorded Agent API call, with no limit, returned 15. The web_search tool's `max_results` limits each search call;
+ * pre-push check 2 (Sri's decision): the answer stores at most 10 URLs in all, annotations first.
  */
 describe("Perplexity's sources stay comparable after the Agent API move", () => {
+  /** n invented result URLs on n sites, labelled so each list's order is visible. */
+  const resultUrls = (label: string, n: number) =>
+    Array.from({ length: n }, (_, i) => `https://${label}-${i + 1}.example.com.au/plumbers`);
+
+  async function citedUrlsFor(parts: {
+    annotations?: string[];
+    searchResults?: string[];
+    searchCalls?: string[][];
+  }) {
+    const { perplexityAgentResponse, RECORDED_AGENT_USAGE } = await import(
+      "@/tests/helpers/perplexity-agent-response"
+    );
+    const result = await completeWith(
+      vi
+        .fn()
+        .mockResolvedValue(
+          okResponse(perplexityAgentResponse({ ...parts, usage: RECORDED_AGENT_USAGE })),
+        ),
+    );
+    return result.citedUrls;
+  }
+
+  it("an answer with two web_search calls and 18 results stores 10: the first call's 9, then the second call's next new one", async () => {
+    const first = resultUrls("first", 9);
+    // The second call's first result repeats one of the first call's: a repeated URL takes no place.
+    const second = [first[4], ...resultUrls("second", 8)];
+    const cited = await citedUrlsFor({ searchCalls: [first, second] });
+    expect(cited).toEqual([...first, second[1]]);
+    const { PERPLEXITY_MAX_SOURCE_URLS } = await import("@/lib/llm/perplexity-impl");
+    expect(PERPLEXITY_MAX_SOURCE_URLS).toBe(10);
+  });
+
+  it("an answer with 3 annotations and 15 results stores the 3 annotations first, then 7 results", async () => {
+    const annotations = resultUrls("annotated", 3);
+    const results = resultUrls("result", 15);
+    const cited = await citedUrlsFor({ annotations, searchResults: results });
+    expect(cited).toEqual([...annotations, ...results.slice(0, 7)]);
+  });
+
+  it("10 in all includes the annotations: 12 annotations store the first 10 and no search result", async () => {
+    const annotations = resultUrls("annotated", 12);
+    const cited = await citedUrlsFor({ annotations, searchResults: resultUrls("result", 5) });
+    expect(cited).toEqual(annotations.slice(0, 10));
+  });
+
   it("asks web search for at most 10 results, Sonar's count, on every reach and with no location", async () => {
     const { PERPLEXITY_MAX_SEARCH_RESULTS } = await import("@/lib/llm/perplexity-impl");
     expect(PERPLEXITY_MAX_SEARCH_RESULTS).toBe(10);
@@ -318,7 +364,7 @@ describe("Perplexity's sources stay comparable after the Agent API move", () => 
     }
   });
 
-  it("the recorded probe's shape (one search, 15 results, no annotations): each result is stored as a cited source, one per site", async () => {
+  it("the recorded probe's shape (one search, 15 results, no annotations): at most 10 URLs are stored, each a cited source, one per site", async () => {
     const { perplexityAgentResponse, RECORDED_AGENT_USAGE } = await import(
       "@/tests/helpers/perplexity-agent-response"
     );
@@ -355,14 +401,15 @@ describe("Perplexity's sources stay comparable after the Agent API move", () => 
           ),
         ),
     );
-    // CompleteOutput.citedUrls: every search result, in order (no annotations to put first).
-    expect(result.citedUrls).toEqual(urls);
+    // CompleteOutput.citedUrls: the first 10 search results, in order (no annotations to put first), as Sonar stored.
+    expect(result.citedUrls).toEqual(urls.slice(0, 10));
+    expect(result.citedUrls?.length).toBeLessThanOrEqual(10);
     // citations.cited_sources, as both runners store it (mergeCitedSources): one entry per site, all "retrieved",
-    // none an uncited search result -- so all 13 count as sources the answer cited.
+    // none an uncited search result -- so the 9 sites of those 10 URLs (one site twice) count as sources it cited.
     const stored = mergeCitedSources(extractCitations(result.response), result.citedUrls);
-    expect(stored).toHaveLength(13);
+    expect(stored).toHaveLength(9);
     expect(stored.every((s) => s.origin === "retrieved" && s.cited === undefined)).toBe(true);
-    expect(citedSourcesOf(stored)).toHaveLength(13);
+    expect(citedSourcesOf(stored)).toHaveLength(9);
     // searchResultsSeen counts only answers that kept an uncited result (Claude's): never Perplexity's.
     expect(searchResultsSeen([{ citedSources: stored }], "brand.example.com.au")).toBeNull();
     // The source-citation rate: a mention with at least one source, whatever the count.

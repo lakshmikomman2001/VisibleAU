@@ -12,6 +12,8 @@ export interface AgentResponseParts {
   annotations?: string[];
   /** The search_results item's result URLs (omitted: no search_results item). */
   searchResults?: string[];
+  /** S04B pre-push check 2: one search_results item per web_search call, in order (instead of searchResults). */
+  searchCalls?: string[][];
   /** `usage`, as given (omitted: no usage block). */
   usage?: Record<string, unknown>;
   status?: string;
@@ -20,19 +22,24 @@ export interface AgentResponseParts {
 
 export function perplexityAgentResponse(parts: AgentResponseParts = {}): Record<string, unknown> {
   const output: Array<Record<string, unknown>> = [];
-  if (parts.searchResults) {
+  const searchCalls = parts.searchCalls ?? (parts.searchResults ? [parts.searchResults] : []);
+  let resultId = 0;
+  for (const results of searchCalls) {
     output.push({
       type: "search_results",
       queries: ["invented query"],
-      results: parts.searchResults.map((url, i) => ({
-        id: i + 1,
-        url,
-        title: `Result ${i + 1}`,
-        snippet: "Invented snippet.",
-        date: "2026-11-01",
-        last_updated: "2026-11-20",
-        source: "web",
-      })),
+      results: results.map((url) => {
+        resultId += 1;
+        return {
+          id: resultId,
+          url,
+          title: `Result ${resultId}`,
+          snippet: "Invented snippet.",
+          date: "2026-11-01",
+          last_updated: "2026-11-20",
+          source: "web",
+        };
+      }),
     });
   }
   output.push({

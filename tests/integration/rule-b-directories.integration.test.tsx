@@ -74,8 +74,10 @@ const NONE_LEFT = shapedLike56("Bluegum Home Services", {});
 
 const LOCALSEARCH_ACTION =
   "Make sure your profile on Localsearch, the directory Claude cites most, is complete and linked in brand settings";
+// S04B part 5 (LLD amendment 106): the action names one directory (Localsearch), so its reason says "This is the
+// directory it cited most in them." (it said "These are the directories ...").
 const CLAUDE_REASON =
-  "Claude didn't name you in any of its 10 answers to everyday questions. These are the directories it cited most in them.";
+  "Claude didn't name you in any of its 10 answers to everyday questions. This is the directory it cited most in them.";
 
 const sql = postgres(getTestDatabaseUrl(), { max: 1 });
 const seeds: Record<"one" | "two" | "none", SeededReportBrand | null> = {

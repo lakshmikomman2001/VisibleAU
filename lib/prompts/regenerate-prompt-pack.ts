@@ -3,6 +3,7 @@ import type { DbClient } from "@/db/client";
 import { brands } from "@/db/schema";
 import { resolveRegionLabel } from "@/lib/brands/region-label";
 import { PROMPTS_PER_AUDIT } from "@/lib/llm/tier-engines";
+import { effectiveTier } from "@/lib/pricing/effective-tier";
 import {
   addPackAsSuggestions,
   currentSetAppliedByPerson,
@@ -64,6 +65,7 @@ export async function regeneratePromptPack(
   const [brand] = await tx
     .select({
       id: brands.id,
+      organizationId: brands.organizationId,
       name: brands.name,
       domain: brands.domain,
       classification: brands.classification,
@@ -158,7 +160,11 @@ export async function regeneratePromptPack(
     // generator version is stamped so the next audit start doesn't regenerate again. The stored pack becomes the new
     // one, so saving the same details again is "unchanged" (no suggestions re-added); its version number stays, since
     // what audits ask didn't change.
-    if (await currentSetAppliedByPerson(t, brandId)) {
+    // S04B part 5 (LLD amendment 101): Starter and up. A Free brand can't act on suggestions, so its set follows
+    // amendment 74 even when the confirm step saved it as a person's set; the plan at the time of the regeneration
+    // decides (a workspace that dropped to Free since is Free now).
+    const keepsPersonsSet = (await effectiveTier(t, brand.organizationId)) !== "free";
+    if (keepsPersonsSet && (await currentSetAppliedByPerson(t, brandId))) {
       const suggestionsAdded = await addPackAsSuggestions(t, { brandId, pack });
       await t
         .update(brands)

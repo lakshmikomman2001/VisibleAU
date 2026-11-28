@@ -274,3 +274,16 @@ describe("ReachCard", () => {
     expect(screen.getByTestId("p01-reach-list")).toBeInTheDocument();
   });
 });
+
+// S04B part 5 (LLD amendment 103; contract v1.10 P01.reach): the plan chip reads "up to 1 area" for one (it once
+// printed "up to 1 areas"; S04 built the singular) and "up to {n} areas" otherwise; "(small sample)" shows for any
+// reach under 5 questions, Local included (above: "Local 4 (small sample)").
+describe("P01 copy (amendment 103)", () => {
+  it("one area reads 'up to 1 area'", async () => {
+    stubFetch({ ...view(), plan: { key: "starter", name: "Starter", reachesAllowed: 1 } });
+    await renderCard();
+    const chip = await screen.findByTestId("p01-reach-plan");
+    expect(chip).toHaveTextContent("Starter: up to 1 area");
+    expect(chip.textContent).not.toMatch(/areas/);
+  });
+});

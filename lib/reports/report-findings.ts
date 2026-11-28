@@ -290,10 +290,20 @@ function silentEngineRecommendation(
  * reads). Live audit #56 printed "any of 9 answers" beside "Claude 0 of 10": that 9 was searchResults.answers, Claude's
  * everyday answers that kept their web-search results (lib/reports/search-results.ts), not all its answers.
  */
-function citedMostReason(credited: readonly ReportEngineRow[]): string {
+export function citedMostReason(
+  credited: ReadonlyArray<Pick<ReportEngineRow, "engine" | "sampleCount">>,
+  directories: number,
+): string {
   const n = credited.reduce((s, e) => s + e.sampleCount, 0);
   const one = credited.length === 1;
-  return `${engineNameList(credited.map((e) => e.engine))} didn't name you in any of ${one ? "its" : "their"} ${n} ${plural(n, "answer")} to everyday questions. These are the directories ${one ? "it" : "they"} cited most in them.`;
+  const who = one ? "it" : "they";
+  // S04B part 5 (LLD amendment 106): one directory reads "This is the directory it cited most in them." (live audit
+  // #57 printed "These are the directories ..." beside a single directory).
+  const which =
+    directories === 1
+      ? `This is the directory ${who} cited most in them.`
+      : `These are the directories ${who} cited most in them.`;
+  return `${engineNameList(credited.map((e) => e.engine))} didn't name you in any of ${one ? "its" : "their"} ${n} ${plural(n, "answer")} to everyday questions. ${which}`;
 }
 
 /**
@@ -385,9 +395,9 @@ function silentEngineFinding(data: FindingsData): Finding | null {
     // with no directory cited at all, the measured reason as before ("We can see the pages Gemini cited, but not what
     // it searched, so we can't say why").
     recommendation: action
-      ? { title: action, detail: citedMostReason(credited) }
+      ? { title: action, detail: citedMostReason(credited, listed.length) }
       : top.length > 0
-        ? { title: recommendation.title, detail: citedMostReason(credited) }
+        ? { title: recommendation.title, detail: citedMostReason(credited, top.length) }
         : recommendation,
     ...(action ? {} : { noAction: true as const }),
   };

@@ -70,6 +70,9 @@ export const DIRECT_GATES = [
   "lib/pricing/plan-features.ts",
   // 20 Nov (part 6): a workspace made while the free plan was off has no plan until checkout (Free doesn't count).
   "lib/pricing/plan-required.ts",
+  // S04B part 5 (LLD amendment 101): a regeneration keeps a set a person applied on Starter and up; on Free it writes the
+  // next version, by the plan at the time of the regeneration.
+  "lib/prompts/regenerate-prompt-pack.ts",
   // S03 part 1: a brand's question limits (everyday questions included, packs, writing your own) -- read when an audit
   // starts, when questions are checked and when a set is applied.
   "lib/questions/limits.ts",

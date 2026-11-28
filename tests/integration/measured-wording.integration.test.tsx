@@ -124,9 +124,11 @@ describe.each(
     // S04 part 0g (LLD amendment 87): 'Its reason says why these directories: "{Engine} didn't name you in any of its
     // {n} answers to everyday questions. These are the directories it cited most in them.", where {n} is the per-engine
     // panel's count'.
+    // S04B part 5 (LLD amendment 106): the action names one directory (Yellow Pages), so "This is the directory it cited
+    // most in them."
     const gemini = r.data.engines.find((e) => e.engine === "gemini");
     expect(b?.recommendation.detail).toBe(
-      `Gemini didn't name you in any of its ${gemini?.sampleCount} answers to everyday questions. These are the directories it cited most in them.`,
+      `Gemini didn't name you in any of its ${gemini?.sampleCount} answers to everyday questions. This is the directory it cited most in them.`,
     );
     expect(r.text).toContain("Gemini cited most → ");
     expect(r.text).toContain("Yellow Pages (5), hipages (2), Airtasker (1)");

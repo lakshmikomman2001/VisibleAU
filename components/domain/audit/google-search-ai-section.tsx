@@ -6,6 +6,7 @@ import {
   googleSurfaceDetail,
   googleSurfaceReasons,
 } from "@/lib/audit/google-surfaces/summary";
+import { googlePlaceLine } from "@/lib/reports/report-format";
 import { GoogleSurfacesRefresher } from "./google-surfaces-refresher";
 
 /**
@@ -24,9 +25,16 @@ const strong: CSSProperties = { color: "var(--text-primary)" };
 export function GoogleSearchAiSection({
   auditId,
   summary,
+  brand,
 }: {
   auditId: string;
   summary: GoogleSurfaceSummary;
+  /**
+   * S04B part 5 (LLD amendment 110; contract P07.googlePlace): the brand's suburb and postcode, so the place line reads as
+   * the PDF's, "Yennora NSW 2161 · desktop · 28 Nov 2026", when Google was asked at the brand's own postcode (live audits
+   * #57 and #58 printed "2161 NSW · desktop · 28 Nov 2026"). Otherwise the place the provider used, as before.
+   */
+  brand?: { suburb?: string | null; postcode?: string | null };
 }) {
   // 12 Nov: when Google answered nothing on any surface there's no per-question result to list (each would
   // only repeat "couldn't be checked"), so the list isn't shown; the lines above say why.
@@ -41,8 +49,13 @@ export function GoogleSearchAiSection({
       <h2 className="text-sm font-semibold" style={strong}>
         Google Search AI
       </h2>
-      <p className="text-[12px] mt-1" style={muted} data-google-label="">
-        {summary.labelLine}
+      <p
+        className="text-[12px] mt-1"
+        style={muted}
+        data-google-label=""
+        data-testid="p07-google-place"
+      >
+        {brand ? googlePlaceLine(summary, brand) : summary.labelLine}
       </p>
       {summary.locationNote ? (
         <p

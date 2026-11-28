@@ -1855,7 +1855,11 @@ export default async function AuditPage({
 
           {/* Google AI surfaces (Phase 1, part 3): its own block, only for an audit that ran with Google. */}
           {googleSurfaces ? (
-            <GoogleSearchAiSection auditId={audit.id} summary={googleSurfaces} />
+            <GoogleSearchAiSection
+              auditId={audit.id}
+              summary={googleSurfaces}
+              brand={{ suburb: brand.suburb, postcode: brand.postcode }}
+            />
           ) : null}
 
           {/* Directories AI cited (Part D) */}

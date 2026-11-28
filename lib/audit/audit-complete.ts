@@ -13,6 +13,13 @@ import { inngest } from "@/lib/inngest/client";
 export const AUDIT_COMPLETE_EVENT = "audit.complete";
 
 export interface AuditCompleteEvent {
+  /**
+   * S04B part 3 (LLD amendment 105): the audit's id, so the event is sent once per audit whoever sends it. Inngest drops
+   * an event whose id it has already received ("Inngest will ignore any event with the same ID" within 24 hours), so a
+   * repeat -- the Inngest runner's finalize step run again after its first run committed, the inline runner, the Google
+   * collector -- never sends the email, the report or the follow-ups twice.
+   */
+  id: string;
   name: typeof AUDIT_COMPLETE_EVENT;
   data: { auditId: string; brandId: string; organizationId: string };
 }
@@ -24,6 +31,7 @@ export function auditCompleteEvent(audit: {
   organizationId: string;
 }): AuditCompleteEvent {
   return {
+    id: audit.id,
     name: AUDIT_COMPLETE_EVENT,
     data: { auditId: audit.id, brandId: audit.brandId, organizationId: audit.organizationId },
   };

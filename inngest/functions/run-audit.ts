@@ -540,7 +540,21 @@ export const runAudit = inngest.createFunction(
           .where(and(eq(audits.id, auditId), inArray(audits.status, ["pending", "running"])))
           .returning({ id: audits.id });
 
-        if (!finalized) {
+        // S04B part 3 (LLD amendment 105): no row matched because THIS step's earlier run already completed the audit (it
+        // committed, then its response was lost, so Inngest ran the step again). That audit is finished, not stopped by
+        // the stale-run guard: what follows the update runs again (each part is repeat-safe: the cost snapshot is ON
+        // CONFLICT DO NOTHING, the reach results are rewritten, the quality gate re-evaluated), and the function goes on
+        // to send audit.complete, whose event id is the audit id, so Inngest drops it if it was already sent.
+        const alreadyComplete =
+          !finalized &&
+          (
+            await serviceDb
+              .select({ status: audits.status })
+              .from(audits)
+              .where(eq(audits.id, auditId))
+          )[0]?.status === "complete";
+
+        if (!finalized && !alreadyComplete) {
           // Stale-run guard follow-up, item 3 -- see lib/audit/run-
           // audit-inline.ts's matching comment: the money was still
           // actually spent even though the stale guard won this
@@ -591,7 +605,7 @@ export const runAudit = inngest.createFunction(
           }
         }
 
-        return { skipped: !finalized };
+        return { skipped: !finalized && !alreadyComplete };
       });
 
       if (finalizeResult.skipped) {

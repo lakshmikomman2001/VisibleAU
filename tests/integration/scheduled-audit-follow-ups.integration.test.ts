@@ -187,6 +187,8 @@ describe("a scheduled audit finishes like one started by hand", () => {
     expect(log.some((e) => e.kind === "run" && e.id.startsWith("run-audit-"))).toBe(true);
     expect(sent).toEqual([
       {
+        // S04B part 3 (LLD amendment 105): every audit.complete carries the audit id as its event id, so it is sent once.
+        id: audit.id,
         name: AUDIT_COMPLETE_EVENT,
         data: { auditId: audit.id, brandId, organizationId: ORG },
       },

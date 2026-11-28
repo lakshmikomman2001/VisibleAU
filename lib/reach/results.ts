@@ -98,30 +98,78 @@ export async function computeAuditReachResults(
   });
 }
 
-/** Computes and stores the audit's results per reach (replacing what it had). Never throws: a failure is logged. */
+/** The SQLSTATE of a failed statement: postgres-js puts it on the error as `code`; drizzle wraps that error as `cause`. */
+function sqlStateOf(err: unknown): string | null {
+  for (let e: unknown = err, depth = 0; e && typeof e === "object" && depth < 4; depth++) {
+    const code = (e as { code?: unknown }).code;
+    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) return code;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return null;
+}
+
+/**
+ * Computes and stores the audit's results per reach (replacing what it had). Never throws: a failure is logged.
+ *
+ * S04B part 3 (LLD amendment 104):
+ * - the delete and the insert are one transaction, so a re-write that fails keeps the rows already there;
+ * - a failure is one structured log line (event `reach_results_not_stored`, the audit id and the SQLSTATE), never the
+ *   SQL or its parameters;
+ * - an audit with no everyday question asked stores Local 0 of 0 with no interval (both null), hashed as 0157's
+ *   backfill hashes it (the audit's question_set_hash, else 'prompt_pack_version:' and its version). An audit whose
+ *   everyday calls all failed already stores 0 of 0 per reach (computeAuditReachResults).
+ */
 export async function writeAuditReachResults(
   db: DbClient,
   input: { auditId: string; organizationId: string },
 ): Promise<void> {
   try {
-    const results = await computeAuditReachResults(db, input.auditId);
-    await db.delete(auditReachResults).where(eq(auditReachResults.auditId, input.auditId));
-    if (results.length === 0) return;
-    await db.insert(auditReachResults).values(
-      results.map((r) => ({
-        auditId: input.auditId,
-        organizationId: input.organizationId,
-        reach: r.reach,
-        everydayAnswers: r.everydayAnswers,
-        mentioned: r.mentioned,
-        ciLow: r.ciLow === null ? null : r.ciLow.toFixed(4),
-        ciHigh: r.ciHigh === null ? null : r.ciHigh.toFixed(4),
-        reachHash: r.reachHash,
-      })),
-    );
+    const computed = await computeAuditReachResults(db, input.auditId);
+    const results = computed.length > 0 ? computed : await noAnswersResult(db, input.auditId);
+    await db.transaction(async (tx) => {
+      await tx.delete(auditReachResults).where(eq(auditReachResults.auditId, input.auditId));
+      if (results.length === 0) return;
+      await tx.insert(auditReachResults).values(
+        results.map((r) => ({
+          auditId: input.auditId,
+          organizationId: input.organizationId,
+          reach: r.reach,
+          everydayAnswers: r.everydayAnswers,
+          mentioned: r.mentioned,
+          ciLow: r.ciLow === null ? null : r.ciLow.toFixed(4),
+          ciHigh: r.ciHigh === null ? null : r.ciHigh.toFixed(4),
+          reachHash: r.reachHash,
+        })),
+      );
+    });
   } catch (err) {
-    console.error(`[reach] results for audit ${input.auditId} weren't stored:`, err);
+    console.error(
+      JSON.stringify({
+        event: "reach_results_not_stored",
+        auditId: input.auditId,
+        sqlstate: sqlStateOf(err),
+      }),
+    );
   }
+}
+
+/** Local 0 of 0, no interval, for an audit that asked no everyday question (as 0157's backfill stores it). */
+async function noAnswersResult(db: DbClient, auditId: string): Promise<AuditReachResult[]> {
+  const [audit] = await db
+    .select({ hash: audits.questionSetHash, version: audits.promptPackVersion })
+    .from(audits)
+    .where(eq(audits.id, auditId));
+  if (!audit) return [];
+  return [
+    {
+      reach: "local",
+      everydayAnswers: 0,
+      mentioned: 0,
+      ciLow: null,
+      ciHigh: null,
+      reachHash: audit.hash ?? `prompt_pack_version:${audit.version ?? 1}`,
+    },
+  ];
 }
 
 /** S04 part 7: each prompt the audit asked and its reach (its item's in the audit's set; absent: Local). */

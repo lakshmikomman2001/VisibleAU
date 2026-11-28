@@ -1070,3 +1070,66 @@ test("Questions settings: fits 390, 768, 1240 and 1920, in the Account pages' wr
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// S04B part 4 (LLD amendment 102: "responsive-shell's Questions test with the flag on"): the Questions tab with
+// visibility_reach on and three reaches, in view mode and in edit mode (a section per reach, each with its own
+// "+ Add question"), at 390, 768, 1240 and 1920. The flag is this workspace's only, and off again afterwards.
+// ---------------------------------------------------------------------------
+
+test("Questions by reach (visibility_reach on): view and edit mode fit 390, 768, 1240 and 1920", async ({
+  page,
+}) => {
+  await sql`INSERT INTO org_feature_flags (organization_id, flag_key, is_enabled)
+    VALUES (${ORG_ID}, 'visibility_reach', true)
+    ON CONFLICT (organization_id, flag_key) DO UPDATE SET is_enabled = true`;
+  for (const reach of ["local", "state", "country"]) {
+    await sql`INSERT INTO brand_visibility_scopes (brand_id, organization_id, reach, enabled, target_count)
+      VALUES (${BRAND_ID}, ${ORG_ID}, ${reach}, true, ${reach === "local" ? 4 : 3})
+      ON CONFLICT (brand_id, reach) DO UPDATE SET enabled = true`;
+  }
+  const [{ setId }] = await sql<{ setId: string }[]>`
+    SELECT id AS "setId" FROM brand_question_sets WHERE brand_id = ${BRAND_ID} AND is_current`;
+  const before = await sql<{ questionId: string; reach: string; libraryReach: string }[]>`
+    SELECT i.question_id AS "questionId", i.reach, q.reach AS "libraryReach"
+    FROM brand_question_set_items i JOIN brand_questions q ON q.id = i.question_id WHERE i.set_id = ${setId}`;
+  await sql`
+    WITH ranked AS (
+      SELECT question_id, row_number() OVER (ORDER BY position) AS n FROM brand_question_set_items
+      WHERE set_id = ${setId} AND kind = 'everyday'
+    )
+    UPDATE brand_question_set_items i
+    SET reach = CASE WHEN r.n <= 4 THEN 'local' WHEN r.n <= 7 THEN 'state' ELSE 'country' END
+    FROM ranked r WHERE i.set_id = ${setId} AND i.question_id = r.question_id`;
+  // The Questions tab reads a question's reach from the library row too.
+  await sql`UPDATE brand_questions q SET reach = i.reach FROM brand_question_set_items i
+    WHERE i.set_id = ${setId} AND q.id = i.question_id`;
+  try {
+    await signIn(page);
+    for (const [mode, url] of [
+      ["view", `/brands/${BRAND_ID}/questions`],
+      ["edit", `/brands/${BRAND_ID}/questions?edit=1`],
+    ] as const) {
+      for (const width of [390, 768, 1240, 1920]) {
+        await page.setViewportSize({ width, height: 900 });
+        await open(page, url);
+        const root = mode === "edit" ? page.getByTestId("p02-edit") : page;
+        await expect(root.getByTestId("p02-section-country")).toBeVisible({ timeout: 60_000 });
+        await expect(root.getByTestId("p02-section-state")).toBeVisible();
+        if (mode === "edit") await expect(root.getByTestId("p02-add-question")).toHaveCount(3);
+        const result = await measureFit(page);
+        const where = `Questions (${mode}, by reach) at ${width}px: ${JSON.stringify(result)}`;
+        expect.soft(result.overflowing, where).toBe(false);
+        expect.soft(result.clipped, where).toEqual([]);
+      }
+    }
+  } finally {
+    for (const row of before) {
+      await sql`UPDATE brand_question_set_items SET reach = ${row.reach}
+        WHERE set_id = ${setId} AND question_id = ${row.questionId}`;
+      await sql`UPDATE brand_questions SET reach = ${row.libraryReach} WHERE id = ${row.questionId}`;
+    }
+    await sql`DELETE FROM brand_visibility_scopes WHERE brand_id = ${BRAND_ID}`;
+    await sql`DELETE FROM org_feature_flags WHERE organization_id = ${ORG_ID} AND flag_key = 'visibility_reach'`;
+  }
+});

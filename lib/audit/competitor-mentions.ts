@@ -21,6 +21,11 @@ export interface CompetitorMentionCount {
   mentions: number;
   /** The same answers split by engine (engines with no mention are absent). */
   perEngine: Record<string, number>;
+  /**
+   * S04B part 4 (LLD amendment 102): the same answers split by their question's reach, when the caller passes the
+   * audit's question reaches (the audit page's reach filter); reaches with no mention are absent.
+   */
+  perReach?: Record<string, number>;
 }
 
 /**
@@ -46,6 +51,8 @@ export async function countCompetitorMentions(
   tx: DbClient,
   audit: { id: string; methodologyVersion: number | null },
   competitors: readonly VerifiableCompetitor[],
+  /** S04B part 4: each asked question's reach (lib/reach/results.ts loadAuditQuestionReaches); absent: Local. */
+  reachOf?: ReadonlyMap<string, string>,
 ): Promise<CompetitorMentionCount[]> {
   if (competitors.length === 0) return [];
 
@@ -95,19 +102,27 @@ export async function countCompetitorMentions(
   const answers = textRows
     .map((r, i) => ({
       engine: r.engine,
+      reach: reachOf?.get(r.prompt) ?? "local",
       text: texts[i],
       // Decision 1 (6 Nov): only the sources the answer cited, as for the brand.
       citedSources: citedSourcesOf<{ domain: string; cited?: boolean }>(r.citedSources),
     }))
     .filter(
-      (a): a is { engine: string; text: string; citedSources: Array<{ domain: string }> } =>
-        !!a.text && a.text.length > 0,
+      (
+        a,
+      ): a is {
+        engine: string;
+        reach: string;
+        text: string;
+        citedSources: Array<{ domain: string }>;
+      } => !!a.text && a.text.length > 0,
     );
 
   return Promise.all(
     competitors.map(async ({ name, website }) => {
       let mentions = 0;
       const perEngine: Record<string, number> = {};
+      const perReach: Record<string, number> = {};
       for (const answer of answers) {
         const detected = await detectBrandMention(answer.text, { name, domain: website });
         if (!detected.found) continue;
@@ -127,8 +142,9 @@ export async function countCompetitorMentions(
         if (verification === "unverified") continue;
         mentions++;
         perEngine[answer.engine] = (perEngine[answer.engine] ?? 0) + 1;
+        perReach[answer.reach] = (perReach[answer.reach] ?? 0) + 1;
       }
-      return { name, mentions, perEngine };
+      return reachOf ? { name, mentions, perEngine, perReach } : { name, mentions, perEngine };
     }),
   );
 }

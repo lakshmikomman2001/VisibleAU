@@ -138,7 +138,9 @@ describe("the Questions tab by reach", () => {
 });
 
 describe("edit mode and the add drawer by reach", () => {
-  it("a question beyond Local shows its reach", async () => {
+  // S04B part 4 (LLD amendment 102: "P02's edit mode in one section per reach"): the reach is the section a row is in,
+  // so the S04 chip on each row beyond Local is gone.
+  it("a question beyond Local is in its reach's section", async () => {
     render(
       <QuestionEditor
         brandId={BRAND}
@@ -150,14 +152,10 @@ describe("edit mode and the add drawer by reach", () => {
       />,
     );
     await screen.findByTestId("p02-edit", {}, { timeout: 15_000 });
-    expect(screen.getAllByTestId("p02-row-reach").map((p) => p.textContent)).toEqual([
-      "NSW",
-      "NSW",
-      "NSW",
-      "Australia",
-      "Australia",
-      "Australia",
-    ]);
+    expect(screen.queryAllByTestId("p02-row-reach")).toEqual([]);
+    const rows = (reach: string) =>
+      within(screen.getByTestId(`p02-section-${reach}`)).getAllByTestId("p02-row").length;
+    expect([rows("local"), rows("state"), rows("country")]).toEqual([4, 3, 3]);
   });
 
   it("the drawer's areas: the chosen one is checked against and the question added in it", async () => {

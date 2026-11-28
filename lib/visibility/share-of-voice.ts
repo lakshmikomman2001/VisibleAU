@@ -99,6 +99,11 @@ export async function shareOfVoiceForBrands(
   tx: DbClient,
   brands: readonly SovBrand[],
   resolved: ReadonlyMap<string, ResolvedForSov>,
+  /**
+   * S04B part 4 (LLD amendment 102): the audit's question reaches (the audit page's reach filter), so each competitor
+   * also carries its mentions per reach, counted in the same pass. Omitted: everything as before.
+   */
+  opts: { reachOf?: ReadonlyMap<string, string> } = {},
 ): Promise<BrandShareOfVoice[]> {
   return Promise.all(
     brands.map(async (brand): Promise<BrandShareOfVoice> => {
@@ -127,7 +132,9 @@ export async function shareOfVoiceForBrands(
       // The counts are facts whatever the sample (the audit page lists them); a share is only
       // worked out when the headline itself has enough answers to be shown.
       const counts =
-        verifiable.length > 0 ? await countCompetitorMentions(tx, brand.latest, verifiable) : [];
+        verifiable.length > 0
+          ? await countCompetitorMentions(tx, brand.latest, verifiable, opts.reachOf)
+          : [];
       const totalMentions = counts.reduce((sum, c) => sum + c.mentions, brandMentions);
       if (result?.headline.status !== "scored") {
         return {
@@ -135,7 +142,12 @@ export async function shareOfVoiceForBrands(
           state: "not_enough_answers",
           brandMentions,
           totalMentions,
-          competitors: counts.map((c) => ({ name: c.name, mentions: c.mentions, sharePct: null })),
+          competitors: counts.map((c) => ({
+            name: c.name,
+            mentions: c.mentions,
+            sharePct: null,
+            ...(c.perReach ? { perReach: c.perReach } : {}),
+          })),
         };
       }
       if (brand.competitors.length === 0) {
@@ -172,11 +184,48 @@ export async function shareOfVoiceForBrands(
           name: c.name,
           mentions: c.mentions,
           sharePct: shareOf(c.mentions, totalMentions),
+          ...(c.perReach ? { perReach: c.perReach } : {}),
         })),
         perEngine,
       };
     }),
   );
+}
+
+/**
+ * S04B part 4 (LLD amendment 102; P07.reachFilter): the competitor context of one reach of an audit -- the brand's
+ * mentions there (the per-engine table's for that reach) and each competitor's (its perReach count from this counter's
+ * scan, given the audit's question reaches), most first. A share only where the whole audit shows one, worked out over
+ * that reach's mentions, as everywhere else: by shareOf.
+ */
+export function shareOfVoiceInReach(input: {
+  brandName: string;
+  brandMentions: number;
+  competitors: ReadonlyArray<Pick<SovShare, "name" | "perReach">>;
+  reach: string;
+  sharesShown: boolean;
+}): {
+  rows: Array<{ name: string; mentions: number; sharePct: number | null; isYou: boolean }>;
+  brandSharePct: number | null;
+  totalMentions: number;
+} {
+  const counted = [
+    { name: input.brandName, mentions: input.brandMentions, isYou: true },
+    ...input.competitors.map((c) => ({
+      name: c.name,
+      mentions: c.perReach?.[input.reach] ?? 0,
+      isYou: false,
+    })),
+  ];
+  const totalMentions = counted.reduce((sum, r) => sum + r.mentions, 0);
+  const share = (mentions: number) => (input.sharesShown ? shareOf(mentions, totalMentions) : null);
+  return {
+    rows: counted
+      .map((r) => ({ ...r, sharePct: share(r.mentions) }))
+      .sort((a, b) => b.mentions - a.mentions),
+    brandSharePct: share(input.brandMentions),
+    totalMentions,
+  };
 }
 
 /** One brand's Share of Voice in one audit (or none), resolving the headline's counts itself. */

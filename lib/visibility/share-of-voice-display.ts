@@ -20,6 +20,8 @@ export interface SovShare {
   mentions: number;
   /** null when nobody was mentioned. */
   sharePct: number | null;
+  /** S04B part 4: the mentions per question reach, when the counter was given the audit's reaches (the audit page). */
+  perReach?: Record<string, number>;
 }
 
 /** The same counts for one engine's answers. */

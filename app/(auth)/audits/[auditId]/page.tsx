@@ -10,6 +10,7 @@ import {
   type FullyFailedEngine,
 } from "@/components/domain/audit/engine-failure-banner";
 import { GoogleSearchAiSection } from "@/components/domain/audit/google-search-ai-section";
+import { ReachFilter } from "@/components/domain/audit/reach-filter";
 import { ReachRow } from "@/components/domain/audit/reach-row";
 import { ResponseAnswerText } from "@/components/domain/audit/response-answer-text";
 import { SetBreadcrumbs } from "@/components/domain/set-breadcrumbs";
@@ -59,6 +60,7 @@ import { loadAuditQuestionMix, questionMixLine, questionSplitParts } from "@/lib
 import { loadAuditReachView } from "@/lib/reach/display";
 import { REACH_ORDER } from "@/lib/reach/places";
 import { loadAuditQuestionReaches } from "@/lib/reach/results";
+import { loadReachBreakdown, reachEngineRows } from "@/lib/reach/views";
 import { compareActionItems } from "@/lib/recommendations/action-order";
 import {
   type DisplayBasis,
@@ -98,8 +100,16 @@ import { formatVisibilityPercent } from "@/lib/scoring/visibility-display";
 import { LINK_MAY_NOT_WORK, linkDoubt, linkDoubtReason } from "@/lib/urls/link-doubt";
 import { linkHref } from "@/lib/urls/strip-tracking";
 import { isUuid } from "@/lib/validation/uuid";
-import { shareOfVoiceForBrands, sovLine } from "@/lib/visibility/share-of-voice";
-import { formatSharePercent } from "@/lib/visibility/share-of-voice-display";
+import {
+  shareOfVoiceForBrands,
+  shareOfVoiceInReach,
+  sovLine,
+} from "@/lib/visibility/share-of-voice";
+import {
+  formatSharePercent,
+  SOV_SMALL_SAMPLE_BELOW,
+  type SovShare,
+} from "@/lib/visibility/share-of-voice-display";
 
 // citations.engine is a plain DB `text` column (not a typed enum), so
 // call sites below index this by a bare `string` -- re-declared here
@@ -184,7 +194,14 @@ export default async function AuditPage({
   searchParams: searchParamsPromise,
 }: {
   params: Promise<{ auditId: string }>;
-  searchParams: Promise<{ tab?: string; engine?: string; status?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    engine?: string;
+    status?: string;
+    page?: string;
+    /** S04B part 4 (P07.reachFilter): the reach the per-engine table and competitor context show; absent: all. */
+    area?: string;
+  }>;
 }) {
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/sign-in");
@@ -398,6 +415,8 @@ export default async function AuditPage({
     // Sri's decision 6 (7 Nov): engines whose provider answered with a different model than the one asked for.
     const modelDrift = await auditModelDrift(tx, auditId);
 
+    // S04B part 4: the competitors' per-reach counts, for the reach filter (set below when competitors are counted).
+    let reachSov: { competitors: SovShare[]; sharesShown: boolean } | null = null;
     let analysisData: {
       sentimentBreakdown: { positive: number; neutral: number; negative: number };
       perEngineData: EngineAnswerCounts[];
@@ -544,6 +563,14 @@ export default async function AuditPage({
         smallSample: boolean;
         note: string | null;
       } | null = null;
+      // S04B part 4 (P07.reachFilter): with a reach chosen, the same competitor scan also counts each competitor's
+      // mentions per reach (its questions' reaches in this audit's set); nothing extra otherwise.
+      const areaReachOf =
+        sp.area &&
+        sp.area !== "all" &&
+        (await isEnabled("visibility_reach", currentUser.organizationId))
+          ? await loadAuditQuestionReaches(tx, auditId)
+          : undefined;
       if (brand.competitors.length > 0) {
         const [sov] = await shareOfVoiceForBrands(
           tx,
@@ -562,7 +589,9 @@ export default async function AuditPage({
               { headline: headlineResult, mentionedCount: distinctMentionedCount, perEngine },
             ],
           ]),
+          areaReachOf ? { reachOf: areaReachOf } : {},
         );
+        reachSov = { competitors: sov.competitors, sharesShown: sov.sharePct !== null };
         const line = sovLine(sov, audit.organizationId);
         shareOfVoice = {
           share: line.share,
@@ -766,6 +795,49 @@ export default async function AuditPage({
     const reachView = (await isEnabled("visibility_reach", currentUser.organizationId))
       ? await loadAuditReachView(tx, { auditId, brand })
       : null;
+    // S04B part 4 (LLD amendment 102; P07.reachFilter): "All areas · {reaches}" above the per-engine table for an audit
+    // with more than one reach. A reach chosen (?area=) shows the per-engine table and the competitor context for that
+    // reach's answers only, from one grouped read (lib/reach/views.ts) and the same competitor scan; "All areas" is the
+    // page as it was.
+    const reachFilter =
+      activeTab === "analysis" && analysisData && reachView && reachView.tiles.length > 1
+        ? {
+            options: [
+              { value: "all", label: "All areas" },
+              ...reachView.tiles.map((t) => ({ value: t.reach as string, label: t.label })),
+            ],
+            selected: reachView.tiles.some((t) => t.reach === sp.area)
+              ? (sp.area as string)
+              : "all",
+          }
+        : null;
+    let engineFailureRows: Array<{ engine: string; errorClass: string; count: number }> | null =
+      null;
+    if (reachFilter && reachFilter.selected !== "all" && analysisData && reachView) {
+      const area = reachFilter.selected as QuestionReach;
+      const breakdown = await loadReachBreakdown(tx, auditId);
+      analysisData.perEngineData = reachEngineRows(breakdown, area, audit.engines ?? []);
+      engineFailureRows = breakdown.failures.get(area) ?? [];
+      if (reachSov && analysisData.competitorData.length > 0) {
+        const brandMentions = analysisData.perEngineData.reduce((n, e) => n + e.mentionedCount, 0);
+        const inReach = shareOfVoiceInReach({
+          brandName: brand.name,
+          brandMentions,
+          competitors: reachSov.competitors,
+          reach: area,
+          sharesShown: reachSov.sharesShown,
+        });
+        analysisData.competitorData = inReach.rows;
+        const total = inReach.totalMentions;
+        const label = reachView.tiles.find((t) => t.reach === area)?.label ?? area;
+        analysisData.shareOfVoice = {
+          share: inReach.brandSharePct === null ? null : formatSharePercent(inReach.brandSharePct),
+          detail: `${brandMentions} of ${total} verified mentions in ${label}`,
+          smallSample: total > 0 && total < SOV_SMALL_SAMPLE_BELOW,
+          note: null,
+        };
+      }
+    }
     // Google AI surfaces (Phase 1, part 3): null for an audit that ran without Google -- the page is then
     // exactly as before.
     const googleSurfaces = await loadGoogleSurfaceSummary(tx, auditId);
@@ -819,6 +891,8 @@ export default async function AuditPage({
       beyondAi,
       questionMix,
       reachView,
+      reachFilter,
+      engineFailureRows,
       googleSurfaces,
       headlineIncludesGoogle: headlineIncludesGoogle === true,
       failureRows,
@@ -905,6 +979,8 @@ export default async function AuditPage({
     beyondAi,
     questionMix,
     reachView,
+    reachFilter,
+    engineFailureRows,
     googleSurfaces,
     headlineIncludesGoogle,
     failureRows,
@@ -1488,6 +1564,11 @@ export default async function AuditPage({
             </div>
           </div>
 
+          {/* S04B part 4 (P07.reachFilter): above the per-engine table; filters it and the competitor context. */}
+          {reachFilter ? (
+            <ReachFilter options={reachFilter.options} selected={reachFilter.selected} />
+          ) : null}
+
           {/* 3-col grid; one column at phone width so the per-engine rows never wrap */}
           <div
             style={{
@@ -1527,7 +1608,9 @@ export default async function AuditPage({
                   // is never in n; it gets its own line, reason included
                   // as visible text (never only on hover).
                   const line = engineAnswerLine(e);
-                  const engineFailures = failureRows.filter((r) => r.engine === e.engine);
+                  const engineFailures = (engineFailureRows ?? failureRows).filter(
+                    (r) => r.engine === e.engine,
+                  );
                   const failedNote = failedNotCountedNote(
                     engineFailures.reduce((sum, r) => sum + r.count, 0),
                     failureReasons(engineFailures),
@@ -2078,7 +2161,40 @@ export default async function AuditPage({
                       : "These questions ask about the brand directly, so a mention here is expected and isn't part of the score."}
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {groupQuestions.map((q) => (
+                    {groupQuestions.flatMap((q, qi) => [
+                      // S04B part 4 (LLD amendment 102; P07.responses): with more than one reach, the everyday questions
+                      // in one section per reach, in reach order, headed by the Questions tab's label and its count; the
+                      // questions naming the business stay last. One reach: no header, as before.
+                      reachView &&
+                      reachView.tiles.length > 1 &&
+                      kind === "organic" &&
+                      q.reach &&
+                      groupQuestions[qi - 1]?.reach !== q.reach ? (
+                        <h4
+                          key={`reach-${q.reach}`}
+                          data-testid="p07-responses"
+                          data-reach={q.reach}
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            gap: 8,
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            color: "var(--text-primary)",
+                            margin: qi === 0 ? "0 0 2px" : "10px 0 2px",
+                          }}
+                        >
+                          {reachView.tiles.find((t) => t.reach === q.reach)?.label ?? q.reach}
+                          <span
+                            style={{ fontSize: 12, fontWeight: 400, color: "var(--text-tertiary)" }}
+                          >
+                            {(() => {
+                              const n = groupQuestions.filter((x) => x.reach === q.reach).length;
+                              return `${n} ${n === 1 ? "question" : "questions"}`;
+                            })()}
+                          </span>
+                        </h4>
+                      ) : null,
                       <div
                         key={q.prompt}
                         style={{
@@ -2093,28 +2209,6 @@ export default async function AuditPage({
                         }}
                       >
                         <span style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)" }}>
-                          {/* S04 part 7: the question's reach, for an audit with more than one. */}
-                          {reachView &&
-                          reachView.tiles.length > 1 &&
-                          q.reach &&
-                          !q.isBrandedPrompt ? (
-                            <span
-                              data-testid="responses-reach"
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: "1px 8px",
-                                marginRight: 8,
-                                borderRadius: 999,
-                                background: "var(--bg-subtle)",
-                                border: "1px solid var(--border-default)",
-                                color: "var(--text-primary)",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {reachView.tiles.find((t) => t.reach === q.reach)?.label ?? q.reach}
-                            </span>
-                          ) : null}
                           &ldquo;{q.prompt}&rdquo;
                         </span>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
@@ -2162,8 +2256,8 @@ export default async function AuditPage({
                             );
                           })}
                         </div>
-                      </div>
-                    ))}
+                      </div>,
+                    ])}
                   </div>
                 </div>
               );

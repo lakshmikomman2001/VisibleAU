@@ -22,6 +22,9 @@ vi.mock("@/lib/auth/current-user", () => ({
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), refresh: vi.fn() }),
+  // S04B part 4 (LLD amendment 102): the page with more than one reach renders the reach filter, which reads these.
+  usePathname: () => "/audits/x",
+  useSearchParams: () => new URLSearchParams(),
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));

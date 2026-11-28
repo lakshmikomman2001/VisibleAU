@@ -93,9 +93,42 @@ export function draftChanges(view: QuestionsResponse, draft: Draft) {
   const removed = view.questions.filter((q) => !after.includes(q.id));
   const keptBefore = before.filter((id) => after.includes(id));
   const keptAfter = after.filter((id) => before.includes(id));
-  const moved = keptAfter.filter((id, n) => keptBefore[n] !== id).length;
-  return { added, removed, moved };
+  if (!view.reaches) {
+    const moved = keptAfter.filter((id, n) => keptBefore[n] !== id).length;
+    return { added, removed, moved };
+  }
+  // S04B part 4 (amendment 102): by reach, a move is a question moved to another area, or one whose place among its
+  // own section's questions changed -- a row moved to NSW counts once, not once for every row that shifted up.
+  const sectionOf = (kind: string, reach: string) =>
+    kind === "branded" ? "branded" : `everyday:${reach}`;
+  const beforeSection = new Map(view.questions.map((q) => [q.id, sectionOf(q.kind, q.reach)]));
+  const movedIds = new Set<string>();
+  const order = new Map<string, { was: string[]; now: string[] }>();
+  const entry = (key: string) => {
+    const found = order.get(key) ?? { was: [], now: [] };
+    order.set(key, found);
+    return found;
+  };
+  for (const q of view.questions) {
+    if (after.includes(q.id)) entry(sectionOf(q.kind, q.reach)).was.push(q.id);
+  }
+  for (const item of draft.items) {
+    if (!item.questionId || !beforeSection.has(item.questionId)) continue;
+    const key = sectionOf(item.kind, item.reach);
+    if (beforeSection.get(item.questionId) !== key) movedIds.add(item.questionId);
+    else entry(key).now.push(item.questionId);
+  }
+  for (const { was, now } of order.values()) {
+    const stayed = was.filter((id) => now.includes(id));
+    now.forEach((id, n) => {
+      if (stayed[n] !== id) movedIds.add(id);
+    });
+  }
+  return { added, removed, moved: movedIds.size };
 }
+
+/** S04B part 4: P02's reach sections in edit mode, in the Questions tab's order (questions-tab.tsx). */
+const EDIT_REACH_ORDER: readonly QuestionReach[] = ["local", "state", "country", "global"];
 
 /**
  * S04 part 0c (LLD amendment 96): whether a kept draft changes anything against the current set. One that doesn't is
@@ -811,8 +844,10 @@ function EditRowMenu({
   first,
   last,
   canSwap,
+  areas = [],
   onEdit,
   onSwap,
+  onMoveTo,
   onUp,
   onDown,
   onRemove,
@@ -822,14 +857,18 @@ function EditRowMenu({
   first: boolean;
   last: boolean;
   canSwap: boolean;
+  /** S04B part 4 (P02.row.more): the other enabled reaches a row can move to; none hides "Move to another area". */
+  areas?: ReadonlyArray<{ reach: QuestionReach; label: string }>;
   onEdit: () => void;
   onSwap: () => void;
+  onMoveTo?: (reach: QuestionReach) => void;
   onUp: () => void;
   onDown: () => void;
   onRemove: () => void;
   onArchive: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [choosingArea, setChoosingArea] = useState(false);
   const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -845,17 +884,22 @@ function EditRowMenu({
   }, [open]);
   const choose = (action: () => void) => () => {
     setOpen(false);
+    setChoosingArea(false);
     action();
     trigger.current?.focus();
   };
-  const entries: Array<[string, () => void, boolean]> = [
-    ["Edit wording", onEdit, item.kind === "everyday"],
-    ["Swap for a suggestion", onSwap, canSwap && item.kind === "everyday"],
-    ["Move up", onUp, !first],
-    ["Move down", onDown, !last],
-    ["Remove from set", onRemove, true],
-    ["Archive", onArchive, !!item.questionId],
-  ];
+  const canMoveArea = item.kind === "everyday" && areas.length > 0 && !!onMoveTo;
+  const entries: Array<[string, () => void, boolean]> = choosingArea
+    ? areas.map((a): [string, () => void, boolean] => [a.label, () => onMoveTo?.(a.reach), true])
+    : [
+        ["Edit wording", onEdit, item.kind === "everyday"],
+        ["Swap for a suggestion", onSwap, canSwap && item.kind === "everyday"],
+        ["Move to another area", () => setChoosingArea(true), canMoveArea],
+        ["Move up", onUp, !first],
+        ["Move down", onDown, !last],
+        ["Remove from set", onRemove, true],
+        ["Archive", onArchive, !!item.questionId],
+      ];
   return (
     <div style={{ position: "relative" }}>
       <button
@@ -865,7 +909,10 @@ function EditRowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => !o);
+          setChoosingArea(false);
+        }}
         data-testid="p02-row-more"
         className="inline-flex items-center justify-center w-11 h-11 min-[641px]:w-8 min-[641px]:h-8"
         style={{
@@ -894,6 +941,18 @@ function EditRowMenu({
             boxShadow: "var(--shadow-pop)",
           }}
         >
+          {choosingArea ? (
+            <p
+              style={{
+                margin: 0,
+                padding: "6px 10px 4px",
+                fontSize: 12,
+                color: "var(--text-tertiary)",
+              }}
+            >
+              Move to
+            </p>
+          ) : null}
           {entries
             .filter(([, , shown]) => shown)
             .map(([label, action]) => (
@@ -901,7 +960,12 @@ function EditRowMenu({
                 key={label}
                 type="button"
                 role="menuitem"
-                onClick={choose(action)}
+                data-testid={choosingArea ? "p02-row-move-area" : undefined}
+                onClick={
+                  !choosingArea && label === "Move to another area"
+                    ? () => setChoosingArea(true)
+                    : choose(action)
+                }
                 style={{
                   display: "block",
                   width: "100%",
@@ -946,13 +1010,17 @@ export function QuestionEditor({
   const canWrite = view.limits.canWriteQuestions ?? false;
   const [draft, setDraft] = useState<Draft>(() => restored ?? initialDraft(view));
   const [askKeep, setAskKeep] = useState(!!restored);
-  const [drawer, setDrawer] = useState<null | { replaces?: DraftItem }>(null);
+  // S04B part 4 (P02.addQuestion, P03.area): the section whose "+ Add question" opened the drawer preselects its reach.
+  const [drawer, setDrawer] = useState<null | { replaces?: DraftItem; reach?: QuestionReach }>(
+    null,
+  );
   const [swapping, setSwapping] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState(false);
   const [applying, setApplying] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [live, setLive] = useState("");
   const addButton = useRef<HTMLButtonElement>(null);
+  const addButtons = useRef(new Map<QuestionReach, HTMLButtonElement>());
   const applyButton = useRef<HTMLButtonElement>(null);
   const dragKey = useRef<string | null>(null);
   const hintId = useId();
@@ -985,10 +1053,72 @@ export function QuestionEditor({
   const update = (items: DraftItem[], extra: Partial<Draft> = {}) =>
     setDraft((d) => ({ ...d, ...extra, items }));
 
+  // S04B part 4 (LLD amendment 102; P02.section): with visibility_reach on, edit mode keeps view mode's sections, one per
+  // enabled reach (and any reach a draft row is still in), each with its own "+ Add question"; rows reorder within
+  // their section and "Move to another area" moves them between sections. Off: one "Everyday questions" section, as S04.
+  const byReach = !!view.reaches;
+  const enabledAreas = (view.reaches ?? [])
+    .filter((r) => r.enabled)
+    .map((r) => ({ reach: r.reach, label: r.label }));
+  const areaLabel = (reach: QuestionReach) =>
+    view.reaches?.find((r) => r.reach === reach)?.label ?? (reach === "local" ? "Local" : reach);
+  const sectionReaches = EDIT_REACH_ORDER.filter(
+    (reach) =>
+      enabledAreas.some((a) => a.reach === reach) || everydayItems.some((i) => i.reach === reach),
+  );
+  /** Same section: same kind and, by reach, the same reach (questions naming the business are one section). */
+  const sameSection = (a: DraftItem, b: DraftItem) =>
+    a.kind === b.kind && (!byReach || a.kind === "branded" || a.reach === b.reach);
+
+  /** By reach: moves `key` to place `to` among its section's rows, leaving every other row where it is. */
+  function placeInSection(key: string, to: number) {
+    const item = draft.items.find((i) => i.key === key);
+    if (!item) return;
+    const slots = draft.items.flatMap((i, n) => (sameSection(i, item) ? [n] : []));
+    const section = slots.map((n) => draft.items[n]);
+    const from = section.findIndex((i) => i.key === key);
+    if (from < 0 || to < 0 || to >= section.length || from === to) return;
+    const without = section.filter((_, n) => n !== from);
+    const reordered = [...without.slice(0, to), item, ...without.slice(to)];
+    const items = [...draft.items];
+    slots.forEach((slot, n) => {
+      items[slot] = reordered[n];
+    });
+    update(items);
+    setLive(`Moved to position ${to + 1} of ${section.length}`);
+  }
+
+  /** Where a row of `reach` goes: after the last row of its section, else after the earlier reaches' rows. */
+  function insertAt(items: DraftItem[], kind: DraftItem["kind"], reach: QuestionReach): number {
+    if (kind === "branded")
+      return items.map((i) => i.kind).lastIndexOf("branded") + 1 || items.length;
+    const rank = EDIT_REACH_ORDER.indexOf(reach);
+    let at = -1;
+    items.forEach((i, n) => {
+      if (i.kind === "everyday" && EDIT_REACH_ORDER.indexOf(i.reach) <= rank) at = n;
+    });
+    return at + 1;
+  }
+
+  /** "Move to another area": the row takes the reach and goes to the end of that section. */
+  function moveToArea(key: string, reach: QuestionReach) {
+    const item = draft.items.find((i) => i.key === key);
+    if (!item || item.reach === reach) return;
+    const rest = draft.items.filter((i) => i.key !== key);
+    const at = insertAt(rest, item.kind, reach);
+    update([...rest.slice(0, at), { ...item, reach }, ...rest.slice(at)]);
+    setLive(`Moved to ${areaLabel(reach)}`);
+  }
+
   /** Moves an item within its kind's section by `by` places. */
   function move(key: string, by: -1 | 1) {
     const item = draft.items.find((i) => i.key === key);
     if (!item) return;
+    if (byReach) {
+      const section = draft.items.filter((i) => sameSection(i, item));
+      placeInSection(key, section.findIndex((i) => i.key === key) + by);
+      return;
+    }
     const section = draft.items.filter((i) => i.kind === item.kind);
     const at = section.findIndex((i) => i.key === key);
     const to = at + by;
@@ -1004,6 +1134,16 @@ export function QuestionEditor({
     const from = dragKey.current;
     dragKey.current = null;
     if (!from || from === targetKey) return;
+    if (byReach) {
+      const item = draft.items.find((i) => i.key === from);
+      const target = draft.items.find((i) => i.key === targetKey);
+      if (!item || !target || !sameSection(item, target)) return;
+      placeInSection(
+        from,
+        draft.items.filter((i) => sameSection(i, item)).findIndex((i) => i.key === targetKey),
+      );
+      return;
+    }
     const section = draft.items.filter((i) => i.kind === "everyday");
     const a = section.findIndex((i) => i.key === from);
     const b = section.findIndex((i) => i.key === targetKey);
@@ -1016,7 +1156,9 @@ export function QuestionEditor({
   }
 
   function addItem(item: DraftItem) {
-    const at = draft.items.map((i) => i.kind).lastIndexOf(item.kind) + 1;
+    const at = byReach
+      ? insertAt(draft.items, item.kind, item.reach)
+      : draft.items.map((i) => i.kind).lastIndexOf(item.kind) + 1;
     update([...draft.items.slice(0, at), item, ...draft.items.slice(at)]);
   }
 
@@ -1044,11 +1186,21 @@ export function QuestionEditor({
         onDragStart={() => {
           dragKey.current = item.key;
         }}
-        onDragOver={(e) => !branded && e.preventDefault()}
+        onDragOver={(e) => {
+          if (branded) return;
+          const from = draft.items.find((i) => i.key === dragKey.current);
+          if (!from || sameSection(from, item)) e.preventDefault();
+        }}
         onDrop={() => !branded && dropOn(item.key)}
-        className="grid items-start hover:bg-[var(--bg-subtle)]"
+        // S04B part 4: at 640 and below the drag handle is hidden (P02 responsive: "handles hidden; reorder through the
+        // menu"), so the row has two columns there -- with three, as since S03, the text fell into the 20 px handle
+        // column and wrapped a letter at a time (seen in the 390 screenshot).
+        className={`grid items-start hover:bg-[var(--bg-subtle)] ${
+          branded
+            ? "grid-cols-[minmax(0,1fr)_auto]"
+            : "grid-cols-[minmax(0,1fr)_auto] min-[641px]:grid-cols-[20px_minmax(0,1fr)_auto]"
+        }`}
         style={{
-          gridTemplateColumns: branded ? "1fr auto" : "20px 1fr auto",
           gap: 12,
           padding: "14px 16px",
           borderBottom: "1px solid var(--border-default)",
@@ -1092,8 +1244,8 @@ export function QuestionEditor({
             ) : (
               <Pill tone={sourceTone(item)}>{sourceLabel(item, agencyName)}</Pill>
             )}
-            {/* S04 part 7: a question beyond Local says its reach in edit mode (the sections are view mode's). */}
-            {!branded && item.reach !== "local" ? (
+            {/* S04 part 7: a question beyond Local says its reach in edit mode -- until S04B's sections say it. */}
+            {!branded && !byReach && item.reach !== "local" ? (
               <Pill tone="neutral" testId="p02-row-reach">
                 {view.reaches?.find((r) => r.reach === item.reach)?.label ?? item.reach}
               </Pill>
@@ -1148,6 +1300,8 @@ export function QuestionEditor({
           first={index === 0}
           last={index === list.length - 1}
           canSwap={swaps.length > 0}
+          areas={byReach ? enabledAreas.filter((a) => a.reach !== item.reach) : []}
+          onMoveTo={(reach) => moveToArea(item.key, reach)}
           onEdit={() => setDrawer({ replaces: item })}
           onSwap={() => setSwapping(item.key)}
           onUp={() => move(item.key, -1)}
@@ -1168,11 +1322,19 @@ export function QuestionEditor({
     );
   }
 
-  function section(title: string, list: DraftItem[], testId: string, branded: boolean) {
+  function section(
+    title: string,
+    list: DraftItem[],
+    testId: string,
+    branded: boolean,
+    reach?: QuestionReach,
+    lastReach = true,
+  ) {
     const headId = `${brandId}-edit-${testId}`;
     const n = list.length;
     return (
       <section
+        key={testId}
         aria-labelledby={headId}
         data-testid={testId}
         style={{
@@ -1214,10 +1376,16 @@ export function QuestionEditor({
           <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-default)" }}>
             {canWrite ? (
               <button
-                ref={addButton}
+                ref={(el) => {
+                  if (reach) {
+                    if (el) addButtons.current.set(reach, el);
+                    else addButtons.current.delete(reach);
+                  }
+                  if (lastReach || !reach) addButton.current = el;
+                }}
                 type="button"
                 data-testid="p02-add-question"
-                onClick={() => setDrawer({})}
+                onClick={() => setDrawer(reach ? { reach } : {})}
                 disabled={atLimit}
                 title={atLimit ? limitSentence(limit) : undefined}
                 aria-describedby={atLimit ? limitHelpId : undefined}
@@ -1247,7 +1415,7 @@ export function QuestionEditor({
                 </Link>
               </p>
             )}
-            {atLimit ? (
+            {atLimit && lastReach ? (
               <p
                 id={limitHelpId}
                 data-testid="p02-limit-help"
@@ -1310,7 +1478,18 @@ export function QuestionEditor({
         </Banner>
       ) : null}
 
-      {section("Everyday questions", everydayItems, "p02-section-local", false)}
+      {byReach
+        ? sectionReaches.map((reach, n) =>
+            section(
+              areaLabel(reach),
+              everydayItems.filter((i) => i.reach === reach),
+              `p02-section-${reach}`,
+              false,
+              reach,
+              n === sectionReaches.length - 1,
+            ),
+          )
+        : section("Everyday questions", everydayItems, "p02-section-local", false)}
       {brandedItems.length > 0
         ? section("Names your business", brandedItems, "p02-section-branded", true)
         : null}
@@ -1490,11 +1669,12 @@ export function QuestionEditor({
           initialText={drawer.replaces?.text ?? ""}
           replaces={drawer.replaces}
           onClose={() => {
+            const back = drawer.reach ? addButtons.current.get(drawer.reach) : undefined;
             setDrawer(null);
-            addButton.current?.focus();
+            (back ?? addButton.current)?.focus();
           }}
           areas={view.reaches?.filter((r) => r.enabled)}
-          initialReach={drawer.replaces?.reach}
+          initialReach={drawer.reach ?? drawer.replaces?.reach}
           onAdd={({ text, kind, reach }) => {
             const replaced = drawer.replaces;
             const typed: DraftItem = {

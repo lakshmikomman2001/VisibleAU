@@ -8,7 +8,8 @@
  * 4. Confirms sparkline waiver is still documented + stale-waiver check fires.
  */
 
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
@@ -86,7 +87,11 @@ describe("F19 — dead-link guard scans components/ (not just app/)", () => {
   });
 
   it("⚠️ BREAK-PROOF: injecting a dead link in a temp component → guard catches it", () => {
-    const tempFile = path.resolve("components/domain/brand/_f19_breakproof_temp.tsx");
+    // S04B part 6 (LLD amendment 108): in its own temporary folder, never in components/ -- the dead-link guard
+    // (tests/phase2/sprint9/dead-link-guard.test.ts) scans components/ and, running beside this test in a guard batch,
+    // read the temporary file's dead link or lost it mid-scan.
+    const tempDir = mkdtempSync(path.join(tmpdir(), "f19-breakproof-"));
+    const tempFile = path.join(tempDir, "_f19_breakproof_temp.tsx");
     const deadLink = `export function F19Temp() { return <a href={\`/brands/\${id}/nonexistent_f19_test\`}>dead</a>; }`;
 
     try {
@@ -111,6 +116,7 @@ describe("F19 — dead-link guard scans components/ (not just app/)", () => {
       expect(existsSync(path.join(routeDir, "page.tsx"))).toBe(false);
     } finally {
       if (existsSync(tempFile)) unlinkSync(tempFile);
+      rmSync(tempDir, { recursive: true, force: true });
     }
   });
 });

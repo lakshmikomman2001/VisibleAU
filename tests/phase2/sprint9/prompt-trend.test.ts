@@ -44,11 +44,13 @@ describe("prompt-trend route (v8.16 JOIN + tier gate + brand access)", () => {
   });
 
   // Since bb69f3d the refusal goes through brandAccessErrorResponse: 404 for another workspace's brand.
+  // S04B part 6 (LLD amendment 108): the first import of lib/governance in a cold worker can pass the 5 s default in
+  // the large guard batches (S04 saw it in every part; it passed alone), so the test sets its own time.
   it("returns 404 for an out-of-scope brand, through brandAccessErrorResponse", async () => {
     const { BrandAccessDeniedError, brandAccessErrorResponse } = await import("@/lib/governance");
     expect(routeSource).toContain("brandAccessErrorResponse(e)");
     expect(brandAccessErrorResponse(new BrandAccessDeniedError("not_found"))?.status).toBe(404);
-  });
+  }, 30_000);
 
   it("uses withRlsContext", () => {
     expect(routeSource).toContain("withRlsContext");

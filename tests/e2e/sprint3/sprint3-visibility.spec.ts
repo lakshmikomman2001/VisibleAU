@@ -465,8 +465,12 @@ test.describe("FE-2: Edge and empty states", () => {
       .click();
     await page.waitForURL(`**/brands/${emptyBrandId}/visibility**`, { timeout: 10_000 });
 
-    // Should show the empty state message when no audit data exists
-    await expect(page.getByText(/run an audit/i)).toBeVisible({ timeout: 15_000 });
+    // Should show the empty state message when no audit data exists. S04B part 6 (LLD amendment 108): the exact text,
+    // because /run an audit/i also matched the competitive panel's "Run an audit with competitors ..." (a strict-mode
+    // violation whenever both were on screen).
+    await expect(
+      page.getByText("Run an audit to see visibility intelligence", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("2. Citation failure page positive empty state (no gaps)", async ({ page }) => {

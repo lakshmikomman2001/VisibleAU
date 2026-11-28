@@ -31,8 +31,9 @@ export const E2E_PORT = 3000;
  * server restoring it held 6.9 GB within 30 seconds of starting, before serving a page -- the "8 GB idle" e2e
  * server of 9 Nov. Without it the server starts at about 0.3 GB and grows only as it compiles pages -- about
  * 0.3 GB a page, and it keeps them: one server took 5.5 GB through 19 of responsive-shell's 72 pages. On a
- * 15.8 GB machine run that spec in shards, a fresh `pnpm e2e:server` for each (`--fully-parallel --shard=1/8`
- * ... `8/8`, each about 3.4-5.0 GB at its peak).
+ * 15.8 GB machine run that spec in shards, a fresh server for each (`--fully-parallel --shard=1/16` ... `16/16`; 8
+ * shards stopped at the memory floor in S04, LLD amendment 108 and the runbook's section 5, which also lists
+ * s9-autopilot at 4 shards).
  */
 export const E2E_SERVER_ENV = {
   NODE_ENV: "test",

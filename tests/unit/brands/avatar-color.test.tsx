@@ -160,6 +160,8 @@ describe("every brand avatar uses it", () => {
     }
   });
 
+  // S04B part 6 (LLD amendment 108): the first render of BrandRow in a cold jsdom worker can pass the 5 s default in the
+  // large guard batches (S04 saw it in every part; it passed alone), so the test sets its own time.
   it("a brand row's colour doesn't depend on where it sits", async () => {
     const { BrandRow } = await import("@/components/domain/brand/brand-row");
     const brand = {
@@ -180,5 +182,5 @@ describe("every brand avatar uses it", () => {
     const later = render(<BrandRow brand={brand} index={3} isLast />);
     expect(later.getByText("Y").style.background).toBe(firstBackground);
     expect(firstBackground).toBe(brandAvatarBackground(YABBY));
-  });
+  }, 30_000);
 });

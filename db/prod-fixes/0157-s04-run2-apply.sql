@@ -6,8 +6,20 @@
 -- db/migrations/0157_visibility_reach.sql), the backfill (idempotent: a rerun adds nothing), then one summary SELECT of
 -- what it wrote, just before COMMIT (LLD amendment 80: Neon's editor shows at most 25 result tabs, and this is the only
 -- one).
+--
+-- Corrected in the chat review (28 Nov 2026): the Wilson interval divides by nullif(n, 0). The first version stopped with
+-- "division by zero" on a complete audit with no everyday answers (found on a local copy); such an audit gets a local
+-- result of 0 of 0 with no interval, as intended. It also stops at once, with a plain message, when the role doesn't
+-- bypass RLS: the backfill writes every workspace's rows into tables that force RLS (0155's run2 had the same check,
+-- and production's role passed it).
 
 BEGIN;
+
+DO $$ BEGIN
+  IF NOT (SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user) THEN
+    RAISE EXCEPTION '0157 run2: % does not bypass RLS; run it as the production owner role, as for 0155', current_user;
+  END IF;
+END $$;
 
 -- ==== 0157 SCHEMA (begin) ====
 -- Migration 0157, visibility reach: where each brand wants to be visible, and each audit's figures per reach
@@ -135,9 +147,10 @@ CROSS JOIN LATERAL (
 ) t
 LEFT JOIN LATERAL (
   SELECT
-    (t.m::float8 / t.n + 3.8416 / (2 * t.n)) / (1 + 3.8416 / t.n) AS center,
-    1.96 * sqrt((t.m::float8 / t.n) * (1 - t.m::float8 / t.n) / t.n + 3.8416 / (4.0 * t.n * t.n))
-      / (1 + 3.8416 / t.n) AS margin
+    (t.m::float8 / nullif(t.n, 0) + 3.8416 / (2 * nullif(t.n, 0))) / (1 + 3.8416 / nullif(t.n, 0)) AS center,
+    1.96 * sqrt((t.m::float8 / nullif(t.n, 0)) * (1 - t.m::float8 / nullif(t.n, 0)) / nullif(t.n, 0)
+                + 3.8416 / (4.0 * nullif(t.n, 0) * nullif(t.n, 0)))
+      / (1 + 3.8416 / nullif(t.n, 0)) AS margin
   WHERE t.n > 0
 ) w ON true
 WHERE a.status = 'complete'
